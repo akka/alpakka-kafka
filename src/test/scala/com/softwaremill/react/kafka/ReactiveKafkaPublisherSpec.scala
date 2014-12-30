@@ -3,13 +3,14 @@ package com.softwaremill.react.kafka
 import akka.stream.scaladsl.{Source, PublisherSink}
 import org.reactivestreams.Publisher
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
+import org.scalatest.testng.TestNGSuiteLike
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
   extends PublisherVerification[String](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
-  with ReactiveStreamsTckVerificationBase {
+  with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
   def this() = this(300 millis)
 
@@ -30,5 +31,20 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
 
   override def createErrorStatePublisher(): Publisher[String] = {
     kafka.consume("error_topic", "groupId")
+  }
+
+  override def spec317_mustSignalOnErrorWhenPendingAboveLongMaxValue(): Unit = {
+    // TODO
+    fail("this test kills JVM with \"out of heap space\" errors")
+  }
+
+  override def spec317_mustSupportACumulativePendingElementCountUpToLongMaxValue(): Unit = {
+    // TODO
+    fail("this test kills JVM with \"out of heap space\" errors")
+  }
+
+  override def spec317_mustSupportAPendingElementCountUpToLongMaxValue(): Unit = {
+    // TODO
+    fail("this test kills JVM with \"out of heap space\" errors")
   }
 }
