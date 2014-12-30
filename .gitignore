@@ -19,3 +19,4 @@ dist
 /nbproject
 node_modules/
 .DS_Store
+test-output
