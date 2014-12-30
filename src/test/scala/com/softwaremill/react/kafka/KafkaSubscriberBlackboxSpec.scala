@@ -21,8 +21,6 @@ class KafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration) extends Subscr
   val kafka = new ReactiveKafka("192.168.0.10:9092")
   val message = "foo"
 
-  //    val publisher = kafka.consume("kci", "grupa")
-  //    val subscriber: Subscriber[String] = kafka.publish("kci", "grupa")
   override def createSubscriber(): Subscriber[String] = {
     kafka.publish("kci", "grupa")
   }
