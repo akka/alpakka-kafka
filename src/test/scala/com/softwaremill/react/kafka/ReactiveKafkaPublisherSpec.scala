@@ -30,7 +30,9 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
   }
 
   override def createErrorStatePublisher(): Publisher[String] = {
-    kafka.consume("error_topic", "groupId")
+    val publisher = kafka.consume("error_topic", "groupId")
+    publisher.asInstanceOf[ReactiveKafkaPublisher].consumer.close()
+    publisher
   }
 
   override def spec317_mustSignalOnErrorWhenPendingAboveLongMaxValue(): Unit = {
