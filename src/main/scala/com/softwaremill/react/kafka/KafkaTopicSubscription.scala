@@ -11,11 +11,12 @@ private[kafka] class KafkaTopicSubscription(consumer: KafkaConsumer,
   override def request(n: Long): Unit = {
     require(n > 0, "n <= 0")
 
-    for (i <- 0 to n.toInt)
+    (1L to n.toInt) foreach { _ =>
       consumer.read(bytes => {
         val msgAsStr = new String(bytes)
         subscriber.onNext(msgAsStr)
       })
+    }
   }
 
   override def cancel() = try {
