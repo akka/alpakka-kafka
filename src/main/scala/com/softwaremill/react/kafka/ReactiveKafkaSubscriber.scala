@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kafka.producer.KafkaProducer
 import org.reactivestreams.{Subscription, Subscriber}
 
-private[kafka] class ReactiveKafkaSubscriber(producer: KafkaProducer) extends Subscriber[String] {
+private[kafka] class ReactiveKafkaSubscriber(val producer: KafkaProducer) extends Subscriber[String] {
 
   val active = new AtomicReference[Subscription]()
 

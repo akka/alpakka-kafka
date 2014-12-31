@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka
 
-import akka.stream.scaladsl.{Source, PublisherSink}
+import akka.stream.scaladsl.{PublisherSink, Source}
 import org.reactivestreams.Publisher
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
 import org.scalatest.testng.TestNGSuiteLike
@@ -18,15 +18,15 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     createHelperPublisher(l)
   }
 
-  def createHelperSource(elements: Long): Source[String] = elements match {
-    case 0 => Source.empty()
-    case Long.MaxValue => Source(() => List(message).iterator)
-    case n if n <= Int.MaxValue => Source(List.fill(n.toInt)(message))
-    case n => sys.error("n > Int.MaxValue")
-  }
+  def createHelperPublisher(elements: Long): Publisher[String] =
+    Source(createLazyStream(elements)).runWith(PublisherSink())
 
-  def createHelperPublisher(elements: Long): Publisher[String] = {
-    createHelperSource(elements).runWith(PublisherSink())
+
+  def createLazyStream(i: Long): Stream[String] = {
+    if (i == 0)
+      Stream.empty
+    else
+      Stream.cons(i.toString, createLazyStream(i - 1))
   }
 
   override def createErrorStatePublisher(): Publisher[String] = {
@@ -35,18 +35,4 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     publisher
   }
 
-  override def spec317_mustSignalOnErrorWhenPendingAboveLongMaxValue(): Unit = {
-    // TODO
-    fail("this test kills JVM with \"out of heap space\" errors")
-  }
-
-  override def spec317_mustSupportACumulativePendingElementCountUpToLongMaxValue(): Unit = {
-    // TODO
-    fail("this test kills JVM with \"out of heap space\" errors")
-  }
-
-  override def spec317_mustSupportAPendingElementCountUpToLongMaxValue(): Unit = {
-    // TODO
-    fail("this test kills JVM with \"out of heap space\" errors")
-  }
 }
