@@ -17,11 +17,11 @@ private[kafka] class ReactiveKafkaSubscriber(val producer: KafkaProducer) extend
   }
 
   override def onError(throwable: Throwable): Unit = {
-    active.get().cancel()
+    // TODO ?
   }
 
   override def onComplete() {
-    active.get().cancel()
+    // TODO ?
   }
 
   override def onNext(msg: String) {
