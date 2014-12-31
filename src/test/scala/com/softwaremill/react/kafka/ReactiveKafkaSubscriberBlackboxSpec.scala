@@ -15,7 +15,7 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
   def this() = this(300 millis)
 
   override def createSubscriber(): Subscriber[String] = {
-    kafka.publish("kci", "grupa")
+    kafka.publish(getClass.getName, "group")
   }
 
   def createHelperSource(elements: Long): Source[String] = elements match {
