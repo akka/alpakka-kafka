@@ -8,7 +8,7 @@ trait ReactiveStreamsTckVerificationBase {
   implicit val system = ActorSystem()
   implicit val mat = FlowMaterializer()
 
-  val kafka = new ReactiveKafka("192.168.0.10:9092", "localhost:2181")
+  val kafka = new ReactiveKafka("localhost:9092", "localhost:2181")
 
   val message = "foo"
 }

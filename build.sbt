@@ -27,7 +27,12 @@ libraryDependencies ++= Seq(
   "joda-time" % "joda-time" % "2.6",
   "org.joda" % "joda-convert" % "1.7",
   "com.google.guava" % "guava" % "18.0",
-  "ly.stealth" % "scala-kafka" % "0.1.0.0",
+  "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
+  "com.typesafe.scala-logging" %% "scala-logging-api" % "2.1.2",
+  "ch.qos.logback" % "logback-classic" % "1.1.2",
+  "org.slf4j" % "slf4j-api" % "1.6.6",
+  "org.apache.kafka" %% "kafka" % "0.8.2-beta",
+  "com.101tec" % "zkclient" % "0.3",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.google.inject" % "guice" % "3.0" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC1" % "test"

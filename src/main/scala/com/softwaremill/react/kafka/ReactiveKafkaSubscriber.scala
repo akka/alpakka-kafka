@@ -3,7 +3,7 @@ package com.softwaremill.react.kafka
 import java.util.concurrent.atomic.AtomicReference
 
 import kafka.producer.KafkaProducer
-import org.reactivestreams.{Subscription, Subscriber}
+import org.reactivestreams.{Subscriber, Subscription}
 
 private[kafka] class ReactiveKafkaSubscriber(val producer: KafkaProducer) extends Subscriber[String] {
 
