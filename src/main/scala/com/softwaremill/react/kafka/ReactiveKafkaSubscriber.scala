@@ -25,7 +25,6 @@ private[kafka] class ReactiveKafkaSubscriber(val producer: KafkaProducer) extend
   }
 
   override def onNext(msg: String) {
-    producer.send(msg)
     active.get().request(1)
   }
 
