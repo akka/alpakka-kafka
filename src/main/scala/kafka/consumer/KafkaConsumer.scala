@@ -58,7 +58,7 @@ class KafkaConsumer(
   props.put("group.id", groupId)
   props.put("zookeeper.connect", zookeeperConnect)
   props.put("auto.offset.reset", if(readFromStartOfStream) "smallest" else "largest")
-  props.put("consumer.timeout.ms", "50")
+  props.put("consumer.timeout.ms", "500")
   val config = new ConsumerConfig(props)
   val connector = Consumer.create(config)
 
