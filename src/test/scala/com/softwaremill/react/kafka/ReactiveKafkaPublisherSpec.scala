@@ -2,19 +2,15 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import akka.stream.actor.ActorPublisher
-import akka.util.Timeout
 import com.typesafe.scalalogging.slf4j.StrictLogging
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.reactivestreams.{Subscriber, Publisher}
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
+import org.reactivestreams.{Publisher, Subscriber}
 import org.scalatest.testng.TestNGSuiteLike
-import akka.pattern.ask
-import scala.concurrent.Await
+
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
-import scala.concurrent.duration._
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
   extends PublisherVerification[String](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
@@ -22,14 +18,26 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
 
   def this() = this(1300 millis)
 
+  /**
+   * This indicates that our publisher cannot provide an onComplete() signal
+   */
+  override def maxElementsFromPublisher(): Long = Long.MaxValue
+
   override def createPublisher(l: Long) = {
     val topic = UUID.randomUUID().toString
-    val lowLevelProducer = createNewKafkaProducer("localhost:9092")
-    (1L to l) foreach { number =>
-      val record = new ProducerRecord(topic, 0, "key".getBytes, number.toString.getBytes)
+    val group = "group1"
+
+    // Filling the queue with Int.MaxValue elements takes much too long
+    // Test case which verifies point 3.17 may as well fill with small amount of elements, because it verifies
+    // demand overflow which has nothing to do with supply size
+    val realSize = if (l == Int.MaxValue) 30 else l
+
+    val lowLevelProducer = createNewKafkaProducer(kafka.host)
+    val record = new ProducerRecord(topic, 0, "key".getBytes, "msg".getBytes)
+    (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)
     }
-    kafka.consume(topic, "group1", system)
+    kafka.consume(topic, group, system)
   }
 
   override def createErrorStatePublisher(): Publisher[String] = {
@@ -37,13 +45,4 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
       override def subscribe(subscriber: Subscriber[_ >: String]): Unit = subscriber.onError(new RuntimeException)
     }
   }
-
-  override def spec103_mustSignalOnMethodsSequentially(): Unit = {
-    // TODO hangs...
-  }
-
-  override def spec317_mustSignalOnErrorWhenPendingAboveLongMaxValue(): Unit = {
-    // TODO hangs...
-  }
-
 }

@@ -86,6 +86,8 @@ class KafkaConsumer(
     }
   }
 
+  def iterator() = stream.iterator()
+
   def close() {
     connector.shutdown()
   }

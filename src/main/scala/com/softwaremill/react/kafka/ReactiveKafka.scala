@@ -6,7 +6,7 @@ import kafka.consumer.KafkaConsumer
 import kafka.producer.KafkaProducer
 import org.reactivestreams.{Publisher, Subscriber}
 
-class ReactiveKafka(host: String, zooKeeperHost: String) {
+class ReactiveKafka(val host: String, val zooKeeperHost: String) {
 
   def publish(topic: String, groupId: String): Subscriber[String] = {
     val producer = new KafkaProducer(topic, host)
