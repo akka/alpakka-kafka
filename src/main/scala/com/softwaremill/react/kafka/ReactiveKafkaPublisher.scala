@@ -1,12 +1,14 @@
 package com.softwaremill.react.kafka
 
+import akka.actor.{Props, ActorSystem}
 import com.softwaremill.react.kafka.RichKafkaConsumer._
 import kafka.consumer.KafkaConsumer
 import org.reactivestreams.{Publisher, Subscriber}
 
 import scala.concurrent.stm.Ref
 import scala.util.control.NonFatal
-private[kafka] class ReactiveKafkaPublisher(val consumer: KafkaConsumer) extends Publisher[String] {
+private[kafka] class ReactiveKafkaPublisher(val consumer: KafkaConsumer, actorSystem: ActorSystem)
+  extends Publisher[String] {
 
   val subscribers = Ref(Set[Subscriber[_ >: String]]())
 
@@ -18,11 +20,16 @@ private[kafka] class ReactiveKafkaPublisher(val consumer: KafkaConsumer) extends
       case _ =>
         try {
           if (!consumer.connected()) throw new IllegalStateException("1.4 Publisher not connected")
-          val subscription = new KafkaTopicSubscription(consumer, subscriber)
+          val subscription = createSubscription(subscriber)
           subscriber.onSubscribe(subscription)
         } catch {
           case NonFatal(exception) => subscriber.onError(exception)
         }
     }
+  }
+
+  private def createSubscription(subscriber: Subscriber[_ >: String]) = {
+    val subscriptionActor = actorSystem.actorOf(Props(new KafkaActorSubscription(consumer, subscriber)))
+    new KafkaTopicSubscription(consumer, subscriber, subscriptionActor)
   }
 }

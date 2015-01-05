@@ -2,7 +2,6 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import akka.stream.scaladsl.{PublisherSink, Source}
 import com.typesafe.scalalogging.slf4j.StrictLogging
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -25,11 +24,11 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
       val record = new ProducerRecord(topic, 0, "key".getBytes, number.toString.getBytes)
       lowLevelProducer.send(record)
     }
-    kafka.consume(topic, "group1").asInstanceOf[ReactiveKafkaPublisher]
+    kafka.consume(topic, "group1", system).asInstanceOf[ReactiveKafkaPublisher]
   }
 
   override def createErrorStatePublisher(): Publisher[String] = {
-    val publisher = kafka.consume("error_topic", "groupId")
+    val publisher = kafka.consume("error_topic", "groupId", system)
     publisher.asInstanceOf[ReactiveKafkaPublisher].consumer.close()
     publisher
   }

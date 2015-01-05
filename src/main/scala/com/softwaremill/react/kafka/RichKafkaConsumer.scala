@@ -20,9 +20,9 @@ class RichKafkaConsumer(consumer: KafkaConsumer) extends LazyLogging {
   def readElems(count: Long, write: (Array[Byte]) => Unit) = {
     var readCount = 0L
     val iterator = consumer.stream.iterator()
-    (1L to count).foreach { _ =>
-      // TODO this won't work :( Kafka's internal ConsumerIterator blocks until there are items available
-      if (iterator.hasNext()) {
+    (1L to count).foreach { loopNo =>
+      if (readCount < count) {
+        // This will block when there are not enough elements
         val msg = iterator.next().message()
         readCount += 1
         write(msg)
