@@ -28,8 +28,8 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     val group = "group1"
 
     // Filling the queue with Int.MaxValue elements takes much too long
-    // Test case which verifies point 3.17 may as well fill with small amount of elements, because it verifies
-    // demand overflow which has nothing to do with supply size
+    // Test case which verifies point 3.17 may as well fill with small amount of elements. It verifies demand overflow
+    // which has nothing to do with supply size.
     val realSize = if (l == Int.MaxValue) 30 else l
 
     val lowLevelProducer = createNewKafkaProducer(kafka.host)
