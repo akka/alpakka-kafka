@@ -8,7 +8,7 @@ private[kafka] class KafkaActorPublisher(consumer: KafkaConsumer) extends ActorP
 
   val iterator = consumer.iterator()
 
-  def generateElement() = {
+  def tryFetchingNextElement() = {
     Try(iterator.next().message()).map(bytes => Some(new String(bytes))).recover {
       // We handle timeout exceptions as normal 'end of the queue' cases
       case _: ConsumerTimeoutException => None
@@ -28,7 +28,7 @@ private[kafka] class KafkaActorPublisher(consumer: KafkaConsumer) extends ActorP
     else {
       var maybeMoreElements = true
       while (isActive && totalDemand > 0 && maybeMoreElements) {
-        generateElement() match {
+        tryFetchingNextElement() match {
           case Success(None) => maybeMoreElements = false // No more elements
           case Success(valueOpt) =>
             valueOpt.foreach(element => onNext(element))
