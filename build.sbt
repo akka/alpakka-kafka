@@ -21,12 +21,8 @@ crossScalaVersions := Seq("2.10.4", "2.11.4")
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-target:jvm-1.7")
 
 libraryDependencies ++= Seq(
-  "org.scala-stm" %% "scala-stm" % "0.7",
   "com.typesafe" % "config" % "1.2.1",
   "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M2",
-  "joda-time" % "joda-time" % "2.6",
-  "org.joda" % "joda-convert" % "1.7",
-  "com.google.guava" % "guava" % "18.0",
   "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
   "com.typesafe.scala-logging" %% "scala-logging-api" % "2.1.2",
   "ch.qos.logback" % "logback-classic" % "1.1.2",
