@@ -2,7 +2,6 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import com.typesafe.scalalogging.slf4j.StrictLogging
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
@@ -14,7 +13,7 @@ import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
   extends PublisherVerification[String](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
-  with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with StrictLogging with BaseSpec {
+  with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with BaseSpec {
 
   def this() = this(1300 millis)
 

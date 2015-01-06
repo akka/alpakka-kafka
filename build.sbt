@@ -23,10 +23,6 @@ scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warning
 libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.2.1",
   "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M2",
-  "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
-  "com.typesafe.scala-logging" %% "scala-logging-api" % "2.1.2",
-  "ch.qos.logback" % "logback-classic" % "1.1.2",
-  "org.slf4j" % "slf4j-api" % "1.6.6",
   "org.apache.kafka" %% "kafka" % "0.8.2-beta",
   "com.101tec" % "zkclient" % "0.3",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",

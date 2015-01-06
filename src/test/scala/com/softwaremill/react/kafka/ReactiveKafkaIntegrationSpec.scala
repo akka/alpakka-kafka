@@ -3,21 +3,18 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import akka.actor.{ActorSystem, Props}
-import akka.stream.actor.{ActorSubscriberMessage, WatermarkRequestStrategy, ActorSubscriber}
-import akka.stream.scaladsl.{PublisherSink, Source}
-import akka.testkit.{TestKit, ImplicitSender}
-import akka.util.Timeout
-import org.reactivestreams.{Publisher, Subscription, Subscriber}
-import org.scalatest.{BeforeAndAfterAll, WordSpecLike, Matchers, FlatSpec}
-
-import scala.collection.mutable.ListBuffer
 import akka.pattern.ask
-import scala.concurrent.duration._
+import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
+import akka.testkit.{ImplicitSender, TestKit}
+import akka.util.Timeout
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class ReactiveKafkaIntegrationSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with
-Matchers with BeforeAndAfterAll {
+class ReactiveKafkaIntegrationSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike
+with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("ReactiveKafkaIntegrationSpec"))
 
