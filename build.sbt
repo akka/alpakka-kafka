@@ -34,6 +34,6 @@ libraryDependencies ++= Seq(
   "org.apache.kafka" %% "kafka" % "0.8.2-beta",
   "com.101tec" % "zkclient" % "0.3",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
-  "com.google.inject" % "guice" % "3.0" % "test",
+  "com.typesafe.akka" %% "akka-testkit" % "2.3.7" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC1" % "test"
 )
