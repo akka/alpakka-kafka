@@ -37,7 +37,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)
     }
-    kafka.consume(topic, group, system)
+    kafka.consume(topic, group)
   }
 
   override def createErrorStatePublisher(): Publisher[String] = {

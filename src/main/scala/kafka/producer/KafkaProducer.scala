@@ -93,4 +93,8 @@ case class KafkaProducer(
         System.exit(1)
     }
   }
+
+  def close() {
+    producer.close()
+  }
 }
