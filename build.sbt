@@ -27,3 +27,28 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit" % "2.3.7" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC1" % "test"
 )
+
+publishMavenStyle := true
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases" at nexus + "service/local/staging/deploy/maven2")
+}
+pomIncludeRepository := {
+  x => false
+}
+pomExtra := (
+  <scm>
+    <url>git@github.com:kciesielski/reactive-kafka.git</url>
+    <connection>scm:git:git@github.com:kciesielski/reactive-kafka.git</connection>
+  </scm>
+    <developers>
+      <developer>
+        <id>kciesielski</id>
+        <name>Krzysztof Ciesielski</name>
+        <url>https://twitter.com/kpciesielski</url>
+      </developer>
+    </developers>
+  )
