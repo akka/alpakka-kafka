@@ -3,6 +3,8 @@ Reactive Streams for Kafka
 
 [Reactive Streams](http://www.reactive-streams.org) wrapper for [Apache Kafka](https://kafka.apache.org/).
 
+Initiated by [SoftwareMill](https://softwaremill.com)
+
 Supports Kafka 0.8.2-beta
 
 Testing
