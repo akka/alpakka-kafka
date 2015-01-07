@@ -7,6 +7,10 @@ Initiated by [SoftwareMill](https://softwaremill.com)
 
 Supports Kafka 0.8.2-beta
 
+Available at Maven Central for Scala 2.10 and 2.11:
+
+    libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.1.0"
+
 Testing
 ----
 Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and localhost:2181
