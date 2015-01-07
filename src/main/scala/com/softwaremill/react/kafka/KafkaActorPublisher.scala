@@ -14,10 +14,8 @@ private[kafka] class KafkaActorPublisher(consumer: KafkaConsumer) extends ActorP
   }
 
   private def read() {
-    if (totalDemand < 0 && isActive) {
-      println(totalDemand)
+    if (totalDemand < 0 && isActive)
       onError(new IllegalStateException("3.17: Overflow"))
-    }
     else readDemandedItems()
   }
 
