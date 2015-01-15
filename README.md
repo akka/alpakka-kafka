@@ -38,6 +38,6 @@ Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 Tuning
 ----
 
-KafkaActorSubscriber and KafkaActorPublisher have their own thread pools, configured in `application.conf`.
+KafkaActorSubscriber and KafkaActorPublisher have their own thread pools, configured in `reference.conf`.
 You can tune them by overriding `kafka-publisher-dispatcher.thread-pool-executor` and
-`kafka-subscriber-dispatcher.thread-pool-executor`
+`kafka-subscriber-dispatcher.thread-pool-executor` in your `application.conf` file.
