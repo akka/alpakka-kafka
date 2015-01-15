@@ -14,7 +14,7 @@ class ReactiveKafka(val host: String, val zooKeeperHost: String) {
 
   def producerActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
     val producer = new KafkaProducer(topic, host)
-    actorSystem.actorOf(Props(new KafkaActorSubscriber(producer)))
+    actorSystem.actorOf(Props(new KafkaActorSubscriber(producer)).withDispatcher("kafka-subscriber-dispatcher"))
   }
 
   def consume(topic: String, groupId: String)(implicit actorSystem: ActorSystem): Publisher[String] = {
@@ -23,7 +23,7 @@ class ReactiveKafka(val host: String, val zooKeeperHost: String) {
 
   def consumeAsActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
     val consumer = new KafkaConsumer(topic, groupId, zooKeeperHost)
-    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)))
+    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
   }
 
 }
