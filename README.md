@@ -9,7 +9,7 @@ Supports Kafka 0.8.2-beta
 
 Available at Maven Central for Scala 2.10 and 2.11:
 
-    libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.1.0"
+    libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.2.0"
 
 Testing
 ----
