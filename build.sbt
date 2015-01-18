@@ -16,7 +16,7 @@ homepage := Some(url("https://github.com/kciesielski/reactive-kafka"))
 
 scalaVersion := "2.11.5"
 
-crossScalaVersions := Seq("2.10.4", "2.11.4")
+crossScalaVersions := Seq("2.10.4", "2.11.5")
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-target:jvm-1.7")
 
