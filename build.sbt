@@ -22,7 +22,7 @@ scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warning
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M2",
-  "org.apache.kafka" %% "kafka" % "0.8.2-beta",
+  "org.apache.kafka" %% "kafka" % "0.8.2.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.7" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC1" % "test"
