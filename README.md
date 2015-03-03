@@ -5,12 +5,12 @@ Reactive Streams for Kafka
 
 Initiated by [SoftwareMill](https://softwaremill.com)
 
-Supports Kafka 0.8.2-beta
+Supports Kafka 0.8.2
 
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
-libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.2.0"
+libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.3.0"
 ````
 
 Testing
@@ -22,11 +22,11 @@ Example usage
 
 ```Scala
 import akka.actor.ActorSystem
-import akka.stream.FlowMaterializer
+import akka.stream.ActorFlowMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ReactiveKafka
 
-implicit val materializer = FlowMaterializer()
+implicit val materializer = ActorFlowMaterializer()
 implicit  val actorSystem = ActorSystem("ReactiveKafka")
 
 val kafka = new ReactiveKafka(host = "localhost:9092", zooKeeperHost = "localhost:2181")
@@ -36,6 +36,15 @@ val subscriber = kafka.publish("uppercaseStrings", "groupName")
 
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
+
+Controlling consumer start offset
+----
+
+By default a new consumer will start reading from the beginning of a topic. If you want to start reading from the end,
+you can use alternative way to create a consumer:
+```Scala
+  val publisher = kafka.consumeFromEnd(topic, groupId)
+````
 
 Tuning
 ----
