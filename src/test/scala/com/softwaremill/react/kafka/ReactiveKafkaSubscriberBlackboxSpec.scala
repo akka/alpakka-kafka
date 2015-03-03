@@ -2,9 +2,9 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import akka.stream.scaladsl.{PublisherSink, Source}
-import org.reactivestreams.{Publisher, Subscriber}
+import akka.stream.scaladsl.{Sink, Source}
 import org.reactivestreams.tck.{SubscriberBlackboxVerification, TestEnvironment}
+import org.reactivestreams.{Publisher, Subscriber}
 import org.scalatest.testng.TestNGSuiteLike
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -21,15 +21,16 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
     kafka.publish(topic, "group")
   }
 
-  def createHelperSource(elements: Long): Source[String] = elements match {
+  def createHelperSource(elements: Long) : Source[String, _] = elements match {
     case 0 => Source.empty()
-    case Long.MaxValue => Source(initialDelay = 10 millis, interval = 10 millis, () => message)
+    case Long.MaxValue => Source(initialDelay = 10 millis, interval = 10 millis, tick = message)
     case n if n <= Int.MaxValue => Source(List.fill(n.toInt)(message))
     case n => sys.error("n > Int.MaxValue")
   }
 
-  def createHelperPublisher(elements: Long): Publisher[String] = {
-    createHelperSource(elements).runWith(PublisherSink())
+  override def createHelperPublisher(elements: Long): Publisher[String] = {
+    createHelperSource(elements).runWith(Sink.publisher())
   }
+
 
 }
