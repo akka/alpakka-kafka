@@ -18,8 +18,7 @@ with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("ReactiveKafkaIntegrationSpec"))
 
-  val topic = UUID.randomUUID().toString
-  val group = "group"
+  def uuid() = UUID.randomUUID().toString
   implicit val timeout = Timeout(1 second)
 
   override def afterAll {
@@ -30,7 +29,9 @@ with Matchers with BeforeAndAfterAll {
 
     "combine well" in {
       // given
-      val kafka = new ReactiveKafka("localhost:9092", "localhost:2181")
+      val topic = uuid()
+      val group = uuid()
+      val kafka = newKafka()
       val publisher = kafka.consume(topic, group)(system)
       val kafkaSubscriber = kafka.publish(topic, group)(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
@@ -47,6 +48,45 @@ with Matchers with BeforeAndAfterAll {
         collectedStrings == List("one", "two")
       }
     }
+
+    "start consuming from the beginning of stream" in {
+      shouldStartConsuming(fromEnd = false)
+    }
+
+    "start consuming from the end of stream" in {
+      shouldStartConsuming(fromEnd = true)
+    }
+
+    def shouldStartConsuming(fromEnd: Boolean) {
+      // given
+      val kafka = newKafka()
+      val topic = uuid()
+      val group = uuid()
+      val input = kafka.publish(topic, group)(system)
+      val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
+      val output = ActorSubscriber[String](subscriberActor)
+
+      // when
+      input.onNext("one")
+      val inputConsumer = if (fromEnd)
+        kafka.consumeFromEnd(topic, group)(system)
+      else
+        kafka.consume(topic, group)(system)
+
+      for (i <- 1 to 2000)
+        input.onNext("two")
+      inputConsumer.subscribe(output)
+
+      // then
+      awaitCond {
+        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second).asInstanceOf[Seq[_]]
+        collectedStrings.length > 0 && collectedStrings.contains("one") == !fromEnd
+      }
+    }
+  }
+
+  def newKafka(): ReactiveKafka = {
+    new ReactiveKafka("localhost:9092", "localhost:2181")
   }
 }
 
@@ -57,7 +97,8 @@ class ReactiveTestSubscriber extends ActorSubscriber {
   var elements: Vector[String] = Vector.empty
 
   def receive = {
-    case ActorSubscriberMessage.OnNext(element) => elements = elements :+ element.asInstanceOf[String]
+    case ActorSubscriberMessage.OnNext(element) =>
+      elements = elements :+ element.asInstanceOf[String]
     case "get elements" => sender ! elements
   }
 }

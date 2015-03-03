@@ -21,8 +21,17 @@ class ReactiveKafka(val host: String, val zooKeeperHost: String) {
     ActorPublisher[String](consumeAsActor(topic, groupId))
   }
 
+  def consumeFromEnd(topic: String, groupId: String)(implicit actorSystem: ActorSystem): Publisher[String] = {
+    ActorPublisher[String](consumeFromEndAsActor(topic, groupId))
+  }
+
   def consumeAsActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
     val consumer = new KafkaConsumer(topic, groupId, zooKeeperHost)
+    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
+  }
+
+  def consumeFromEndAsActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
+    val consumer = new KafkaConsumer(topic, groupId, zooKeeperHost, readFromStartOfStream = false)
     actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
   }
 
