@@ -1,6 +1,6 @@
 Reactive Streams for Kafka
 ====
-+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.typesafe/config/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.softwaremill/reactive-kafka_2.11)  
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.softwaremill/reactive-kafka_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.softwaremill/reactive-kafka_2.11)  
 
 [Reactive Streams](http://www.reactive-streams.org) wrapper for [Apache Kafka](https://kafka.apache.org/).  
 
