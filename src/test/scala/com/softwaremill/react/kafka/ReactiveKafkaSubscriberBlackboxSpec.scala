@@ -22,15 +22,15 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
   }
 
   def createHelperSource(elements: Long) : Source[String, _] = elements match {
-    case 0 => Source.empty()
+    case 0 => Source.empty
     case Long.MaxValue => Source(initialDelay = 10 millis, interval = 10 millis, tick = message)
     case n if n <= Int.MaxValue => Source(List.fill(n.toInt)(message))
     case n => sys.error("n > Int.MaxValue")
   }
 
   override def createHelperPublisher(elements: Long): Publisher[String] = {
-    createHelperSource(elements).runWith(Sink.publisher())
+    createHelperSource(elements).runWith(Sink.publisher)
   }
 
-
+  override def createElement(i: Int): String = i.toString
 }

@@ -5,7 +5,7 @@ import java.util.UUID
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
-import org.reactivestreams.{Publisher, Subscriber}
+import org.reactivestreams.{Subscription, Publisher, Subscriber}
 import org.scalatest.testng.TestNGSuiteLike
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -39,9 +39,16 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     kafka.consume(topic, group)
   }
 
-  override def createErrorStatePublisher(): Publisher[String] = {
-    return new Publisher[String] {
-      override def subscribe(subscriber: Subscriber[_ >: String]): Unit = subscriber.onError(new RuntimeException)
+  override def createFailedPublisher(): Publisher[String] = {
+    new Publisher[String] {
+      override def subscribe(subscriber: Subscriber[_ >: String]): Unit = {
+        subscriber.onSubscribe(new Subscription {override def cancel() {}
+
+          override def request(l: Long) {}
+        })
+        subscriber.onError(new RuntimeException)
+      }
     }
   }
+
 }
