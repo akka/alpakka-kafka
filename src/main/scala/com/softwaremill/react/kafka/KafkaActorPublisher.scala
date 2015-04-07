@@ -2,9 +2,10 @@ package com.softwaremill.react.kafka
 
 import akka.stream.actor.{ActorPublisher, ActorPublisherMessage}
 import kafka.consumer.{ConsumerTimeoutException, KafkaConsumer}
+import kafka.serializer.Decoder
 
 import scala.util.{Failure, Success, Try}
-private[kafka] class KafkaActorPublisher(consumer: KafkaConsumer) extends ActorPublisher[String] {
+private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: Decoder[T]) extends ActorPublisher[T] {
 
   val iterator = consumer.iterator()
 
@@ -20,7 +21,7 @@ private[kafka] class KafkaActorPublisher(consumer: KafkaConsumer) extends ActorP
   }
 
   private def tryReadingSingleElement() = {
-    Try(iterator.next().message()).map(bytes => Some(new String(bytes))).recover {
+    Try(iterator.next().message()).map(bytes => Some(decoder.fromBytes(bytes))).recover {
       // We handle timeout exceptions as normal 'end of the queue' cases
       case _: ConsumerTimeoutException => None
     }

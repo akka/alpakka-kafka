@@ -7,6 +7,7 @@ import akka.pattern.ask
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
+import kafka.serializer.{StringEncoder, StringDecoder}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.Await
@@ -32,8 +33,9 @@ with Matchers with BeforeAndAfterAll {
       val topic = uuid()
       val group = uuid()
       val kafka = newKafka()
-      val publisher = kafka.consume(topic, group)(system)
-      val kafkaSubscriber = kafka.publish(topic, group)(system)
+      val encoder = new StringEncoder()
+      val publisher = kafka.consume(topic, group, new StringDecoder())(system)
+      val kafkaSubscriber = kafka.publish(topic, group, encoder)(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
       publisher.subscribe(testSubscriber)
@@ -62,16 +64,17 @@ with Matchers with BeforeAndAfterAll {
       val kafka = newKafka()
       val topic = uuid()
       val group = uuid()
-      val input = kafka.publish(topic, group)(system)
+      val encoder = new StringEncoder()
+      val input = kafka.publish(topic, group, encoder)(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val output = ActorSubscriber[String](subscriberActor)
 
       // when
       input.onNext("one")
       val inputConsumer = if (fromEnd)
-        kafka.consumeFromEnd(topic, group)(system)
+        kafka.consumeFromEnd(topic, group, new StringDecoder())(system)
       else
-        kafka.consume(topic, group)(system)
+        kafka.consume(topic, group, new StringDecoder())(system)
 
       for (i <- 1 to 2000)
         input.onNext("two")

@@ -4,35 +4,36 @@ import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.actor.{ActorSubscriber, ActorPublisher}
 import kafka.consumer.KafkaConsumer
 import kafka.producer.KafkaProducer
+import kafka.serializer.{Encoder, Decoder}
 import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka(val host: String, val zooKeeperHost: String) {
 
-  def publish(topic: String, groupId: String)(implicit actorSystem: ActorSystem): Subscriber[String] = {
-    ActorSubscriber[String](producerActor(topic, groupId))
+  def publish[T](topic: String, groupId: String, encoder: Encoder[T])(implicit actorSystem: ActorSystem): Subscriber[T] = {
+    ActorSubscriber[T](producerActor(topic, groupId, encoder))
   }
 
-  def producerActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
+  def producerActor[T](topic: String, groupId: String, encoder: Encoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
     val producer = new KafkaProducer(topic, host)
-    actorSystem.actorOf(Props(new KafkaActorSubscriber(producer)).withDispatcher("kafka-subscriber-dispatcher"))
+    actorSystem.actorOf(Props(new KafkaActorSubscriber(producer, encoder)).withDispatcher("kafka-subscriber-dispatcher"))
   }
 
-  def consume(topic: String, groupId: String)(implicit actorSystem: ActorSystem): Publisher[String] = {
-    ActorPublisher[String](consumeAsActor(topic, groupId))
+  def consume[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {
+    ActorPublisher[T](consumeAsActor(topic, groupId, decoder))
   }
 
-  def consumeFromEnd(topic: String, groupId: String)(implicit actorSystem: ActorSystem): Publisher[String] = {
-    ActorPublisher[String](consumeFromEndAsActor(topic, groupId))
+  def consumeFromEnd[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {
+    ActorPublisher[T](consumeFromEndAsActor(topic, groupId, decoder))
   }
 
-  def consumeAsActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
+  def consumeAsActor[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
     val consumer = new KafkaConsumer(topic, groupId, zooKeeperHost)
-    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
+    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer, decoder)).withDispatcher("kafka-publisher-dispatcher"))
   }
 
-  def consumeFromEndAsActor(topic: String, groupId: String)(implicit actorSystem: ActorSystem): ActorRef = {
+  def consumeFromEndAsActor[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
     val consumer = new KafkaConsumer(topic, groupId, zooKeeperHost, readFromStartOfStream = false)
-    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
+    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer, decoder)).withDispatcher("kafka-publisher-dispatcher"))
   }
 
 }
