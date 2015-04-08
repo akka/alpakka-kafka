@@ -42,5 +42,6 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
   }
   private def cleanupResources() {
     consumer.close()
+    context.stop(self)
   }
 }
