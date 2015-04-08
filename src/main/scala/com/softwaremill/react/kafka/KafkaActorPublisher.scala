@@ -34,7 +34,6 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
         case Success(None) => maybeMoreElements = false // No more elements
         case Success(valueOpt) =>
           valueOpt.foreach(element => onNext(element))
-          maybeMoreElements = true
         case Failure(ex) => onError(ex)
       }
     }
