@@ -2,6 +2,7 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
+import kafka.serializer.StringDecoder
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
@@ -36,7 +37,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)
     }
-    kafka.consume(topic, group)
+    kafka.consume(topic, group, new StringDecoder())
   }
 
   override def createFailedPublisher(): Publisher[String] = {

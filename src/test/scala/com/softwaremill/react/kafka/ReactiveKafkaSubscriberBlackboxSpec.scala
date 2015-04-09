@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
+import kafka.serializer.StringEncoder
 import org.reactivestreams.tck.{SubscriberBlackboxVerification, TestEnvironment}
 import org.reactivestreams.{Publisher, Subscriber}
 import org.scalatest.testng.TestNGSuiteLike
@@ -18,7 +19,7 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
 
   override def createSubscriber(): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
-    kafka.publish(topic, "group")
+    kafka.publish(topic, "group", new StringEncoder())
   }
 
   def createHelperSource(elements: Long) : Source[String, _] = elements match {
