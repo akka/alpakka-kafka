@@ -6,12 +6,12 @@ Reactive Streams for Kafka
 
 Initiated by [SoftwareMill](https://softwaremill.com)
 
-Supports Kafka 0.8.2
+Supports Kafka 0.8.2.1
 
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
-libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.3.0"
+libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.4.0"
 ````
 
 Testing

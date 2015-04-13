@@ -4,7 +4,7 @@ sonatypeSettings
 
 name := "reactive-kafka"
 
-version := "0.4.0"
+version := "0.5.0-SNAPSHOT"
 
 organization := "com.softwaremill"
 
