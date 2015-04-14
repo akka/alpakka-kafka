@@ -31,8 +31,8 @@ implicit val materializer = ActorFlowMaterializer()
 implicit  val actorSystem = ActorSystem("ReactiveKafka")
 
 val kafka = new ReactiveKafka(host = "localhost:9092", zooKeeperHost = "localhost:2181")
-val publisher = kafka.consume("lowercaseStrings", "groupName")
-val subscriber = kafka.publish("uppercaseStrings", "groupName")
+val publisher = kafka.consume("lowercaseStrings", "groupName", new StringDecoder())
+val subscriber = kafka.publish("uppercaseStrings", "groupName", new StringEncoder())
 
 
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
@@ -44,7 +44,7 @@ Controlling consumer start offset
 By default a new consumer will start reading from the beginning of a topic. If you want to start reading from the end,
 you can use alternative way to create a consumer:
 ```Scala
-  val publisher = kafka.consumeFromEnd(topic, groupId)
+  val publisher = kafka.consumeFromEnd(topic, groupId, new StringDecoder())
 ````
 
 Tuning
