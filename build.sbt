@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
   "org.apache.kafka" %% "kafka" % "0.8.2.1",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.9" % "test",
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC4" % "test"
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC5" % "test"
 )
 
 publishMavenStyle := true
