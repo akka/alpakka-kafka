@@ -21,11 +21,11 @@ crossScalaVersions := Seq("2.10.5", "2.11.6")
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-target:jvm-1.7")
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-M5",
+  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-RC2",
   "org.apache.kafka" %% "kafka" % "0.8.2.1",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
-  "com.typesafe.akka" %% "akka-testkit" % "2.3.9" % "test",
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0.RC5" % "test"
+  "com.typesafe.akka" %% "akka-testkit" % "2.3.11" % "test",
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test"
 )
 
 publishMavenStyle := true
