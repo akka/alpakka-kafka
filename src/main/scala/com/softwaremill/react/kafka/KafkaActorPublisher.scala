@@ -5,6 +5,7 @@ import com.softwaremill.react.kafka.KafkaActorPublisher.Poll
 import kafka.consumer.{ConsumerTimeoutException, KafkaConsumer}
 import kafka.serializer.Decoder
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -30,16 +31,16 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
     }
   }
 
+  @tailrec
   private def readDemandedItems() {
-    while (isActive && totalDemand > 0) {
       tryReadingSingleElement() match {
         case Success(None) =>
           if (totalDemand > 0)
             self ! Poll
         case Success(valueOpt) =>
           valueOpt.foreach(element => onNext(element))
+          if (totalDemand > 0) readDemandedItems()
         case Failure(ex) => onError(ex)
-      }
     }
   }
 
