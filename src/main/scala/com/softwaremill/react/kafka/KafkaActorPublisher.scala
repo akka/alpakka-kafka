@@ -14,14 +14,8 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
   val iterator = consumer.iterator()
 
   override def receive = {
-    case ActorPublisherMessage.Request(_) | Poll => read()
+    case ActorPublisherMessage.Request(_) | Poll => readDemandedItems()
     case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded => cleanupResources()
-  }
-
-  private def read() {
-    if (totalDemand < 0 && isActive)
-      onError(new IllegalStateException("3.17: Overflow"))
-    else readDemandedItems()
   }
 
   private def tryReadingSingleElement() = {
