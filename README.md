@@ -26,9 +26,10 @@ import akka.actor.ActorSystem
 import akka.stream.ActorFlowMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ReactiveKafka
+import kafka.serializer.{StringDecoder, StringEncoder}
 
+implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorFlowMaterializer()
-implicit  val actorSystem = ActorSystem("ReactiveKafka")
 
 val kafka = new ReactiveKafka(host = "localhost:9092", zooKeeperHost = "localhost:2181")
 val publisher = kafka.consume("lowercaseStrings", "groupName", new StringDecoder())
