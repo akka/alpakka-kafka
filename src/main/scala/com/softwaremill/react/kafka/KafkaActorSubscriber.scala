@@ -1,10 +1,12 @@
 package com.softwaremill.react.kafka
 
+import akka.actor.ActorLogging
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
 import kafka.producer.KafkaProducer
-import kafka.serializer.{Encoder, Decoder}
+import kafka.serializer.Encoder
 
-private[kafka] class KafkaActorSubscriber[T](val producer: KafkaProducer, val encoder: Encoder[T]) extends ActorSubscriber {
+private[kafka] class KafkaActorSubscriber[T](val producer: KafkaProducer, val encoder: Encoder[T])
+  extends ActorSubscriber with ActorLogging {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
 
@@ -18,11 +20,18 @@ private[kafka] class KafkaActorSubscriber[T](val producer: KafkaProducer, val en
   }
 
   private def processElement(element: T) = {
-    producer.send(encoder.toBytes(element), None)
+    try {
+      producer.send(encoder.toBytes(element), None)
+    }
+    catch {
+      case e: Exception => handleError(e)
+    }
   }
 
   private def handleError(ex: Throwable) = {
+    log.error("Stopping subscriber due to an error", ex)
     producer.close()
+    context.stop(self)
   }
 
   private def streamFinished() = {

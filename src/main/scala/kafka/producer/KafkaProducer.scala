@@ -85,13 +85,7 @@ case class KafkaProducer(
   def send(message: String, partition: String = null): Unit = send(message.getBytes("UTF8"), Option(partition).map(_.getBytes("UTF8")))
 
   def send(message: Array[Byte], partition: Option[Array[Byte]]): Unit = {
-    try {
-      producer.send(kafkaMesssage(message, partition.getOrElse(null)))
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
-        System.exit(1)
-    }
+    producer.send(kafkaMesssage(message, partition.getOrElse(null)))
   }
 
   def close() {
