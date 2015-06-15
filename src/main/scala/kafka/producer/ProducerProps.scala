@@ -8,6 +8,26 @@ import kafka.message.SnappyCompressionCodec
 
 object ProducerProps {
 
+  /**
+   * Producer Properties
+   *
+   * brokerList
+   * This is for bootstrapping and the producer will only use it for getting metadata (topics, partitions and replicas).
+   * The socket connections for sending the actual data will be established based on the broker information returned in
+   * the metadata. The format is host1:port1,host2:port2, and the list can be a subset of brokers or a VIP pointing to a
+   * subset of brokers.
+   *
+   * topic
+   * The high-level API hides the details of brokers from the consumer and allows consuming off the cluster of machines
+   * without concern for the underlying topology. It also maintains the state of what has been consumed. The high-level API
+   * also provides the ability to subscribe to topics that match a filter expression (i.e., either a whitelist or a blacklist
+   * regular expression).  This topic is a whitelist only but can change with re-factoring below on the filterSpec
+   *
+   * groupId
+   * A string that uniquely identifies the group of consumer processes to which this consumer belongs. By setting the same
+   * group id multiple processes indicate that they are all part of the same consumer group.
+   *
+   */
   def apply(brokerList: String, topic: String, clientId: String = UUID.randomUUID().toString): ProducerProps = {
     val props = new Properties()
     props.put("metadata.broker.list", brokerList)
@@ -24,11 +44,6 @@ object ProducerProps {
 }
 
 class ProducerProps(private val props: Properties, val topic: String, val clientId: String) {
-
-  def brokerList(brokerList: String): ProducerProps = {
-    props.put("metadata.broker.list", brokerList)
-    this
-  }
 
   /**
    * Asynchronous Mode
@@ -65,7 +80,7 @@ class ProducerProps(private val props: Properties, val topic: String, val client
    * This property will cause the producer to automatically retry a failed send request.
    * This property specifies the number of retries when such failures occur. Note that
    * setting a non-zero value here can lead to duplicates in the case of network errors
-   * that cause a message to be sent but the acknowledgement to be lost.
+   * that cause a message to be sent but the acknowledgment to be lost.
    */
   def messageSendMaxRetries(num: Int): ProducerProps = {
     props.put("message.send.max.retries", num.toString)
@@ -74,12 +89,12 @@ class ProducerProps(private val props: Properties, val topic: String, val client
 
   /**
    * requestRequiredAcks
-   *  0) which means that the producer never waits for an acknowledgement from the broker (the same behavior as 0.7).
+   *  0) which means that the producer never waits for an acknowledgment from the broker (the same behavior as 0.7).
    *     This option provides the lowest latency but the weakest durability guarantees (some data will be lost when a server fails).
-   *  1) which means that the producer gets an acknowledgement after the leader replica has received the data. This option provides
+   *  1) which means that the producer gets an acknowledgment after the leader replica has received the data. This option provides
    *     better durability as the client waits until the server acknowledges the request as successful (only messages that were
    *     written to the now-dead leader but not yet replicated will be lost).
-   * -1) which means that the producer gets an acknowledgement after all in-sync replicas have received the data. This option
+   * -1) which means that the producer gets an acknowledgment after all in-sync replicas have received the data. This option
    *     provides the best durability, we guarantee that no messages will be lost as long as at least one in sync replica remains.
    */
   def requestRequiredAcks(value: Int): ProducerProps = {
@@ -88,13 +103,30 @@ class ProducerProps(private val props: Properties, val topic: String, val client
   }
 
   /**
-   * Set any additional properties needed
+   * Set any additional properties as needed
    */
+  def setProperty(key: String, value: String): ProducerProps = {
+    props.put(key, value)
+    this
+  }
+
   def setProperties(values: (String, String)*): ProducerProps = {
     values.map { case (key, value) => props.put(key, value) }
     this
   }
 
+  /**
+   *  Generate the Kafka ProducerConfig object
+   *
+   */
   def toProducerConfig: ProducerConfig = new ProducerConfig(props)
 
+  
+  /**
+   * Dump current props for debugging 
+   */
+    def dump: String = {
+    import scala.collection.JavaConverters._
+    props.entrySet().asScala.map { e => f"${e.getKey()}%-20s : ${e.getValue().toString}" }.mkString("\n")
+  }
 }
