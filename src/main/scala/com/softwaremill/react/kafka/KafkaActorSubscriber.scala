@@ -5,7 +5,10 @@ import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequ
 import kafka.producer.KafkaProducer
 import kafka.serializer.Encoder
 
-private[kafka] class KafkaActorSubscriber[T](val producer: KafkaProducer, val encoder: Encoder[T])
+private[kafka] class KafkaActorSubscriber[T](
+    val producer: KafkaProducer, 
+    val encoder: Encoder[T], 
+    partitionizer: T => Option[Array[Byte]] = (_: T) => None)
   extends ActorSubscriber with ActorLogging {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
@@ -21,7 +24,7 @@ private[kafka] class KafkaActorSubscriber[T](val producer: KafkaProducer, val en
 
   private def processElement(element: T) = {
     try {
-      producer.send(encoder.toBytes(element), None)
+      producer.send(encoder.toBytes(element), partitionizer(element))
     }
     catch {
       case e: Exception => handleError(e)
