@@ -18,8 +18,14 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
     case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded => cleanupResources()
   }
 
-  private def tryReadingSingleElement() = {
-    Try(iterator.next().message()).map(bytes => Some(decoder.fromBytes(bytes))).recover {
+  private def demand_? : Boolean = totalDemand > 0
+
+  private def tryReadingSingleElement(): Try[Option[T]] = {
+
+    Try {
+      val bytes = if (iterator.hasNext() && demand_?) Option(iterator.next().message()) else None
+      bytes.map(decoder.fromBytes)
+    } recover {
       // We handle timeout exceptions as normal 'end of the queue' cases
       case _: ConsumerTimeoutException => None
     }
@@ -29,11 +35,10 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
   private def readDemandedItems() {
       tryReadingSingleElement() match {
         case Success(None) =>
-          if (totalDemand > 0)
-            self ! Poll
-        case Success(valueOpt) =>
-          valueOpt.foreach(element => onNext(element))
-          if (totalDemand > 0) readDemandedItems()
+          if (demand_?) self ! Poll
+        case Success(Some(element)) =>
+          onNext(element)
+          if (demand_?) readDemandedItems()
         case Failure(ex) => onError(ex)
     }
   }
