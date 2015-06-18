@@ -22,6 +22,8 @@ with Matchers with BeforeAndAfterAll {
   def uuid() = UUID.randomUUID().toString
   implicit val timeout = Timeout(1 second)
 
+  def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toInt.toString.getBytes)
+   
   override def afterAll {
     TestKit.shutdownActorSystem(system)
   }
@@ -35,7 +37,7 @@ with Matchers with BeforeAndAfterAll {
       val kafka = newKafka()
       val encoder = new StringEncoder()
       val publisher = kafka.consume(topic, group, new StringDecoder())(system)
-      val kafkaSubscriber = kafka.publish(topic, group, encoder)(system)
+      val kafkaSubscriber = kafka.publish(topic, group, encoder, parititonizer)(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
       publisher.subscribe(testSubscriber)
