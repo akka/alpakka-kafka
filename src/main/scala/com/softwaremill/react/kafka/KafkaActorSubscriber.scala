@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka
 
-import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
+import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage}
 import kafka.producer.KafkaProducer
 import kafka.serializer.Encoder
 
@@ -11,7 +11,7 @@ private[kafka] class KafkaActorSubscriber[T](
 )
     extends ActorSubscriber {
 
-  protected def requestStrategy = WatermarkRequestStrategy(10)
+  protected def requestStrategy = producer.props.requestStrategyProvider()
 
   override def postStop(): Unit = {
     cleanupResources()

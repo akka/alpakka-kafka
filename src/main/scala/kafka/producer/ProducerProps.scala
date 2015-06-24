@@ -3,6 +3,7 @@ package kafka.producer
 import java.util.Properties
 import java.util.UUID
 
+import akka.stream.actor.{WatermarkRequestStrategy, RequestStrategy}
 import kafka.message.DefaultCompressionCodec
 import kafka.message.NoCompressionCodec
 import kafka.message.SnappyCompressionCodec
@@ -29,7 +30,7 @@ object ProducerProps {
    * the application making the request.
    *
    */
-  def apply(brokerList: String, topic: String, clientId: String = UUID.randomUUID().toString): ProducerProps = {
+  def apply(brokerList: String, topic: String, clientId: String): ProducerProps = {
     val props = Map[String, String](
       "metadata.broker.list" -> brokerList,
 
@@ -45,7 +46,12 @@ object ProducerProps {
   }
 }
 
-case class ProducerProps(private val params: Map[String, String], topic: String, clientId: String) {
+case class ProducerProps(
+    private val params: Map[String, String],
+    topic: String,
+    clientId: String = UUID.randomUUID().toString,
+    requestStrategyProvider: () => RequestStrategy = () => WatermarkRequestStrategy(10)
+) {
 
   /**
    * Asynchronous Mode

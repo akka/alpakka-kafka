@@ -42,7 +42,7 @@ class ReactiveKafkaIntegrationSpec
       val kafka = newKafka()
       val encoder = new StringEncoder()
       val publisher = kafka.consume(topic, group, new StringDecoder())(system)
-      val kafkaSubscriber = kafka.publish(topic, group, encoder, parititonizer)(system)
+      val kafkaSubscriber = kafka.publish(topic, group, encoder)(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
       publisher.subscribe(testSubscriber)
