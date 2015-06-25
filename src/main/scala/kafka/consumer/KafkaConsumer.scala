@@ -14,9 +14,9 @@ class KafkaConsumer(val props: ConsumerProps) extends Logging {
 
   val filterSpec = new Whitelist(props.topic)
 
-  info("setup:start topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect, props.groupId))
+  info("setup:start topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect.getOrElse(""), props.groupId))
   val stream = connector.createMessageStreamsByFilter(filterSpec, 1, new DefaultDecoder(), new DefaultDecoder())(0)
-  info("setup:complete topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect, props.groupId))
+  info("setup:complete topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect.getOrElse(""), props.groupId))
 
   def read(write: (Array[Byte]) => Unit) = {
     info("reading on stream now")

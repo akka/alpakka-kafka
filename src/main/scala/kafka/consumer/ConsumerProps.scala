@@ -1,7 +1,7 @@
 package kafka.consumer
 
-import java.util.UUID
 import java.util.Properties
+import java.util.UUID
 
 object ConsumerProps {
 
@@ -33,30 +33,29 @@ object ConsumerProps {
    * group id multiple processes indicate that they are all part of the same consumer group.
    *
    */
-  def apply(brokerList: String, zooKeeperHost: String, topic: String, clientId: String = UUID.randomUUID().toString): ConsumerProps = {
-    val props = new Properties()
-    props.put("metadata.broker.list", brokerList)
-    props.put("group.id", clientId)
-    props.put("zookeeper.connect", zooKeeperHost)
+  def apply(brokerList: String, zooKeeperHost: String, topic: String, groupId: String = UUID.randomUUID().toString): ConsumerProps = {
+    val props = Map[String, String](
+      ("metadata.broker.list" -> brokerList),
+      ("group.id" -> groupId),
+      ("zookeeper.connect" -> zooKeeperHost),
 
-    // defaults
-    props.put("auto.offset.reset", "smallest")
-    props.put("consumer.timeout.ms", "1500")
-    props.put("offsets.storage", "zookeeper")
+      // defaults
+      ("auto.offset.reset" -> "smallest"),
+      ("consumer.timeout.ms" -> "1500"),
+      ("offsets.storage" -> "zookeeper"))
 
-    new ConsumerProps(props, topic, clientId)
+    new ConsumerProps(props, topic, groupId)
   }
 }
 
-class ConsumerProps(private val props: Properties, val topic: String, val clientId: String) {
+case class ConsumerProps(private val params: Map[String, String], val topic: String, val groupId: String) {
 
   /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
   def consumerTimeoutMs(timeInMs: Long): ConsumerProps = {
-    props.put("consumer.timeout.ms", timeInMs.toString)
-    this
+    ConsumerProps(params + ("consumer.timeout.ms" -> timeInMs.toString), topic, groupId)
   }
 
   /**
@@ -81,8 +80,7 @@ class ConsumerProps(private val props: Properties, val topic: String, val client
    *
    */
   def readFromEndOfStream(): ConsumerProps = {
-    props.put("auto.offset.reset", "largest")
-    this
+    ConsumerProps(params + ("auto.offset.reset" -> "largest"), topic, groupId)
   }
 
   /**
@@ -91,38 +89,30 @@ class ConsumerProps(private val props: Properties, val topic: String, val client
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
   def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProps = {
-    props.put("offsets.storage", "kafka")
-    props.put("dual.commit.enabled", dualCommit.toString)
-    this
+    val p = params + (
+      ("offsets.storage" -> "kafka"),
+      ("dual.commit.enabled" -> dualCommit.toString))
+    ConsumerProps(p, topic, groupId)
   }
   /**
    * Set any additional properties as needed
    */
-  def setProperty(key: String, value: String): ConsumerProps = {
-    props.put(key, value)
-    this
-  }
-
-  def setProperties(values: (String, String)*): ConsumerProps = {
-    values.map { case (key, value) => props.put(key, value) }
-    this
-  }
+  def setProperty(key: String, value: String): ConsumerProps = ConsumerProps(params + (key -> value), topic, groupId)
+  def setProperties(values: (String, String)*): ConsumerProps = ConsumerProps(params ++ values, topic, groupId)
 
   /**
    *  Generate the Kafka ConsumerConfig object
    *
    */
-  def toConsumerConfig: ConsumerConfig = new ConsumerConfig(props)
+  def toConsumerConfig: ConsumerConfig = {
+    new ConsumerConfig(params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props })
+  }
 
   // accessors
-  def zookeeperConnect: String = props.getProperty("zookeeper.connect")
-  def groupId: String = props.getProperty("group.id")
+  def zookeeperConnect: Option[String] = params.get("zookeeper.connect")
 
   /**
    * Dump current props for debugging
    */
-  def dump: String = {
-    import scala.collection.JavaConverters._
-    props.entrySet().asScala.map { e => f"${e.getKey()}%-20s : ${e.getValue().toString}" }.mkString("\n")
-  }
+  def dump: String = params.map { e => f"${e._1}%-20s : ${e._2.toString}" }.mkString("\n")
 }
