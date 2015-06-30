@@ -1,9 +1,5 @@
 package kafka.producer
 
-import java.util.{ Properties, UUID }
-
-import kafka.message.{ DefaultCompressionCodec, NoCompressionCodec }
-
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
  */

@@ -31,20 +31,21 @@ object ProducerProps {
    */
   def apply(brokerList: String, topic: String, clientId: String = UUID.randomUUID().toString): ProducerProps = {
     val props = Map[String, String](
-      ("metadata.broker.list" -> brokerList),
+      "metadata.broker.list" -> brokerList,
 
       // defaults
-      ("compression.codec" -> DefaultCompressionCodec.codec.toString),
-      ("client.id" -> clientId),
-      ("message.send.max.retries" -> 3.toString),
-      ("request.required.acks" -> -1.toString),
-      ("producer.type" -> "sync"))
+      "compression.codec" -> DefaultCompressionCodec.codec.toString,
+      "client.id" -> clientId,
+      "message.send.max.retries" -> 3.toString,
+      "request.required.acks" -> -1.toString,
+      "producer.type" -> "sync"
+    )
 
     new ProducerProps(props, topic, clientId)
   }
 }
 
-case class ProducerProps(private val params: Map[String, String], val topic: String, val clientId: String) {
+case class ProducerProps(private val params: Map[String, String], topic: String, clientId: String) {
 
   /**
    * Asynchronous Mode
@@ -54,9 +55,10 @@ case class ProducerProps(private val params: Map[String, String], val topic: Str
    */
   def asynchronous(batchSize: Int = 200, bufferMaxMs: Int = 500): ProducerProps = {
     val p = params + (
-      ("producer.type" -> "async"),
-      ("batch.num.messages" -> batchSize.toString),
-      ("queue.buffering.max.ms" -> bufferMaxMs.toString))
+      "producer.type" -> "async",
+      "batch.num.messages" -> batchSize.toString,
+      "queue.buffering.max.ms" -> bufferMaxMs.toString
+    )
     ProducerProps(p, topic, clientId)
   }
 

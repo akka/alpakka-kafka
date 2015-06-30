@@ -35,20 +35,21 @@ object ConsumerProps {
    */
   def apply(brokerList: String, zooKeeperHost: String, topic: String, groupId: String = UUID.randomUUID().toString): ConsumerProps = {
     val props = Map[String, String](
-      ("metadata.broker.list" -> brokerList),
-      ("group.id" -> groupId),
-      ("zookeeper.connect" -> zooKeeperHost),
+      "metadata.broker.list" -> brokerList,
+      "group.id" -> groupId,
+      "zookeeper.connect" -> zooKeeperHost,
 
       // defaults
-      ("auto.offset.reset" -> "smallest"),
-      ("consumer.timeout.ms" -> "1500"),
-      ("offsets.storage" -> "zookeeper"))
+      "auto.offset.reset" -> "smallest",
+      "consumer.timeout.ms" -> "1500",
+      "offsets.storage" -> "zookeeper"
+    )
 
     new ConsumerProps(props, topic, groupId)
   }
 }
 
-case class ConsumerProps(private val params: Map[String, String], val topic: String, val groupId: String) {
+case class ConsumerProps(private val params: Map[String, String], topic: String, groupId: String) {
 
   /**
    * Consumer Timeout
@@ -90,8 +91,9 @@ case class ConsumerProps(private val params: Map[String, String], val topic: Str
    */
   def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProps = {
     val p = params + (
-      ("offsets.storage" -> "kafka"),
-      ("dual.commit.enabled" -> dualCommit.toString))
+      "offsets.storage" -> "kafka",
+      "dual.commit.enabled" -> dualCommit.toString
+    )
     ConsumerProps(p, topic, groupId)
   }
   /**

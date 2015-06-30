@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class ReactiveKafkaIntegrationSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike
-with Matchers with BeforeAndAfterAll {
+    with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("ReactiveKafkaIntegrationSpec"))
 
@@ -23,7 +23,7 @@ with Matchers with BeforeAndAfterAll {
   implicit val timeout = Timeout(1 second)
 
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toInt.toString.getBytes)
-   
+
   override def afterAll {
     TestKit.shutdownActorSystem(system)
   }

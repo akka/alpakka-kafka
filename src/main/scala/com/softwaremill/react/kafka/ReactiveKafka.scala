@@ -1,11 +1,11 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.{ ActorRef, Props, ActorSystem }
-import akka.stream.actor.{ ActorSubscriber, ActorPublisher }
+import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.stream.actor.{ActorSubscriber, ActorPublisher}
 import kafka.consumer._
 import kafka.producer._
-import kafka.serializer.{ Encoder, Decoder }
-import org.reactivestreams.{ Publisher, Subscriber }
+import kafka.serializer.{Encoder, Decoder}
+import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka(val host: String, val zooKeeperHost: String) {
 
@@ -13,7 +13,8 @@ class ReactiveKafka(val host: String, val zooKeeperHost: String) {
     topic: String,
     groupId: String,
     encoder: Encoder[T],
-    partitionizer: T => Option[Array[Byte]] = (_: T) => None)(implicit actorSystem: ActorSystem): Subscriber[T] = {
+    partitionizer: T => Option[Array[Byte]] = (_: T) => None
+  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
     val props = ProducerProps(host, topic, groupId)
     ActorSubscriber[T](producerActor(props, encoder, partitionizer))
   }
@@ -30,7 +31,8 @@ class ReactiveKafka(val host: String, val zooKeeperHost: String) {
   def producerActor[T](
     props: ProducerProps,
     encoder: Encoder[T],
-    partitionizer: T => Option[Array[Byte]] = (_: T) => None)(implicit actorSystem: ActorSystem): ActorRef = {
+    partitionizer: T => Option[Array[Byte]] = (_: T) => None
+  )(implicit actorSystem: ActorSystem): ActorRef = {
     val producer = new KafkaProducer(props)
     actorSystem.actorOf(Props(new KafkaActorSubscriber(producer, encoder, partitionizer)).withDispatcher("kafka-subscriber-dispatcher"))
   }

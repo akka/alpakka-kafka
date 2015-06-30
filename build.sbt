@@ -1,5 +1,7 @@
 import SonatypeKeys._
 
+import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactControlReadability, PreserveSpaceBeforeArguments, DoubleIndentClassDeclaration}
+
 sonatypeSettings
 
 name := "reactive-kafka"
@@ -52,3 +54,11 @@ pomExtra := (
       </developer>
     </developers>
   )
+
+scalariformSettings
+
+ScalariformKeys.preferences := ScalariformKeys.preferences.value
+  .setPreference(DoubleIndentClassDeclaration, true)
+  .setPreference(PreserveSpaceBeforeArguments, true)
+  .setPreference(CompactControlReadability, true)
+  .setPreference(SpacesAroundMultiImports, false)

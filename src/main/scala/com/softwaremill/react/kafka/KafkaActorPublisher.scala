@@ -33,13 +33,13 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
 
   @tailrec
   private def readDemandedItems() {
-      tryReadingSingleElement() match {
-        case Success(None) =>
-          if (demand_?) self ! Poll
-        case Success(Some(element)) =>
-          onNext(element)
-          if (demand_?) readDemandedItems()
-        case Failure(ex) => onError(ex)
+    tryReadingSingleElement() match {
+      case Success(None) =>
+        if (demand_?) self ! Poll
+      case Success(Some(element)) =>
+        onNext(element)
+        if (demand_?) readDemandedItems()
+      case Failure(ex) => onError(ex)
     }
   }
 

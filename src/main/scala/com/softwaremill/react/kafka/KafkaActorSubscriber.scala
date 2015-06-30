@@ -6,10 +6,11 @@ import kafka.producer.KafkaProducer
 import kafka.serializer.Encoder
 
 private[kafka] class KafkaActorSubscriber[T](
-    val producer: KafkaProducer, 
-    val encoder: Encoder[T], 
-    partitionizer: T => Option[Array[Byte]] = (_: T) => None)
-  extends ActorSubscriber with ActorLogging {
+  val producer: KafkaProducer,
+  val encoder: Encoder[T],
+  partitionizer: T => Option[Array[Byte]] = (_: T) => None
+)
+    extends ActorSubscriber with ActorLogging {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
 

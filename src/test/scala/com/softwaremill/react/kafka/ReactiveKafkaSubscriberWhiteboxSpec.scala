@@ -12,8 +12,8 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaSubscriberWhiteboxSpec(defaultTimeout: FiniteDuration)
-  extends SubscriberWhiteboxVerification[String](new TestEnvironment(defaultTimeout.toMillis))
-  with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
+    extends SubscriberWhiteboxVerification[String](new TestEnvironment(defaultTimeout.toMillis))
+    with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
   def this() = this(300 millis)
 

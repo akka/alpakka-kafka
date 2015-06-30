@@ -3,7 +3,7 @@ package kafka.producer
 import org.scalatest._
 import java.util.UUID
 
-class ProducerPropsTest extends WordSpecLike with Matchers  {
+class ProducerPropsTest extends WordSpecLike with Matchers {
 
   def uuid() = UUID.randomUUID().toString
   val brokerList = "localhost:9092"
