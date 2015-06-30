@@ -44,9 +44,9 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     new Publisher[String] {
       override def subscribe(subscriber: Subscriber[_ >: String]): Unit = {
         subscriber.onSubscribe(new Subscription {
-          override def cancel() {}
+          override def cancel(): Unit = {}
 
-          override def request(l: Long) {}
+          override def request(l: Long): Unit = {}
         })
         subscriber.onError(new RuntimeException)
       }

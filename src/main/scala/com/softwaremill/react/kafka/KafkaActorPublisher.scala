@@ -6,7 +6,6 @@ import kafka.consumer.{ConsumerTimeoutException, KafkaConsumer}
 import kafka.serializer.Decoder
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: Decoder[T]) extends ActorPublisher[T] {
@@ -32,7 +31,7 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
   }
 
   @tailrec
-  private def readDemandedItems() {
+  private def readDemandedItems(): Unit = {
     tryReadingSingleElement() match {
       case Success(None) =>
         if (demand_?) self ! Poll
@@ -43,7 +42,7 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
     }
   }
 
-  private def cleanupResources() {
+  private def cleanupResources(): Unit = {
     consumer.close()
     context.stop(self)
   }

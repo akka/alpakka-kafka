@@ -24,7 +24,7 @@ class ReactiveKafkaIntegrationSpec(_system: ActorSystem) extends TestKit(_system
 
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toInt.toString.getBytes)
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -61,7 +61,7 @@ class ReactiveKafkaIntegrationSpec(_system: ActorSystem) extends TestKit(_system
       shouldStartConsuming(fromEnd = true)
     }
 
-    def shouldStartConsuming(fromEnd: Boolean) {
+    def shouldStartConsuming(fromEnd: Boolean): Unit = {
       // given
       val kafka = newKafka()
       val topic = uuid()

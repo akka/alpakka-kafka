@@ -1,7 +1,5 @@
 package kafka.consumer
 
-import java.util.Properties
-
 import kafka.serializer.DefaultDecoder
 import kafka.utils.Logging
 
@@ -40,7 +38,7 @@ class KafkaConsumer(val props: ConsumerProps) extends Logging {
 
   def iterator() = stream.iterator()
 
-  def close() {
+  def close(): Unit = {
     connector.shutdown()
   }
 }

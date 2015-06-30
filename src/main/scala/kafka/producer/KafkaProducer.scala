@@ -3,7 +3,7 @@ package kafka.producer
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
  */
-case class KafkaProducer(val props: ProducerProps) {
+case class KafkaProducer(props: ProducerProps) {
 
   val producer = new Producer[AnyRef, AnyRef](props.toProducerConfig)
 
@@ -22,7 +22,7 @@ case class KafkaProducer(val props: ProducerProps) {
     producer.send(kafkaMesssage(message, partition.getOrElse(null)))
   }
 
-  def close() {
+  def close(): Unit = {
     producer.close()
   }
 }

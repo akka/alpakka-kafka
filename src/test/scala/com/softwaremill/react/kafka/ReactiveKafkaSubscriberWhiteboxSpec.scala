@@ -33,11 +33,11 @@ class SubscriberDecorator[T](decoratee: Subscriber[T], probe: WhiteboxSubscriber
     // register a successful Subscription, and create a Puppet,
     // for the WhiteboxVerification to be able to drive its tests:
     probe.registerOnSubscribe(new SubscriberPuppet() {
-      override def triggerRequest(elements: Long) {
+      override def triggerRequest(elements: Long): Unit = {
         subscription.request(elements)
       }
 
-      override def signalCancel() {
+      override def signalCancel(): Unit = {
         subscription.cancel()
       }
     })
