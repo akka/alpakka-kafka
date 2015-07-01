@@ -16,9 +16,9 @@ licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apac
 
 homepage := Some(url("https://github.com/kciesielski/reactive-kafka"))
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
-crossScalaVersions := Seq("2.10.5", "2.11.6")
+crossScalaVersions := Seq("2.10.5", "2.11.7")
 
 scalacOptions ++= Seq(
   "-deprecation",
@@ -36,7 +36,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-RC2",
+  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-RC4",
   "org.apache.kafka" %% "kafka" % "0.8.2.1",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.11" % "test",
