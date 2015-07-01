@@ -31,8 +31,7 @@ scalacOptions ++= Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
-  "-Xfuture",
-  "-Ywarn-unused-import"     // 2.11 only
+  "-Xfuture"
 )
 
 libraryDependencies ++= Seq(
