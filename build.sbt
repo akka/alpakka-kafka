@@ -35,10 +35,10 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0-RC4",
+  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0",
   "org.apache.kafka" %% "kafka" % "0.8.2.1",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
-  "com.typesafe.akka" %% "akka-testkit" % "2.3.11" % "test",
+  "com.typesafe.akka" %% "akka-testkit" % "2.3.12" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test"
 )
 
