@@ -1,10 +1,10 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.{ActorRef, Props, ActorSystem}
-import akka.stream.actor.{WatermarkRequestStrategy, RequestStrategy, ActorSubscriber, ActorPublisher}
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
 import kafka.consumer._
 import kafka.producer._
-import kafka.serializer.{Encoder, Decoder}
+import kafka.serializer.{Decoder, Encoder}
 import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
@@ -59,30 +59,52 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     producerActor(props, () => WatermarkRequestStrategy(10))
   }
 
-  def consume[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {
+  @deprecated("Use ConsumerProps", "0.7.0")
+  def consume[T](
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+  )(implicit actorSystem: ActorSystem): Publisher[T] = {
     ActorPublisher[T](consumeAsActor(topic, groupId, decoder))
   }
 
-  def consumeFromEnd[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {
+  @deprecated("Use ConsumerProps", "0.7.0")
+  def consumeFromEnd[T](
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+  )(implicit actorSystem: ActorSystem): Publisher[T] = {
     ActorPublisher[T](consumeFromEndAsActor(topic, groupId, decoder))
   }
 
-  def consume[T](props: ConsumerProps, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {
-    ActorPublisher[T](consumeAsActor(props, decoder))
+  @deprecated("Use ConsumerProps", "0.7.0")
+  def consumeAsActor[T](
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+  )(implicit actorSystem: ActorSystem): ActorRef = {
+    val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder)
+    consumeAsActor(props)
   }
 
-  def consumeAsActor[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProps(host, zooKeeperHost, topic, groupId)
-    consumeAsActor(props, decoder)
+  @deprecated("Use ConsumerProps", "0.7.0")
+  def consumeFromEndAsActor[T](
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+  )(implicit actorSystem: ActorSystem): ActorRef = {
+    val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder).readFromEndOfStream()
+    consumeAsActor(props)
   }
 
-  def consumeFromEndAsActor[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProps(host, zooKeeperHost, topic, groupId).readFromEndOfStream()
-    consumeAsActor(props, decoder)
+  def consume[T](
+    props: ConsumerProps[T]
+  )(implicit actorSystem: ActorSystem): Publisher[T] = {
+    ActorPublisher[T](consumeAsActor(props))
   }
 
-  def consumeAsActor[T](props: ConsumerProps, decoder: Decoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
+  def consumeAsActor[T](props: ConsumerProps[T])(implicit actorSystem: ActorSystem): ActorRef = {
     val consumer = new KafkaConsumer(props)
-    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer, decoder)).withDispatcher("kafka-publisher-dispatcher"))
+    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
   }
 }

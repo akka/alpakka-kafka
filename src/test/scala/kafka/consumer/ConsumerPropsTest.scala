@@ -1,5 +1,6 @@
-package kafka.consumer
+package com.softwaremill.react.kafka
 
+import kafka.serializer.StringDecoder
 import org.scalatest._
 import java.util.UUID
 
@@ -10,12 +11,13 @@ class ConsumerPropsTest extends WordSpecLike with Matchers {
   val zooKeepHost = "localhost:2181"
   val topic = uuid()
   val groupId = uuid()
+  val decoder = new StringDecoder()
 
   "ConsumerProps" must {
 
     "handle base case" in {
 
-      val config = ConsumerProps(brokerList, zooKeepHost, topic, groupId)
+      val config = ConsumerProps(brokerList, zooKeepHost, topic, groupId, decoder)
         .toConsumerConfig
 
       config.zkConnect should be(zooKeepHost)
@@ -29,8 +31,8 @@ class ConsumerPropsTest extends WordSpecLike with Matchers {
 
     "handle kafka storage" in {
 
-      val config = ConsumerProps(brokerList, zooKeepHost, topic, groupId)
-        .readFromEndOfStream
+      val config = ConsumerProps(brokerList, zooKeepHost, topic, groupId, decoder)
+        .readFromEndOfStream()
         .consumerTimeoutMs(1234)
         .kafkaOffsetsStorage(true)
         .toConsumerConfig
