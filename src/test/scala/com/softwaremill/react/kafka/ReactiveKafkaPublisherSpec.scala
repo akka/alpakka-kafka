@@ -37,7 +37,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)
     }
-    kafka.consume(topic, group, new StringDecoder())
+    kafka.consume(ConsumerProps(kafkaHost, zkHost, topic, group, new StringDecoder()))
   }
 
   override def createFailedPublisher(): Publisher[String] = {

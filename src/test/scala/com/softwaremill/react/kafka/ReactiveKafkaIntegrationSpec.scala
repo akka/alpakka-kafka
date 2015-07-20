@@ -44,7 +44,7 @@ class ReactiveKafkaIntegrationSpec
       val group = uuid()
       val kafka = newKafka()
       val encoder = new StringEncoder()
-      val publisher = kafka.consume(topic, group, new StringDecoder())(system)
+      val publisher = kafka.consume(ConsumerProps(kafkaHost, zkHost, topic, group, new StringDecoder()))(system)
       val kafkaSubscriber = kafka.publish(ProducerProps(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
@@ -75,7 +75,7 @@ class ReactiveKafkaIntegrationSpec
       val group = uuid()
       val kafka = newKafka()
       val encoder = new StringEncoder()
-      val publisher = kafka.consume(topic, group, new StringDecoder())
+      val publisher = kafka.consume(ConsumerProps(kafkaHost, zkHost, topic, group, new StringDecoder()))
       val producerProps = ProducerProps(kafkaHost, topic, group, encoder)
       val producer = new KafkaProducer(producerProps)
       val supervisor = system.actorOf(Props(new TestHelperSupervisor(self)))
@@ -105,13 +105,15 @@ class ReactiveKafkaIntegrationSpec
       val input = kafka.publish(ProducerProps(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val output = ActorSubscriber[String](subscriberActor)
+      val initialProps = ConsumerProps(kafkaHost, zkHost, topic, group, new StringDecoder())
 
       // when
       input.onNext("one")
-      val inputConsumer = if (fromEnd)
-        kafka.consumeFromEnd(topic, group, new StringDecoder())(system)
+      val props = if (fromEnd)
+        initialProps.readFromEndOfStream()
       else
-        kafka.consume(topic, group, new StringDecoder())(system)
+        initialProps
+      val inputConsumer = kafka.consume(props)(system)
 
       for (i <- 1 to 2000)
         input.onNext("two")
