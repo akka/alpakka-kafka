@@ -32,7 +32,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     // which has nothing to do with supply size.
     val realSize = if (l == Int.MaxValue) 30 else l
 
-    val lowLevelProducer = createNewKafkaProducer(kafka.host)
+    val lowLevelProducer = createNewKafkaProducer(kafkaHost)
     val record = new ProducerRecord(topic, 0, "key".getBytes, "msg".getBytes)
     (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)

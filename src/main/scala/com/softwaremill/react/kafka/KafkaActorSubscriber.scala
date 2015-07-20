@@ -1,17 +1,16 @@
 package com.softwaremill.react.kafka
 
-import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage}
+import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, RequestStrategy}
 import kafka.producer.KafkaProducer
-import kafka.serializer.Encoder
 
 private[kafka] class KafkaActorSubscriber[T](
-  val producer: KafkaProducer,
-  val encoder: Encoder[T],
-  partitionizer: T => Option[Array[Byte]] = (_: T) => None
+  val producer: KafkaProducer[T],
+  props: ProducerProps[T],
+  requestStrategyProvider: () => RequestStrategy
 )
     extends ActorSubscriber {
 
-  protected def requestStrategy = producer.props.requestStrategyProvider()
+  protected def requestStrategy = requestStrategyProvider()
 
   override def postStop(): Unit = {
     cleanupResources()
@@ -29,7 +28,7 @@ private[kafka] class KafkaActorSubscriber[T](
 
   private def processElement(element: T) = {
     try {
-      producer.send(encoder.toBytes(element), partitionizer(element))
+      producer.send(props.encoder.toBytes(element), props.partitionizer(element))
     }
     catch {
       case e: Exception => handleError(e)

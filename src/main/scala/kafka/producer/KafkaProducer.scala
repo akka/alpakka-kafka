@@ -1,9 +1,11 @@
 package kafka.producer
 
+import com.softwaremill.react.kafka.ProducerProps
+
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
  */
-case class KafkaProducer(props: ProducerProps) {
+case class KafkaProducer[T](props: ProducerProps[T]) {
 
   val producer = new Producer[AnyRef, AnyRef](props.toProducerConfig)
 

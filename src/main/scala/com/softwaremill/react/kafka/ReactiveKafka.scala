@@ -1,40 +1,62 @@
 package com.softwaremill.react.kafka
 
 import akka.actor.{ActorRef, Props, ActorSystem}
-import akka.stream.actor.{ActorSubscriber, ActorPublisher}
+import akka.stream.actor.{WatermarkRequestStrategy, RequestStrategy, ActorSubscriber, ActorPublisher}
 import kafka.consumer._
 import kafka.producer._
 import kafka.serializer.{Encoder, Decoder}
 import org.reactivestreams.{Publisher, Subscriber}
 
-class ReactiveKafka(val host: String, val zooKeeperHost: String) {
+class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
 
+  @deprecated("Use ProducerProps", "0.7.0")
   def publish[T](
     topic: String,
     groupId: String,
     encoder: Encoder[T],
     partitionizer: T => Option[Array[Byte]] = (_: T) => None
   )(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    val props = ProducerProps(host, topic, groupId)
-    ActorSubscriber[T](producerActor(props, encoder, partitionizer))
+    ActorSubscriber[T](producerActor(topic, groupId, encoder, partitionizer))
   }
 
-  def publish[T](props: ProducerProps, encoder: Encoder[T])(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    ActorSubscriber[T](producerActor(props, encoder))
+  @deprecated("Use ProducerProps", "0.7.0")
+  def producerActor[T](
+    topic: String,
+    groupId: String,
+    encoder: Encoder[T],
+    partitionizer: T => Option[Array[Byte]]
+  )(implicit actorSystem: ActorSystem): ActorRef = {
+    val props = ProducerProps(host, topic, groupId, encoder, partitionizer: T => Option[Array[Byte]])
+    producerActor(props)
   }
 
-  def producerActor[T](topic: String, groupId: String, encoder: Encoder[T])(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ProducerProps(host, topic, groupId)
-    producerActor(props, encoder)
+  def publish[T](
+    props: ProducerProps[T],
+    requestStrategy: () => RequestStrategy
+  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
+    ActorSubscriber[T](producerActor(props, requestStrategy))
+  }
+
+  def publish[T](
+    props: ProducerProps[T]
+  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
+    ActorSubscriber[T](producerActor(props))
   }
 
   def producerActor[T](
-    props: ProducerProps,
-    encoder: Encoder[T],
-    partitionizer: T => Option[Array[Byte]] = (_: T) => None
+    props: ProducerProps[T],
+    requestStrategy: () => RequestStrategy
   )(implicit actorSystem: ActorSystem): ActorRef = {
     val producer = new KafkaProducer(props)
-    actorSystem.actorOf(Props(new KafkaActorSubscriber(producer, encoder, partitionizer)).withDispatcher("kafka-subscriber-dispatcher"))
+    actorSystem.actorOf(Props(
+      new KafkaActorSubscriber[T](producer, props, requestStrategy)
+    ).withDispatcher("kafka-subscriber-dispatcher"))
+  }
+
+  def producerActor[T](
+    props: ProducerProps[T]
+  )(implicit actorSystem: ActorSystem): ActorRef = {
+    producerActor(props, () => WatermarkRequestStrategy(10))
   }
 
   def consume[T](topic: String, groupId: String, decoder: Decoder[T])(implicit actorSystem: ActorSystem): Publisher[T] = {

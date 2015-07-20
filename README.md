@@ -28,15 +28,15 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ReactiveKafka
+import com.softwaremill.react.kafka.ProducerProps
 import kafka.serializer.{StringDecoder, StringEncoder}
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorMaterializer()
 
-val kafka = new ReactiveKafka(host = "localhost:9092", zooKeeperHost = "localhost:2181")
+val kafka = new ReactiveKafka(zooKeeperHost = "localhost:2181")
 val publisher = kafka.consume("lowercaseStrings", "groupName", new StringDecoder())
-val subscriber = kafka.publish("uppercaseStrings", "groupName", new StringEncoder())
-
+val subscriber = kafka.publish(ProducerProps("localhost:9092", "uppercaseSettings", "groupName", new StringEncoder()))
 
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
