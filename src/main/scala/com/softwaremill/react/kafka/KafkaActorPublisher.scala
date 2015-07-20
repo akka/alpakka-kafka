@@ -14,13 +14,19 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
 
   override def receive = {
     case ActorPublisherMessage.Request(_) | Poll => readDemandedItems()
-    case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded => cleanupResources()
+    case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded =>
+      cleanupResources()
+      context.stop(self)
   }
 
   private def demand_? : Boolean = totalDemand > 0
 
-  private def tryReadingSingleElement(): Try[Option[T]] = {
+  override def postStop(): Unit = {
+    cleanupResources()
+    super.postStop()
+  }
 
+  private def tryReadingSingleElement(): Try[Option[T]] = {
     Try {
       val bytes = if (iterator.hasNext() && demand_?) Option(iterator.next().message()) else None
       bytes.map(decoder.fromBytes)
@@ -44,7 +50,6 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer, decoder: De
 
   private def cleanupResources(): Unit = {
     consumer.close()
-    context.stop(self)
   }
 }
 

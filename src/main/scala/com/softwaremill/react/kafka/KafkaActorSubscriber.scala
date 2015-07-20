@@ -1,6 +1,5 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.ActorLogging
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
 import kafka.producer.KafkaProducer
 import kafka.serializer.Encoder
@@ -10,9 +9,14 @@ private[kafka] class KafkaActorSubscriber[T](
   val encoder: Encoder[T],
   partitionizer: T => Option[Array[Byte]] = (_: T) => None
 )
-    extends ActorSubscriber with ActorLogging {
+    extends ActorSubscriber {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
+
+  override def postStop(): Unit = {
+    cleanupResources()
+    super.postStop()
+  }
 
   def receive = {
     case ActorSubscriberMessage.OnNext(element) =>
@@ -20,7 +24,7 @@ private[kafka] class KafkaActorSubscriber[T](
     case ActorSubscriberMessage.OnError(ex) =>
       handleError(ex)
     case ActorSubscriberMessage.OnComplete =>
-      streamFinished()
+      cleanupResources()
   }
 
   private def processElement(element: T) = {
@@ -33,12 +37,11 @@ private[kafka] class KafkaActorSubscriber[T](
   }
 
   private def handleError(ex: Throwable) = {
-    log.error("Stopping subscriber due to an error", ex)
-    producer.close()
-    context.stop(self)
+    cleanupResources()
+    throw ex
   }
 
-  private def streamFinished() = {
+  def cleanupResources() = {
     producer.close()
   }
 }
