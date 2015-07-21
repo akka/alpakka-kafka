@@ -27,12 +27,7 @@ private[kafka] class KafkaActorSubscriber[T](
   }
 
   private def processElement(element: T) = {
-    try {
-      producer.send(props.encoder.toBytes(element), props.partitionizer(element))
-    }
-    catch {
-      case e: Exception => handleError(e)
-    }
+    producer.send(props.encoder.toBytes(element), props.partitionizer(element))
   }
 
   private def handleError(ex: Throwable) = {
