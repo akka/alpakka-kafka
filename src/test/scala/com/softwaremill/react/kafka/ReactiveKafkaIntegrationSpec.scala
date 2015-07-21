@@ -6,8 +6,9 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -16,7 +17,11 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaIntegrationSpec"))
+class ReactiveKafkaIntegrationSpec
+    extends TestKit(ActorSystem(
+      "ReactiveKafkaIntegrationSpec",
+      ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
+    ))
     with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
 
   val kafkaHost = "localhost:9092"
@@ -74,17 +79,18 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       val producerProps = ProducerProps(kafkaHost, topic, group, encoder)
       val subscriberProps = kafka.producerActorProps(producerProps, requestStrategy = defaultWatermarkStrategy)
       val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
-      val kafkaSubscriberActor = TestActorRef(subscriberProps)
-        .asInstanceOf[TestActorRef[KafkaActorSubscriber[String]]]
+      val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
-      watch(kafkaSubscriberActor)
       publisher.subscribe(testSubscriber)
 
-      // then
-        kafkaSubscriberActor.underlyingActor.cleanupResources()
+      // when
+      EventFilter[ProducerClosedException](message = "producer already closed") intercept {
+        kafkaSubscriberActor ! "Stop"
         kafkaSubscriber.onNext("foo")
+      }
+      // then
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
@@ -140,21 +146,16 @@ class ReactiveTestSubscriber extends ActorSubscriber {
 
 class TestHelperSupervisor(parent: ActorRef, props: Props) extends Actor {
 
-  var child: ActorRef = _
-
-  override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
     maxNrOfRetries = 10,
     withinTimeRange = 1 minute
   ) {
-    case e: Throwable => parent ! e; Stop
-  }
-
-  override def preStart(): Unit = {
-    super.preStart()
-    child = context.actorOf(props)
+    case e =>
+      parent ! e
+      Stop
   }
 
   override def receive = {
-    case _ =>
+    case _ => sender ! context.actorOf(props)
   }
 }

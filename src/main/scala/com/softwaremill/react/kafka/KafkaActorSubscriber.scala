@@ -22,7 +22,7 @@ private[kafka] class KafkaActorSubscriber[T](
       processElement(element.asInstanceOf[T])
     case ActorSubscriberMessage.OnError(ex) =>
       handleError(ex)
-    case ActorSubscriberMessage.OnComplete =>
+    case ActorSubscriberMessage.OnComplete | "Stop" =>
       cleanupResources()
   }
 
