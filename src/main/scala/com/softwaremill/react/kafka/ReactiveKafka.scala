@@ -47,10 +47,17 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     props: ProducerProps[T],
     requestStrategy: () => RequestStrategy
   )(implicit actorSystem: ActorSystem): ActorRef = {
+    actorSystem.actorOf(producerActorProps(props, requestStrategy).withDispatcher("kafka-subscriber-dispatcher"))
+  }
+
+  def producerActorProps[T](
+    props: ProducerProps[T],
+    requestStrategy: () => RequestStrategy
+  ) = {
     val producer = new KafkaProducer(props)
-    actorSystem.actorOf(Props(
+    Props(
       new KafkaActorSubscriber[T](producer, props, requestStrategy)
-    ).withDispatcher("kafka-subscriber-dispatcher"))
+    )
   }
 
   def producerActor[T](
@@ -104,7 +111,12 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
   }
 
   def consumeAsActor[T](props: ConsumerProps[T])(implicit actorSystem: ActorSystem): ActorRef = {
-    val consumer = new KafkaConsumer(props)
-    actorSystem.actorOf(Props(new KafkaActorPublisher(consumer)).withDispatcher("kafka-publisher-dispatcher"))
+    actorSystem.actorOf(consumerActorProps(props).withDispatcher("kafka-publisher-dispatcher"))
   }
+
+  def consumerActorProps[T](props: ConsumerProps[T]) = {
+    val consumer = new KafkaConsumer(props)
+    Props(new KafkaActorPublisher(consumer))
+  }
+
 }
