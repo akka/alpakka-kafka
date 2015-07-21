@@ -51,6 +51,48 @@ you can use alternative way to create a consumer:
   val publisher = kafka.consumeFromEnd(topic, groupId, new StringDecoder())
 ````
 
+Working with actors
+----
+Since we are based upon akka-stream, the best way to handle errors is to leverage Akka's error handling and lifecycle 
+management capabilities. Producers and consumers are in fact actors. 
+
+#### Obtaining actor references
+`ReactiveKafka` comes with a few methods allowing working on the actor level. You can let it create Props to let your 
+own supervisor create these actor as children, or you can  directly create actors at the top level of supervision. 
+Here are a some examples:  
+
+```Scala
+// inside an Actor:
+implicit val materializer = ActorMaterializer()
+
+val kafka = new ReactiveKafka()
+// publisher
+val publisherProps = ConsumerProps("localhost:9092", "localhost:2181", "lowercaseStrings", "groupName", new StringDecoder())
+val publisherActorProps: Props = kafka.consumerActorProps(publisherProps)
+val publisherActor: ActorRef = context.actorOf(publisherActorProps)
+// or:
+val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProps)
+      
+// subscriber
+val subscriberProps = ProducerProps("localhost:9092", "uppercaseSettings", "groupName", new StringEncoder())
+val subscriberActorProps: Props = kafka.producerActorProps(subscriberProps)
+val subscriberActor: ActorRef = context.actorOf(subscriberActorProps)
+// or:
+val topLevelSubscriberActor: ActorRef = kafka.producerActor(subscriberProps)
+```
+
+#### Handling errors
+When a publisher (consumer) fails to load more elements from Kafka, it calls `onError()` on all of its subscribers. 
+The error will be handled depending on subscriber implementation.  
+When a subscriber (producer) fails to get more elements from upstream due to an error, it is no longer usable. 
+It will throw an exception and close all underlying resource (effectively: the Kafka connection). 
+If there's a problem with putting elements into Kafka, only an exception will be thrown. 
+This mechanism allows custom handling and keeping the subscriber working.
+
+#### Cleaning up
+If you want to manually stop a publisher or a subscriber, you can just kill the actor using `context.stop()` or a 
+`PoisonPill`. Underlying Kafka resources will be cleaned up.
+
 Tuning
 ----
 

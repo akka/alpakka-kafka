@@ -60,10 +60,19 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     )
   }
 
+  def producerActorProps[T](
+    props: ProducerProps[T]
+  ) = {
+    val producer = new KafkaProducer(props)
+    Props(
+      new KafkaActorSubscriber[T](producer, props, () => WatermarkRequestStrategy(10))
+    )
+  }
+
   def producerActor[T](
     props: ProducerProps[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    producerActor(props, () => WatermarkRequestStrategy(10))
+    actorSystem.actorOf(producerActorProps(props))
   }
 
   @deprecated("Use ConsumerProps", "0.7.0")
@@ -72,7 +81,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): Publisher[T] = {
-    ActorPublisher[T](consumeAsActor(topic, groupId, decoder))
+    ActorPublisher[T](consumerActor(topic, groupId, decoder))
   }
 
   @deprecated("Use ConsumerProps", "0.7.0")
@@ -85,13 +94,13 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
   }
 
   @deprecated("Use ConsumerProps", "0.7.0")
-  def consumeAsActor[T](
+  def consumerActor[T](
     topic: String,
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
     val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder)
-    consumeAsActor(props)
+    consumerActor(props)
   }
 
   @deprecated("Use ConsumerProps", "0.7.0")
@@ -101,16 +110,16 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
     val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder).readFromEndOfStream()
-    consumeAsActor(props)
+    consumerActor(props)
   }
 
   def consume[T](
     props: ConsumerProps[T]
   )(implicit actorSystem: ActorSystem): Publisher[T] = {
-    ActorPublisher[T](consumeAsActor(props))
+    ActorPublisher[T](consumerActor(props))
   }
 
-  def consumeAsActor[T](props: ConsumerProps[T])(implicit actorSystem: ActorSystem): ActorRef = {
+  def consumerActor[T](props: ConsumerProps[T])(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher("kafka-publisher-dispatcher"))
   }
 
