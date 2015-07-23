@@ -1,9 +1,11 @@
 package kafka.producer
 
+import com.softwaremill.react.kafka.ProducerProperties
+
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
  */
-case class KafkaProducer(props: ProducerProps) {
+case class KafkaProducer[T](props: ProducerProperties[T]) {
 
   val producer = new Producer[AnyRef, AnyRef](props.toProducerConfig)
 
@@ -19,7 +21,7 @@ case class KafkaProducer(props: ProducerProps) {
   def send(message: String, partition: String = null): Unit = send(message.getBytes("UTF8"), Option(partition).map(_.getBytes("UTF8")))
 
   def send(message: Array[Byte], partition: Option[Array[Byte]]): Unit = {
-    producer.send(kafkaMesssage(message, partition.getOrElse(null)))
+    producer.send(kafkaMesssage(message, partition.orNull))
   }
 
   def close(): Unit = {

@@ -1,9 +1,11 @@
-package kafka.consumer
+package com.softwaremill.react.kafka
 
 import java.util.Properties
-import java.util.UUID
 
-object ConsumerProps {
+import kafka.consumer.ConsumerConfig
+import kafka.serializer.Decoder
+
+object ConsumerProperties {
 
   /**
    * Consumer Properties
@@ -33,7 +35,13 @@ object ConsumerProps {
    * group id multiple processes indicate that they are all part of the same consumer group.
    *
    */
-  def apply(brokerList: String, zooKeeperHost: String, topic: String, groupId: String = UUID.randomUUID().toString): ConsumerProps = {
+  def apply[T](
+    brokerList: String,
+    zooKeeperHost: String,
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+  ): ConsumerProperties[T] = {
     val props = Map[String, String](
       "metadata.broker.list" -> brokerList,
       "group.id" -> groupId,
@@ -45,19 +53,23 @@ object ConsumerProps {
       "offsets.storage" -> "zookeeper"
     )
 
-    new ConsumerProps(props, topic, groupId)
+    new ConsumerProperties(props, topic, groupId, decoder)
   }
 }
 
-case class ConsumerProps(private val params: Map[String, String], topic: String, groupId: String) {
+case class ConsumerProperties[T](
+    params: Map[String, String],
+    topic: String,
+    groupId: String,
+    decoder: Decoder[T]
+) {
 
   /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
-  def consumerTimeoutMs(timeInMs: Long): ConsumerProps = {
-    ConsumerProps(params + ("consumer.timeout.ms" -> timeInMs.toString), topic, groupId)
-  }
+  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] =
+    copy(params = params + ("consumer.timeout.ms" -> timeInMs.toString))
 
   /**
    * What to do when there is no initial offset in Zookeeper or if an offset is out of range:
@@ -80,27 +92,25 @@ case class ConsumerProps(private val params: Map[String, String], topic: String,
    * ***************************************************************************************
    *
    */
-  def readFromEndOfStream(): ConsumerProps = {
-    ConsumerProps(params + ("auto.offset.reset" -> "largest"), topic, groupId)
-  }
+  def readFromEndOfStream(): ConsumerProperties[T] = copy(params = params + ("auto.offset.reset" -> "largest"))
 
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
-  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProps = {
+  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] = {
     val p = params + (
       "offsets.storage" -> "kafka",
       "dual.commit.enabled" -> dualCommit.toString
     )
-    ConsumerProps(p, topic, groupId)
+    copy(params = p)
   }
   /**
    * Set any additional properties as needed
    */
-  def setProperty(key: String, value: String): ConsumerProps = ConsumerProps(params + (key -> value), topic, groupId)
-  def setProperties(values: (String, String)*): ConsumerProps = ConsumerProps(params ++ values, topic, groupId)
+  def setProperty(key: String, value: String): ConsumerProperties[T] = copy(params = params + (key -> value))
+  def setProperties(values: (String, String)*): ConsumerProperties[T] = copy(params = params ++ values)
 
   /**
    *  Generate the Kafka ConsumerConfig object

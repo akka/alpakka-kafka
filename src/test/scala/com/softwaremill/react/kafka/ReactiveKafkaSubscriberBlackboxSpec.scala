@@ -17,11 +17,12 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
 
   def this() = this(300 millis)
 
-  def partitionizer(in: String): Option[Array[Byte]] = Some(Option(in) getOrElse (UUID.randomUUID().toString) getBytes)
+  def partitionizer(in: String): Option[Array[Byte]] = Some(Option(in) getOrElse UUID.randomUUID().toString getBytes)
 
   override def createSubscriber(): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
-    kafka.publish(topic, "group", new StringEncoder(), partitionizer)
+    val partitionizerProvider: (String) => Option[Array[Byte]] = partitionizer
+    kafka.publish(ProducerProperties(kafkaHost, topic, "group", new StringEncoder(), partitionizerProvider))
   }
 
   def createHelperSource(elements: Long): Source[String, _] = elements match {

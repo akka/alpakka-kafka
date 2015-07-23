@@ -6,10 +6,10 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
-import akka.testkit.{EventFilter, ImplicitSender, TestActorRef, TestKit}
+import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import kafka.producer.{KafkaProducer, ProducerClosedException, ProducerProps}
+import kafka.producer.ProducerClosedException
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -24,10 +24,13 @@ class ReactiveKafkaIntegrationSpec
     ))
     with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
 
+  val kafkaHost = "localhost:9092"
+  val zkHost = "localhost:2181"
+
   def uuid() = UUID.randomUUID().toString
   implicit val timeout = Timeout(1 second)
-
-  def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toInt.toString.getBytes)
+  def defaultWatermarkStrategy = () => WatermarkRequestStrategy(10)
+  def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
@@ -41,8 +44,8 @@ class ReactiveKafkaIntegrationSpec
       val group = uuid()
       val kafka = newKafka()
       val encoder = new StringEncoder()
-      val publisher = kafka.consume(topic, group, new StringDecoder())(system)
-      val kafkaSubscriber = kafka.publish(topic, group, encoder, parititonizer)(system)
+      val publisher = kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))(system)
+      val kafkaSubscriber = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
       publisher.subscribe(testSubscriber)
@@ -72,24 +75,22 @@ class ReactiveKafkaIntegrationSpec
       val group = uuid()
       val kafka = newKafka()
       val encoder = new StringEncoder()
-      val publisher = kafka.consume(topic, group, new StringDecoder())
-      val props = ProducerProps(kafka.host, topic, group)
-      val producer = new KafkaProducer(props)
-      val supervisor = system.actorOf(Props(new TestHelperSupervisor(self)))
-      val subscriberProps = Props(new KafkaActorSubscriber(producer, encoder))
-      val kafkaSubscriberActor = TestActorRef(subscriberProps, supervisor, "subscriber")
-        .asInstanceOf[TestActorRef[KafkaActorSubscriber[String]]]
+      val publisher = kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
+      val producerProps = ProducerProperties(kafkaHost, topic, group, encoder)
+      val subscriberProps = kafka.producerActorProps(producerProps, requestStrategy = defaultWatermarkStrategy)
+      val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
+      val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val testSubscriber = ActorSubscriber[String](subscriberActor)
-      watch(kafkaSubscriberActor)
       publisher.subscribe(testSubscriber)
 
-      // then
+      // when
       EventFilter[ProducerClosedException](message = "producer already closed") intercept {
-        kafkaSubscriberActor.underlyingActor.cleanupResources()
+        kafkaSubscriberActor ! "Stop"
         kafkaSubscriber.onNext("foo")
       }
+      // then
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
@@ -99,16 +100,18 @@ class ReactiveKafkaIntegrationSpec
       val topic = uuid()
       val group = uuid()
       val encoder = new StringEncoder()
-      val input = kafka.publish(topic, group, encoder)(system)
+      val input = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
       val output = ActorSubscriber[String](subscriberActor)
+      val initialProps = ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder())
 
       // when
       input.onNext("one")
-      val inputConsumer = if (fromEnd)
-        kafka.consumeFromEnd(topic, group, new StringDecoder())(system)
+      val props = if (fromEnd)
+        initialProps.readFromEndOfStream()
       else
-        kafka.consume(topic, group, new StringDecoder())(system)
+        initialProps
+      val inputConsumer = kafka.consume(props)(system)
 
       for (i <- 1 to 2000)
         input.onNext("two")
@@ -124,7 +127,7 @@ class ReactiveKafkaIntegrationSpec
   }
 
   def newKafka(): ReactiveKafka = {
-    new ReactiveKafka("localhost:9092", "localhost:2181")
+    new ReactiveKafka()
   }
 }
 
@@ -141,16 +144,18 @@ class ReactiveTestSubscriber extends ActorSubscriber {
   }
 }
 
-class TestHelperSupervisor(parent: ActorRef) extends Actor {
+class TestHelperSupervisor(parent: ActorRef, props: Props) extends Actor {
 
-  override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
     maxNrOfRetries = 10,
     withinTimeRange = 1 minute
   ) {
-    case e: Throwable => parent ! e; Stop
+    case e =>
+      parent ! e
+      Stop
   }
 
   override def receive = {
-    case _ =>
+    case _ => sender ! context.actorOf(props)
   }
 }
