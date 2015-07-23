@@ -14,7 +14,7 @@ startYear := Some(2014)
 
 licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0"))
 
-homepage := Some(url("https://github.com/kciesielski/reactive-kafka"))
+homepage := Some(url("https://github.com/softwaremill/reactive-kafka"))
 
 scalaVersion := "2.11.7"
 
@@ -55,8 +55,8 @@ pomIncludeRepository := {
 }
 pomExtra := (
   <scm>
-    <url>git@github.com:kciesielski/reactive-kafka.git</url>
-    <connection>scm:git:git@github.com:kciesielski/reactive-kafka.git</connection>
+    <url>git@github.com:softwaremill/reactive-kafka.git</url>
+    <connection>scm:git:git@github.com:softwaremill/reactive-kafka.git</connection>
   </scm>
     <developers>
       <developer>
