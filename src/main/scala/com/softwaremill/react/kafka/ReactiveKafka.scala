@@ -26,32 +26,32 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     encoder: Encoder[T],
     partitionizer: T => Option[Array[Byte]]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ProducerProps(host, topic, groupId, encoder, partitionizer: T => Option[Array[Byte]])
+    val props = ProducerProperties(host, topic, groupId, encoder, partitionizer: T => Option[Array[Byte]])
     producerActor(props)
   }
 
   def publish[T](
-    props: ProducerProps[T],
+    props: ProducerProperties[T],
     requestStrategy: () => RequestStrategy
   )(implicit actorSystem: ActorSystem): Subscriber[T] = {
     ActorSubscriber[T](producerActor(props, requestStrategy))
   }
 
   def publish[T](
-    props: ProducerProps[T]
+    props: ProducerProperties[T]
   )(implicit actorSystem: ActorSystem): Subscriber[T] = {
     ActorSubscriber[T](producerActor(props))
   }
 
   def producerActor[T](
-    props: ProducerProps[T],
+    props: ProducerProperties[T],
     requestStrategy: () => RequestStrategy
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(producerActorProps(props, requestStrategy).withDispatcher("kafka-subscriber-dispatcher"))
   }
 
   def producerActorProps[T](
-    props: ProducerProps[T],
+    props: ProducerProperties[T],
     requestStrategy: () => RequestStrategy
   ) = {
     val producer = new KafkaProducer(props)
@@ -61,7 +61,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
   }
 
   def producerActorProps[T](
-    props: ProducerProps[T]
+    props: ProducerProperties[T]
   ) = {
     val producer = new KafkaProducer(props)
     Props(
@@ -70,7 +70,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
   }
 
   def producerActor[T](
-    props: ProducerProps[T]
+    props: ProducerProperties[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(producerActorProps(props))
   }
@@ -99,7 +99,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder)
+    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder)
     consumerActor(props)
   }
 
@@ -109,21 +109,21 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProps(host, zooKeeperHost, topic, groupId, decoder).readFromEndOfStream()
+    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder).readFromEndOfStream()
     consumerActor(props)
   }
 
   def consume[T](
-    props: ConsumerProps[T]
+    props: ConsumerProperties[T]
   )(implicit actorSystem: ActorSystem): Publisher[T] = {
     ActorPublisher[T](consumerActor(props))
   }
 
-  def consumerActor[T](props: ConsumerProps[T])(implicit actorSystem: ActorSystem): ActorRef = {
+  def consumerActor[T](props: ConsumerProperties[T])(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher("kafka-publisher-dispatcher"))
   }
 
-  def consumerActorProps[T](props: ConsumerProps[T]) = {
+  def consumerActorProps[T](props: ConsumerProperties[T]) = {
     val consumer = new KafkaConsumer(props)
     Props(new KafkaActorPublisher(consumer))
   }

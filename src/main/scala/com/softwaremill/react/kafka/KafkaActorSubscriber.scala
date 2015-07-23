@@ -5,7 +5,7 @@ import kafka.producer.KafkaProducer
 
 private[kafka] class KafkaActorSubscriber[T](
   val producer: KafkaProducer[T],
-  props: ProducerProps[T],
+  props: ProducerProperties[T],
   requestStrategyProvider: () => RequestStrategy
 )
     extends ActorSubscriber {

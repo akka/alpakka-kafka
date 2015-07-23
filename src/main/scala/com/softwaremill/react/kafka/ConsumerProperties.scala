@@ -5,7 +5,7 @@ import java.util.Properties
 import kafka.consumer.ConsumerConfig
 import kafka.serializer.Decoder
 
-object ConsumerProps {
+object ConsumerProperties {
 
   /**
    * Consumer Properties
@@ -41,7 +41,7 @@ object ConsumerProps {
     topic: String,
     groupId: String,
     decoder: Decoder[T]
-  ): ConsumerProps[T] = {
+  ): ConsumerProperties[T] = {
     val props = Map[String, String](
       "metadata.broker.list" -> brokerList,
       "group.id" -> groupId,
@@ -53,11 +53,11 @@ object ConsumerProps {
       "offsets.storage" -> "zookeeper"
     )
 
-    new ConsumerProps(props, topic, groupId, decoder)
+    new ConsumerProperties(props, topic, groupId, decoder)
   }
 }
 
-case class ConsumerProps[T](
+case class ConsumerProperties[T](
     params: Map[String, String],
     topic: String,
     groupId: String,
@@ -68,7 +68,7 @@ case class ConsumerProps[T](
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
-  def consumerTimeoutMs(timeInMs: Long): ConsumerProps[T] =
+  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] =
     copy(params = params + ("consumer.timeout.ms" -> timeInMs.toString))
 
   /**
@@ -92,14 +92,14 @@ case class ConsumerProps[T](
    * ***************************************************************************************
    *
    */
-  def readFromEndOfStream(): ConsumerProps[T] = copy(params = params + ("auto.offset.reset" -> "largest"))
+  def readFromEndOfStream(): ConsumerProperties[T] = copy(params = params + ("auto.offset.reset" -> "largest"))
 
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
-  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProps[T] = {
+  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] = {
     val p = params + (
       "offsets.storage" -> "kafka",
       "dual.commit.enabled" -> dualCommit.toString
@@ -109,8 +109,8 @@ case class ConsumerProps[T](
   /**
    * Set any additional properties as needed
    */
-  def setProperty(key: String, value: String): ConsumerProps[T] = copy(params = params + (key -> value))
-  def setProperties(values: (String, String)*): ConsumerProps[T] = copy(params = params ++ values)
+  def setProperty(key: String, value: String): ConsumerProperties[T] = copy(params = params + (key -> value))
+  def setProperties(values: (String, String)*): ConsumerProperties[T] = copy(params = params ++ values)
 
   /**
    *  Generate the Kafka ConsumerConfig object

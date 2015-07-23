@@ -3,7 +3,6 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.ProducerProps
 import kafka.serializer.StringEncoder
 import org.reactivestreams.tck.{SubscriberBlackboxVerification, TestEnvironment}
 import org.reactivestreams.{Publisher, Subscriber}
@@ -23,7 +22,7 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
   override def createSubscriber(): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
     val partitionizerProvider: (String) => Option[Array[Byte]] = partitionizer
-    kafka.publish(ProducerProps(kafkaHost, topic, "group", new StringEncoder(), partitionizerProvider))
+    kafka.publish(ProducerProperties(kafkaHost, topic, "group", new StringEncoder(), partitionizerProvider))
   }
 
   def createHelperSource(elements: Long): Source[String, _] = elements match {

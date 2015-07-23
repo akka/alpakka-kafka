@@ -1,7 +1,6 @@
 package com.softwaremill.react.kafka
 
 import java.util.UUID
-import com.softwaremill.react.kafka.ProducerProps
 import kafka.serializer.StringEncoder
 import org.reactivestreams.{Subscription, Subscriber}
 import org.reactivestreams.tck.SubscriberWhiteboxVerification.{SubscriberPuppet, WhiteboxSubscriberProbe}
@@ -19,7 +18,7 @@ class ReactiveKafkaSubscriberWhiteboxSpec(defaultTimeout: FiniteDuration)
 
   override def createSubscriber(whiteboxSubscriberProbe: WhiteboxSubscriberProbe[String]): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
-    new SubscriberDecorator(kafka.publish(ProducerProps(kafkaHost, topic, "group", new StringEncoder())), whiteboxSubscriberProbe)
+    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, "group", new StringEncoder())), whiteboxSubscriberProbe)
   }
 
   override def createElement(i: Int) = i.toString
