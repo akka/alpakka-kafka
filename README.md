@@ -13,7 +13,7 @@ Supports Kafka 0.8.2.1
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
-libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.6.0"
+libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.7.0"
 ````
 
 Testing
@@ -27,28 +27,55 @@ Example usage
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.ReactiveKafka
-import com.softwaremill.react.kafka.ProducerProps
-import com.softwaremill.react.kafka.ConsumerProps
 import kafka.serializer.{StringDecoder, StringEncoder}
+import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
-val publisher = kafka.consume(ConsumerProps("localhost:9092", "localhost:2181", "lowercaseStrings", "groupName", new StringDecoder()))
-val subscriber = kafka.publish(ProducerProps("localhost:9092", "uppercaseSettings", "groupName", new StringEncoder()))
+val publisher = kafka.consume(ConsumerProperties(
+  brokerList = "localhost:9092",
+  zooKeeperHost = "localhost:2181",
+  topic = "lowercaseStrings",
+  groupId = "groupName",
+  decoder = new StringDecoder()
+))
+val subscriber = kafka.publish(ProducerProperties(
+  brokerList = "localhost:9092",
+  topic = "uppercaseStrings",
+  clientId = "groupName",
+  encoder = new StringEncoder()
+))
 
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
+
+Passing configuration properties to Kafka
+----
+In order to set your own custom Kafka parameters, you can construct `ConsumerProperties` and `ProducerProperties` using
+some of their provided methods in a builder-pattern-style DSL, for example:  
+```Scala
+val consumerProperties = ConsumerProperties(
+  "localhost:9092",
+  "localhost:2181",
+  "topic",
+  "groupId",
+  new StringDecoder()
+)
+  .consumerTimeoutMs(timeInMs = 100)
+  .kafkaOffsetsStorage(dualCommit = true)
+  .setProperty("some.kafka.property", "value") 
+```
+The `ProducerProperties` class offers a similar API.
 
 Controlling consumer start offset
 ----
 
 By default a new consumer will start reading from the beginning of a topic. If you want to start reading from the end,
-you can use alternative way to create a consumer:
+you can specify this on your `ConsumerProperties`:
 ```Scala
-  val publisher = kafka.consumeFromEnd(topic, groupId, new StringDecoder())
+  val consumerProperties = ConsumerProperties(...).readFromEndOfStream()
 ````
 
 Working with actors
@@ -62,23 +89,39 @@ own supervisor create these actor as children, or you can  directly create actor
 Here are a some examples:  
 
 ```Scala
+import akka.actor.{Props, ActorRef, Actor, ActorSystem}
+import akka.stream.ActorMaterializer
+import kafka.serializer.{StringEncoder, StringDecoder}
+import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
+
 // inside an Actor:
 implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
 // publisher
-val publisherProps = ConsumerProps("localhost:9092", "localhost:2181", "lowercaseStrings", "groupName", new StringDecoder())
-val publisherActorProps: Props = kafka.consumerActorProps(publisherProps)
+val publisherProperties = ConsumerProperties(
+  brokerList = "localhost:9092",
+  zooKeeperHost = "localhost:2181",
+  topic = "lowercaseStrings",
+  groupId = "groupName",
+  decoder = new StringDecoder()
+)
+val publisherActorProps: Props = kafka.consumerActorProps(publisherProperties)
 val publisherActor: ActorRef = context.actorOf(publisherActorProps)
 // or:
-val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProps)
-      
+val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProperties)
+
 // subscriber
-val subscriberProps = ProducerProps("localhost:9092", "uppercaseSettings", "groupName", new StringEncoder())
-val subscriberActorProps: Props = kafka.producerActorProps(subscriberProps)
+val subscriberProperties = ProducerProperties(
+  brokerList = "localhost:9092",
+  topic = "uppercaseStrings",
+  clientId = "groupName",
+  encoder = new StringEncoder()
+)
+val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
 val subscriberActor: ActorRef = context.actorOf(subscriberActorProps)
 // or:
-val topLevelSubscriberActor: ActorRef = kafka.producerActor(subscriberProps)
+val topLevelSubscriberActor: ActorRef = kafka.producerActor(subscriberProperties)
 ```
 
 #### Handling errors
@@ -98,4 +141,6 @@ Tuning
 
 KafkaActorSubscriber and KafkaActorPublisher have their own thread pools, configured in `reference.conf`.
 You can tune them by overriding `kafka-publisher-dispatcher.thread-pool-executor` and
-`kafka-subscriber-dispatcher.thread-pool-executor` in your `application.conf` file.
+`kafka-subscriber-dispatcher.thread-pool-executor` in your `application.conf` file.  
+Alternatively you can provide your own dispatcher name. It can be passed to appropriate variants of factory methods in
+`ReactiveKafka`: `publish()`, `producerActor()`, `producerActorProps()` or `consume()`, `consumerActor()`, `consumerActorProps()`.
