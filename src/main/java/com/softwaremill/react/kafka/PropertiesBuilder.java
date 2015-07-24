@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Builder class wrapping Consumer & Prooducer  properties creation in Java API.
+ * Builder class wrapping Consumer & Producer properties creation in Java API.
  */
 public class PropertiesBuilder {
 
