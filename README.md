@@ -58,20 +58,24 @@ private ActorSystem actorSystem = ActorSystem.create("ReactiveKafka")
 private String brokerList = "localhost:9092";
 private String zooKeeperHost = "localhost:2181";
   
-private ReactiveKafka kafka = new ReactiveKafka(brokerList, zooKeeperHost)
+private ReactiveKafka kafka = new ReactiveKafka()
 
 ConsumerProperties<String> cp = new PropertiesBuilder.Consumer()
-        .withStringDecoder(Optional.empty())
+        .withZooKeeperHost(zooKeeperHost)
+        .withBrokerList(brokerList)
         .withGroupId(groupName)
         .withTopic(topic)
+        .withStringDecoder()
         .<String>build();
 
 Publisher<String> publisher = kafka.consume(cp, actorSystem);
         
 ProducerProperties<String> pp = new PropertiesBuilder.Producer()
-        .withStringEncoder(Optional.empty())
+        .withZooKeeperHost(zooKeeperHost)
+        .withBrokerList(brokerList)
         .withClientId(groupName)
         .withTopic(topic)
+        .withStringEncoder()
         .build();
 
 Subscriber<String> subscriber = kafka.publish(pp, actorSystem);

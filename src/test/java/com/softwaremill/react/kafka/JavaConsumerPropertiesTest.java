@@ -5,7 +5,6 @@ import kafka.consumer.ConsumerConfig;
 import kafka.serializer.StringDecoder;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import static junit.framework.Assert.assertEquals;
@@ -26,7 +25,7 @@ public class JavaConsumerPropertiesTest {
                 .withBrokerList(brokerList)
                 .withGroupId(groupId)
                 .withTopic(topic)
-                .withStringDecoder(Optional.empty())
+                .withStringDecoder()
                 .build();
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
@@ -49,7 +48,7 @@ public class JavaConsumerPropertiesTest {
                 .withBrokerList(brokerList)
                 .withGroupId(groupId)
                 .withTopic(topic)
-                .withStringDecoder(Optional.empty())
+                .withStringDecoder()
                 .build()
                 .readFromEndOfStream()
                 .consumerTimeoutMs(1234)

@@ -6,7 +6,6 @@ import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
 
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Builder class wrapping Consumer & Producer properties creation in Java API.
@@ -45,17 +44,23 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public Consumer withStringDecoder(Optional<VerifiableProperties> props) {
-            this.decoder = props.isPresent()
-                    ? new StringDecoder(props.get())
-                    : new StringDecoder(null);
+        public Consumer withStringDecoder(VerifiableProperties props) {
+            this.decoder = new StringDecoder(props);
             return this;
         }
 
-        public Consumer withDefaultDecoder(Optional<VerifiableProperties> props) {
-            this.decoder = props.isPresent()
-                    ? new DefaultDecoder(props.get())
-                    : new DefaultDecoder(null);
+        public Consumer withStringDecoder() {
+            this.decoder = new StringDecoder(null);
+            return this;
+        }
+
+        public Consumer withDefaultDecoder(VerifiableProperties props) {
+            this.decoder = new DefaultDecoder(props);
+            return this;
+        }
+
+        public Consumer withDefaultDecoder() {
+            this.decoder = new DefaultDecoder(null);
             return this;
         }
 
@@ -105,24 +110,33 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public Producer withStringEncoder(Optional<VerifiableProperties> props) {
-            this.encoder = props.isPresent()
-                    ? new StringEncoder(props.get())
-                    : new StringEncoder(null);
+        public Producer withStringEncoder(VerifiableProperties props) {
+            this.encoder = new StringEncoder(props);
             return this;
         }
 
-        public Producer withDefaultEncoder(Optional<VerifiableProperties> props) {
-            this.encoder = props.isPresent()
-                    ? new DefaultEncoder(props.get())
-                    : new DefaultEncoder(null);
+        public Producer withStringEncoder() {
+            this.encoder = new StringEncoder(null);
             return this;
         }
 
-        public Producer withNullEncoder(Optional<VerifiableProperties> props) {
-            this.encoder = props.isPresent()
-                    ? new NullEncoder(props.get())
-                    : new NullEncoder(null);
+        public Producer withDefaultEncoder() {
+            this.encoder = new DefaultEncoder(null);
+            return this;
+        }
+
+        public Producer withDefaultEncoder(VerifiableProperties props) {
+            this.encoder = new DefaultEncoder(props);
+            return this;
+        }
+
+        public Producer withNullEncoder() {
+            this.encoder = new NullEncoder(null);
+            return this;
+        }
+
+        public Producer withNullEncoder(VerifiableProperties props) {
+            this.encoder = new NullEncoder(props);
             return this;
         }
 
