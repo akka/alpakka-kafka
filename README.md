@@ -51,6 +51,32 @@ val subscriber = kafka.publish(ProducerProperties(
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
 
+```Java
+private ActorSystem actorSystem = ActorSystem.create("ReactiveKafka")
+private String brokerList = "localhost:9092";
+private String zooKeeperHost = "localhost:2181";
+  
+private ReactiveKafka kafka = new ReactiveKafka(brokerList, zooKeeperHost)
+
+ConsumerProperties<String> cp = new PropertiesBuilder.Consumer()
+        .withStringDecoder(Optional.empty())
+        .withGroupId(groupName)
+        .withTopic(topic)
+        .<String>build();
+
+Publisher<String> publisher = kafka.consume(cp, actorSystem);
+        
+ProducerProperties<String> pp = new PropertiesBuilder.Producer()
+        .withStringEncoder(Optional.empty())
+        .withClientId(groupName)
+        .withTopic(topic)
+        .build();
+
+Subscriber<String> subscriber = kafka.publish(pp, actorSystem);
+
+Source(publisher).map((d) -> d.toUpperCase()).to(Sink(subscriber)).run()
+```
+
 Passing configuration properties to Kafka
 ----
 In order to set your own custom Kafka parameters, you can construct `ConsumerProperties` and `ProducerProperties` using
