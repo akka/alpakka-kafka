@@ -23,6 +23,7 @@ Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and l
 Example usage
 ----
 
+#### Scala
 ```Scala
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -51,6 +52,7 @@ val subscriber = kafka.publish(ProducerProperties(
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
 
+#### Java
 ```Java
 private ActorSystem actorSystem = ActorSystem.create("ReactiveKafka")
 private String brokerList = "localhost:9092";
