@@ -79,7 +79,7 @@ public class PropertiesBuilder {
     public static class Producer {
 
         private String topic;
-        private String groupId;
+        private String clientId;
         private Encoder encoder;
         private String brokerList;
         private String zooKeeperHost;
@@ -90,8 +90,8 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public Producer withGroupId(String groupId) {
-            this.groupId = groupId;
+        public Producer withClientId(String clientId) {
+            this.clientId = clientId;
             return this;
         }
 
@@ -133,9 +133,9 @@ public class PropertiesBuilder {
 
         public <P> ProducerProperties build() {
             if (brokerList != null && zooKeeperHost != null) {
-                return ProducerProperties.<P>apply(brokerList, topic, groupId, encoder);
+                return ProducerProperties.<P>apply(brokerList, topic, clientId, encoder);
             }
-            return ProducerProperties.<P>apply(producerParams, topic, groupId, encoder, null);
+            return ProducerProperties.<P>apply(producerParams, topic, clientId, encoder, null);
 
         }
 
