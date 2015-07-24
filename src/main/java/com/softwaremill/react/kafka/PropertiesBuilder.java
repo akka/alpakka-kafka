@@ -64,7 +64,7 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public <C> ConsumerProperties build() {
+        public <C> ConsumerProperties<C> build() {
             if (brokerList != null && zooKeeperHost != null) {
                 return ConsumerProperties.<C>apply(brokerList, zooKeeperHost, topic, groupId, decoder);
             }
@@ -131,7 +131,7 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public <P> ProducerProperties build() {
+        public <P> ProducerProperties<P> build() {
             if (brokerList != null && zooKeeperHost != null) {
                 return ProducerProperties.<P>apply(brokerList, topic, clientId, encoder);
             }
