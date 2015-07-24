@@ -66,7 +66,7 @@ ConsumerProperties<String> cp = new PropertiesBuilder.Consumer()
         .withGroupId(groupName)
         .withTopic(topic)
         .withStringDecoder()
-        .<String>build();
+        .build();
 
 Publisher<String> publisher = kafka.consume(cp, actorSystem);
         
