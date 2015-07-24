@@ -54,33 +54,34 @@ Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 
 #### Java
 ```Java
-private ActorSystem actorSystem = ActorSystem.create("ReactiveKafka")
-private String brokerList = "localhost:9092";
-private String zooKeeperHost = "localhost:2181";
-  
-private ReactiveKafka kafka = new ReactiveKafka()
+String zooKeeperHost = "localhost:2181";
+String brokerList = "localhost:9092";
+
+ReactiveKafka kafka = new ReactiveKafka();
+ActorSystem system = ActorSystem.create("ReactiveKafka");
+ActorMaterializer materializer = ActorMaterializer.create(system);
 
 ConsumerProperties<String> cp = new PropertiesBuilder.Consumer()
         .withZooKeeperHost(zooKeeperHost)
         .withBrokerList(brokerList)
-        .withGroupId(groupName)
-        .withTopic(topic)
+        .withGroupId("groupName")
+        .withTopic("topic")
         .withStringDecoder()
         .build();
 
-Publisher<String> publisher = kafka.consume(cp, actorSystem);
-        
+Publisher<String> publisher = kafka.consume(cp, system);
+
 ProducerProperties<String> pp = new PropertiesBuilder.Producer()
         .withZooKeeperHost(zooKeeperHost)
         .withBrokerList(brokerList)
-        .withClientId(groupName)
-        .withTopic(topic)
+        .withClientId("groupName")
+        .withTopic("topic")
         .withStringEncoder()
         .build();
 
-Subscriber<String> subscriber = kafka.publish(pp, actorSystem);
+Subscriber<String> subscriber = kafka.publish(pp, system);
 
-Source(publisher).map((d) -> d.toUpperCase()).to(Sink(subscriber)).run()
+Source.from(publisher).map(String::toUpperCase).to(Sink.create(subscriber)).run(materializer);
 ```
 
 Passing configuration properties to Kafka
