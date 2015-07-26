@@ -148,7 +148,7 @@ public class PropertiesBuilder {
         /**
          * Create a ProducerProperties object
          *
-         * @param <C> the type of Producer to construct
+         * @param <P> the type of Producer to construct
          * @return a fully constructed ProducerProperties
          */
         public <P> ProducerProperties<P> build() {
