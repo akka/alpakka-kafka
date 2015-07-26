@@ -13,35 +13,56 @@ import java.util.Map;
 public class PropertiesBuilder {
 
     /**
-     * The Consumer Builder
+     * Base properties required by consumers and producers
      */
-    public static class Consumer {
+    private static class BaseProperties {
 
-        private String topic;
-        private String groupId;
-        private Decoder decoder;
         private String brokerList;
         private String zooKeeperHost;
+        private String topic;
+
+        public BaseProperties(String brokerList, String zooKeeperHost, String topic) {
+            this.brokerList = brokerList;
+            this.zooKeeperHost = zooKeeperHost;
+            this.topic = topic;
+        }
+
+        /**
+         * Determines if a broker list and zookeeper host are both not null
+         *
+         * @return boolean if both are not null
+         */
+        private boolean hasConnectionPropertiesSet() {
+            return this.brokerList != null && this.zooKeeperHost != null;
+        }
+
+        public String getBrokerList() {
+            return brokerList;
+        }
+
+        public String getZooKeeperHost() {
+            return zooKeeperHost;
+        }
+
+        public String getTopic() {
+            return topic;
+        }
+    }
+
+
+    /**
+     * The Consumer Builder
+     */
+    public static class Consumer extends BaseProperties {
+
+        private Decoder decoder;
+        private String groupId;
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
-        public Consumer withTopic(String topic) {
-            this.topic = topic;
-            return this;
-        }
-
-        public Consumer withGroupId(String groupId) {
+        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId) {
+            super(zooKeeperHost, brokerList, topic);
+            this.decoder = new DefaultDecoder(null);
             this.groupId = groupId;
-            return this;
-        }
-
-        public Consumer withBrokerList(String brokerList) {
-            this.brokerList = brokerList;
-            return this;
-        }
-
-        public Consumer withZooKeeperHost(String zooKeeperHost) {
-            this.zooKeeperHost = zooKeeperHost;
-            return this;
         }
 
         public Consumer withStringDecoder(VerifiableProperties props) {
@@ -59,21 +80,22 @@ public class PropertiesBuilder {
             return this;
         }
 
-        public Consumer withDefaultDecoder() {
-            this.decoder = new DefaultDecoder(null);
-            return this;
-        }
-
         public Consumer withParams(Map<String, String> params) {
             this.consumerParams = new HashMap<String, String>().$plus$plus(JavaConverters.mapAsScalaMapConverter(params).asScala());
             return this;
         }
 
+        /**
+         * Create a ConsumerProperties object
+         *
+         * @param <C> the type of Consumer to construct
+         * @return a fully constructed ConsumerProperties
+         */
         public <C> ConsumerProperties<C> build() {
-            if (brokerList != null && zooKeeperHost != null) {
-                return ConsumerProperties.<C>apply(brokerList, zooKeeperHost, topic, groupId, decoder);
+            if (super.hasConnectionPropertiesSet()) {
+                return ConsumerProperties.<C>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
             }
-            return ConsumerProperties.<C>apply(consumerParams, topic, groupId, decoder);
+            return ConsumerProperties.<C>apply(consumerParams, getTopic(), groupId, decoder);
         }
 
     }
@@ -81,33 +103,16 @@ public class PropertiesBuilder {
     /**
      * The Producer Builder
      */
-    public static class Producer {
+    public static class Producer extends BaseProperties {
 
-        private String topic;
         private String clientId;
         private Encoder encoder;
-        private String brokerList;
-        private String zooKeeperHost;
         private scala.collection.immutable.Map<String, String> producerParams = new HashMap<>();
 
-        public Producer withTopic(String topic) {
-            this.topic = topic;
-            return this;
-        }
-
-        public Producer withClientId(String clientId) {
+        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId) {
+            super(brokerList, zooKeeperHost, topic);
             this.clientId = clientId;
-            return this;
-        }
-
-        public Producer withBrokerList(String brokerList) {
-            this.brokerList = brokerList;
-            return this;
-        }
-
-        public Producer withZooKeeperHost(String zooKeeperHost) {
-            this.zooKeeperHost = zooKeeperHost;
-            return this;
+            this.encoder = new DefaultEncoder(null);
         }
 
         public Producer withStringEncoder(VerifiableProperties props) {
@@ -117,11 +122,6 @@ public class PropertiesBuilder {
 
         public Producer withStringEncoder() {
             this.encoder = new StringEncoder(null);
-            return this;
-        }
-
-        public Producer withDefaultEncoder() {
-            this.encoder = new DefaultEncoder(null);
             return this;
         }
 
@@ -145,11 +145,17 @@ public class PropertiesBuilder {
             return this;
         }
 
+        /**
+         * Create a ProducerProperties object
+         *
+         * @param <C> the type of Producer to construct
+         * @return a fully constructed ProducerProperties
+         */
         public <P> ProducerProperties<P> build() {
-            if (brokerList != null && zooKeeperHost != null) {
-                return ProducerProperties.<P>apply(brokerList, topic, clientId, encoder);
+            if (super.hasConnectionPropertiesSet()) {
+                return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return ProducerProperties.<P>apply(producerParams, topic, clientId, encoder, null);
+            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder, null);
 
         }
 

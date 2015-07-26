@@ -20,11 +20,7 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void HandleBaseCase() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer()
-                .withZooKeeperHost(zooKeepHost)
-                .withBrokerList(brokerList)
-                .withGroupId(groupId)
-                .withTopic(topic)
+        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId)
                 .withStringDecoder()
                 .build();
 
@@ -43,11 +39,7 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void HandleKafkaStorage() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer()
-                .withZooKeeperHost(zooKeepHost)
-                .withBrokerList(brokerList)
-                .withGroupId(groupId)
-                .withTopic(topic)
+        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId)
                 .withStringDecoder()
                 .build()
                 .readFromEndOfStream()

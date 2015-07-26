@@ -31,21 +31,14 @@ public class JavaConstructorTest {
         ActorSystem system = ActorSystem.create("ReactiveKafka");
         ActorMaterializer materializer = ActorMaterializer.create(system);
 
-        ConsumerProperties<String> cp = new PropertiesBuilder.Consumer()
-                .withZooKeeperHost(zooKeeperHost)
-                .withBrokerList(brokerList)
-                .withGroupId("groupName")
-                .withTopic("topic")
-                .withStringDecoder()
-                .build();
+        ConsumerProperties<String> cp =
+                new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId")
+                        .withStringDecoder()
+                        .build();
 
         Publisher<String> publisher = kafka.consume(cp, system);
 
-        ProducerProperties<String> pp = new PropertiesBuilder.Producer()
-                .withZooKeeperHost(zooKeeperHost)
-                .withBrokerList(brokerList)
-                .withClientId("groupName")
-                .withTopic("topic")
+        ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId")
                 .withStringEncoder()
                 .build();
 

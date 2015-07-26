@@ -14,7 +14,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
    * Constructor without default args
    */
   def this() = {
-    this("","")
+    this("", "")
   }
 
   @deprecated("Use ProducerProps", "0.7.0")

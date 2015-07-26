@@ -5,7 +5,6 @@ import kafka.producer.ProducerConfig;
 import kafka.serializer.StringEncoder;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import static junit.framework.Assert.assertEquals;
@@ -22,13 +21,10 @@ public class JavaProducerPropertiesTest {
     @Test
     public void HandleBaseCase() {
 
-        final ProducerProperties producerProperties = new PropertiesBuilder.Producer()
-                .withZooKeeperHost(zooKeepHost)
-                .withBrokerList(brokerList)
-                .withClientId(groupId)
-                .withTopic(topic)
-                .withStringEncoder(Optional.empty())
-                .build();
+        final ProducerProperties producerProperties =
+                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId)
+                        .withStringEncoder()
+                        .build();
 
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
@@ -44,15 +40,12 @@ public class JavaProducerPropertiesTest {
     @Test
     public void HandleAsyncSnappyCase() {
 
-        final ProducerProperties producerProperties = new PropertiesBuilder.Producer()
-                .withZooKeeperHost(zooKeepHost)
-                .withBrokerList(brokerList)
-                .withClientId(groupId)
-                .withTopic(topic)
-                .withStringEncoder(Optional.empty())
-                .build()
-                .asynchronous(123, 456)
-                .useSnappyCompression();
+        final ProducerProperties producerProperties =
+                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId)
+                        .withStringEncoder()
+                        .build()
+                        .asynchronous(123, 456)
+                        .useSnappyCompression();
 
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
