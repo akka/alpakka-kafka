@@ -10,7 +10,7 @@ private[kafka] class KafkaActorSubscriber[T](
 )
     extends ActorSubscriber {
 
-  protected def requestStrategy = requestStrategyProvider()
+  override protected val requestStrategy = requestStrategyProvider()
 
   override def postStop(): Unit = {
     cleanupResources()
