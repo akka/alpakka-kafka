@@ -10,6 +10,13 @@ import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
 
+  /**
+   * Constructor without default args
+   */
+  def this() = {
+    this("", "")
+  }
+
   @deprecated("Use ProducerProps", "0.7.0")
   def publish[T](
     topic: String,

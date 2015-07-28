@@ -23,6 +23,7 @@ Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and l
 Example usage
 ----
 
+#### Scala
 ```Scala
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -49,6 +50,29 @@ val subscriber = kafka.publish(ProducerProperties(
 ))
 
 Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
+```
+
+#### Java
+```Java
+String zooKeeperHost = "localhost:2181";
+String brokerList = "localhost:9092";
+
+ReactiveKafka kafka = new ReactiveKafka();
+ActorSystem system = ActorSystem.create("ReactiveKafka");
+ActorMaterializer materializer = ActorMaterializer.create(system);
+
+ConsumerProperties<String> cp =
+        new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId", new StringDecoder(null))
+                .build();
+
+Publisher<String> publisher = kafka.consume(cp, system);
+
+ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId", new StringEncoder(null))
+        .build();
+
+Subscriber<String> subscriber = kafka.publish(pp, system);
+
+Source.from(publisher).map(String::toUpperCase).to(Sink.create(subscriber)).run(materializer);
 ```
 
 Passing configuration properties to Kafka
