@@ -19,12 +19,10 @@ public class JavaProducerPropertiesTest {
     private final String groupId = uuid;
 
     @Test
-    public void HandleBaseCase() {
+    public void javaHandleBaseCase() {
 
         final ProducerProperties producerProperties =
-                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId)
-                        .withStringEncoder()
-                        .build();
+                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId, new StringEncoder(null)).build();
 
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
@@ -38,11 +36,10 @@ public class JavaProducerPropertiesTest {
     }
 
     @Test
-    public void HandleAsyncSnappyCase() {
+    public void javaHandleAsyncSnappyCase() {
 
         final ProducerProperties producerProperties =
-                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId)
-                        .withStringEncoder()
+                new PropertiesBuilder.Producer(zooKeepHost, brokerList, topic, groupId, new StringEncoder(null))
                         .build()
                         .asynchronous(123, 456)
                         .useSnappyCompression();

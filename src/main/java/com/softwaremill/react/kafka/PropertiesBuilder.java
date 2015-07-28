@@ -1,7 +1,7 @@
 package com.softwaremill.react.kafka;
 
-import kafka.serializer.*;
-import kafka.utils.VerifiableProperties;
+import kafka.serializer.Decoder;
+import kafka.serializer.Encoder;
 import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
 
@@ -59,25 +59,10 @@ public class PropertiesBuilder {
         private String groupId;
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
-        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId) {
+        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId, Decoder decoder) {
             super(zooKeeperHost, brokerList, topic);
-            this.decoder = new DefaultDecoder(null);
+            this.decoder = decoder;
             this.groupId = groupId;
-        }
-
-        public Consumer withStringDecoder(VerifiableProperties props) {
-            this.decoder = new StringDecoder(props);
-            return this;
-        }
-
-        public Consumer withStringDecoder() {
-            this.decoder = new StringDecoder(null);
-            return this;
-        }
-
-        public Consumer withDefaultDecoder(VerifiableProperties props) {
-            this.decoder = new DefaultDecoder(props);
-            return this;
         }
 
         public Consumer withParams(Map<String, String> params) {
@@ -109,35 +94,10 @@ public class PropertiesBuilder {
         private Encoder encoder;
         private scala.collection.immutable.Map<String, String> producerParams = new HashMap<>();
 
-        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId) {
+        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId, Encoder encoder) {
             super(brokerList, zooKeeperHost, topic);
             this.clientId = clientId;
-            this.encoder = new DefaultEncoder(null);
-        }
-
-        public Producer withStringEncoder(VerifiableProperties props) {
-            this.encoder = new StringEncoder(props);
-            return this;
-        }
-
-        public Producer withStringEncoder() {
-            this.encoder = new StringEncoder(null);
-            return this;
-        }
-
-        public Producer withDefaultEncoder(VerifiableProperties props) {
-            this.encoder = new DefaultEncoder(props);
-            return this;
-        }
-
-        public Producer withNullEncoder() {
-            this.encoder = new NullEncoder(null);
-            return this;
-        }
-
-        public Producer withNullEncoder(VerifiableProperties props) {
-            this.encoder = new NullEncoder(props);
-            return this;
+            this.encoder = encoder;
         }
 
         public Producer withParams(Map<String, String> params) {

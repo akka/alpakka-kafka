@@ -59,16 +59,15 @@ String brokerList = "localhost:9092";
 
 ReactiveKafka kafka = new ReactiveKafka();
 ActorSystem system = ActorSystem.create("ReactiveKafka");
+ActorMaterializer materializer = ActorMaterializer.create(system);
 
 ConsumerProperties<String> cp =
-        new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId")
-                .withStringDecoder()
+        new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId", new StringDecoder(null))
                 .build();
 
 Publisher<String> publisher = kafka.consume(cp, system);
 
-ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId")
-        .withStringEncoder()
+ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId", new StringEncoder(null))
         .build();
 
 Subscriber<String> subscriber = kafka.publish(pp, system);

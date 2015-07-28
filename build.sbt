@@ -40,8 +40,11 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.12" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
+  "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test"
 )
+
+testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
 
 publishMavenStyle := true
 publishTo := {

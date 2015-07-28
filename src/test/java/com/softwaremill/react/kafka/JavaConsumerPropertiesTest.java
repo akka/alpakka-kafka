@@ -18,10 +18,9 @@ public class JavaConsumerPropertiesTest {
     private final String groupId = uuid;
 
     @Test
-    public void HandleBaseCase() {
+    public void javaHandleBaseCase() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId)
-                .withStringDecoder()
+        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
                 .build();
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
@@ -37,10 +36,9 @@ public class JavaConsumerPropertiesTest {
     }
 
     @Test
-    public void HandleKafkaStorage() {
+    public void javaHandleKafkaStorage() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId)
-                .withStringDecoder()
+        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
                 .build()
                 .readFromEndOfStream()
                 .consumerTimeoutMs(1234)
