@@ -20,8 +20,9 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void javaHandleBaseCase() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
-                .build();
+        final ConsumerProperties<String> consumerProperties =
+                new PropertiesBuilder.Consumer<>(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
+                        .build();
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
 
@@ -38,11 +39,12 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void javaHandleKafkaStorage() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
-                .build()
-                .readFromEndOfStream()
-                .consumerTimeoutMs(1234)
-                .kafkaOffsetsStorage(true);
+        final ConsumerProperties<String> consumerProperties =
+                new PropertiesBuilder.Consumer<>(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
+                        .build()
+                        .readFromEndOfStream()
+                        .consumerTimeoutMs(1234)
+                        .kafkaOffsetsStorage(true);
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
 
