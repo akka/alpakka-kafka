@@ -52,14 +52,16 @@ public class PropertiesBuilder {
 
     /**
      * The Consumer Builder
+     *
+     * @param <D> the type of Decoder to construct
      */
-    public static class Consumer extends BaseProperties {
+    public static class Consumer<D> extends BaseProperties {
 
-        private Decoder decoder;
+        private Decoder<D> decoder;
         private String groupId;
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
-        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId, Decoder decoder) {
+        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId, Decoder<D> decoder) {
             super(zooKeeperHost, brokerList, topic);
             this.decoder = decoder;
             this.groupId = groupId;
@@ -73,28 +75,28 @@ public class PropertiesBuilder {
         /**
          * Create a ConsumerProperties object
          *
-         * @param <C> the type of Consumer to construct
          * @return a fully constructed ConsumerProperties
          */
-        public <C> ConsumerProperties<C> build() {
+        public ConsumerProperties<D> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ConsumerProperties.<C>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
+                return ConsumerProperties.apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
             }
-            return ConsumerProperties.<C>apply(consumerParams, getTopic(), groupId, decoder);
+            return ConsumerProperties.apply(consumerParams, getTopic(), groupId, decoder);
         }
 
     }
 
     /**
      * The Producer Builder
+     * @param <E> the type of Encoder to construct
      */
-    public static class Producer extends BaseProperties {
+    public static class Producer<E> extends BaseProperties {
 
         private String clientId;
-        private Encoder encoder;
+        private Encoder<E> encoder;
         private scala.collection.immutable.Map<String, String> producerParams = new HashMap<>();
 
-        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId, Encoder encoder) {
+        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId, Encoder<E> encoder) {
             super(brokerList, zooKeeperHost, topic);
             this.clientId = clientId;
             this.encoder = encoder;
@@ -108,14 +110,13 @@ public class PropertiesBuilder {
         /**
          * Create a ProducerProperties object
          *
-         * @param <P> the type of Producer to construct
          * @return a fully constructed ProducerProperties
          */
-        public <P> ProducerProperties<P> build() {
+        public  ProducerProperties<E> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
+                return ProducerProperties.apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder, null);
+            return ProducerProperties.apply(producerParams, getTopic(), clientId, encoder, null);
 
         }
 
