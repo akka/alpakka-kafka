@@ -83,7 +83,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ConsumerProperties.<K, V>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder, keyDecoder);
             }
-            return ConsumerProperties.<K, V>apply(consumerParams, getTopic(), groupId, decoder, keyDecoder);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, decoder, keyDecoder);
         }
 
     }
@@ -118,7 +118,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder, null);
+            return new ProducerProperties(producerParams, getTopic(), clientId, encoder, null);
 
         }
 
