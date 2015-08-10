@@ -1,6 +1,7 @@
 package com.softwaremill.react.kafka;
 
 import kafka.serializer.Decoder;
+import kafka.serializer.DefaultDecoder;
 import kafka.serializer.Encoder;
 import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
@@ -56,6 +57,7 @@ public class PropertiesBuilder {
     public static class Consumer extends BaseProperties {
 
         private Decoder decoder;
+        private Decoder keyDecoder = new DefaultDecoder(null);
         private String groupId;
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
@@ -73,14 +75,15 @@ public class PropertiesBuilder {
         /**
          * Create a ConsumerProperties object
          *
-         * @param <C> the type of Consumer to construct
+         * @param <K> type of key used for partitions
+         * @param <V> type of message
          * @return a fully constructed ConsumerProperties
          */
-        public <C> ConsumerProperties<C> build() {
+        public <K, V> ConsumerProperties<K, V> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ConsumerProperties.<C>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
+                return ConsumerProperties.<K, V>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder, keyDecoder);
             }
-            return ConsumerProperties.<C>apply(consumerParams, getTopic(), groupId, decoder);
+            return ConsumerProperties.<K, V>apply(consumerParams, getTopic(), groupId, decoder, keyDecoder);
         }
 
     }

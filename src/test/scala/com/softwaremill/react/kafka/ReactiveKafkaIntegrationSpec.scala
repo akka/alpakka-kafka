@@ -11,11 +11,13 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import kafka.serializer.{StringDecoder, StringEncoder}
+import org.reactivestreams.Publisher
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import KafkaMessage._
 
 class ReactiveKafkaIntegrationSpec
     extends TestKit(ActorSystem(
@@ -47,7 +49,7 @@ class ReactiveKafkaIntegrationSpec
       val publisher = kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))(system)
       val kafkaSubscriber = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
-      val testSubscriber = ActorSubscriber[String](subscriberActor)
+      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
       publisher.subscribe(testSubscriber)
 
       // when
@@ -57,7 +59,8 @@ class ReactiveKafkaIntegrationSpec
       // then
       awaitCond {
         val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
-        collectedStrings == List("one", "two")
+          .asInstanceOf[Seq[KafkaMessage[String]]]
+        collectedStrings.map(_.msg) == List("one", "two")
       }
     }
 
@@ -82,7 +85,7 @@ class ReactiveKafkaIntegrationSpec
       val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
-      val testSubscriber = ActorSubscriber[String](subscriberActor)
+      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
       publisher.subscribe(testSubscriber)
 
       // when
@@ -102,11 +105,13 @@ class ReactiveKafkaIntegrationSpec
       val encoder = new StringEncoder()
       val input = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
       val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
-      val output = ActorSubscriber[String](subscriberActor)
+      val output = ActorSubscriber[KeyValueKafkaMessage[Array[Byte], String]](subscriberActor)
       val initialProps = ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder())
 
       // when
       input.onNext("one")
+      waitUntilFirstElementInQueue()
+
       val props = if (fromEnd)
         initialProps.readFromEndOfStream()
       else
@@ -119,11 +124,16 @@ class ReactiveKafkaIntegrationSpec
 
       // then
       awaitCond {
-        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second).asInstanceOf[Seq[_]]
-        collectedStrings.nonEmpty && collectedStrings.contains("one") == !fromEnd
+        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
+          .asInstanceOf[Seq[StringKafkaMessage]]
+        collectedStrings.nonEmpty && collectedStrings.map(_.msg).contains("one") == !fromEnd
       }
     }
+  }
 
+  def waitUntilFirstElementInQueue(): Unit = {
+    // Can't think of any sensible solution at the moment
+    Thread.sleep(5000)
   }
 
   def newKafka(): ReactiveKafka = {
@@ -135,11 +145,12 @@ class ReactiveTestSubscriber extends ActorSubscriber {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
 
-  var elements: Vector[String] = Vector.empty
+  var elements: Vector[StringKafkaMessage] = Vector.empty
 
   def receive = {
+
     case ActorSubscriberMessage.OnNext(element) =>
-      elements = elements :+ element.asInstanceOf[String]
+      elements = elements :+ element.asInstanceOf[StringKafkaMessage]
     case "get elements" => sender ! elements
   }
 }

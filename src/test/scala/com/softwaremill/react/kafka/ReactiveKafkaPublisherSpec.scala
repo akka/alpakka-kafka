@@ -13,7 +13,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
-    extends PublisherVerification[String](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
+    extends PublisherVerification[KeyValueKafkaMessage[Array[Byte], String]](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with BaseSpec {
 
   def this() = this(1300 millis)
@@ -40,9 +40,9 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
   }
 
-  override def createFailedPublisher(): Publisher[String] = {
-    new Publisher[String] {
-      override def subscribe(subscriber: Subscriber[_ >: String]): Unit = {
+  override def createFailedPublisher(): Publisher[KeyValueKafkaMessage[Array[Byte], String]] = {
+    new Publisher[KeyValueKafkaMessage[Array[Byte], String]] {
+      override def subscribe(subscriber: Subscriber[_ >: KeyValueKafkaMessage[Array[Byte], String]]): Unit = {
         subscriber.onSubscribe(new Subscription {
           override def cancel(): Unit = {}
 

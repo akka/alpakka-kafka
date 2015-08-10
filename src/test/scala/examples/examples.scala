@@ -1,7 +1,11 @@
 package examples
 
 import com.softwaremill.react.kafka.ConsumerProperties
+import com.softwaremill.react.kafka.KafkaMessage.{StringKafkaMessage, KafkaMessage}
 import kafka.serializer.{StringEncoder, StringDecoder}
+import org.reactivestreams.{Subscriber, Publisher}
+
+import scala.collection.mutable
 
 /**
  * Code samples for the documentation.
@@ -19,21 +23,21 @@ object examples {
     implicit val materializer = ActorMaterializer()
 
     val kafka = new ReactiveKafka()
-    val publisher = kafka.consume(ConsumerProperties(
+    val publisher: Publisher[StringKafkaMessage] = kafka.consume(ConsumerProperties(
       brokerList = "localhost:9092",
       zooKeeperHost = "localhost:2181",
       topic = "lowercaseStrings",
       groupId = "groupName",
       decoder = new StringDecoder()
     ))
-    val subscriber = kafka.publish(ProducerProperties(
+    val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
       brokerList = "localhost:9092",
       topic = "uppercaseStrings",
       clientId = "groupName",
       encoder = new StringEncoder()
     ))
 
-    Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
+    Source(publisher).map(_.msg.toUpperCase).to(Sink(subscriber)).run()
   }
 
   def handling(): Unit = {
