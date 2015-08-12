@@ -5,15 +5,16 @@ import java.util.UUID
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
+import akka.stream.ActorMaterializer
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaMessage._
+import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import kafka.serializer.{StringDecoder, StringEncoder}
-import org.scalatest.fixture.WordSpecLike
-import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.scalatest.{BeforeAndAfterAll, Matchers, fixture}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -24,10 +25,11 @@ class ReactiveKafkaIntegrationSpec
       "ReactiveKafkaIntegrationSpec",
       ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
     ))
-    with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
+    with ImplicitSender with fixture.WordSpecLike with Matchers with BeforeAndAfterAll {
 
   val kafkaHost = "localhost:9092"
   val zkHost = "localhost:2181"
+  implicit val materializer = ActorMaterializer()
 
   def uuid() = UUID.randomUUID().toString
   implicit val timeout = Timeout(1 second)
@@ -65,8 +67,23 @@ class ReactiveKafkaIntegrationSpec
       awaitCond {
         val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
           .asInstanceOf[Seq[StringKafkaMessage]]
-        collectedStrings.map(_.msg) == List("one", "two")
+        collectedStrings.map(_.message()) == List("one", "two")
       }
+    }
+
+    "consume offsets" in { f =>
+      // given
+      val kafkaSubscriber = stringSubscriber(f)
+      val publisher = stringConsumerWithOffsetSink(f)
+
+      // when
+      Source(List("one", "two", "three")).to(Sink(kafkaSubscriber)).run()
+      Source(publisher.publisher)
+        .to(publisher.offsetCommitSink).run()
+
+      // then
+      Thread.sleep(5000)
+      // TODO
     }
 
     "start consuming from the beginning of stream" in { f =>
@@ -123,7 +140,7 @@ class ReactiveKafkaIntegrationSpec
       awaitCond {
         val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
           .asInstanceOf[Seq[StringKafkaMessage]]
-        collectedStrings.nonEmpty && collectedStrings.map(_.msg).contains("one") == !fromEnd
+        collectedStrings.nonEmpty && collectedStrings.map(_.message()).contains("one") == !fromEnd
       }
     }
   }
@@ -156,6 +173,10 @@ class ReactiveKafkaIntegrationSpec
 
   def stringConsumer(f: FixtureParam) = {
     f.kafka.consume(consumerProperties(f))(system)
+  }
+
+  def stringConsumerWithOffsetSink(f: FixtureParam) = {
+    f.kafka.consumeWithOffsetSink(consumerProperties(f))(system)
   }
 
   def newKafka(): ReactiveKafka = {
