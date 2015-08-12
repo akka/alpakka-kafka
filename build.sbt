@@ -36,12 +36,14 @@ scalacOptions ++= Seq(
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % "1.0",
-  "org.apache.kafka" %% "kafka" % "0.8.2.1",
+  "org.apache.kafka" %% "kafka" % "0.8.2.1" exclude("org.slf4j", "slf4j-log4j12"),
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.12" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
-  "junit" % "junit" % "4.12" % "test"
+  "junit" % "junit" % "4.12" % "test",
+  "com.typesafe.akka" %% "akka-slf4j" % "2.3.11" % "test",
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test"
 )
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
