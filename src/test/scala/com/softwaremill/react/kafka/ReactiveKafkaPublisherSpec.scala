@@ -2,18 +2,19 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
+import com.softwaremill.react.kafka.KafkaMessage.StringKafkaMessage
 import kafka.serializer.StringDecoder
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
-import org.reactivestreams.{Subscription, Publisher, Subscriber}
+import org.reactivestreams.{Publisher, Subscriber, Subscription}
 import org.scalatest.testng.TestNGSuiteLike
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
-    extends PublisherVerification[KeyValueKafkaMessage[Array[Byte], String]](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
+    extends PublisherVerification[StringKafkaMessage](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with BaseSpec {
 
   def this() = this(1300 millis)
@@ -40,9 +41,9 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
   }
 
-  override def createFailedPublisher(): Publisher[KeyValueKafkaMessage[Array[Byte], String]] = {
-    new Publisher[KeyValueKafkaMessage[Array[Byte], String]] {
-      override def subscribe(subscriber: Subscriber[_ >: KeyValueKafkaMessage[Array[Byte], String]]): Unit = {
+  override def createFailedPublisher(): Publisher[StringKafkaMessage] = {
+    new Publisher[StringKafkaMessage] {
+      override def subscribe(subscriber: Subscriber[_ >: StringKafkaMessage]): Unit = {
         subscriber.onSubscribe(new Subscription {
           override def cancel(): Unit = {}
 

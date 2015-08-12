@@ -33,13 +33,18 @@ public class JavaConstructorTest {
         ActorSystem system = ActorSystem.create("ReactiveKafka");
         ActorMaterializer materializer = ActorMaterializer.create(system);
 
-        ConsumerProperties<Byte[], String> cp =
+        ConsumerProperties<String> cp =
                 new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId", new StringDecoder(null))
                         .build();
 
-        Publisher<KeyValueKafkaMessage<Byte[], String>> publisher = kafka.consume(cp, system);
+        Publisher<KeyValueKafkaMessage<String>> publisher = kafka.consume(cp, system);
 
-        ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId", new StringEncoder(null))
+        ProducerProperties<String> pp = new PropertiesBuilder.Producer(
+                zooKeeperHost,
+                brokerList,
+                "topic",
+                "clientId",
+                new StringEncoder(null))
                 .build();
 
         Subscriber<String> subscriber = kafka.publish(pp, system);

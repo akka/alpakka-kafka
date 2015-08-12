@@ -9,8 +9,7 @@ import scala.annotation.tailrec
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
-    extends ActorPublisher[KeyValueKafkaMessage[K, V]] {
+private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends ActorPublisher[KeyValueKafkaMessage[T]] {
 
   val iterator = consumer.iterator()
 
@@ -28,7 +27,7 @@ private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
     super.postStop()
   }
 
-  private def tryReadingSingleElement(): Try[Option[KeyValueKafkaMessage[K, V]]] = {
+  private def tryReadingSingleElement(): Try[Option[KeyValueKafkaMessage[T]]] = {
     Try {
       val msgOpt = if (iterator.hasNext() && demand_?) Option(iterator.next()) else None
       msgOpt.map(KeyValueKafkaMessage(_))
@@ -59,12 +58,11 @@ private[kafka] object KafkaActorPublisher {
   case object Poll
 }
 
-case class KeyValueKafkaMessage[K, V](msgAndMetadata: MessageAndMetadata[K, V]) {
-  def key: K = msgAndMetadata.key()
+case class KeyValueKafkaMessage[V](msgAndMetadata: MessageAndMetadata[Array[Byte], V]) {
+  def key: Array[Byte] = msgAndMetadata.key()
   def msg: V = msgAndMetadata.message()
 }
 
 object KafkaMessage {
-  type KafkaMessage[M] = KeyValueKafkaMessage[Array[Byte], M]
-  type StringKafkaMessage = KafkaMessage[String]
+  type StringKafkaMessage = KeyValueKafkaMessage[String]
 }

@@ -2,10 +2,11 @@ package com.softwaremill.react.kafka
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
+import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import kafka.consumer._
 import kafka.producer._
-import kafka.serializer.{StringDecoder, DefaultDecoder, Decoder, Encoder}
+import kafka.serializer.{Decoder, Encoder}
 import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
@@ -114,7 +115,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem) = {
-    ActorPublisher[KeyValueKafkaMessage[Array[Byte], T]](consumerActor(topic, groupId, decoder))
+    ActorPublisher[KeyValueKafkaMessage[T]](consumerActor(topic, groupId, decoder))
   }
 
   @deprecated("Use ConsumerProps", "0.7.0")
@@ -132,7 +133,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder, new DefaultDecoder())
+    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder)
     consumerActor(props)
   }
 
@@ -142,35 +143,55 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     groupId: String,
     decoder: Decoder[T]
   )(implicit actorSystem: ActorSystem): ActorRef = {
-    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder, new DefaultDecoder()).readFromEndOfStream()
+    val props = ConsumerProperties(host, zooKeeperHost, topic, groupId, decoder).readFromEndOfStream()
     consumerActor(props)
   }
 
-  def consume[K, V](
-    props: ConsumerProperties[K, V]
+  def consume[T](
+    props: ConsumerProperties[T]
   )(implicit actorSystem: ActorSystem) = {
-    ActorPublisher[KeyValueKafkaMessage[K, V]](consumerActor(props))
+    ActorPublisher[KeyValueKafkaMessage[T]](consumerActor(props))
   }
 
-  def consume[K, V](
-    props: ConsumerProperties[K, V],
+  def consumeWithOffsetSink[T](
+    props: ConsumerProperties[T]
+  )(implicit actorSystem: ActorSystem): ReactiveKafkaPublisher[T] = {
+    val actorWithConsumer = consumerActorWithConsumer(props, ReactiveKafka.ConsumerDefaultDispatcher)
+    ReactiveKafkaPublisher(ActorPublisher[T](actorWithConsumer.actor), CommitSink.create())
+  }
+
+  def consume[T](
+    props: ConsumerProperties[T],
     dispatcher: String
   )(implicit actorSystem: ActorSystem) = {
-    ActorPublisher[KeyValueKafkaMessage[K, V]](consumerActor(props, dispatcher))
+    ActorPublisher[KeyValueKafkaMessage[T]](consumerActor(props, dispatcher))
+  }
+  def consumerActor[T](props: ConsumerProperties[T])(implicit actorSystem: ActorSystem): ActorRef = {
+    consumerActor(props, ReactiveKafka.ConsumerDefaultDispatcher)
   }
 
-  def consumerActor[K, V](props: ConsumerProperties[K, V])(implicit actorSystem: ActorSystem): ActorRef = {
-    consumerActor(props, "kafka-publisher-dispatcher")
-  }
-
-  def consumerActor[K, V](
-    props: ConsumerProperties[K, V],
+  def consumerActor[T](
+    props: ConsumerProperties[T],
     dispatcher: String
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher(dispatcher))
   }
 
-  def consumerActorProps[K, V](props: ConsumerProperties[K, V]) = {
+  private def consumerActorWithConsumer[T](
+    props: ConsumerProperties[T],
+    dispatcher: String
+  )(implicit actorSystem: ActorSystem) = {
+    val propsWithConsumer = consumerActorPropsWithConsumer(props)
+    val actor = actorSystem.actorOf(propsWithConsumer.actorProps.withDispatcher(dispatcher))
+    ConsumerWithActor(propsWithConsumer.consumer, actor)
+  }
+
+  private def consumerActorPropsWithConsumer[T](props: ConsumerProperties[T]) = {
+    val consumer = new KafkaConsumer(props)
+    ConsumerWithActorProps(consumer, Props(new KafkaActorPublisher(consumer)))
+  }
+
+  def consumerActorProps[T](props: ConsumerProperties[T]) = {
     val consumer = new KafkaConsumer(props)
     Props(new KafkaActorPublisher(consumer))
   }
@@ -179,4 +200,11 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
 
 object ReactiveKafka {
   val DefaultRequestStrategy = () => WatermarkRequestStrategy(10)
+  val ConsumerDefaultDispatcher = "kafka-publisher-dispatcher"
 }
+
+case class ReactiveKafkaPublisher[T](publisher: Publisher[T], offsetCommitSink: Sink[Long, Unit]) {
+  def subscribe(subscriber: Subscriber[T]): Unit = publisher.subscribe(subscriber)
+}
+private[kafka] case class ConsumerWithActorProps[T](consumer: KafkaConsumer[T], actorProps: Props)
+private[kafka] case class ConsumerWithActor[T](consumer: KafkaConsumer[T], actor: ActorRef)

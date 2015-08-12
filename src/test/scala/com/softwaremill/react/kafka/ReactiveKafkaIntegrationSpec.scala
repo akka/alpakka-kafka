@@ -64,7 +64,7 @@ class ReactiveKafkaIntegrationSpec
       // then
       awaitCond {
         val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
-          .asInstanceOf[Seq[KafkaMessage[String]]]
+          .asInstanceOf[Seq[StringKafkaMessage]]
         collectedStrings.map(_.msg) == List("one", "two")
       }
     }
@@ -141,7 +141,7 @@ class ReactiveKafkaIntegrationSpec
     ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder())
   }
 
-  def consumerProperties(f: FixtureParam): ConsumerProperties[Array[Byte], String] = {
+  def consumerProperties(f: FixtureParam): ConsumerProperties[String] = {
     ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder())
   }
 
