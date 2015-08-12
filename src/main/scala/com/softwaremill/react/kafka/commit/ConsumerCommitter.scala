@@ -18,7 +18,6 @@ private[commit] class ConsumerCommitter[T](
 
   override def preStart(): Unit = {
     super.preStart()
-    scheduledFlush.foreach(_.cancel())
     scheduleFlush()
   }
 
@@ -27,10 +26,9 @@ private[commit] class ConsumerCommitter[T](
     scheduledFlush = Some(context.system.scheduler.scheduleOnce(commitInterval, self, Flush))
   }
 
-  def commitGatheredOffsets(): Unit = {
-    // TODO -> the actual magic that manually commits offsets
-    log.debug("Flushing offsets to commit")
-    scheduleFlush()
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    super.preRestart(reason, message)
+    scheduledFlush.foreach(_.cancel())
   }
 
   def receive = {
@@ -46,6 +44,13 @@ private[commit] class ConsumerCommitter[T](
         partitionOffsetMap.update(msg.partition, msg.offset)
     case Flush => commitGatheredOffsets()
   }
+
+  def commitGatheredOffsets(): Unit = {
+    // TODO -> the actual magic that manually commits offsets
+    log.debug("Flushing offsets to commit")
+    scheduleFlush()
+  }
+
 }
 
 object ConsumerCommitter {
