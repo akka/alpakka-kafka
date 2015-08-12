@@ -1,7 +1,7 @@
 package examples
 
 import com.softwaremill.react.kafka.ConsumerProperties
-import com.softwaremill.react.kafka.KafkaMessage.StringKafkaMessage
+import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.reactivestreams.{Publisher, Subscriber}
 
@@ -35,7 +35,7 @@ object examples {
       encoder = new StringEncoder()
     ))
 
-    Source(publisher).map(_.msg.toUpperCase).to(Sink(subscriber)).run()
+    Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
   }
 
   def handling(): Unit = {

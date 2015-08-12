@@ -5,6 +5,7 @@ import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import kafka.message.MessageAndMetadata;
 import kafka.serializer.StringDecoder;
 import kafka.serializer.StringEncoder;
 import org.junit.Ignore;
@@ -37,7 +38,7 @@ public class JavaConstructorTest {
                 new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId", new StringDecoder(null))
                         .build();
 
-        Publisher<KeyValueKafkaMessage<String>> publisher = kafka.consume(cp, system);
+        Publisher<MessageAndMetadata<byte[], String>> publisher = kafka.consume(cp, system);
 
         ProducerProperties<String> pp = new PropertiesBuilder.Producer(
                 zooKeeperHost,
@@ -49,7 +50,7 @@ public class JavaConstructorTest {
 
         Subscriber<String> subscriber = kafka.publish(pp, system);
 
-        Source.from(publisher).map(KeyValueKafkaMessage::msg).to(Sink.create(subscriber)).run(materializer);
+        Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
     }
 
 }

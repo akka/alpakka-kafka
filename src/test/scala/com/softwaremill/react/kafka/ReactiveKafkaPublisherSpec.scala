@@ -2,7 +2,7 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import com.softwaremill.react.kafka.KafkaMessage.StringKafkaMessage
+import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.StringDecoder
 import ly.stealth.testing.BaseSpec
 import org.apache.kafka.clients.producer.ProducerRecord
