@@ -5,8 +5,8 @@ import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, Wate
 import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
+import com.softwaremill.react.kafka.commit.CommitSink
 import kafka.consumer._
-import kafka.message.MessageAndMetadata
 import kafka.producer._
 import kafka.serializer.{Decoder, Encoder}
 import org.reactivestreams.{Publisher, Subscriber}
@@ -159,7 +159,12 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     props: ConsumerProperties[T]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[T] = {
     val actorWithConsumer = consumerActorWithConsumer(props, ReactiveKafka.ConsumerDefaultDispatcher)
-    PublisherWithCommitSink[T](ActorPublisher[KafkaMessage[T]](actorWithConsumer.actor), CommitSink.create())
+    PublisherWithCommitSink[T](
+      ActorPublisher[KafkaMessage[T]](
+        actorWithConsumer.actor
+      ),
+      CommitSink.create(actorWithConsumer.consumer)
+    )
   }
 
   def consume[T](
