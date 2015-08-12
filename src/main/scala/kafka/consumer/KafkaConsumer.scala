@@ -3,6 +3,8 @@ package kafka.consumer
 import com.softwaremill.react.kafka.ConsumerProperties
 import kafka.serializer.DefaultDecoder
 import kafka.utils.Logging
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
@@ -21,4 +23,10 @@ class KafkaConsumer[T](val props: ConsumerProperties[T]) extends Logging {
   def close(): Unit = {
     connector.shutdown()
   }
+
+  def commitInterval = props.commitInterval.getOrElse(KafkaConsumer.DefaultCommitInterval)
+}
+
+object KafkaConsumer {
+  val DefaultCommitInterval = 30 seconds
 }

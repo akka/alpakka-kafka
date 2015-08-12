@@ -1,9 +1,12 @@
 package com.softwaremill.react.kafka
 
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 import kafka.consumer.ConsumerConfig
 import kafka.serializer.Decoder
+
+import scala.concurrent.duration.FiniteDuration
 
 object ConsumerProperties {
 
@@ -65,6 +68,12 @@ case class ConsumerProperties[T](
 ) {
 
   /**
+   * Use custom interval for auto-commit or commit flushing on manual commit.
+   */
+  def commitInterval(time: FiniteDuration): ConsumerProperties[T] =
+    setProperty("auto.commit.interval.ms", time.toMillis.toString)
+
+  /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
@@ -116,6 +125,10 @@ case class ConsumerProperties[T](
 
   // accessors
   def zookeeperConnect: Option[String] = params.get("zookeeper.connect")
+
+  def commitInterval: Option[FiniteDuration] =
+    params.get("auto.commit.interval.ms")
+      .map(i => new FiniteDuration(i.toLong, TimeUnit.MILLISECONDS))
 
   /**
    * Dump current props for debugging
