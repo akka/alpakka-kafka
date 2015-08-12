@@ -25,6 +25,8 @@ class KafkaConsumer[T](val props: ConsumerProperties[T]) extends Logging {
   }
 
   def commitInterval = props.commitInterval.getOrElse(KafkaConsumer.DefaultCommitInterval)
+
+  def kafkaOffsetStorage = props.kafkaOffsetStorage
 }
 
 object KafkaConsumer {

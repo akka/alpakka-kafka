@@ -109,6 +109,9 @@ case class ConsumerProperties[T](
    */
   def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] =
     setProperties(("offsets.storage", "kafka"), ("dual.commit.enabled", dualCommit.toString))
+
+  def kafkaOffsetStorage = "kafka".equals(params("offsets.storage"))
+
   /**
    * Set any additional properties as needed
    */
