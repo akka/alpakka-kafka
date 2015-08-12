@@ -8,16 +8,16 @@ import akka.pattern.ask
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
+import com.softwaremill.react.kafka.KafkaMessage._
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import kafka.serializer.{StringDecoder, StringEncoder}
-import org.reactivestreams.Publisher
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.fixture.WordSpecLike
+import org.scalatest.{BeforeAndAfterAll, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import KafkaMessage._
 
 class ReactiveKafkaIntegrationSpec
     extends TestKit(ActorSystem(
@@ -38,17 +38,22 @@ class ReactiveKafkaIntegrationSpec
     TestKit.shutdownActorSystem(system)
   }
 
-  "Reactive kafka streams" must {
+  def withFixture(test: OneArgTest) = {
+    val topic = uuid()
+    val group = uuid()
+    val kafka = newKafka()
+    val theFixture = FixtureParam(topic, group, kafka)
+    withFixture(test.toNoArgTest(theFixture))
+  }
 
-    "combine well" in {
+  case class FixtureParam(topic: String, group: String, kafka: ReactiveKafka)
+
+  "Reactive kafka streams" must {
+    "combine well" in { f =>
       // given
-      val topic = uuid()
-      val group = uuid()
-      val kafka = newKafka()
-      val encoder = new StringEncoder()
-      val publisher = kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))(system)
-      val kafkaSubscriber = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
-      val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
+      val publisher = stringConsumer(f)
+      val kafkaSubscriber = stringSubscriber(f)
+      val subscriberActor = createTestSubscriber()
       val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
       publisher.subscribe(testSubscriber)
 
@@ -64,27 +69,23 @@ class ReactiveKafkaIntegrationSpec
       }
     }
 
-    "start consuming from the beginning of stream" in {
-      shouldStartConsuming(fromEnd = false)
+    "start consuming from the beginning of stream" in { f =>
+      shouldStartConsuming(fromEnd = false, f)
     }
 
-    "start consuming from the end of stream" in {
-      shouldStartConsuming(fromEnd = true)
+    "start consuming from the end of stream" in { f =>
+      shouldStartConsuming(fromEnd = true, f)
     }
 
-    "close producer, kill actor and log error when in trouble" in {
+    "close producer, kill actor and log error when in trouble" in { f =>
       // given
-      val topic = uuid()
-      val group = uuid()
-      val kafka = newKafka()
-      val encoder = new StringEncoder()
-      val publisher = kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
-      val producerProps = ProducerProperties(kafkaHost, topic, group, encoder)
-      val subscriberProps = kafka.producerActorProps(producerProps, requestStrategy = defaultWatermarkStrategy)
+      val publisher = f.kafka.consume(consumerProperties(f))
+      val producerProperties = createProducerProperties(f)
+      val subscriberProps = createSubscriberProps(f.kafka, producerProperties)
       val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
       val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
-      val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
+      val subscriberActor = createTestSubscriber()
       val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
       publisher.subscribe(testSubscriber)
 
@@ -97,16 +98,12 @@ class ReactiveKafkaIntegrationSpec
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
-    def shouldStartConsuming(fromEnd: Boolean): Unit = {
+    def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam): Unit = {
       // given
-      val kafka = newKafka()
-      val topic = uuid()
-      val group = uuid()
-      val encoder = new StringEncoder()
-      val input = kafka.publish(ProducerProperties(kafkaHost, topic, group, encoder))(system)
-      val subscriberActor = system.actorOf(Props(new ReactiveTestSubscriber))
-      val output = ActorSubscriber[KeyValueKafkaMessage[Array[Byte], String]](subscriberActor)
-      val initialProps = ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder())
+      val input = stringSubscriber(f)
+      val subscriberActor = createTestSubscriber()
+      val output = ActorSubscriber[StringKafkaMessage](subscriberActor)
+      val initialProps = consumerProperties(f)
 
       // when
       input.onNext("one")
@@ -116,7 +113,7 @@ class ReactiveKafkaIntegrationSpec
         initialProps.readFromEndOfStream()
       else
         initialProps
-      val inputConsumer = kafka.consume(props)(system)
+      val inputConsumer = f.kafka.consume(props)(system)
 
       for (i <- 1 to 2000)
         input.onNext("two")
@@ -134,6 +131,31 @@ class ReactiveKafkaIntegrationSpec
   def waitUntilFirstElementInQueue(): Unit = {
     // Can't think of any sensible solution at the moment
     Thread.sleep(5000)
+  }
+
+  def createSubscriberProps(kafka: ReactiveKafka, producerProperties: ProducerProperties[String]): Props = {
+    kafka.producerActorProps(producerProperties, requestStrategy = defaultWatermarkStrategy)
+  }
+
+  def createProducerProperties(f: FixtureParam): ProducerProperties[String] = {
+    ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder())
+  }
+
+  def consumerProperties(f: FixtureParam): ConsumerProperties[Array[Byte], String] = {
+    ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder())
+  }
+
+  def createTestSubscriber(): ActorRef = {
+    system.actorOf(Props(new ReactiveTestSubscriber))
+  }
+
+  def stringSubscriber(f: FixtureParam) = {
+    val encoder = new StringEncoder()
+    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, f.group, encoder))(system)
+  }
+
+  def stringConsumer(f: FixtureParam) = {
+    f.kafka.consume(consumerProperties(f))(system)
   }
 
   def newKafka(): ReactiveKafka = {
