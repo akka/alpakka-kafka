@@ -68,8 +68,7 @@ case class ConsumerProperties[T](
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
-  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] =
-    copy(params = params + ("consumer.timeout.ms" -> timeInMs.toString))
+  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] = setProperty("consumer.timeout.ms", timeInMs.toString)
 
   /**
    * What to do when there is no initial offset in Zookeeper or if an offset is out of range:
@@ -92,20 +91,15 @@ case class ConsumerProperties[T](
    * ***************************************************************************************
    *
    */
-  def readFromEndOfStream(): ConsumerProperties[T] = copy(params = params + ("auto.offset.reset" -> "largest"))
+  def readFromEndOfStream(): ConsumerProperties[T] = setProperty("auto.offset.reset", "largest")
 
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
-  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] = {
-    val p = params + (
-      "offsets.storage" -> "kafka",
-      "dual.commit.enabled" -> dualCommit.toString
-    )
-    copy(params = p)
-  }
+  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] =
+    setProperties(("offsets.storage", "kafka"), ("dual.commit.enabled", dualCommit.toString))
   /**
    * Set any additional properties as needed
    */
