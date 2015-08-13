@@ -6,7 +6,7 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, Th
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
     extends Actor with ActorLogging {
@@ -14,6 +14,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
   var partitionOffsetMap: OffsetMap = Map.empty
+  var committedOffsetMap: OffsetMap = Map.empty
   val topic = kafkaConsumer.props.topic
   lazy val committerOpt: Option[OffsetCommitter] = createOffsetCommitter()
 
@@ -67,10 +68,20 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     committerOpt.foreach { committer =>
-      val resultOffsetMap = Try(committer.commit(partitionOffsetMap))
-      resultOffsetMap.failed.foreach(ex => log.error(ex, "Failed to commit offsets"))
+      val offsetMapToFlush = createOffsetMapToFlush()
+      if (offsetMapToFlush.nonEmpty) {
+        val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
+        committedOffsetMapTry match {
+          case Success(resultOffsetMap) => committedOffsetMap = resultOffsetMap
+          case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
+        }
+      }
     }
     scheduleFlush()
+  }
+
+  def createOffsetMapToFlush() = {
+    (partitionOffsetMap.toSet diff committedOffsetMap.toSet).toMap
   }
 
   def createOffsetCommitter() = {

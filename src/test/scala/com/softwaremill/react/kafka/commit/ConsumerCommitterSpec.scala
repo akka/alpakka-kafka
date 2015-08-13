@@ -38,7 +38,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     super.beforeEach()
   }
 
-  it should "call flush after given commitInterval" in {
+  it should "not call flush until a message arrives" in {
     // given
     val consumer = givenConsumer(commitInterval = 500 millis)
     implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
@@ -49,9 +49,9 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 
     // then
     awaitCond {
-      offsetCommitter.started &&
-        offsetCommitter.flushCount > 1
+      offsetCommitter.started
     }
+    ensureNever(offsetCommitter.totalFlushCount > 0)
   }
 
   it should "commit offset 0" in {
@@ -102,6 +102,29 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     ensureLastCommitted(partition = 1, offset = 190L)
   }
 
+  it should "not commit the same offset twice" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 1, offset = 190L)
+    ensureLastCommitted(0, 5L)
+    ensureLastCommitted(1, 190L)
+
+    // then
+    ensureExactlyOneFlush(0, 5L)
+    ensureExactlyOneFlush(1, 190L)
+  }
+
+  def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
+    ensureNever(offsetCommitter.flushCount((partition, offset)) != 1)
+  }
+
   def startCommitterActor(committerFactory: CommitterFactory, consumer: KafkaConsumer[String]) = {
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
   }
@@ -135,7 +158,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     if (start + 3000 >= now) {
       Thread.sleep(100)
       if (unexpectedCondition)
-        fail("Assertion failed until timeout passed")
+        fail("Assertion failed before timeout passed")
       else
         ensureNever(unexpectedCondition, start)
     }
@@ -146,11 +169,15 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   var started, stopped: Boolean = false
   var innerMap: OffsetMap = Map.empty
-  var flushCount = 0
+  var flushCount: Map[(Int, Long), Int] = Map.empty
 
   override def commit(offsets: OffsetMap): OffsetMap = {
     innerMap = offsets
-    flushCount = flushCount + 1
+    offsets.foreach {
+      case ((topic, partition), offset) =>
+        val currentFlushCount = flushCount.getOrElse((partition, offset), 0)
+        flushCount = flushCount + ((partition, offset) -> (currentFlushCount + 1))
+    }
     innerMap
   }
 
@@ -159,6 +186,8 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   }.map {
     case ((_, p), o) => o
   }
+
+  def totalFlushCount = flushCount.values.sum
 
   override def start(): Unit = started = true
 
