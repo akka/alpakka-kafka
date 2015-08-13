@@ -9,7 +9,7 @@ import kafka.message.MessageAndMetadata
 import scala.util.{Success, Try}
 
 private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
-  extends Actor with ActorLogging {
+    extends Actor with ActorLogging {
 
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
