@@ -48,7 +48,8 @@ libraryDependencies ++= Seq(
   "junit" % "junit" % "4.12" % "test",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test"
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "org.mockito" % "mockito-core" % "1.10.19" % "test"
 )
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
