@@ -1,6 +1,5 @@
 package com.softwaremill.react.kafka.commit
 
-import com.cj.kafka.rx._
 import kafka.consumer.KafkaConsumer
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.ExponentialBackoffRetry

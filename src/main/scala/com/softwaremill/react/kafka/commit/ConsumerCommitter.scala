@@ -2,7 +2,6 @@ package com.softwaremill.react.kafka.commit
 
 import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, Cancellable}
-import com.cj.kafka.rx.OffsetCommitter
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, TheEnd}
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
@@ -60,7 +59,7 @@ private[commit] class ConsumerCommitter[T](
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
-    //committer.foreach(_.commit()) TODO
+    //committer.foreach(_.commit(toOffsetMap(partitionOffsetMap))) TODO
     scheduleFlush()
   }
 

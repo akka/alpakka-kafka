@@ -1,10 +1,8 @@
-package com.cj.kafka.rx
+package com.softwaremill.react.kafka.commit
 
-trait PartitionLock {
-  def acquire(): Unit
-  def release(): Unit
-}
-
+/**
+ * Based on from https://github.com/cjdev/kafka-rx
+ */
 trait SynchronizedCommitter {
   def getPartitionLock(topicPartition: TopicPartition): PartitionLock
   def withPartitionLocks[T](partitions: Iterable[TopicPartition])(callback: => T): T = {
@@ -22,12 +20,4 @@ trait SynchronizedCommitter {
       locks.foreach(_.release())
     }
   }
-}
-
-trait OffsetCommitter {
-  def commit(offsets: OffsetMap): OffsetMap
-
-  // optional / default fns below
-  def start(): Unit = ()
-  def stop(): Unit = ()
 }

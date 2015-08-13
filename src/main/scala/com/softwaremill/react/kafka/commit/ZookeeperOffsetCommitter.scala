@@ -1,16 +1,12 @@
-package com.cj.kafka.rx
+package com.softwaremill.react.kafka.commit
 
 import com.google.common.base.Charsets
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.imps.CuratorFrameworkState
-import org.apache.curator.framework.recipes.locks.InterProcessMutex
 
-class ZookeeperLock(zk: CuratorFramework, path: String) extends PartitionLock {
-  val lock = new InterProcessMutex(zk, path)
-  def acquire(): Unit = lock.acquire()
-  def release(): Unit = lock.release()
-}
-
+/**
+ * Based on from https://github.com/cjdev/kafka-rx
+ */
 class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends OffsetCommitter with SynchronizedCommitter {
 
   override def start() = {
