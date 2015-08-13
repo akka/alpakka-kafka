@@ -158,7 +158,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
   def consumeWithOffsetSink[T](
     props: ConsumerProperties[T]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[T] = {
-    val actorWithConsumer = consumerActorWithConsumer(props, ReactiveKafka.ConsumerDefaultDispatcher)
+    val actorWithConsumer = consumerActorWithConsumer(props.noAutoCommit(), ReactiveKafka.ConsumerDefaultDispatcher)
     PublisherWithCommitSink[T](
       ActorPublisher[KafkaMessage[T]](
         actorWithConsumer.actor
