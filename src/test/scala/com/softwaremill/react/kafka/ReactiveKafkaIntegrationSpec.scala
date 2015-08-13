@@ -51,98 +51,98 @@ class ReactiveKafkaIntegrationSpec
   case class FixtureParam(topic: String, group: String, kafka: ReactiveKafka)
 
   "Reactive kafka streams" must {
-    "combine well" in { f =>
-      // given
-      val publisher = stringConsumer(f)
-      val kafkaSubscriber = stringSubscriber(f)
-      val subscriberActor = createTestSubscriber()
-      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
-      publisher.subscribe(testSubscriber)
-
-      // when
-      kafkaSubscriber.onNext("one")
-      kafkaSubscriber.onNext("two")
-
-      // then
-      awaitCond {
-        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
-          .asInstanceOf[Seq[StringKafkaMessage]]
-        collectedStrings.map(_.message()) == List("one", "two")
-      }
-    }
+    //    "combine well" in { f =>
+    //      // given
+    //      val publisher = stringConsumer(f)
+    //      val kafkaSubscriber = stringSubscriber(f)
+    //      val subscriberActor = createTestSubscriber()
+    //      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
+    //      publisher.subscribe(testSubscriber)
+    //
+    //      // when
+    //      kafkaSubscriber.onNext("one")
+    //      kafkaSubscriber.onNext("two")
+    //
+    //      // then
+    //      awaitCond {
+    //        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
+    //          .asInstanceOf[Seq[StringKafkaMessage]]
+    //        collectedStrings.map(_.message()) == List("one", "two")
+    //      }
+    //    }
 
     "consume offsets" in { f =>
       // given
       val kafkaSubscriber = stringSubscriber(f)
-      val publisher = stringConsumerWithOffsetSink(f)
+      val publisherWithCommitSink = stringConsumerWithOffsetSink(f)
 
       // when
       Source(List("one", "two", "three")).to(Sink(kafkaSubscriber)).run()
-      Source(publisher.publisher)
-        .to(publisher.offsetCommitSink).run()
+      Source(publisherWithCommitSink.publisher)
+        .to(publisherWithCommitSink.offsetCommitSink).run()
 
       // then
       Thread.sleep(5000)
       // TODO
     }
 
-    "start consuming from the beginning of stream" in { f =>
-      shouldStartConsuming(fromEnd = false, f)
-    }
-
-    "start consuming from the end of stream" in { f =>
-      shouldStartConsuming(fromEnd = true, f)
-    }
-
-    "close producer, kill actor and log error when in trouble" in { f =>
-      // given
-      val publisher = f.kafka.consume(consumerProperties(f))
-      val producerProperties = createProducerProperties(f)
-      val subscriberProps = createSubscriberProps(f.kafka, producerProperties)
-      val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
-      val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
-      val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
-      val subscriberActor = createTestSubscriber()
-      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
-      publisher.subscribe(testSubscriber)
-
-      // when
-      EventFilter[ProducerClosedException](message = "producer already closed") intercept {
-        kafkaSubscriberActor ! "Stop"
-        kafkaSubscriber.onNext("foo")
-      }
-      // then
-      expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
-    }
-
-    def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam): Unit = {
-      // given
-      val input = stringSubscriber(f)
-      val subscriberActor = createTestSubscriber()
-      val output = ActorSubscriber[StringKafkaMessage](subscriberActor)
-      val initialProps = consumerProperties(f)
-
-      // when
-      input.onNext("one")
-      waitUntilFirstElementInQueue()
-
-      val props = if (fromEnd)
-        initialProps.readFromEndOfStream()
-      else
-        initialProps
-      val inputConsumer = f.kafka.consume(props)(system)
-
-      for (i <- 1 to 2000)
-        input.onNext("two")
-      inputConsumer.subscribe(output)
-
-      // then
-      awaitCond {
-        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
-          .asInstanceOf[Seq[StringKafkaMessage]]
-        collectedStrings.nonEmpty && collectedStrings.map(_.message()).contains("one") == !fromEnd
-      }
-    }
+    //    "start consuming from the beginning of stream" in { f =>
+    //      shouldStartConsuming(fromEnd = false, f)
+    //    }
+    //
+    //    "start consuming from the end of stream" in { f =>
+    //      shouldStartConsuming(fromEnd = true, f)
+    //    }
+    //
+    //    "close producer, kill actor and log error when in trouble" in { f =>
+    //      // given
+    //      val publisher = f.kafka.consume(consumerProperties(f))
+    //      val producerProperties = createProducerProperties(f)
+    //      val subscriberProps = createSubscriberProps(f.kafka, producerProperties)
+    //      val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
+    //      val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
+    //      val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
+    //      val subscriberActor = createTestSubscriber()
+    //      val testSubscriber = ActorSubscriber[StringKafkaMessage](subscriberActor)
+    //      publisher.subscribe(testSubscriber)
+    //
+    //      // when
+    //      EventFilter[ProducerClosedException](message = "producer already closed") intercept {
+    //        kafkaSubscriberActor ! "Stop"
+    //        kafkaSubscriber.onNext("foo")
+    //      }
+    //      // then
+    //      expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
+    //    }
+    //
+    //    def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam): Unit = {
+    //      // given
+    //      val input = stringSubscriber(f)
+    //      val subscriberActor = createTestSubscriber()
+    //      val output = ActorSubscriber[StringKafkaMessage](subscriberActor)
+    //      val initialProps = consumerProperties(f)
+    //
+    //      // when
+    //      input.onNext("one")
+    //      waitUntilFirstElementInQueue()
+    //
+    //      val props = if (fromEnd)
+    //        initialProps.readFromEndOfStream()
+    //      else
+    //        initialProps
+    //      val inputConsumer = f.kafka.consume(props)(system)
+    //
+    //      for (i <- 1 to 2000)
+    //        input.onNext("two")
+    //      inputConsumer.subscribe(output)
+    //
+    //      // then
+    //      awaitCond {
+    //        val collectedStrings = Await.result(subscriberActor ? "get elements", atMost = 1 second)
+    //          .asInstanceOf[Seq[StringKafkaMessage]]
+    //        collectedStrings.nonEmpty && collectedStrings.map(_.message()).contains("one") == !fromEnd
+    //      }
+    //    }
   }
 
   def waitUntilFirstElementInQueue(): Unit = {
@@ -159,7 +159,7 @@ class ReactiveKafkaIntegrationSpec
   }
 
   def consumerProperties(f: FixtureParam): ConsumerProperties[String] = {
-    ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder())
+    ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder()).commitInterval(2 seconds)
   }
 
   def createTestSubscriber(): ActorRef = {

@@ -6,8 +6,6 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, Th
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
-import scala.collection.mutable
-
 private[commit] class ConsumerCommitter[T](
     committerFactory: CommitterFactory,
     kafkaConsumer: KafkaConsumer[T]
@@ -15,7 +13,8 @@ private[commit] class ConsumerCommitter[T](
 
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
-  var partitionOffsetMap: mutable.Map[Int, Long] = mutable.Map.empty
+  var partitionOffsetMap: OffsetMap = Map.empty
+  val topic = kafkaConsumer.props.topic
   lazy val committerOpt: Option[OffsetCommitter] = createOffsetCommitter()
 
   override def preStart(): Unit = {
@@ -52,30 +51,22 @@ private[commit] class ConsumerCommitter[T](
       kafkaConsumer.close()
     case msg: MessageAndMetadata[_, T] =>
       log.debug(s"Received commit request for offset ${msg.offset} and partition ${msg.partition}")
-      if (msg.offset > partitionOffsetMap.getOrElse(msg.partition, 0L))
-        partitionOffsetMap.update(msg.partition, msg.offset)
+      if (msg.offset > partitionOffsetMap.getOrElse((topic, msg.partition), 0L))
+        partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
     case Flush => commitGatheredOffsets()
   }
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     committerOpt.foreach { committer =>
-      val initialOffsetMap = toOffsetMap(partitionOffsetMap)
-      val resultOffsetMap = committer.commit(initialOffsetMap)
-      clearCommittedOffsets(initialOffsetMap, resultOffsetMap)
+      val resultOffsetMap = committer.commit(partitionOffsetMap)
+      clearCommittedOffsets(resultOffsetMap)
     }
     scheduleFlush()
   }
 
-  def toOffsetMap(partitionOffsetMap: mutable.Map[Int, Long]): OffsetMap = {
-    val topic = kafkaConsumer.props.topic
-    partitionOffsetMap.map {
-      case (partition, offset) => ((topic, partition), offset)
-    }.toMap
-  }
-
-  def clearCommittedOffsets(initialOffsetMap: OffsetMap, resultOffsetMap: OffsetMap): Unit = {
-    // TODO
+  def clearCommittedOffsets(resultOffsetMap: OffsetMap): Unit = {
+    partitionOffsetMap = (partitionOffsetMap.toSet diff resultOffsetMap.toSet).toMap
   }
 
   def createOffsetCommitter() = {
