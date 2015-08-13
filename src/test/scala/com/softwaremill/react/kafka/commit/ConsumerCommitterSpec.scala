@@ -9,9 +9,11 @@ import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
 import org.mockito.BDDMockito._
+import org.mockito.Mockito
 import org.scalatest._
 import org.scalatest.mock.MockitoSugar
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -69,12 +71,30 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     }
   }
 
+  it should "not commit smaller offset" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    awaitCond {
+      offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(5L)
+    }
+    actor ! msg(partition = 0, offset = 3L)
+
+    // then
+    ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(3L))
+  }
+
   def startCommitterActor(committerFactory: CommitterFactory, consumer: KafkaConsumer[String]) = {
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
   }
 
   def msg(partition: Int, offset: Long) =
-    MessageAndMetadata(topic, partition = 0, null, 0L, keyDecoder, valueDecoder)
+    MessageAndMetadata(topic, partition, null, offset, keyDecoder, valueDecoder)
 
   def givenConsumer(commitInterval: FiniteDuration) = {
     val consumer = mock[KafkaConsumer[String]]
@@ -89,6 +109,19 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     given(factory.create(consumer)).willReturn(Right(committer))
     factory
   }
+
+  @tailrec
+  private def ensureNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
+    val now = System.currentTimeMillis()
+    if (start + 3000 >= now) {
+      Thread.sleep(100)
+      if (unexpectedCondition)
+        fail("Assertion failed until timeout passed")
+      else
+        ensureNever(unexpectedCondition, start)
+    }
+  }
+
 }
 
 class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
@@ -105,7 +138,7 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   def lastCommittedOffsetFor(partition: Int) = innerMap.find {
     case ((_, p), _) => p == partition
   }.map {
-    case ((_, p), o) => 0
+    case ((_, p), o) => o
   }
 
   override def start(): Unit = started = true

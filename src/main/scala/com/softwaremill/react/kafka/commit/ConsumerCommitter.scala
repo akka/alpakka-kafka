@@ -6,7 +6,7 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, Th
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
-import scala.util.{Success, Try}
+import scala.util.Try
 
 private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
     extends Actor with ActorLogging {
@@ -49,27 +49,28 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
     case Failure =>
       log.error("Closing offset committer due to a failure")
       kafkaConsumer.close()
-    case msg: MessageAndMetadata[_, T] =>
-      log.debug(s"Received commit request for offset ${msg.offset} and partition ${msg.partition}")
-      if (msg.offset > partitionOffsetMap.getOrElse((topic, msg.partition), -1L))
-        partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
+    case msg: MessageAndMetadata[_, T] => registerCommit(msg)
     case Flush => commitGatheredOffsets()
+  }
+
+  def registerCommit(msg: MessageAndMetadata[_, T]): Unit = {
+    log.debug(s"Received commit request for partition ${msg.partition} and offset ${msg.offset}")
+    val last = partitionOffsetMap.getOrElse((topic, msg.partition), -1L)
+    if (msg.offset > last) {
+      log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
+      partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
+    }
+    else
+      log.debug(s"Skipping commit for partition ${msg.partition} and offset ${msg.offset}, last registered is $last")
   }
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     committerOpt.foreach { committer =>
       val resultOffsetMap = Try(committer.commit(partitionOffsetMap))
-      resultOffsetMap match {
-        case Success(newOffsets) => clearCommittedOffsets(newOffsets)
-        case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
-      }
+      resultOffsetMap.failed.foreach(ex => log.error(ex, "Failed to commit offsets"))
     }
     scheduleFlush()
-  }
-
-  def clearCommittedOffsets(resultOffsetMap: OffsetMap): Unit = {
-    partitionOffsetMap = (partitionOffsetMap.toSet diff resultOffsetMap.toSet).toMap
   }
 
   def createOffsetCommitter() = {
