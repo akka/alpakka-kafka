@@ -102,6 +102,7 @@ case class ConsumerProperties[T](
    */
   def readFromEndOfStream(): ConsumerProperties[T] = setProperty("auto.offset.reset", "largest")
 
+  def noAutoCommit(): ConsumerProperties[T] = setProperty("auto.commit.enable", "false")
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
