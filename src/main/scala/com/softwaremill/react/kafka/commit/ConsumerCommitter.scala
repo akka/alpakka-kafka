@@ -16,12 +16,12 @@ private[commit] class ConsumerCommitter[T](
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
   var partitionOffsetMap: mutable.Map[Int, Long] = mutable.Map.empty
-  lazy val committer: Option[OffsetCommitter] = createOffsetCommitter()
+  lazy val committerOpt: Option[OffsetCommitter] = createOffsetCommitter()
 
   override def preStart(): Unit = {
     super.preStart()
     scheduleFlush()
-    committer.foreach(_.start())
+    committerOpt.foreach(_.start())
   }
 
   def scheduleFlush(): Unit = {
@@ -40,7 +40,7 @@ private[commit] class ConsumerCommitter[T](
 
   override def postStop(): Unit = {
     super.postStop()
-    committer.foreach(_.stop())
+    committerOpt.foreach(_.stop())
   }
 
   def receive = {
@@ -59,8 +59,23 @@ private[commit] class ConsumerCommitter[T](
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
-    //committer.foreach(_.commit(toOffsetMap(partitionOffsetMap))) TODO
+    committerOpt.foreach { committer =>
+      val initialOffsetMap = toOffsetMap(partitionOffsetMap)
+      val resultOffsetMap = committer.commit(initialOffsetMap)
+      clearCommittedOffsets(initialOffsetMap, resultOffsetMap)
+    }
     scheduleFlush()
+  }
+
+  def toOffsetMap(partitionOffsetMap: mutable.Map[Int, Long]): OffsetMap = {
+    val topic = kafkaConsumer.props.topic
+    partitionOffsetMap.map {
+      case (partition, offset) => ((topic, partition), offset)
+    }.toMap
+  }
+
+  def clearCommittedOffsets(initialOffsetMap: OffsetMap, resultOffsetMap: OffsetMap): Unit = {
+    // TODO
   }
 
   def createOffsetCommitter() = {
