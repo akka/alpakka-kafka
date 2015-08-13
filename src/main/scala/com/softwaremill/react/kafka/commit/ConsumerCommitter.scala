@@ -51,7 +51,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
       kafkaConsumer.close()
     case msg: MessageAndMetadata[_, T] =>
       log.debug(s"Received commit request for offset ${msg.offset} and partition ${msg.partition}")
-      if (msg.offset > partitionOffsetMap.getOrElse((topic, msg.partition), 0L))
+      if (msg.offset > partitionOffsetMap.getOrElse((topic, msg.partition), -1L))
         partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
     case Flush => commitGatheredOffsets()
   }
