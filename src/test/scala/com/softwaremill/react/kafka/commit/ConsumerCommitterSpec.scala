@@ -9,7 +9,6 @@ import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
 import org.mockito.BDDMockito._
-import org.mockito.Mockito
 import org.scalatest._
 import org.scalatest.mock.MockitoSugar
 
@@ -42,7 +41,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   it should "call flush after given commitInterval" in {
     // given
     val consumer = givenConsumer(commitInterval = 500 millis)
-    val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
     val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
 
     // when
@@ -58,7 +57,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   it should "commit offset 0" in {
     // given
     val consumer = givenConsumer(commitInterval = 500 millis)
-    val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
     val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
 
     // when
@@ -66,31 +65,51 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     actor ! msg(partition = 0, offset = 0L)
 
     // then
-    awaitCond {
-      offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(0L)
-    }
+    ensureLastCommitted(partition = 0, offset = 0L)
   }
 
   it should "not commit smaller offset" in {
     // given
     val consumer = givenConsumer(commitInterval = 500 millis)
-    val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
     val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
 
     // when
     val actor = startCommitterActor(committerFactory, consumer)
     actor ! msg(partition = 0, offset = 5L)
-    awaitCond {
-      offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(5L)
-    }
+    ensureLastCommitted(partition = 0, offset = 5L)
     actor ! msg(partition = 0, offset = 3L)
 
     // then
     ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(3L))
   }
 
+  it should "commit larger offset" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 0, offset = 152L)
+    actor ! msg(partition = 1, offset = 190L)
+
+    // then
+    ensureLastCommitted(partition = 0, offset = 152L)
+    ensureLastCommitted(partition = 1, offset = 190L)
+  }
+
   def startCommitterActor(committerFactory: CommitterFactory, consumer: KafkaConsumer[String]) = {
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
+  }
+
+  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
+    awaitCond {
+      offsetCommitter.lastCommittedOffsetFor(partition).contains(offset)
+    }
   }
 
   def msg(partition: Int, offset: Long) =
