@@ -6,6 +6,8 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, Th
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
+import scala.util.{Success, Try}
+
 private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
   extends Actor with ActorLogging {
 
@@ -57,8 +59,11 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     committerOpt.foreach { committer =>
-      val resultOffsetMap = committer.commit(partitionOffsetMap)
-      clearCommittedOffsets(resultOffsetMap)
+      val resultOffsetMap = Try(committer.commit(partitionOffsetMap))
+      resultOffsetMap match {
+        case Success(newOffsets) => clearCommittedOffsets(newOffsets)
+        case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
+      }
     }
     scheduleFlush()
   }
