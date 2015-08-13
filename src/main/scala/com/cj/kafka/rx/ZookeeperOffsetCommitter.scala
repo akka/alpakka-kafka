@@ -59,7 +59,8 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     new ZookeeperLock(zk, lockPath)
   }
 
-  def commit(offsets: OffsetMap, merge: OffsetMerge): OffsetMap = {
+  def commit(offsets: OffsetMap): OffsetMap = {
+    val merge: OffsetMerge = { case (theirs, ours) => ours }
     withPartitionLocks(offsets.keys) {
       val zkOffsets = getOffsets(offsets.keys)
       val nextOffsets = merge(zkOffsets, offsets) map {
