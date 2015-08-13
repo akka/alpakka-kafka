@@ -127,7 +127,7 @@ case class ConsumerProperties[T](
   }
 
   // accessors
-  def zookeeperConnect: Option[String] = params.get("zookeeper.connect")
+  def zookeeperConnect: String = params("zookeeper.connect")
 
   def commitInterval: Option[FiniteDuration] =
     params.get("auto.commit.interval.ms")

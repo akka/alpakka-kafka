@@ -14,9 +14,9 @@ class KafkaConsumer[T](val props: ConsumerProperties[T]) extends Logging {
   val connector = Consumer.create(props.toConsumerConfig)
   val filterSpec = new Whitelist(props.topic)
 
-  info("setup:start topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect.getOrElse(""), props.groupId))
+  info("setup:start topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect, props.groupId))
   val stream = connector.createMessageStreamsByFilter(filterSpec, 1, new DefaultDecoder(), props.decoder).head
-  info("setup:complete topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect.getOrElse(""), props.groupId))
+  info("setup:complete topic=%s for zk=%s and groupId=%s".format(props.topic, props.zookeeperConnect, props.groupId))
 
   def iterator() = stream.iterator()
 
