@@ -12,9 +12,9 @@ private[kafka] object CommitSink {
     kafkaConsumer: KafkaConsumer[T],
     customDispatcherName: Option[String] = None
   )(implicit actorSystem: ActorSystem) = {
-    val actor = actorSystem.actorOf(
-      Props(new ConsumerCommitter(new CommitterFactory(), kafkaConsumer)), "offsetCommitter"
-    )
+    val initialProps = Props(new ConsumerCommitter(new CommitterFactory(), kafkaConsumer))
+    val props = customDispatcherName.map(initialProps.withDispatcher).getOrElse(initialProps)
+    val actor = actorSystem.actorOf(props, "offsetCommitter")
     Sink.actorRef[KafkaMessage[T]](actor, TheEnd)
   }
 }
