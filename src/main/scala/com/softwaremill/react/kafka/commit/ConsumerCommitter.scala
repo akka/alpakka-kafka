@@ -6,10 +6,8 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, Th
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
-private[commit] class ConsumerCommitter[T](
-    committerFactory: CommitterFactory,
-    kafkaConsumer: KafkaConsumer[T]
-) extends Actor with ActorLogging {
+private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
+  extends Actor with ActorLogging {
 
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
