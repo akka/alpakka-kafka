@@ -20,7 +20,6 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
 
   override def preStart(): Unit = {
     super.preStart()
-    scheduleFlush()
     committerOpt.foreach(_.start())
   }
 
@@ -29,17 +28,9 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
     scheduledFlush = Some(context.system.scheduler.scheduleOnce(commitInterval, self, Flush))
   }
 
-  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
-    super.preRestart(reason, message)
-    scheduledFlush.foreach(_.cancel())
-  }
-
-  override def postRestart(reason: Throwable): Unit = {
-    scheduleFlush()
-  }
-
   override def postStop(): Unit = {
     super.postStop()
+    scheduledFlush.foreach(_.cancel())
     committerOpt.foreach(_.stop())
   }
 
@@ -60,6 +51,8 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
     if (msg.offset > last) {
       log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
       partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
+      if (scheduledFlush.isEmpty)
+        scheduleFlush()
     }
     else
       log.debug(s"Skipping commit for partition ${msg.partition} and offset ${msg.offset}, last registered is $last")
@@ -72,12 +65,14 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
       if (offsetMapToFlush.nonEmpty) {
         val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
         committedOffsetMapTry match {
-          case Success(resultOffsetMap) => committedOffsetMap = resultOffsetMap
+          case Success(resultOffsetMap) =>
+            log.debug(s"committed offsets: $committedOffsetMap")
+            committedOffsetMap = resultOffsetMap
           case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
         }
       }
     }
-    scheduleFlush()
+    scheduledFlush = None
   }
 
   def createOffsetMapToFlush() = {
