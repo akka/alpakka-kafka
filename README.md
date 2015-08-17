@@ -67,7 +67,7 @@ ConsumerProperties<String> cp =
 
 Publisher<String> publisher = kafka.consume(cp, system);
 
-ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", "clientId", new StringEncoder(null))
+ProducerProperties<String> pp = new PropertiesBuilder.Producer(zooKeeperHost, brokerList, "topic", new StringEncoder(null))
         .build();
 
 Subscriber<String> subscriber = kafka.publish(pp, system);
@@ -139,7 +139,6 @@ val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProperties)
 val subscriberProperties = ProducerProperties(
   brokerList = "localhost:9092",
   topic = "uppercaseStrings",
-  clientId = "groupName",
   encoder = new StringEncoder()
 )
 val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)

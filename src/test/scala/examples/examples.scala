@@ -31,7 +31,6 @@ object examples {
     val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
       brokerList = "localhost:9092",
       topic = "uppercaseStrings",
-      clientId = "groupName",
       encoder = new StringEncoder()
     ))
 
@@ -65,7 +64,6 @@ object examples {
       val subscriberProperties = ProducerProperties(
         brokerList = "localhost:9092",
         topic = "uppercaseStrings",
-        clientId = "groupName",
         encoder = new StringEncoder()
       )
       val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
