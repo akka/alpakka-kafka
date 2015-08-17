@@ -184,7 +184,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher(dispatcher))
   }
 
-  private def consumerActorWithConsumer[T](
+  def consumerActorWithConsumer[T](
     props: ConsumerProperties[T],
     dispatcher: String
   )(implicit actorSystem: ActorSystem) = {

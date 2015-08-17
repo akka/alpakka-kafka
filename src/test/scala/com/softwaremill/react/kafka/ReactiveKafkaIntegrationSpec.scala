@@ -4,11 +4,15 @@ import java.util.UUID
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
-import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, WatermarkRequestStrategy}
+import akka.pattern.ask
+import akka.stream.actor.ActorPublisherMessage.Cancel
+import akka.stream.actor._
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
+import com.softwaremill.react.kafka.KafkaMessages._
+import com.softwaremill.react.kafka.commit.CommitSink
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import org.scalatest.{BeforeAndAfterAll, Matchers, fixture}
@@ -16,7 +20,6 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, fixture}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import akka.pattern.ask
 
 class ReactiveKafkaIntegrationSpec
     extends TestKit(ActorSystem(
@@ -26,7 +29,9 @@ class ReactiveKafkaIntegrationSpec
     with ImplicitSender with fixture.WordSpecLike with Matchers with BeforeAndAfterAll with KafkaTest {
 
   def uuid() = UUID.randomUUID().toString
+
   implicit val timeout = Timeout(1 second)
+
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
   override def afterAll(): Unit = {
@@ -62,19 +67,25 @@ class ReactiveKafkaIntegrationSpec
       }
     }
 
-    "consume offsets" in { f =>
+    "consume offsets" in { implicit f =>
       // given
-      val kafkaSubscriber = stringSubscriber(f)
-      val publisherWithCommitSink = stringConsumerWithOffsetSink(f)
+      givenQueueWithElements("0", "1", "2", "3", "4", "5")
 
       // when
-      Source(List("one", "two", "three")).to(Sink(kafkaSubscriber)).run()
+      val consumerProps = consumerProperties(f).commitInterval(100 millis).noAutoCommit()
+      val actorWithConsumer = f.kafka.consumerActorWithConsumer(consumerProps, ReactiveKafka.ConsumerDefaultDispatcher)
+      val publisherWithCommitSink = PublisherWithCommitSink[String](
+        ActorPublisher[StringKafkaMessage](actorWithConsumer.actor),
+        CommitSink.create(actorWithConsumer.consumer)
+      )
       Source(publisherWithCommitSink.publisher)
+        .filter(_.message().toInt < 3)
         .to(publisherWithCommitSink.offsetCommitSink).run()
+      Thread.sleep(3000) // how to wait for commit?
+      cancelConsumer(actorWithConsumer.actor)
 
       // then
-      Thread.sleep(5000)
-      // TODO
+      verifyQueueHas("3", "4", "5")
     }
 
     "start consuming from the beginning of stream" in { f =>
@@ -106,6 +117,25 @@ class ReactiveKafkaIntegrationSpec
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
+    def givenQueueWithElements(msgs: String*)(implicit f: FixtureParam) = {
+      val kafkaSubscriber = stringSubscriber(f)
+      Source(msgs.toList).to(Sink(kafkaSubscriber)).run()
+      verifyQueueHas(msgs: _*)
+    }
+
+    def verifyQueueHas(msgs: String*)(implicit f: FixtureParam) = {
+      val consumerProps = consumerProperties(f).noAutoCommit()
+      val consumerActor = f.kafka.consumerActor(consumerProps)
+
+      Source(ActorPublisher[StringKafkaMessage](consumerActor))
+        .map(_.message())
+        .runWith(TestSink.probe[String])
+        .request(msgs.length.toLong)
+        .expectNext(msgs.head, msgs.tail.head, msgs.tail.tail: _*)
+      // kill the consumer
+      cancelConsumer(consumerActor)
+    }
+
     def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam): Unit = {
       // given
       val input = stringSubscriber(f)
@@ -134,6 +164,12 @@ class ReactiveKafkaIntegrationSpec
         collectedStrings.nonEmpty && collectedStrings.map(_.message()).contains("one") == !fromEnd
       }
     }
+  }
+
+  def cancelConsumer(consumerActor: ActorRef): Terminated = {
+    watch(consumerActor)
+    consumerActor ! Cancel
+    expectTerminated(consumerActor, max = 6 seconds)
   }
 
   def waitUntilFirstElementInQueue(): Unit = {
