@@ -46,6 +46,7 @@ libraryDependencies ++= Seq(
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",

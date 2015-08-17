@@ -1,13 +1,15 @@
 package com.softwaremill.react.kafka.commit
 
 import com.google.common.base.Charsets
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.imps.CuratorFrameworkState
 
 /**
  * Based on from https://github.com/cjdev/kafka-rx
  */
-class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends OffsetCommitter with SynchronizedCommitter {
+class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends OffsetCommitter with SynchronizedCommitter
+    with LazyLogging {
 
   override def start() = {
     if (zk.getState != CuratorFrameworkState.STARTED) {
@@ -34,6 +36,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
   }
 
   private def setOffsets(offsets: Offsets): OffsetMap = {
+    logger.debug(s"About to commit offsets: $offsets")
     offsets foreach {
       case (topicPartition, offset) =>
         val (topic, partition) = topicPartition
