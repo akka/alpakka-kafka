@@ -59,7 +59,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
 
   override def getPartitionLock(topicPartition: TopicPartition): PartitionLock = {
     val (topic, partition) = topicPartition
-    val lockPath = s"/locks/kafka-rx/$topic.$group.$partition"
+    val lockPath = s"/locks/reactive-kafka/$topic.$group.$partition"
     new ZookeeperLock(zk, lockPath)
   }
 
