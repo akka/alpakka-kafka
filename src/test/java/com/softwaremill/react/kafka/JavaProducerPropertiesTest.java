@@ -47,7 +47,6 @@ public class JavaProducerPropertiesTest {
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
         assertEquals(producerProperties.topic(), topic);
-        assertEquals(producerProperties.clientId(), groupId);
         assertEquals(producerProperties.encoder().getClass().getSimpleName(), StringEncoder.class.getSimpleName());
         assertEquals(producerConfig.clientId(), groupId);
         assertEquals(producerConfig.messageSendMaxRetries(), 3);

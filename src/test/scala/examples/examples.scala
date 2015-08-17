@@ -1,7 +1,9 @@
 package examples
 
 import com.softwaremill.react.kafka.ConsumerProperties
-import kafka.serializer.{StringEncoder, StringDecoder}
+import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
+import kafka.serializer.{StringDecoder, StringEncoder}
+import org.reactivestreams.{Publisher, Subscriber}
 
 /**
  * Code samples for the documentation.
@@ -13,33 +15,33 @@ object examples {
     import akka.actor.ActorSystem
     import akka.stream.ActorMaterializer
     import akka.stream.scaladsl.{Sink, Source}
-    import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
+    import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
     implicit val actorSystem = ActorSystem("ReactiveKafka")
     implicit val materializer = ActorMaterializer()
 
     val kafka = new ReactiveKafka()
-    val publisher = kafka.consume(ConsumerProperties(
+    val publisher: Publisher[StringKafkaMessage] = kafka.consume(ConsumerProperties(
       brokerList = "localhost:9092",
       zooKeeperHost = "localhost:2181",
       topic = "lowercaseStrings",
       groupId = "groupName",
       decoder = new StringDecoder()
     ))
-    val subscriber = kafka.publish(ProducerProperties(
+    val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
       brokerList = "localhost:9092",
       topic = "uppercaseStrings",
       clientId = "groupName",
       encoder = new StringEncoder()
     ))
 
-    Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
+    Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
   }
 
   def handling(): Unit = {
-    import akka.actor.{Props, ActorRef, Actor, ActorSystem}
+    import akka.actor.{Actor, ActorRef, ActorSystem, Props}
     import akka.stream.ActorMaterializer
-    import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
+    import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
     class Handler extends Actor {
       implicit val actorSystem = ActorSystem("ReactiveKafka")

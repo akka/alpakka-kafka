@@ -1,9 +1,12 @@
 package com.softwaremill.react.kafka
 
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 import kafka.consumer.ConsumerConfig
 import kafka.serializer.Decoder
+
+import scala.concurrent.duration.FiniteDuration
 
 object ConsumerProperties {
 
@@ -65,11 +68,16 @@ case class ConsumerProperties[T](
 ) {
 
   /**
+   * Use custom interval for auto-commit or commit flushing on manual commit.
+   */
+  def commitInterval(time: FiniteDuration): ConsumerProperties[T] =
+    setProperty("auto.commit.interval.ms", time.toMillis.toString)
+
+  /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
-  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] =
-    copy(params = params + ("consumer.timeout.ms" -> timeInMs.toString))
+  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] = setProperty("consumer.timeout.ms", timeInMs.toString)
 
   /**
    * What to do when there is no initial offset in Zookeeper or if an offset is out of range:
@@ -92,20 +100,19 @@ case class ConsumerProperties[T](
    * ***************************************************************************************
    *
    */
-  def readFromEndOfStream(): ConsumerProperties[T] = copy(params = params + ("auto.offset.reset" -> "largest"))
+  def readFromEndOfStream(): ConsumerProperties[T] = setProperty("auto.offset.reset", "largest")
 
+  def noAutoCommit(): ConsumerProperties[T] = setProperty("auto.commit.enable", "false")
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
-  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] = {
-    val p = params + (
-      "offsets.storage" -> "kafka",
-      "dual.commit.enabled" -> dualCommit.toString
-    )
-    copy(params = p)
-  }
+  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] =
+    setProperties(("offsets.storage", "kafka"), ("dual.commit.enabled", dualCommit.toString))
+
+  def kafkaOffsetStorage = "kafka".equals(params("offsets.storage"))
+
   /**
    * Set any additional properties as needed
    */
@@ -121,7 +128,11 @@ case class ConsumerProperties[T](
   }
 
   // accessors
-  def zookeeperConnect: Option[String] = params.get("zookeeper.connect")
+  def zookeeperConnect: String = params("zookeeper.connect")
+
+  def commitInterval: Option[FiniteDuration] =
+    params.get("auto.commit.interval.ms")
+      .map(i => new FiniteDuration(i.toLong, TimeUnit.MILLISECONDS))
 
   /**
    * Dump current props for debugging

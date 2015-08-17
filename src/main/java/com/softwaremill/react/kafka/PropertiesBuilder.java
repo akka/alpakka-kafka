@@ -73,14 +73,14 @@ public class PropertiesBuilder {
         /**
          * Create a ConsumerProperties object
          *
-         * @param <C> the type of Consumer to construct
+         * @param <T> type of message
          * @return a fully constructed ConsumerProperties
          */
-        public <C> ConsumerProperties<C> build() {
+        public <T> ConsumerProperties<T> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ConsumerProperties.<C>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
+                return ConsumerProperties.<T>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
             }
-            return ConsumerProperties.<C>apply(consumerParams, getTopic(), groupId, decoder);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, decoder);
         }
 
     }
@@ -100,6 +100,12 @@ public class PropertiesBuilder {
             this.encoder = encoder;
         }
 
+        public Producer(String brokerList, String zooKeeperHost, String topic, Encoder encoder) {
+            super(brokerList, zooKeeperHost, topic);
+            this.clientId = "";
+            this.encoder = encoder;
+        }
+
         public Producer withParams(Map<String, String> params) {
             this.producerParams = new HashMap<String, String>().$plus$plus(JavaConverters.mapAsScalaMapConverter(params).asScala());
             return this;
@@ -115,7 +121,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder, null);
+            return new ProducerProperties(producerParams, getTopic(), encoder, null);
 
         }
 

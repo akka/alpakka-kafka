@@ -2,13 +2,15 @@ package com.softwaremill.react.kafka
 
 import akka.stream.actor.{ActorPublisher, ActorPublisherMessage}
 import com.softwaremill.react.kafka.KafkaActorPublisher.Poll
+import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import kafka.consumer.{ConsumerTimeoutException, KafkaConsumer}
+import kafka.message.MessageAndMetadata
 
 import scala.annotation.tailrec
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends ActorPublisher[T] {
+private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends ActorPublisher[KafkaMessage[T]] {
 
   val iterator = consumer.iterator()
 
@@ -26,10 +28,9 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends 
     super.postStop()
   }
 
-  private def tryReadingSingleElement(): Try[Option[T]] = {
+  private def tryReadingSingleElement(): Try[Option[KafkaMessage[T]]] = {
     Try {
-      val bytes = if (iterator.hasNext() && demand_?) Option(iterator.next().message()) else None
-      bytes.map(consumer.props.decoder.fromBytes)
+      if (iterator.hasNext() && demand_?) Option(iterator.next()) else None
     } recover {
       // We handle timeout exceptions as normal 'end of the queue' cases
       case _: ConsumerTimeoutException => None
@@ -55,4 +56,9 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends 
 
 private[kafka] object KafkaActorPublisher {
   case object Poll
+}
+
+object KafkaMessages {
+  type KafkaMessage[T] = MessageAndMetadata[Array[Byte], T]
+  type StringKafkaMessage = MessageAndMetadata[Array[Byte], String]
 }

@@ -34,14 +34,25 @@ scalacOptions ++= Seq(
   "-Xfuture"
 )
 
+val akkaVersion = "2.3.11"
+val akkaStreamVersion = "1.0"
+val curatorVersion = "2.8.0"
+
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % "1.0",
-  "org.apache.kafka" %% "kafka" % "0.8.2.1",
+  "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
+  "org.apache.kafka" %% "kafka" % "0.8.2.1" exclude("org.slf4j", "slf4j-log4j12"),
+  "org.apache.curator" % "curator-framework" % curatorVersion,
+  "org.apache.curator" % "curator-recipes" % curatorVersion,
   "org.scalatest" %% "scalatest" % "2.2.1" % "test",
-  "com.typesafe.akka" %% "akka-testkit" % "2.3.12" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
-  "junit" % "junit" % "4.12" % "test"
+  "junit" % "junit" % "4.12" % "test",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
+  "com.typesafe.akka" %% "akka-stream-testkit-experimental" % akkaStreamVersion % "test",
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "org.mockito" % "mockito-core" % "1.10.19" % "test"
 )
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
