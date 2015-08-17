@@ -100,6 +100,12 @@ public class PropertiesBuilder {
             this.encoder = encoder;
         }
 
+        public Producer(String brokerList, String zooKeeperHost, String topic, Encoder encoder) {
+            super(brokerList, zooKeeperHost, topic);
+            this.clientId = "";
+            this.encoder = encoder;
+        }
+
         public Producer withParams(Map<String, String> params) {
             this.producerParams = new HashMap<String, String>().$plus$plus(JavaConverters.mapAsScalaMapConverter(params).asScala());
             return this;
@@ -115,7 +121,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return new ProducerProperties(producerParams, getTopic(), clientId, encoder, null);
+            return new ProducerProperties(producerParams, getTopic(), encoder, null);
 
         }
 

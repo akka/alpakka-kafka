@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka
 
-import java.util.{Properties, UUID}
+import java.util.Properties
 
 import kafka.message.{DefaultCompressionCodec, NoCompressionCodec, SnappyCompressionCodec}
 import kafka.producer.ProducerConfig
@@ -35,41 +35,37 @@ object ProducerProperties {
     encoder: Encoder[T],
     partitionizer: T => Option[Array[Byte]]
   ): ProducerProperties[T] = {
-    val props = Map[String, String](
-      "metadata.broker.list" -> brokerList,
-
-      // defaults
-      "compression.codec" -> DefaultCompressionCodec.codec.toString,
-      "client.id" -> clientId,
-      "message.send.max.retries" -> 3.toString,
-      "request.required.acks" -> -1.toString,
-      "producer.type" -> "sync"
-    )
-
-    new ProducerProperties(props, topic, clientId, encoder, partitionizer)
+    val props = initialMap(brokerList, encoder, Some(clientId))
+    new ProducerProperties(props, topic, encoder, partitionizer)
   }
 
   def apply[T](brokerList: String, topic: String, clientId: String, encoder: Encoder[T]): ProducerProperties[T] = {
-    val props = Map[String, String](
+    val props = initialMap(brokerList, encoder, Some(clientId))
+    new ProducerProperties(props, topic, encoder, (_: T) => None)
+  }
+
+  def apply[T](brokerList: String, topic: String, encoder: Encoder[T]): ProducerProperties[T] = {
+    val props = initialMap(brokerList, encoder, None)
+    new ProducerProperties(props, topic, encoder, (_: T) => None)
+  }
+
+  private def initialMap[T](brokerList: String, encoder: Encoder[T], clientIdOpt: Option[String]) = {
+    Map[String, String](
       "metadata.broker.list" -> brokerList,
 
       // defaults
       "compression.codec" -> DefaultCompressionCodec.codec.toString,
-      "client.id" -> clientId,
+      "client.id" -> clientIdOpt.getOrElse(""),
       "message.send.max.retries" -> 3.toString,
       "request.required.acks" -> -1.toString,
       "producer.type" -> "sync"
     )
-
-    new ProducerProperties(props, topic, clientId, encoder, (_: T) => None)
   }
-
 }
 
 case class ProducerProperties[T](
     private val params: Map[String, String],
     topic: String,
-    clientId: String = UUID.randomUUID().toString,
     encoder: Encoder[T],
     partitionizer: T => Option[Array[Byte]] = (_: T) => None
 ) {

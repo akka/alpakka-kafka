@@ -38,7 +38,7 @@ trait KafkaTest {
 
   def stringSubscriber(f: FixtureParam) = {
     val encoder = new StringEncoder()
-    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, f.group, encoder))(system)
+    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, encoder))(system)
   }
 
   def stringConsumer(f: FixtureParam) = {
