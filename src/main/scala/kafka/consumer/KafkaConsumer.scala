@@ -1,15 +1,16 @@
 package kafka.consumer
 
 import com.softwaremill.react.kafka.ConsumerProperties
-import com.typesafe.scalalogging.LazyLogging
 import kafka.serializer.DefaultDecoder
+import kafka.utils.Logging
+
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 /**
  * Copied from https://github.com/stealthly/scala-kafka, 0.8.2-beta (not released at the moment)
  */
-class KafkaConsumer[T](val props: ConsumerProperties[T]) extends LazyLogging {
+class KafkaConsumer[T](val props: ConsumerProperties[T]) extends Logging {
 
   val connector = Consumer.create(props.toConsumerConfig)
   val filterSpec = new Whitelist(props.topic)

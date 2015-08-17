@@ -81,7 +81,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     actor ! msg(partition = 0, offset = 3L)
 
     // then
-    ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).contains(3L))
+    ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).equals(Some(3L)))
   }
 
   it should "commit larger offset" in {
@@ -131,7 +131,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 
   def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
     awaitCond {
-      offsetCommitter.lastCommittedOffsetFor(partition).contains(offset)
+      offsetCommitter.lastCommittedOffsetFor(partition).equals(Some(offset))
     }
   }
 
