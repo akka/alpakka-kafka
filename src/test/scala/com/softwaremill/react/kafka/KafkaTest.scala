@@ -44,6 +44,11 @@ trait KafkaTest {
     f.kafka.publish(ProducerProperties(kafkaHost, f.topic, encoder))(system)
   }
 
+  def stringSubscriberActor(f: FixtureParam) = {
+    val encoder = new StringEncoder()
+    f.kafka.producerActor(ProducerProperties(kafkaHost, f.topic, encoder))(system)
+  }
+
   def stringConsumer(f: FixtureParam) = {
     f.kafka.consume(consumerProperties(f))(system)
   }
