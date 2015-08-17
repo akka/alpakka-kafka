@@ -168,17 +168,17 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 
 class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   var started, stopped: Boolean = false
-  var innerMap: OffsetMap = Map.empty
+  var innerMap: Offsets = Map.empty
   var flushCount: Map[(Int, Long), Int] = Map.empty
 
   override def commit(offsets: OffsetMap): OffsetMap = {
-    innerMap = offsets
-    offsets.foreach {
+    innerMap = offsets.map
+    innerMap.foreach {
       case ((topic, partition), offset) =>
         val currentFlushCount = flushCount.getOrElse((partition, offset), 0)
         flushCount = flushCount + ((partition, offset) -> (currentFlushCount + 1))
     }
-    innerMap
+    OffsetMap(innerMap)
   }
 
   def lastCommittedOffsetFor(partition: Int) = innerMap.find {

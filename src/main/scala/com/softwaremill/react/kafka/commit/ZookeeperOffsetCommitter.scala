@@ -18,7 +18,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
 
   override def stop() = zk.close()
 
-  def getOffsets(topicPartitions: Iterable[TopicPartition]): OffsetMap = {
+  private def getOffsets(topicPartitions: Iterable[TopicPartition]): Offsets = {
     topicPartitions.flatMap { topicPartition =>
       val (topic, partition) = topicPartition
       val path = getPartitionPath(group, topic, partition)
@@ -33,7 +33,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     }.toMap
   }
 
-  def setOffsets(offsets: OffsetMap): OffsetMap = {
+  private def setOffsets(offsets: Offsets): OffsetMap = {
     offsets foreach {
       case (topicPartition, offset) =>
         val (topic, partition) = topicPartition
@@ -46,17 +46,18 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
             zk.setData().forPath(nodePath, bytes)
         }
     }
-    getOffsets(offsets.keys)
+    OffsetMap(getOffsets(offsets.keys))
   }
 
-  def getPartitionLock(topicPartition: TopicPartition): PartitionLock = {
+  override def getPartitionLock(topicPartition: TopicPartition): PartitionLock = {
     val (topic, partition) = topicPartition
     val lockPath = s"/locks/kafka-rx/$topic.$group.$partition"
     new ZookeeperLock(zk, lockPath)
   }
 
-  def commit(offsets: OffsetMap): OffsetMap = {
+  override def commit(offsetMap: OffsetMap): OffsetMap = {
     val merge: OffsetMerge = { case (theirs, ours) => ours }
+    val offsets = offsetMap.map
     withPartitionLocks(offsets.keys) {
       val zkOffsets = getOffsets(offsets.keys)
       val nextOffsets = merge(zkOffsets, offsets) map {

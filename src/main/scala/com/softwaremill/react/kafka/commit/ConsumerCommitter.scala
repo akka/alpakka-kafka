@@ -13,9 +13,11 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
 
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
-  var partitionOffsetMap: OffsetMap = Map.empty
-  var committedOffsetMap: OffsetMap = Map.empty
+  var partitionOffsetMap = OffsetMap()
+  var committedOffsetMap = OffsetMap()
   val topic = kafkaConsumer.props.topic
+  implicit val ec = context.dispatcher
+
   lazy val committerOpt: Option[OffsetCommitter] = createOffsetCommitter()
 
   override def preStart(): Unit = {
@@ -24,8 +26,9 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
   }
 
   def scheduleFlush(): Unit = {
-    implicit val ec = context.dispatcher
-    scheduledFlush = Some(context.system.scheduler.scheduleOnce(commitInterval, self, Flush))
+    if (scheduledFlush.isEmpty) {
+      scheduledFlush = Some(context.system.scheduler.scheduleOnce(commitInterval, self, Flush))
+    }
   }
 
   override def postStop(): Unit = {
@@ -47,36 +50,39 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
 
   def registerCommit(msg: MessageAndMetadata[_, T]): Unit = {
     log.debug(s"Received commit request for partition ${msg.partition} and offset ${msg.offset}")
-    val last = partitionOffsetMap.getOrElse((topic, msg.partition), -1L)
+    val topicPartition = (topic, msg.partition)
+    val last = partitionOffsetMap.lastOffset(topicPartition)
+    updateOffsetIfLarger(msg, last)
+  }
+
+  def updateOffsetIfLarger(msg: MessageAndMetadata[_, T], last: Long): Unit = {
     if (msg.offset > last) {
       log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
-      partitionOffsetMap = partitionOffsetMap + ((topic, msg.partition) -> msg.offset)
-      if (scheduledFlush.isEmpty)
-        scheduleFlush()
+      partitionOffsetMap = partitionOffsetMap.plusOffset((topic, msg.partition), msg.offset)
+      scheduleFlush()
     }
     else
-      log.debug(s"Skipping commit for partition ${msg.partition} and offset ${msg.offset}, last registered is $last")
+      log.debug(s"Skipping commit for partition ${msg.partition} and offset {msg.offset}, last registered is $last")
   }
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     committerOpt.foreach { committer =>
-      val offsetMapToFlush = createOffsetMapToFlush()
-      if (offsetMapToFlush.nonEmpty) {
-        val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
-        committedOffsetMapTry match {
-          case Success(resultOffsetMap) =>
-            log.debug(s"committed offsets: $committedOffsetMap")
-            committedOffsetMap = resultOffsetMap
-          case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
-        }
-      }
+      val offsetMapToFlush = partitionOffsetMap.diff(committedOffsetMap)
+      if (offsetMapToFlush.nonEmpty)
+        performFlush(committer, offsetMapToFlush)
     }
     scheduledFlush = None
   }
 
-  def createOffsetMapToFlush() = {
-    (partitionOffsetMap.toSet diff committedOffsetMap.toSet).toMap
+  def performFlush(committer: OffsetCommitter, offsetMapToFlush: OffsetMap): Unit = {
+    val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
+    committedOffsetMapTry match {
+      case Success(resultOffsetMap) =>
+        log.debug(s"committed offsets: $committedOffsetMap")
+        committedOffsetMap = resultOffsetMap
+      case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
+    }
   }
 
   def createOffsetCommitter() = {
