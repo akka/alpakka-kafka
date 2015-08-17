@@ -25,11 +25,14 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
       val (topic, partition) = topicPartition
       val path = getPartitionPath(group, topic, partition)
       Option(zk.checkExists.forPath(path)) match {
-        case None => List()
+        case None =>
+          logger.debug(s"Path not found: $path")
+          List()
         case Some(filestats) =>
           val bytes = zk.getData.forPath(path)
           val str = new String(bytes, Charsets.UTF_8).trim
           val offset = java.lang.Long.parseLong(str)
+          logger.debug(s"Found path: $path with last offset $offset")
           List(topicPartition -> offset)
       }
     }.toMap
@@ -49,7 +52,9 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
             zk.setData().forPath(nodePath, bytes)
         }
     }
-    OffsetMap(getOffsets(offsets.keys))
+    val newOffsetsInZk: Offsets = getOffsets(offsets.keys)
+    logger.debug(s"New offset state in ZK: $newOffsetsInZk")
+    OffsetMap(newOffsetsInZk)
   }
 
   override def getPartitionLock(topicPartition: TopicPartition): PartitionLock = {
@@ -74,3 +79,4 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
   }
 
 }
+

@@ -62,7 +62,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
       scheduleFlush()
     }
     else
-      log.debug(s"Skipping commit for partition ${msg.partition} and offset {msg.offset}, last registered is $last")
+      log.debug(s"Skipping commit for partition ${msg.partition} and offset ${msg.offset}, last registered is $last")
   }
 
   def commitGatheredOffsets(): Unit = {
@@ -79,7 +79,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, k
     val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
     committedOffsetMapTry match {
       case Success(resultOffsetMap) =>
-        log.debug(s"committed offsets: $committedOffsetMap")
+        log.debug(s"committed offsets: $resultOffsetMap")
         committedOffsetMap = resultOffsetMap
       case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
     }
