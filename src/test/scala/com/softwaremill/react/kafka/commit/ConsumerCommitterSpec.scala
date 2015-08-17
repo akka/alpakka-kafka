@@ -152,18 +152,6 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     factory
   }
 
-  @tailrec
-  private def ensureNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
-    val now = System.currentTimeMillis()
-    if (start + 3000 >= now) {
-      Thread.sleep(100)
-      if (unexpectedCondition)
-        fail("Assertion failed before timeout passed")
-      else
-        ensureNever(unexpectedCondition, start)
-    }
-  }
-
 }
 
 class AlwaysSuccessfullTestCommitter extends OffsetCommitter {

@@ -4,10 +4,13 @@ import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
 import kafka.serializer.{StringDecoder, StringEncoder}
+import org.scalatest.Suite
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait KafkaTest {
+  this: Suite =>
   implicit def system: ActorSystem
   implicit lazy val materializer = ActorMaterializer()
 
@@ -52,4 +55,17 @@ trait KafkaTest {
   def newKafka(): ReactiveKafka = {
     new ReactiveKafka()
   }
+
+  @tailrec
+  final def ensureNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
+    val now = System.currentTimeMillis()
+    if (start + 3000 >= now) {
+      Thread.sleep(100)
+      if (unexpectedCondition)
+        fail("Assertion failed before timeout passed")
+      else
+        ensureNever(unexpectedCondition, start)
+    }
+  }
+
 }

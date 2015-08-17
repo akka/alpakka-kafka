@@ -1,9 +1,9 @@
 package com.softwaremill.react.kafka
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import org.scalatest.Suite
 
-trait ReactiveStreamsTckVerificationBase extends KafkaTest {
+trait ReactiveStreamsTckVerificationBase extends Suite with KafkaTest {
 
   override implicit val system: ActorSystem = ActorSystem()
   val message = "foo"
