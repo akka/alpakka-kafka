@@ -159,6 +159,39 @@ This mechanism allows custom handling and keeping the subscriber working.
 If you want to manually stop a publisher or a subscriber, you can just kill the actor using `context.stop()` or a 
 `PoisonPill`. Underlying Kafka resources will be cleaned up.
 
+#### Manual Commit (version 0.8 and above)
+Current version supports manual commit only when committing to Zookeeper. Support for Committing to Kafka-based storage is
+in progress.  
+In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when
+you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed.  
+Example:  
+
+```Scala
+    import scala.concurrent.duration._
+    import akka.actor.ActorSystem
+    import akka.stream.ActorMaterializer
+    import akka.stream.scaladsl.Source
+    import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
+
+    implicit val actorSystem = ActorSystem("ReactiveKafka")
+    implicit val materializer = ActorMaterializer()
+
+    val kafka = new ReactiveKafka()
+    val consumerProperties = ConsumerProperties(
+      brokerList = "localhost:9092",
+      zooKeeperHost = "localhost:2181",
+      topic = "lowercaseStrings",
+      groupId = "groupName",
+      decoder = new StringDecoder())
+    .commitInterval(5 seconds) // flush interval
+    
+    val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
+    Source(consumerWithOffsetSink.publisher)
+    .map(processMessage(_)) // your message processing
+    .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
+    .run()
+```
+
 Tuning
 ----
 

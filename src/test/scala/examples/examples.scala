@@ -89,4 +89,35 @@ object examples {
       .kafkaOffsetsStorage(dualCommit = true)
       .setProperty("some.kafka.property", "value")
   }
+
+
+  def processMessage[T](msg: T)= {
+    msg
+  }
+
+  def manualCommit() = {
+    import scala.concurrent.duration._
+    import akka.actor.ActorSystem
+    import akka.stream.ActorMaterializer
+    import akka.stream.scaladsl.Source
+    import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
+
+    implicit val actorSystem = ActorSystem("ReactiveKafka")
+    implicit val materializer = ActorMaterializer()
+
+    val kafka = new ReactiveKafka()
+    val consumerProperties = ConsumerProperties(
+      brokerList = "localhost:9092",
+      zooKeeperHost = "localhost:2181",
+      topic = "lowercaseStrings",
+      groupId = "groupName",
+      decoder = new StringDecoder())
+    .commitInterval(5 seconds) // flush interval
+
+    val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
+    Source(consumerWithOffsetSink.publisher)
+    .map(processMessage(_)) // your message processing
+    .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
+    .run()
+  }
 }
