@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka.commit
 import akka.actor.Status.Failure
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, TheEnd}
+import kafka.common.TopicAndPartition
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
@@ -50,7 +51,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
 
   def registerCommit(msg: MessageAndMetadata[_, T]): Unit = {
     log.debug(s"Received commit request for partition ${msg.partition} and offset ${msg.offset}")
-    val topicPartition = (topic, msg.partition)
+    val topicPartition = TopicAndPartition(topic, msg.partition)
     val last = partitionOffsetMap.lastOffset(topicPartition)
     updateOffsetIfLarger(msg, last)
   }
@@ -58,7 +59,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
   def updateOffsetIfLarger(msg: MessageAndMetadata[_, T], last: Long): Unit = {
     if (msg.offset > last) {
       log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
-      partitionOffsetMap = partitionOffsetMap.plusOffset((topic, msg.partition), msg.offset)
+      partitionOffsetMap = partitionOffsetMap.plusOffset(TopicAndPartition(topic, msg.partition), msg.offset)
       scheduleFlush()
     }
     else
