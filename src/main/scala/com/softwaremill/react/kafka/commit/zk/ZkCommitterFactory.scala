@@ -9,7 +9,7 @@ import scala.util.{Failure, Success, Try}
 
 class ZkCommitterFactory extends CommitterFactory {
 
-  override def create[T](kafkaConsumer: KafkaConsumer[T]): Either[CommitterCreationError, OffsetCommitter] = {
+  override def create(kafkaConsumer: KafkaConsumer[_]): Either[CommitterCreationError, OffsetCommitter] = {
     val group = kafkaConsumer.props.groupId
     val zkConnect = kafkaConsumer.props.zookeeperConnect
 

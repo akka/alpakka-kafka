@@ -2,6 +2,7 @@ package com.softwaremill.react.kafka.commit.zk
 
 import com.google.common.base.Charsets
 import com.softwaremill.react.kafka.commit._
+import kafka.common.TopicAndPartition
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.imps.CuratorFrameworkState
 
@@ -19,9 +20,9 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
 
   override def stop() = zk.close()
 
-  private def getOffsets(topicPartitions: Iterable[TopicPartition]): Offsets = {
+  private def getOffsets(topicPartitions: Iterable[TopicAndPartition]): Offsets = {
     topicPartitions.flatMap { topicPartition =>
-      val (topic, partition) = topicPartition
+      val TopicAndPartition(topic, partition) = topicPartition
       val path = getPartitionPath(group, topic, partition)
       Option(zk.checkExists.forPath(path)) match {
         case None => List()
@@ -37,7 +38,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
   private def setOffsets(offsets: Offsets): OffsetMap = {
     offsets foreach {
       case (topicPartition, offset) =>
-        val (topic, partition) = topicPartition
+        val TopicAndPartition(topic, partition) = topicPartition
         val nodePath = getPartitionPath(group, topic, partition)
         val bytes = offset.toString.getBytes(Charsets.UTF_8)
         Option(zk.checkExists.forPath(nodePath)) match {
@@ -51,8 +52,8 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     OffsetMap(newOffsetsInZk)
   }
 
-  override def getPartitionLock(topicPartition: TopicPartition): PartitionLock = {
-    val (topic, partition) = topicPartition
+  override def getPartitionLock(topicPartition: TopicAndPartition): PartitionLock = {
+    val TopicAndPartition(topic, partition) = topicPartition
     val lockPath = s"/locks/reactive-kafka/$topic.$group.$partition"
     new ZookeeperLock(zk, lockPath)
   }
