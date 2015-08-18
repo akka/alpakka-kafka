@@ -88,8 +88,8 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
 
   def createOffsetCommitter() = {
     val factoryOrError = committerFactory.create(kafkaConsumer)
-    factoryOrError.left.foreach(err => log.error(err.toString))
-    factoryOrError.right.toOption
+    factoryOrError.failed.foreach(err => log.error(err.toString))
+    factoryOrError.toOption
   }
 }
 

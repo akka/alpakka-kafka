@@ -5,17 +5,14 @@ import kafka.consumer.KafkaConsumer
 import org.apache.curator.framework.CuratorFrameworkFactory
 import org.apache.curator.retry.ExponentialBackoffRetry
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class ZkCommitterFactory extends CommitterFactory {
 
-  override def create(kafkaConsumer: KafkaConsumer[_]): Either[CommitterCreationError, OffsetCommitter] = {
+  override def create(kafkaConsumer: KafkaConsumer[_]): Try[OffsetCommitter] = {
     val group = kafkaConsumer.props.groupId
     val zkConnect = kafkaConsumer.props.zookeeperConnect
-
-    Try(CuratorFrameworkFactory.newClient(zkConnect, new ExponentialBackoffRetry(256, 1024))) match {
-      case Success(curator) => Right(new ZookeeperOffsetCommitter(group, curator))
-      case Failure(ex) => Left(StorageConnectionFailed(ex))
-    }
+    Try(CuratorFrameworkFactory.newClient(zkConnect, new ExponentialBackoffRetry(256, 1024)))
+      .map(new ZookeeperOffsetCommitter(group, _))
   }
 }

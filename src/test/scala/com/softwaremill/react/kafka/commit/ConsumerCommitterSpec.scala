@@ -5,6 +5,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.{ConsumerProperties, KafkaTest}
 import com.typesafe.config.ConfigFactory
+import kafka.common.TopicAndPartition
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
@@ -12,9 +13,9 @@ import org.mockito.BDDMockito._
 import org.scalatest._
 import org.scalatest.mock.MockitoSugar
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.Success
 
 class ConsumerCommitterSpec extends TestKit(ActorSystem(
   "ConsumerCommitterSpec",
@@ -148,7 +149,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 
   def givenOffsetCommitter(consumer: KafkaConsumer[String], committer: OffsetCommitter) = {
     val factory = mock[CommitterProvider]
-    given(factory.create(consumer)).willReturn(Right(committer))
+    given(factory.create(consumer)).willReturn(Success(committer))
     factory
   }
 
@@ -162,7 +163,7 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   override def commit(offsets: OffsetMap): OffsetMap = {
     innerMap = offsets.map
     innerMap.foreach {
-      case ((topic, partition), offset) =>
+      case (TopicAndPartition(topic, partition), offset) =>
         val currentFlushCount = flushCount.getOrElse((partition, offset), 0)
         flushCount = flushCount + ((partition, offset) -> (currentFlushCount + 1))
     }
@@ -170,9 +171,9 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   }
 
   def lastCommittedOffsetFor(partition: Int) = innerMap.find {
-    case ((_, p), _) => p == partition
+    case (TopicAndPartition(_, p), _) => p == partition
   }.map {
-    case ((_, p), o) => o
+    case (TopicAndPartition(_, p), o) => o
   }
 
   def totalFlushCount = flushCount.values.sum
