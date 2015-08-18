@@ -46,7 +46,7 @@ object ConsumerProperties {
     decoder: Decoder[T]
   ): ConsumerProperties[T] = {
     val props = Map[String, String](
-      "metadata.broker.list" -> brokerList,
+      KeyBrokerList -> brokerList,
       "group.id" -> groupId,
       "zookeeper.connect" -> zooKeeperHost,
 
@@ -58,6 +58,8 @@ object ConsumerProperties {
 
     new ConsumerProperties(props, topic, groupId, decoder)
   }
+
+  val KeyBrokerList = "metadata.broker.list"
 }
 
 case class ConsumerProperties[T](
@@ -129,6 +131,8 @@ case class ConsumerProperties[T](
 
   // accessors
   def zookeeperConnect: String = params("zookeeper.connect")
+
+  def brokerList = params(ConsumerProperties.KeyBrokerList)
 
   def commitInterval: Option[FiniteDuration] =
     params.get("auto.commit.interval.ms")
