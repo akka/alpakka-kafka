@@ -125,7 +125,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     ensureNever(offsetCommitter.flushCount((partition, offset)) != 1)
   }
 
-  def startCommitterActor(committerFactory: CommitterFactory, consumer: KafkaConsumer[String]) = {
+  def startCommitterActor(committerFactory: CommitterProvider, consumer: KafkaConsumer[String]) = {
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
   }
 
@@ -147,7 +147,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   }
 
   def givenOffsetCommitter(consumer: KafkaConsumer[String], committer: OffsetCommitter) = {
-    val factory = mock[CommitterFactory]
+    val factory = mock[CommitterProvider]
     given(factory.create(consumer)).willReturn(Right(committer))
     factory
   }

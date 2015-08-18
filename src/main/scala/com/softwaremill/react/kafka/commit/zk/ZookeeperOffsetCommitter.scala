@@ -1,6 +1,7 @@
-package com.softwaremill.react.kafka.commit
+package com.softwaremill.react.kafka.commit.zk
 
 import com.google.common.base.Charsets
+import com.softwaremill.react.kafka.commit._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.imps.CuratorFrameworkState
 

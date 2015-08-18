@@ -1,9 +1,9 @@
-package com.softwaremill.react.kafka.commit
+package com.softwaremill.react.kafka.commit.zk
 
 /**
  * Based on from https://github.com/cjdev/kafka-rx
  */
-trait PartitionLock {
+private[zk] trait PartitionLock {
   def acquire(): Unit
   def release(): Unit
 }

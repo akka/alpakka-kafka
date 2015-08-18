@@ -8,7 +8,7 @@ import kafka.message.MessageAndMetadata
 
 import scala.util.{Success, Try}
 
-private[commit] class ConsumerCommitter[T](committerFactory: CommitterFactory, kafkaConsumer: KafkaConsumer[T])
+private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, kafkaConsumer: KafkaConsumer[T])
     extends Actor with ActorLogging {
 
   val commitInterval = kafkaConsumer.commitInterval
