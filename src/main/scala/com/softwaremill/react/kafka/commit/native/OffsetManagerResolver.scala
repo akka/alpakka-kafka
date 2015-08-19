@@ -12,7 +12,9 @@ import scala.util.{Failure, Success, Try}
  * Responsible for finding current offset manager in the cluster.
  * NOT THREAD SAFE.
  */
-private[native] class OffsetManagerResolver {
+private[native] class OffsetManagerResolver(
+    blockingChannelFactory: (String, Int) => BlockingChannel = KafkaChannelFactory
+) {
 
   var correlationId = 0
 
@@ -66,10 +68,7 @@ private[native] class OffsetManagerResolver {
 
   private def connectToChannel(location: BrokerLocation): Try[BlockingChannel] = {
     Try {
-      val channel = new BlockingChannel(location.host, location.port,
-        BlockingChannel.UseDefaultBufferSize,
-        BlockingChannel.UseDefaultBufferSize,
-        OffsetManagerResolver.ChannelReadTimeoutMs)
+      val channel = blockingChannelFactory(location.host, location.port)
       channel.connect()
       channel
     }
@@ -109,3 +108,15 @@ private[native] case class BrokerLocation(host: String, port: Int)
 
 private[native] case class OffsetManagerResolvingException(cause: Throwable)
   extends Exception("Could not resolve offset manager", cause)
+
+private[native] object KafkaChannelFactory extends ((String, Int) => BlockingChannel) {
+  override def apply(host: String, port: Int): BlockingChannel = {
+    new BlockingChannel(
+      host,
+      port,
+      BlockingChannel.UseDefaultBufferSize,
+      BlockingChannel.UseDefaultBufferSize,
+      OffsetManagerResolver.ChannelReadTimeoutMs
+    )
+  }
+}
