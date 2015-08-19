@@ -16,15 +16,37 @@ private[native] class OffsetManagerResolver {
 
   var correlationId = 0
 
-  def resolve(kafkaConsumer: KafkaConsumer[_]): Try[BlockingChannel] = {
-    for {
+  def resolve(
+    kafkaConsumer: KafkaConsumer[_],
+    retriesLeft: Int = OffsetManagerResolver.MaxRetries,
+    lastErrorOpt: Option[Throwable] = None
+  ): Try[BlockingChannel] = {
+    if (retriesLeft == 0)
+      Failure(lastErrorOpt.map(new OffsetManagerResolvingException(_)).getOrElse(
+        new IllegalStateException("Could not resolve offset manager")
+      ))
+    else
+      tryGetChannel(kafkaConsumer, retriesLeft)
+  }
+
+  private def tryGetChannel(kafkaConsumer: KafkaConsumer[_], retriesLeft: Int): Try[BlockingChannel] = {
+    val channelTrial = for {
       initialChannel <- connectToAnyBroker(kafkaConsumer.props.brokerList)
       coordinator <- getCoordinator(initialChannel, kafkaConsumer)
       finalChannel <- coordinatorOrInitialChannel(coordinator, initialChannel)
-    } yield finalChannel // TODO retry
+    } yield finalChannel
+
+    if (channelTrial.isFailure) {
+      Thread.sleep(OffsetManagerResolver.RetryIntervalMs)
+      channelTrial.failed.flatMap(err => resolve(kafkaConsumer, retriesLeft - 1, Some(err)))
+    }
+    else channelTrial
   }
 
-  private def coordinatorOrInitialChannel(coordinator: Broker, initialChannel: BlockingChannel): Try[BlockingChannel] = {
+  private def coordinatorOrInitialChannel(
+    coordinator: Broker,
+    initialChannel: BlockingChannel
+  ): Try[BlockingChannel] = {
     if (coordinator.host == initialChannel.host && coordinator.port == initialChannel.port)
       Success(initialChannel)
     else
@@ -33,8 +55,13 @@ private[native] class OffsetManagerResolver {
 
   private def connectToAnyBroker(brokerList: String) = {
     val brokers = extractAllBrokers(brokerList)
-    val firstBroker = brokers.head // TODO cycle
-    connectToChannel(firstBroker)
+    val firstBrokerTrial = brokers.headOption.map(Success(_)).getOrElse(
+      Failure(new IllegalStateException(s"No brokers in list: $brokerList"))
+    )
+    for {
+      broker <- firstBrokerTrial
+      channel <- connectToChannel(broker)
+    } yield channel
   }
 
   private def connectToChannel(location: BrokerLocation): Try[BlockingChannel] = {
@@ -74,6 +101,11 @@ private[native] class OffsetManagerResolver {
 
 private[native] object OffsetManagerResolver {
   val ChannelReadTimeoutMs = 5000
+  val MaxRetries = 3
+  val RetryIntervalMs = 400
 }
 
 private[native] case class BrokerLocation(host: String, port: Int)
+
+private[native] case class OffsetManagerResolvingException(cause: Throwable)
+  extends Exception("Could not resolve offset manager", cause)
