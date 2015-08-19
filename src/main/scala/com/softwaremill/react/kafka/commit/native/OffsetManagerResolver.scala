@@ -13,7 +13,8 @@ import scala.util.{Failure, Success, Try}
  * NOT THREAD SAFE.
  */
 private[native] class OffsetManagerResolver(
-    blockingChannelFactory: (String, Int) => BlockingChannel = KafkaChannelFactory
+    blockingChannelFactory: (String, Int) => BlockingChannel = KafkaChannelFactory,
+    channelMetadataReader: (BlockingChannel, ConsumerMetadataRequest) => ConsumerMetadataResponse = KafkaChannelReader
 ) {
 
   var correlationId = 0
@@ -85,17 +86,14 @@ private[native] class OffsetManagerResolver(
   private def getCoordinator(channel: BlockingChannel, consumer: KafkaConsumer[_]): Try[Broker] = {
     correlationId = correlationId + 1
     val group = consumer.props.groupId
-    Try {
-      channel.send(new ConsumerMetadataRequest(group, ConsumerMetadataRequest.CurrentVersion, correlationId))
-      ConsumerMetadataResponse.readFrom(channel.receive().buffer)
-    }.flatMap { metadataResponse =>
+    val request = new ConsumerMetadataRequest(group, ConsumerMetadataRequest.CurrentVersion, correlationId)
+    Try(channelMetadataReader(channel, request)).flatMap { metadataResponse =>
       if (metadataResponse.errorCode == ErrorMapping.NoError)
         metadataResponse.coordinatorOpt.map(Success(_)).getOrElse(Failure(new IllegalStateException("Missing coordinator")))
       else
         Failure(new IllegalStateException(s"Cannot connect to coordinator. Error code: ${metadataResponse.errorCode}"))
     }
   }
-
 }
 
 private[native] object OffsetManagerResolver {
@@ -118,5 +116,13 @@ private[native] object KafkaChannelFactory extends ((String, Int) => BlockingCha
       BlockingChannel.UseDefaultBufferSize,
       OffsetManagerResolver.ChannelReadTimeoutMs
     )
+  }
+}
+
+private[native] object KafkaChannelReader
+    extends ((BlockingChannel, ConsumerMetadataRequest) => ConsumerMetadataResponse) {
+  override def apply(channel: BlockingChannel, request: ConsumerMetadataRequest): ConsumerMetadataResponse = {
+    channel.send(request)
+    ConsumerMetadataResponse.readFrom(channel.receive().buffer)
   }
 }
