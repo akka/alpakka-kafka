@@ -15,7 +15,7 @@ import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.Success
+import scala.util.{Try, Success}
 
 class ConsumerCommitterSpec extends TestKit(ActorSystem(
   "ConsumerCommitterSpec",
@@ -160,14 +160,14 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   var innerMap: Offsets = Map.empty
   var flushCount: Map[(Int, Long), Int] = Map.empty
 
-  override def commit(offsets: OffsetMap): OffsetMap = {
+  override def commit(offsets: OffsetMap): Try[OffsetMap] = {
     innerMap = offsets.map
     innerMap.foreach {
       case (TopicAndPartition(topic, partition), offset) =>
         val currentFlushCount = flushCount.getOrElse((partition, offset), 0)
         flushCount = flushCount + ((partition, offset) -> (currentFlushCount + 1))
     }
-    OffsetMap(innerMap)
+    Success(OffsetMap(innerMap))
   }
 
   def lastCommittedOffsetFor(partition: Int) = innerMap.find {

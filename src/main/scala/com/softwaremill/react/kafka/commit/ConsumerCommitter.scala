@@ -7,7 +7,7 @@ import kafka.common.TopicAndPartition
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
-import scala.util.{Success, Try}
+import scala.util.Success
 
 private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, kafkaConsumer: KafkaConsumer[T])
     extends Actor with ActorLogging {
@@ -77,7 +77,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
   }
 
   def performFlush(committer: OffsetCommitter, offsetMapToFlush: OffsetMap): Unit = {
-    val committedOffsetMapTry = Try(committer.commit(offsetMapToFlush))
+    val committedOffsetMapTry = committer.commit(offsetMapToFlush)
     committedOffsetMapTry match {
       case Success(resultOffsetMap) =>
         log.debug(s"committed offsets: $resultOffsetMap")

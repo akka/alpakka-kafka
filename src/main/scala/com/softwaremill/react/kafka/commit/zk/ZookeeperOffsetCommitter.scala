@@ -6,6 +6,8 @@ import kafka.common.TopicAndPartition
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.imps.CuratorFrameworkState
 
+import scala.util.Try
+
 /**
  * Based on from https://github.com/cjdev/kafka-rx
  */
@@ -35,21 +37,23 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     }.toMap
   }
 
-  private def setOffsets(offsets: Offsets): OffsetMap = {
-    offsets foreach {
-      case (topicPartition, offset) =>
-        val TopicAndPartition(topic, partition) = topicPartition
-        val nodePath = getPartitionPath(group, topic, partition)
-        val bytes = offset.toString.getBytes(Charsets.UTF_8)
-        Option(zk.checkExists.forPath(nodePath)) match {
-          case None =>
-            zk.create.creatingParentsIfNeeded.forPath(nodePath, bytes)
-          case Some(fileStats) =>
-            zk.setData().forPath(nodePath, bytes)
-        }
+  private def setOffsets(offsets: Offsets): Try[OffsetMap] = {
+    Try {
+      offsets foreach {
+        case (topicPartition, offset) =>
+          val TopicAndPartition(topic, partition) = topicPartition
+          val nodePath = getPartitionPath(group, topic, partition)
+          val bytes = offset.toString.getBytes(Charsets.UTF_8)
+          Option(zk.checkExists.forPath(nodePath)) match {
+            case None =>
+              zk.create.creatingParentsIfNeeded.forPath(nodePath, bytes)
+            case Some(fileStats) =>
+              zk.setData().forPath(nodePath, bytes)
+          }
+      }
+      val newOffsetsInZk: Offsets = getOffsets(offsets.keys)
+      OffsetMap(newOffsetsInZk)
     }
-    val newOffsetsInZk: Offsets = getOffsets(offsets.keys)
-    OffsetMap(newOffsetsInZk)
   }
 
   override def getPartitionLock(topicPartition: TopicAndPartition): PartitionLock = {
@@ -58,7 +62,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     new ZookeeperLock(zk, lockPath)
   }
 
-  override def commit(offsetMap: OffsetMap): OffsetMap = {
+  override def commit(offsetMap: OffsetMap): Try[OffsetMap] = {
     val merge: OffsetMerge = { case (theirs, ours) => ours }
     val offsets = offsetMap.map
     withPartitionLocks(offsets.keys) {
