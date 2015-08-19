@@ -102,7 +102,7 @@ private[native] class OffsetManagerResolver {
 private[native] object OffsetManagerResolver {
   val ChannelReadTimeoutMs = 5000
   val MaxRetries = 3
-  val RetryIntervalMs = 400
+  val RetryIntervalMs = 400L
 }
 
 private[native] case class BrokerLocation(host: String, port: Int)
