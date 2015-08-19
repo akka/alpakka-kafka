@@ -10,7 +10,7 @@ import akka.stream.actor.ActorSubscriberMessage.OnComplete
 import akka.stream.actor._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.{TestProbe, EventFilter, ImplicitSender, TestKit}
+import akka.testkit.{EventFilter, ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.commit.CommitSink
@@ -50,18 +50,30 @@ class ReactiveKafkaIntegrationSpec
   "Reactive kafka streams" must {
     "publish and consume" in { implicit f =>
       // given
-      givenQueueWithElements("a", "b", "c")
+      givenQueueWithElements(Seq("a", "b", "c"))
 
       // then
-      verifyQueueHas("a", "b", "c")
+      verifyQueueHas(Seq("a", "b", "c"))
     }
 
-    "consume offsets" in { implicit f =>
+    "manually commit offsets with zookeeper" in { implicit f =>
+      shouldCommitOffsets("zookeeper")
+    }
+
+    "manually commit offsets with kafka" in { implicit f =>
+      shouldCommitOffsets("kafka")
+    }
+
+    def shouldCommitOffsets(storage: String)(implicit f: FixtureParam) = {
       // given
-      givenQueueWithElements("0", "1", "2", "3", "4", "5")
+      givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"), storage)
 
       // when
-      val consumerProps = consumerProperties(f).commitInterval(100 millis).noAutoCommit()
+      val consumerProps = consumerProperties(f)
+        .commitInterval(100 millis)
+        .noAutoCommit()
+        .setProperty("offsets.storage", storage)
+
       val actorWithConsumer = f.kafka.consumerActorWithConsumer(consumerProps, ReactiveKafka.ConsumerDefaultDispatcher)
       val publisherWithCommitSink = PublisherWithCommitSink[String](
         ActorPublisher[StringKafkaMessage](actorWithConsumer.actor),
@@ -74,7 +86,7 @@ class ReactiveKafkaIntegrationSpec
       cancelConsumer(actorWithConsumer.actor)
 
       // then
-      verifyQueueHas("3", "4", "5")
+      verifyQueueHas(Seq("3", "4", "5"), storage)
     }
 
     "start consuming from the beginning of stream" in { f =>
@@ -104,15 +116,15 @@ class ReactiveKafkaIntegrationSpec
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
-    def givenQueueWithElements(msgs: String*)(implicit f: FixtureParam) = {
+    def givenQueueWithElements(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
       val kafkaSubscriberActor = stringSubscriberActor(f)
       Source(msgs.toList).to(Sink(ActorSubscriber[String](kafkaSubscriberActor))).run()
-      verifyQueueHas(msgs: _*)
+      verifyQueueHas(msgs, storage)
       completeProducer(kafkaSubscriberActor)
     }
 
-    def verifyQueueHas(msgs: String*)(implicit f: FixtureParam) = {
-      val consumerProps = consumerProperties(f).noAutoCommit()
+    def verifyQueueHas(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
+      val consumerProps = consumerProperties(f).noAutoCommit().setProperty("offsets.storage", storage)
       val consumerActor = f.kafka.consumerActor(consumerProps)
 
       Source(ActorPublisher[StringKafkaMessage](consumerActor))

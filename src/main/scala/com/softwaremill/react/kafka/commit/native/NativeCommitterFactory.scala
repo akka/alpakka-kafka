@@ -52,11 +52,10 @@ class NativeCommitterFactory extends CommitterFactory {
   }
 
   def getCoordinator(channel: BlockingChannel, consumer: KafkaConsumer[_]): Try[Broker] = {
-    val correlationId = 0 // TODO ??????
+    val correlationId = 0 // TODO increment for each request
     val group = consumer.props.groupId
-    val clientId = "clientId" // TODO what is that?
     Try {
-      channel.send(new ConsumerMetadataRequest(group, ConsumerMetadataRequest.CurrentVersion, correlationId, clientId))
+      channel.send(new ConsumerMetadataRequest(group, ConsumerMetadataRequest.CurrentVersion, correlationId))
       ConsumerMetadataResponse.readFrom(channel.receive().buffer)
     }.flatMap { metadataResponse =>
       if (metadataResponse.errorCode == ErrorMapping.NoError)

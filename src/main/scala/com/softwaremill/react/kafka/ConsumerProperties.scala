@@ -110,7 +110,7 @@ case class ConsumerProperties[T](
    *
    * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
    */
-  def kafkaOffsetsStorage(dualCommit: Boolean): ConsumerProperties[T] =
+  def kafkaOffsetsStorage(dualCommit: Boolean = false): ConsumerProperties[T] =
     setProperties(("offsets.storage", "kafka"), ("dual.commit.enabled", dualCommit.toString))
 
   def kafkaOffsetStorage = "kafka".equals(params("offsets.storage"))

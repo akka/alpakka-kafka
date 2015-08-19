@@ -1,6 +1,8 @@
 package com.softwaremill.react.kafka.commit
 
-import kafka.common.TopicAndPartition
+import kafka.common.{OffsetAndMetadata, TopicAndPartition}
+
+import scala.collection.immutable
 
 case class OffsetMap(map: Offsets = Map.empty) {
 
@@ -13,8 +15,16 @@ case class OffsetMap(map: Offsets = Map.empty) {
     copy(map = map + (topicPartition -> offset))
 
   def nonEmpty = map.nonEmpty
+
+  def toFetchRequestInfo = map.keys.toSeq
+
+  def toCommitRequestInfo = {
+    val now = System.currentTimeMillis()
+    map.mapValues(offset => OffsetAndMetadata(offset + 1, timestamp = now))
+  }
 }
 
 object OffsetMap {
   def apply() = new OffsetMap()
+
 }
