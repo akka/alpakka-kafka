@@ -9,9 +9,13 @@ import kafka.network.BlockingChannel
 
 import scala.util.{Failure, Success, Try}
 
+/**
+ * NOT THREAD SAFE.
+ */
 private[native] class NativeCommitter(
     kafkaConsumer: KafkaConsumer[_],
-    channel: BlockingChannel
+    offsetManagerResolver: OffsetManagerResolver,
+    var channel: BlockingChannel
 ) extends OffsetCommitter {
 
   var correlationId = 0
