@@ -16,7 +16,7 @@ import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.commit.CommitSink
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
-import org.scalatest.{BeforeAndAfterAll, Matchers, fixture}
+import org.scalatest.{Matchers, fixture}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -27,17 +27,13 @@ class ReactiveKafkaIntegrationSpec
       "ReactiveKafkaIntegrationSpec",
       ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
     ))
-    with ImplicitSender with fixture.WordSpecLike with Matchers with BeforeAndAfterAll with KafkaTest {
+    with ImplicitSender with fixture.WordSpecLike with Matchers with KafkaTest {
 
   def uuid() = UUID.randomUUID().toString
 
   implicit val timeout = Timeout(1 second)
 
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
-
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
-  }
 
   def withFixture(test: OneArgTest) = {
     val topic = uuid()

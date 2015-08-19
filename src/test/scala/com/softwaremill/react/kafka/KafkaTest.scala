@@ -3,13 +3,14 @@ package com.softwaremill.react.kafka
 import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
+import akka.testkit.TestKit
 import kafka.serializer.{StringDecoder, StringEncoder}
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterAll, Suite}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait KafkaTest {
+trait KafkaTest extends BeforeAndAfterAll {
   this: Suite =>
   implicit def system: ActorSystem
   implicit lazy val materializer = ActorMaterializer()
@@ -71,6 +72,11 @@ trait KafkaTest {
       else
         ensureNever(unexpectedCondition, start)
     }
+  }
+
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
+    materializer.shutdown()
   }
 
 }
