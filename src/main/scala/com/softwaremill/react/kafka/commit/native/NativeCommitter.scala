@@ -26,17 +26,21 @@ private[native] class NativeCommitter(
     offsetsToCommit: OffsetMap,
     retriesLeft: Int = NativeCommitter.MaxRetries,
     lastErrorOpt: Option[Throwable] = None
-  ) = {
+  ): Try[OffsetMap] = {
     if (retriesLeft == 0)
       terminateWithLastError(lastErrorOpt)
     else {
       val commitRequest = createCommitRequest(offsetsToCommit.toCommitRequestInfo)
-      sendCommit(commitRequest).flatMap { response =>
+      val responseTrial = sendCommit(commitRequest).flatMap { response =>
         if (response.hasError)
           handleCommitError(offsetsToCommit, retriesLeft, response)
         else
           getOffsetsTrial(offsetsToCommit)
       }
+      if (responseTrial.isFailure)
+        retry(offsetsToCommit, retriesLeft, responseTrial.failed.get, commitTrial)
+      else
+        responseTrial
     }
   }
 
