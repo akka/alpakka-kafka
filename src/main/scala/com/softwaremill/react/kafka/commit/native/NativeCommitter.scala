@@ -28,7 +28,7 @@ private[native] class NativeCommitter(
     lastErrorOpt: Option[Throwable] = None
   ) = {
     if (retriesLeft == 0)
-      Failure(lastErrorOpt.map(new NativeCommitFailedException(_)).getOrElse(new IllegalStateException())) // TODO remove the default exception
+      terminateWithLastError(lastErrorOpt)
     else {
       val commitRequest = createCommitRequest(offsetsToCommit.toCommitRequestInfo)
       sendCommit(commitRequest).flatMap { response =>
@@ -40,7 +40,11 @@ private[native] class NativeCommitter(
     }
   }
 
-  private def handleCommitError(offsets: OffsetMap, retriesLeft: Int, commitResponse: OffsetCommitResponse): Try[OffsetMap] = {
+  private def handleCommitError(
+    offsets: OffsetMap,
+    retriesLeft: Int,
+    commitResponse: OffsetCommitResponse
+  ): Try[OffsetMap] = {
     if (offsetManagerHasMoved(commitResponse))
       findNewCoordinatorAndRetry(offsets, retriesLeft, commitTrial)
     else
@@ -71,7 +75,7 @@ private[native] class NativeCommitter(
   ): Try[OffsetMap] = {
 
     if (retriesLeft == 0)
-      Failure(lastErrorOpt.map(new NativeCommitFailedException(_)).getOrElse(new IllegalStateException())) // TODO remove the default exception
+      terminateWithLastError(lastErrorOpt)
     else {
       sendFetch(offsetsToVerify).flatMap {
         response =>
@@ -82,6 +86,12 @@ private[native] class NativeCommitter(
             Success(OffsetMap(result.mapValues(_.offset)))
       }
     }
+  }
+
+  private def terminateWithLastError(lastErrorOpt: Option[Throwable]): Failure[Nothing] = {
+    Failure(lastErrorOpt
+      .map(new NativeCommitFailedException(_))
+      .getOrElse(new IllegalStateException("Unexpected error without cause exception.")))
   }
 
   private def sendFetch(offsetsToVerify: OffsetMap) = {

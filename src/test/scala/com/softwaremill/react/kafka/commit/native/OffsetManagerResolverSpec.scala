@@ -1,7 +1,5 @@
 package com.softwaremill.react.kafka.commit.native
 
-import java.io.IOException
-
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.softwaremill.react.kafka.KafkaTest
@@ -12,7 +10,7 @@ import kafka.consumer.KafkaConsumer
 import kafka.network.BlockingChannel
 import org.mockito.BDDMockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfterEach, FlatSpecLike, Matchers}
 
 import scala.util.Try
 
