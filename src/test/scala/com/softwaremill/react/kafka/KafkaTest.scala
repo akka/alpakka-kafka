@@ -75,8 +75,8 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
   override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
     materializer.shutdown()
+    TestKit.shutdownActorSystem(system)
   }
 
 }
