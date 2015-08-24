@@ -15,7 +15,9 @@ import scala.util.{Failure, Success, Try}
 private[native] class NativeCommitter(
     kafkaConsumer: KafkaConsumer[_],
     offsetManagerResolver: OffsetManagerResolver,
-    var channel: BlockingChannel
+    var channel: BlockingChannel,
+    sendCommit: (BlockingChannel, OffsetCommitRequest) => Try[OffsetCommitResponse] = KafkaSendCommit,
+    sendFetch: (BlockingChannel, OffsetFetchRequest) => Try[OffsetFetchResponse] = KafkaSendFetch
 ) extends OffsetCommitter {
 
   var correlationId = 0
@@ -31,7 +33,7 @@ private[native] class NativeCommitter(
       terminateWithLastError(lastErrorOpt)
     else {
       val commitRequest = createCommitRequest(offsetsToCommit.toCommitRequestInfo)
-      val responseTrial = sendCommit(commitRequest).flatMap { response =>
+      val responseTrial = sendCommit(channel, commitRequest).flatMap { response =>
         if (response.hasError)
           handleCommitError(offsetsToCommit, retriesLeft, response)
         else
@@ -65,13 +67,6 @@ private[native] class NativeCommitter(
     )
   }
 
-  private def sendCommit(commitRequest: OffsetCommitRequest): Try[OffsetCommitResponse] = {
-    Try {
-      channel.send(commitRequest)
-      OffsetCommitResponse.readFrom(channel.receive().buffer)
-    }
-  }
-
   private def getOffsetsTrial(
     offsetsToVerify: OffsetMap,
     retriesLeft: Int = NativeCommitter.MaxRetries,
@@ -81,7 +76,7 @@ private[native] class NativeCommitter(
     if (retriesLeft == 0)
       terminateWithLastError(lastErrorOpt)
     else {
-      sendFetch(offsetsToVerify).flatMap {
+      sendFetch(channel, createFetchRequest(offsetsToVerify)).flatMap {
         response =>
           val result = response.requestInfo
           if (hasError(response))
@@ -96,13 +91,6 @@ private[native] class NativeCommitter(
     Failure(lastErrorOpt
       .map(new NativeCommitFailedException(_))
       .getOrElse(new IllegalStateException("Unexpected error without cause exception.")))
-  }
-
-  private def sendFetch(offsetsToVerify: OffsetMap) = {
-    Try {
-      channel.send(createFetchRequest(offsetsToVerify))
-      OffsetFetchResponse.readFrom(channel.receive().buffer)
-    }
   }
 
   private def createFetchRequest(offsetsToVerify: OffsetMap): OffsetFetchRequest = {
@@ -190,6 +178,24 @@ private[native] class NativeCommitter(
 object NativeCommitter {
   val MaxRetries = 5
   val RetryIntervalMs: Long = 200
+}
+
+private[native] object KafkaSendCommit extends ((BlockingChannel, OffsetCommitRequest) => Try[OffsetCommitResponse]) {
+  override def apply(channel: BlockingChannel, req: OffsetCommitRequest) = {
+    Try {
+      channel.send(req)
+      OffsetCommitResponse.readFrom(channel.receive().buffer)
+    }
+  }
+}
+
+private[native] object KafkaSendFetch extends ((BlockingChannel, OffsetFetchRequest) => Try[OffsetFetchResponse]) {
+  override def apply(channel: BlockingChannel, req: OffsetFetchRequest) = {
+    Try {
+      channel.send(req)
+      OffsetFetchResponse.readFrom(channel.receive().buffer)
+    }
+  }
 }
 
 private[native] class NativeCommitFailedException(cause: Throwable)
