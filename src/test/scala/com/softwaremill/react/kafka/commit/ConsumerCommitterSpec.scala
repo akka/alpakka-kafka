@@ -30,11 +30,6 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   val valueDecoder: StringDecoder = new StringDecoder()
   val keyDecoder = valueDecoder
 
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
-    super.afterAll()
-  }
-
   override protected def beforeEach(): Unit = {
     super.beforeEach()
   }
