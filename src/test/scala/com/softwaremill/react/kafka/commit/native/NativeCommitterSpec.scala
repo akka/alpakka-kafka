@@ -102,6 +102,115 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
     result.isFailure should equal(false)
   }
 
+  it should "Eventually succeed when a failing commit finally passes" in { implicit f =>
+    // given
+    givenResponseWithErrorCode(ErrorMapping.MessageSizeTooLargeCode, howManyTimes = 3)
+    givenFetchSuccess()
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(false)
+  }
+
+  it should "Fail when a commit fails with too many retries" in { implicit f =>
+    // given
+    givenResponseWithErrorCode(ErrorMapping.MessageSizeTooLargeCode, howManyTimes = 6)
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(true)
+    val expectedError = "Received statuses: Map([topic,0] -> 10)"
+    val cause: Throwable = result.failed.get.getCause
+    cause.getClass should equal(classOf[KafkaErrorException])
+    cause.getMessage should equal(expectedError)
+  }
+
+  it should "Fail when fetch fails with too many retries" in { implicit f =>
+    // given
+    givenSuccessfullCommit()
+    givenFetchResponse(ErrorMapping.InvalidTopicCode, howManyTimes = 10)
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(true)
+    val expectedError = "Received statuses: Map([topic,0] -> 17)"
+    val cause: Throwable = result.failed.get.getCause
+    cause.getClass should equal(classOf[KafkaErrorException])
+    cause.getMessage should equal(expectedError)
+  }
+
+  it should "Fail when fetch fails on resolving new coordinator" in { implicit f =>
+    // given
+    givenSuccessfullCommit()
+    val expectedError = new IllegalStateException("Cannot the coordinator")
+    givenFetchResponse(ErrorMapping.NotCoordinatorForConsumerCode, howManyTimes = 10)
+    given(f.offsetManagerResolver.resolve(meq(f.consumer), any[Int], any[Option[Throwable]]))
+      .willReturn(Failure(expectedError))
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(true)
+    result.failed.get.getCause should equal(expectedError)
+  }
+
+  it should "Fail when offset load is continously in progress" in { implicit f =>
+    // given
+    givenSuccessfullCommit()
+    givenFetchResponse(ErrorMapping.OffsetsLoadInProgressCode, howManyTimes = 10)
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(true)
+    result.failed.get.getCause should equal(OffssetLoadInProgressException)
+  }
+  it should "Succeed when offset load in progress a few times but then fine" in { implicit f =>
+    // given
+    givenSuccessfullCommit()
+    givenFetchResponse(ErrorMapping.OffsetsLoadInProgressCode, howManyTimes = 3)
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(false)
+  }
+
+  it should "Succeed when finds new offset manager" in { implicit f =>
+    // given
+    givenSuccessfullCommit()
+    val newChannel = mock[BlockingChannel]
+    given(f.offsetManagerResolver.resolve(meq(f.consumer), any[Int], any[Option[Throwable]]))
+      .willReturn(Success(newChannel))
+    givenFetchResponse(ErrorMapping.NotCoordinatorForConsumerCode, howManyTimes = 1, okForChannel = newChannel)
+
+    val committer = newCommitter(f)
+
+    // when
+    val result: Try[OffsetMap] = committer.commit(OffsetMap())
+
+    // then
+    result.isFailure should equal(false)
+  }
+
+  private def givenSuccessfullCommit()(implicit f: FixtureParam): Unit =
+    givenResponseWithErrorCode(ErrorMapping.NoError, 1)
+
   private def givenResponseWithErrorCode(code: Short, howManyTimes: Int = 10)(implicit f: FixtureParam): Unit = {
     var retries = 0
     f.sendCommit = (channel, req) => {
@@ -118,16 +227,21 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
   private def givenFetchSuccess()(implicit f: FixtureParam) =
     givenFetchResponse(ErrorMapping.NoError, 0)
 
-  private def givenFetchResponse(code: Short, howManyTimes: Int = 10)(implicit f: FixtureParam): Unit = {
+  private def givenFetchResponse(code: Short, howManyTimes: Int = 10,
+    okForChannel: BlockingChannel = mock[BlockingChannel])(implicit f: FixtureParam): Unit = {
+    def resp(code: Short) =
+      Success(OffsetFetchResponse(Map(TopicAndPartition("topic", 0) -> OffsetMetadataAndError(0, error = code))))
+
     var retries = 0
     f.sendFetch = (channel, req) => {
-      val finalCode = if (retries <= howManyTimes)
+
+      val finalCode = if (retries <= howManyTimes && channel != okForChannel)
         code
       else
         ErrorMapping.NoError
 
       retries = retries + 1
-      Success(OffsetFetchResponse(Map(TopicAndPartition("topic", 0) -> OffsetMetadataAndError(0, error = finalCode))))
+      resp(finalCode)
     }
   }
 }

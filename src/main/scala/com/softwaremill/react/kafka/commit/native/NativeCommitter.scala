@@ -22,39 +22,43 @@ private[native] class NativeCommitter(
 
   var correlationId = 0
 
-  override def commit(offsets: OffsetMap): Try[OffsetMap] = commitTrial(offsets)
+  override def commit(offsets: OffsetMap): Try[OffsetMap] =
+    commitPhaseTrial(offsets).flatMap { response =>
+      getOffsetsTrial(offsets)
+    }
 
-  private def commitTrial(
+  private def commitPhaseTrial(
     offsetsToCommit: OffsetMap,
     retriesLeft: Int = NativeCommitter.MaxRetries,
     lastErrorOpt: Option[Throwable] = None
-  ): Try[OffsetMap] = {
+  ): Try[OffsetCommitResponse] = {
     if (retriesLeft == 0)
       terminateWithLastError(lastErrorOpt)
     else {
       val commitRequest = createCommitRequest(offsetsToCommit.toCommitRequestInfo)
-      val responseTrial = sendCommit(channel, commitRequest).flatMap { response =>
+      val commitResult = sendCommit(channel, commitRequest).flatMap { response =>
         if (response.hasError)
-          handleCommitError(offsetsToCommit, retriesLeft, response)
+          Failure(new KafkaErrorException(response.commitStatus))
         else
-          getOffsetsTrial(offsetsToCommit)
+          Success(response)
       }
-      if (responseTrial.isFailure)
-        retry(offsetsToCommit, retriesLeft, responseTrial.failed.get, commitTrial)
-      else
-        responseTrial
+      commitResult match {
+        case Failure(exception) =>
+          exception match {
+            case e: KafkaErrorException => handleCommitErrorCode(offsetsToCommit, retriesLeft, e)
+            case otherException => retry(offsetsToCommit, retriesLeft, otherException, commitPhaseTrial)
+          }
+        case success => success
+      }
     }
   }
 
-  private def handleCommitError(
-    offsets: OffsetMap,
-    retriesLeft: Int,
-    commitResponse: OffsetCommitResponse
-  ): Try[OffsetMap] = {
-    if (offsetManagerHasMoved(commitResponse))
-      findNewCoordinatorAndRetry(offsets, retriesLeft, commitTrial)
+  private def handleCommitErrorCode(offsets: OffsetMap, retriesLeft: Int, ex: KafkaErrorException) = {
+
+    if (offsetManagerHasMoved(ex.statuses.values))
+      findNewCoordinatorAndRetry(offsets, retriesLeft, commitPhaseTrial)
     else
-      retry(offsets, retriesLeft, new KafkaErrorException(commitResponse.commitStatus), commitTrial)
+      retry(offsets, retriesLeft, ex, commitPhaseTrial)
   }
 
   private def createCommitRequest(requestInfo: Map[TopicAndPartition, OffsetAndMetadata]): OffsetCommitRequest = {
@@ -72,22 +76,28 @@ private[native] class NativeCommitter(
     retriesLeft: Int = NativeCommitter.MaxRetries,
     lastErrorOpt: Option[Throwable] = None
   ): Try[OffsetMap] = {
-
     if (retriesLeft == 0)
       terminateWithLastError(lastErrorOpt)
     else {
-      sendFetch(channel, createFetchRequest(offsetsToVerify)).flatMap {
+      val fetchResult = sendFetch(channel, createFetchRequest(offsetsToVerify)).flatMap {
         response =>
-          val result = response.requestInfo
           if (hasError(response))
-            handleFetchError(response, offsetsToVerify, retriesLeft)
+            Failure(new KafkaErrorException(response.requestInfo.mapValues(_.error)))
           else
-            Success(OffsetMap(result.mapValues(_.offset)))
+            Success(response)
+      }
+      fetchResult match {
+        case Failure(exception) =>
+          exception match {
+            case e: KafkaErrorException => handleFetchErrorCode(offsetsToVerify, retriesLeft, e)
+            case otherException => retry(offsetsToVerify, retriesLeft, otherException, getOffsetsTrial)
+          }
+        case Success(result) => Success(OffsetMap(result.requestInfo.mapValues(_.offset)))
       }
     }
   }
 
-  private def terminateWithLastError(lastErrorOpt: Option[Throwable]): Failure[Nothing] = {
+  private def terminateWithLastError(lastErrorOpt: Option[Throwable]) = {
     Failure(lastErrorOpt
       .map(new NativeCommitFailedException(_))
       .getOrElse(new IllegalStateException("Unexpected error without cause exception.")))
@@ -102,34 +112,21 @@ private[native] class NativeCommitter(
     )
   }
 
-  private def handleFetchError(
-    fetchResponse: OffsetFetchResponse,
+  private def handleFetchErrorCode(
     offsetsToVerify: OffsetMap,
-    retriesLeft: Int
+    retriesLeft: Int,
+    ex: KafkaErrorException
   ): Try[OffsetMap] = {
-    if (offsetManagerHasMoved(fetchResponse))
+    if (offsetManagerHasMoved(ex.statuses.values))
       findNewCoordinatorAndRetry(offsetsToVerify, retriesLeft, getOffsetsTrial)
-    else if (offsetLoadInProgress(fetchResponse))
-      retry(offsetsToVerify, retriesLeft, OfssetLoadInProgressException, getOffsetsTrial)
+    else if (offsetLoadInProgress(ex.statuses.values))
+      retry(offsetsToVerify, retriesLeft, OffssetLoadInProgressException, getOffsetsTrial)
     else
-      retry(
-        offsetsToVerify,
-        retriesLeft,
-        new KafkaErrorException(fetchResponse.requestInfo.mapValues(_.error)),
-        commitTrial
-      )
+      retry(offsetsToVerify, retriesLeft, ex, getOffsetsTrial)
   }
 
-  private def offsetManagerHasMoved(commitResponse: OffsetCommitResponse): Boolean = {
-    offsetManagerHasMoved(commitResponse.commitStatus.values)
-  }
-
-  private def offsetManagerHasMoved(fetchResponse: OffsetFetchResponse): Boolean = {
-    offsetManagerHasMoved(fetchResponse.requestInfo.values.map(_.error))
-  }
-
-  private def offsetLoadInProgress(fetchResponse: OffsetFetchResponse): Boolean = {
-    fetchResponse.requestInfo.values.map(_.error).exists(_ == OffsetsLoadInProgressCode)
+  private def offsetLoadInProgress(errors: Iterable[Short]): Boolean = {
+    errors.exists(_ == OffsetsLoadInProgressCode)
   }
 
   private def offsetManagerHasMoved(errors: Iterable[Short]): Boolean = {
@@ -142,29 +139,30 @@ private[native] class NativeCommitter(
     offsetFetchResponse.requestInfo.exists{ case (topicAndPartition, meta) => meta.error != ErrorMapping.NoError }
   }
 
-  private def findNewCoordinatorAndRetry(
+  private def findNewCoordinatorAndRetry[T](
     offsetsToVerify: OffsetMap,
     retriesLeft: Int,
-    funToRetry: (OffsetMap, Int, Option[Throwable]) => Try[OffsetMap]
-  ): Try[OffsetMap] = {
+    funToRetry: (OffsetMap, Int, Option[Throwable]) => Try[T]
+  ): Try[T] = {
     channel.disconnect()
-    for {
-      newChannel <- offsetManagerResolver.resolve(kafkaConsumer)
-      offsetMap <- retry(offsetsToVerify, retriesLeft, noCoordinatorException, funToRetry)
-    } yield {
-      this.channel = newChannel
-      offsetMap
+
+    val resolveResult = offsetManagerResolver.resolve(kafkaConsumer)
+    resolveResult match {
+      case Failure(exception) => retry(offsetsToVerify, retriesLeft, exception, funToRetry)
+      case Success(newChannel) =>
+        this.channel = newChannel
+        retry(offsetsToVerify, retriesLeft, noCoordinatorException, funToRetry)
     }
   }
 
   private def noCoordinatorException = new CoordinatorNotFoundException(kafkaConsumer.props.brokerList)
 
-  private def retry(
+  private def retry[T](
     offsets: OffsetMap,
     retriesLeft: Int,
     cause: Throwable,
-    funToRetry: (OffsetMap, Int, Option[Throwable]) => Try[OffsetMap]
-  ) = {
+    funToRetry: (OffsetMap, Int, Option[Throwable]) => Try[T]
+  ): Try[T] = {
     Thread.sleep(NativeCommitter.RetryIntervalMs)
     funToRetry(offsets, retriesLeft - 1, Some(cause))
   }
@@ -177,7 +175,7 @@ private[native] class NativeCommitter(
 
 object NativeCommitter {
   val MaxRetries = 5
-  val RetryIntervalMs: Long = 200
+  val RetryIntervalMs: Long = 400
 }
 
 private[native] object KafkaSendCommit extends ((BlockingChannel, OffsetCommitRequest) => Try[OffsetCommitResponse]) {
@@ -201,7 +199,7 @@ private[native] object KafkaSendFetch extends ((BlockingChannel, OffsetFetchRequ
 private[native] class NativeCommitFailedException(cause: Throwable)
   extends Exception(s"Failed to commit after ${NativeCommitter.MaxRetries} retires", cause)
 
-private[native] object OfssetLoadInProgressException
+private[native] object OffssetLoadInProgressException
   extends Exception("Cannot fetch offsets, coordinator responded with OffsetsLoadInProgressCode")
 
 private[native] class NativeGetOffsetsFailedException(cause: Throwable)
@@ -210,5 +208,5 @@ private[native] class NativeGetOffsetsFailedException(cause: Throwable)
 private[native] class CoordinatorNotFoundException(brokerList: String)
   extends Exception(s"Could not find offset manager in broker list: $brokerList")
 
-private[native] class KafkaErrorException(statuses: Map[TopicAndPartition, Short])
+private[native] class KafkaErrorException(val statuses: Map[TopicAndPartition, Short])
   extends Exception(s"Received statuses: $statuses")
