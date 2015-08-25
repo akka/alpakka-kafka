@@ -59,8 +59,8 @@ public class PropertiesBuilder {
         private String groupId;
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
-        public Consumer(String zooKeeperHost, String brokerList, String topic, String groupId, Decoder decoder) {
-            super(zooKeeperHost, brokerList, topic);
+        public Consumer(String brokerList, String zooKeeperHost, String topic, String groupId, Decoder decoder) {
+            super(brokerList, zooKeeperHost, topic);
             this.decoder = decoder;
             this.groupId = groupId;
         }

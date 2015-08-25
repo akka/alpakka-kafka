@@ -35,19 +35,16 @@ public class JavaConstructorTest {
         ActorMaterializer materializer = ActorMaterializer.create(system);
 
         ConsumerProperties<String> cp =
-                new PropertiesBuilder.Consumer(zooKeeperHost, brokerList, "topic", "groupId", new StringDecoder(null))
+                new PropertiesBuilder.Consumer(brokerList, zooKeeperHost, "topic", "groupId", new StringDecoder(null))
                         .build();
 
         Publisher<MessageAndMetadata<byte[], String>> publisher = kafka.consume(cp, system);
 
         ProducerProperties<String> pp = new PropertiesBuilder.Producer(
-                zooKeeperHost,
                 brokerList,
+                zooKeeperHost,
                 "topic",
-                "clientId",
-                new StringEncoder(null))
-                .build();
-
+                new StringEncoder(null)).build();
         Subscriber<String> subscriber = kafka.publish(pp, system);
 
         Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);

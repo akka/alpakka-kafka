@@ -20,11 +20,15 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void javaHandleBaseCase() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
-                .build();
+        final PropertiesBuilder.Consumer propsBuilder = new PropertiesBuilder.Consumer(brokerList, zooKeepHost, topic, groupId, new StringDecoder(null));
+        assertEquals(propsBuilder.getBrokerList(), brokerList);
+        assertEquals(propsBuilder.getZooKeeperHost(), zooKeepHost);
+
+        final ConsumerProperties consumerProperties = propsBuilder.build();
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
 
+        assertEquals(consumerProperties.zookeeperConnect(), zooKeepHost);
         assertEquals(consumerProperties.topic(), topic);
         assertEquals(consumerProperties.groupId(), groupId);
         assertEquals(consumerProperties.decoder().getClass().getSimpleName(), StringDecoder.class.getSimpleName());
@@ -38,7 +42,7 @@ public class JavaConsumerPropertiesTest {
     @Test
     public void javaHandleKafkaStorage() {
 
-        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(zooKeepHost, brokerList, topic, groupId, new StringDecoder(null))
+        final ConsumerProperties consumerProperties = new PropertiesBuilder.Consumer(brokerList, zooKeepHost, topic, groupId, new StringDecoder(null))
                 .build()
                 .readFromEndOfStream()
                 .consumerTimeoutMs(1234)
@@ -46,6 +50,7 @@ public class JavaConsumerPropertiesTest {
 
         final ConsumerConfig consumerConfig = consumerProperties.toConsumerConfig();
 
+        assertEquals(consumerProperties.zookeeperConnect(), zooKeepHost);
         assertEquals(consumerProperties.topic(), topic);
         assertEquals(consumerProperties.groupId(), groupId);
         assertEquals(consumerProperties.decoder().getClass().getSimpleName(), StringDecoder.class.getSimpleName());

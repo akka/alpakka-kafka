@@ -4,6 +4,7 @@ import com.softwaremill.react.kafka.ConsumerProperties
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.reactivestreams.{Publisher, Subscriber}
+import scala.language.postfixOps
 
 /**
  * Code samples for the documentation.
@@ -90,8 +91,7 @@ object examples {
       .setProperty("some.kafka.property", "value")
   }
 
-
-  def processMessage[T](msg: T)= {
+  def processMessage[T](msg: T) = {
     msg
   }
 
@@ -111,13 +111,14 @@ object examples {
       zooKeeperHost = "localhost:2181",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      decoder = new StringDecoder())
-    .commitInterval(5 seconds) // flush interval
+      decoder = new StringDecoder()
+    )
+      .commitInterval(5 seconds) // flush interval
 
     val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
     Source(consumerWithOffsetSink.publisher)
-    .map(processMessage(_)) // your message processing
-    .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
-    .run()
+      .map(processMessage(_)) // your message processing
+      .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
+      .run()
   }
 }
