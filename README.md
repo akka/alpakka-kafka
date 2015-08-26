@@ -156,13 +156,13 @@ If there's a problem with putting elements into Kafka, only an exception will be
 This mechanism allows custom handling and keeping the subscriber working.  
 Example of custom error handling for a Kafka Sink:
 ```Scala
-val sourceDecider: Supervision.Decider = {
+val decider: Supervision.Decider = {
   case _ => Supervision.Resume // Your error handling
 }
 
 Source(publisher)
   .map(_.message().toUpperCase)
-  .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sourceDecider)))
+  .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(decider)))
   .run()
 ```
 #### Cleaning up

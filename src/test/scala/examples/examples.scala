@@ -64,13 +64,13 @@ object examples {
       encoder = new StringEncoder()
     ))
 
-    val sourceDecider: Supervision.Decider = {
+    val sinkDecider: Supervision.Decider = {
       case _ => Supervision.Resume // Your error handling
     }
 
     Source(publisher)
       .map(_.message().toUpperCase)
-      .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sourceDecider)))
+      .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sinkDecider)))
       .run()
   }
 
