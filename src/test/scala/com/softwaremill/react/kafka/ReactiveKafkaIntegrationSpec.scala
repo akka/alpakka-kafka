@@ -104,7 +104,7 @@ class ReactiveKafkaIntegrationSpec
       // when
       EventFilter[ProducerClosedException](message = "producer already closed") intercept {
         // let's close the underlying producer
-        kafkaSubscriberActor ! "Stop"
+        kafkaSubscriberActor ! "close_producer"
         kafkaSubscriber.onNext("foo")
       }
 

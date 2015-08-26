@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.{ActorLogging, PoisonPill}
+import akka.actor.ActorLogging
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, RequestStrategy}
 import kafka.producer.KafkaProducer
 
@@ -13,19 +13,14 @@ private[kafka] class KafkaActorSubscriber[T](
 
   override protected val requestStrategy = requestStrategyProvider()
 
-  override def postStop(): Unit = {
-    cleanupResources()
-    super.postStop()
-  }
-
   def receive = {
     case ActorSubscriberMessage.OnNext(element) =>
       processElement(element.asInstanceOf[T])
     case ActorSubscriberMessage.OnError(ex) =>
       handleError(ex)
     case ActorSubscriberMessage.OnComplete =>
-      cleanupResources()
-    case "Stop" => producer.close()
+      stop()
+    case "close_producer" => producer.close()
   }
 
   private def processElement(element: T) = {
@@ -34,11 +29,13 @@ private[kafka] class KafkaActorSubscriber[T](
 
   private def handleError(ex: Throwable) = {
     log.error("Stopping Kafka subscriber due to fatal error.", ex)
-    cleanupResources()
+    stop()
   }
 
-  def cleanupResources() = {
-    producer.close()
-    self ! PoisonPill
+  def stop() = {
+    cleanupResources()
+    context.stop(self)
   }
+
+  def cleanupResources(): Unit = producer.close()
 }

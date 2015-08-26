@@ -23,11 +23,6 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends 
 
   private def demand_? : Boolean = totalDemand > 0
 
-  override def postStop(): Unit = {
-    cleanupResources()
-    super.postStop()
-  }
-
   private def tryReadingSingleElement(): Try[Option[KafkaMessage[T]]] = {
     Try {
       if (iterator.hasNext() && demand_?) Option(iterator.next()) else None
