@@ -153,17 +153,34 @@ The error will be handled depending on subscriber implementation.
 When a subscriber (producer) fails to get more elements from upstream due to an error, it is no longer usable. 
 It will throw an exception and close all underlying resource (effectively: the Kafka connection). 
 If there's a problem with putting elements into Kafka, only an exception will be thrown. 
-This mechanism allows custom handling and keeping the subscriber working.  
+You can create the subscriber actor as a child of another actor and react to errors using supervision strategy.
 Example of custom error handling for a Kafka Sink:
 ```Scala
-val decider: Supervision.Decider = {
-  case _ => Supervision.Resume // Your error handling
-}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.stream.ActorMaterializer
+import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
-Source(publisher)
-  .map(_.message().toUpperCase)
-  .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(decider)))
-  .run()
+class Handler extends Actor {
+  implicit val materializer = ActorMaterializer()
+
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+    case exception => Resume // Your custom error handling
+  }
+
+  def createSupervisedSubscriberActor() = {
+    val kafka = new ReactiveKafka()
+
+    // subscriber
+    val subscriberProperties = ProducerProperties(
+      brokerList = "localhost:9092",
+      topic = "uppercaseStrings",
+      encoder = new StringEncoder()
+    )
+    val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
+    context.actorOf(subscriberActorProps)
+  }
+  // Rest of the Actor's body
+}
 ```
 #### Cleaning up
 If you want to manually stop a publisher or a subscriber, you have to send an appropriate message to the underlying
