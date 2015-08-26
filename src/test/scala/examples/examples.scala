@@ -1,5 +1,7 @@
 package examples
 
+import akka.stream.{ActorAttributes, Supervision}
+import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ConsumerProperties
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
@@ -38,44 +40,38 @@ object examples {
     Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
   }
 
-  def handling(): Unit = {
+  def errorHandling(): Unit = {
     import akka.actor.{Actor, ActorRef, ActorSystem, Props}
     import akka.stream.ActorMaterializer
     import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
-    class Handler extends Actor {
-      implicit val actorSystem = ActorSystem("ReactiveKafka")
-      implicit val materializer = ActorMaterializer()
+    implicit val actorSystem = ActorSystem("ReactiveKafka")
+    implicit val materializer = ActorMaterializer()
 
-      val kafka = new ReactiveKafka()
-      // publisher
-      val publisherProperties = ConsumerProperties(
-        brokerList = "localhost:9092",
-        zooKeeperHost = "localhost:2181",
-        topic = "lowercaseStrings",
-        groupId = "groupName",
-        decoder = new StringDecoder()
-      )
-      val publisherActorProps: Props = kafka.consumerActorProps(publisherProperties)
-      val publisherActor: ActorRef = context.actorOf(publisherActorProps)
-      // or:
-      val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProperties)
+    val kafka = new ReactiveKafka()
 
-      // subscriber
-      val subscriberProperties = ProducerProperties(
-        brokerList = "localhost:9092",
-        topic = "uppercaseStrings",
-        encoder = new StringEncoder()
-      )
-      val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-      val subscriberActor: ActorRef = context.actorOf(subscriberActorProps)
-      // or:
-      val topLevelSubscriberActor: ActorRef = kafka.producerActor(subscriberProperties)
+    val publisher = kafka.consume(ConsumerProperties(
+      brokerList = "localhost:9092",
+      zooKeeperHost = "localhost:2181",
+      topic = "lowercaseStrings",
+      groupId = "groupName",
+      decoder = new StringDecoder()
+    ))
 
-      override def receive: Receive = {
-        case _ =>
-      }
+    val subscriber = kafka.publish(ProducerProperties(
+      brokerList = "localhost:9092",
+      topic = "uppercaseStrings",
+      encoder = new StringEncoder()
+    ))
+
+    val sourceDecider: Supervision.Decider = {
+      case _ => Supervision.Resume // Your error handling
     }
+
+    Source(publisher)
+      .map(_.message().toUpperCase)
+      .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sourceDecider)))
+      .run()
   }
 
   def consumerProperties() = {

@@ -154,16 +154,15 @@ When a subscriber (producer) fails to get more elements from upstream due to an 
 It will throw an exception and close all underlying resource (effectively: the Kafka connection). 
 If there's a problem with putting elements into Kafka, only an exception will be thrown. 
 This mechanism allows custom handling and keeping the subscriber working.  
-Example of custom error handling for a Kafka Source:
+Example of custom error handling for a Kafka Sink:
 ```Scala
 val sourceDecider: Supervision.Decider = {
   case _ => Supervision.Resume // Your error handling
 }
 
 Source(publisher)
-  .withAttributes(ActorAttributes.supervisionStrategy(sourceDecider))
   .map(_.message().toUpperCase)
-  .to(Sink(subscriber))
+  .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sourceDecider)))
   .run()
 ```
 #### Cleaning up
