@@ -16,10 +16,6 @@ Available at Maven Central for Scala 2.10 and 2.11:
 libraryDependencies += "com.softwaremill" %% "reactive-kafka" % "0.7.2"
 ````
 
-Testing
-----
-Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and localhost:2181
-
 Example usage
 ----
 
@@ -231,3 +227,8 @@ You can tune them by overriding `kafka-publisher-dispatcher.thread-pool-executor
 `kafka-subscriber-dispatcher.thread-pool-executor` in your `application.conf` file.  
 Alternatively you can provide your own dispatcher name. It can be passed to appropriate variants of factory methods in
 `ReactiveKafka`: `publish()`, `producerActor()`, `producerActorProps()` or `consume()`, `consumerActor()`, `consumerActorProps()`.
+
+Testing
+----
+Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and localhost:2181
+
