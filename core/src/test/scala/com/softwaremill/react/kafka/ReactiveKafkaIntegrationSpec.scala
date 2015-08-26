@@ -1,16 +1,11 @@
 package com.softwaremill.react.kafka
 
-import java.util.UUID
-
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
-import akka.stream.actor.ActorPublisherMessage.Cancel
-import akka.stream.actor.ActorSubscriberMessage.OnComplete
 import akka.stream.actor._
-import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.{EventFilter, ImplicitSender, TestKit, TestProbe}
+import akka.stream.scaladsl.Source
+import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.commit.CommitSink
@@ -27,21 +22,11 @@ class ReactiveKafkaIntegrationSpec
       "ReactiveKafkaIntegrationSpec",
       ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
     ))
-    with ImplicitSender with fixture.WordSpecLike with Matchers with KafkaTest {
-
-  def uuid() = UUID.randomUUID().toString
+    with ImplicitSender with fixture.WordSpecLike with Matchers with ReactiveKafkaIntegrationTestSupport {
 
   implicit val timeout = Timeout(1 second)
 
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
-
-  def withFixture(test: OneArgTest) = {
-    val topic = uuid()
-    val group = uuid()
-    val kafka = newKafka()
-    val theFixture = FixtureParam(topic, group, kafka)
-    withFixture(test.toNoArgTest(theFixture))
-  }
 
   "Reactive kafka streams" must {
     "publish and consume" in { implicit f =>
@@ -50,10 +35,6 @@ class ReactiveKafkaIntegrationSpec
 
       // then
       verifyQueueHas(Seq("a", "b", "c"))
-    }
-
-    "manually commit offsets with zookeeper" in { implicit f =>
-      shouldCommitOffsets("zookeeper")
     }
 
     "manually commit offsets with kafka" in { implicit f =>
@@ -112,26 +93,6 @@ class ReactiveKafkaIntegrationSpec
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
     }
 
-    def givenQueueWithElements(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
-      val kafkaSubscriberActor = stringSubscriberActor(f)
-      Source(msgs.toList).to(Sink(ActorSubscriber[String](kafkaSubscriberActor))).run()
-      verifyQueueHas(msgs, storage)
-      completeProducer(kafkaSubscriberActor)
-    }
-
-    def verifyQueueHas(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
-      val consumerProps = consumerProperties(f).noAutoCommit().setProperty("offsets.storage", storage)
-      val consumerActor = f.kafka.consumerActor(consumerProps)
-
-      Source(ActorPublisher[StringKafkaMessage](consumerActor))
-        .map(_.message())
-        .runWith(TestSink.probe[String])
-        .request(msgs.length.toLong)
-        .expectNext(msgs.head, msgs.tail.head, msgs.tail.tail: _*)
-      // kill the consumer
-      cancelConsumer(consumerActor)
-    }
-
     def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam) = {
       // given
       val inputActor = stringSubscriberActor(f)
@@ -165,19 +126,6 @@ class ReactiveKafkaIntegrationSpec
       completeProducer(inputActor)
       cancelConsumer(inputConsumerActor)
     }
-  }
-
-  def cancelConsumer(consumerActor: ActorRef) =
-    killActorWith(consumerActor, Cancel)
-
-  def completeProducer(producerActor: ActorRef) =
-    killActorWith(producerActor, OnComplete)
-
-  def killActorWith(actor: ActorRef, msg: Any) = {
-    val probe = TestProbe()
-    probe.watch(actor)
-    actor ! msg
-    probe.expectTerminated(actor, max = 6 seconds)
   }
 
   def waitUntilFirstElementInQueue(): Unit = {
