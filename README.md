@@ -188,38 +188,41 @@ actor. `KafkaActorPublisher` must receive a `ActorPublisherMessage.Cancel`, wher
 a `ActorSubscriberMessage.OnComplete`.
 
 #### Manual Commit (version 0.8 and above)
-Current version supports manual commit only when committing to Zookeeper. Support for Committing to Kafka-based storage is
-in progress.  
 In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when
-you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed.  
-Example:  
+you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed. 
+Reactive Kafka supports manual commit both to Zookeeper (legacy) and Kafka storage. Dual commit is not supported. 
+In order to commit manually to zookeeper, you have to add an optional module to your dependencies:
+
+````scala
+libraryDependencies += "com.softwaremill.reactivekafka" %% "zookeeper-committer" % reactiveKafkaVersion
+````
+Example of a consumer with manual commit for processed messages:  
 
 ```Scala
-    import scala.concurrent.duration._
-    import akka.actor.ActorSystem
-    import akka.stream.ActorMaterializer
-    import akka.stream.scaladsl.Source
-    import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
+import scala.concurrent.duration._
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Source
+import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
 
-    implicit val actorSystem = ActorSystem("ReactiveKafka")
-    implicit val materializer = ActorMaterializer()
+implicit val actorSystem = ActorSystem("ReactiveKafka")
+implicit val materializer = ActorMaterializer()
 
-    val kafka = new ReactiveKafka()
-    val consumerProperties = ConsumerProperties(
-      brokerList = "localhost:9092",
-      zooKeeperHost = "localhost:2181",
-      topic = "lowercaseStrings",
-      groupId = "groupName",
-      decoder = new StringDecoder())
-    .commitInterval(5 seconds) // flush interval
+val kafka = new ReactiveKafka()
+val consumerProperties = ConsumerProperties(
+  brokerList = "localhost:9092",
+  zooKeeperHost = "localhost:2181",
+  topic = "lowercaseStrings",
+  groupId = "groupName",
+  decoder = new StringDecoder())
+.commitInterval(5 seconds) // flush interval
     
-    val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-    Source(consumerWithOffsetSink.publisher)
-    .map(processMessage(_)) // your message processing
-    .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
-    .run()
+val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
+Source(consumerWithOffsetSink.publisher)
+  .map(processMessage(_)) // your message processing
+  .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
+  .run()
 ```
-
 Tuning
 ----
 
