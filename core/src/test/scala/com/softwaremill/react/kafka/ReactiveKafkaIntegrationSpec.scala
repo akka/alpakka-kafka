@@ -4,7 +4,7 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
 import akka.stream.actor._
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
@@ -81,12 +81,12 @@ class ReactiveKafkaIntegrationSpec
       val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
       val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
+      Source(initialDelay = 100 millis, interval = 1 second, tick = "tick").to(Sink(kafkaSubscriber)).run()
 
       // when
       EventFilter[ProducerClosedException](message = "producer already closed") intercept {
         // let's close the underlying producer
         kafkaSubscriberActor ! "close_producer"
-        kafkaSubscriber.onNext("foo")
       }
 
       // then
