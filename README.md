@@ -153,8 +153,19 @@ The error will be handled depending on subscriber implementation.
 When a subscriber (producer) fails to get more elements from upstream due to an error, it is no longer usable. 
 It will throw an exception and close all underlying resource (effectively: the Kafka connection). 
 If there's a problem with putting elements into Kafka, only an exception will be thrown. 
-This mechanism allows custom handling and keeping the subscriber working.
+This mechanism allows custom handling and keeping the subscriber working.  
+Example of custom error handling for a Kafka Source:
+```Scala
+val sourceDecider: Supervision.Decider = {
+  case _ => Supervision.Resume // Your error handling
+}
 
+Source(publisher)
+  .withAttributes(ActorAttributes.supervisionStrategy(sourceDecider))
+  .map(_.message().toUpperCase)
+  .to(Sink(subscriber))
+  .run()
+```
 #### Cleaning up
 If you want to manually stop a publisher or a subscriber, you can just kill the actor using `context.stop()` or a 
 `PoisonPill`. Underlying Kafka resources will be cleaned up.
