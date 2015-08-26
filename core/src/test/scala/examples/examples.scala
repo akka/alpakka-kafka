@@ -1,5 +1,7 @@
 package examples
 
+import akka.actor.SupervisorStrategy.Resume
+import akka.actor.{OneForOneStrategy, SupervisorStrategy}
 import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ConsumerProperties
@@ -7,7 +9,7 @@ import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.reactivestreams.{Publisher, Subscriber}
 import scala.language.postfixOps
-
+import scala.concurrent.duration._
 /**
  * Code samples for the documentation.
  */
@@ -40,38 +42,35 @@ object examples {
     Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
   }
 
-  def errorHandling(): Unit = {
+  def handling(): Unit = {
     import akka.actor.{Actor, ActorRef, ActorSystem, Props}
     import akka.stream.ActorMaterializer
     import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
-    implicit val actorSystem = ActorSystem("ReactiveKafka")
-    implicit val materializer = ActorMaterializer()
+    class Handler extends Actor {
+      implicit val materializer = ActorMaterializer()
 
-    val kafka = new ReactiveKafka()
+      override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+        case exception => Resume // Your custom error handling
+      }
 
-    val publisher = kafka.consume(ConsumerProperties(
-      brokerList = "localhost:9092",
-      zooKeeperHost = "localhost:2181",
-      topic = "lowercaseStrings",
-      groupId = "groupName",
-      decoder = new StringDecoder()
-    ))
+      def createSupervisedSubscriberActor() = {
+        val kafka = new ReactiveKafka()
 
-    val subscriber = kafka.publish(ProducerProperties(
-      brokerList = "localhost:9092",
-      topic = "uppercaseStrings",
-      encoder = new StringEncoder()
-    ))
+        // subscriber
+        val subscriberProperties = ProducerProperties(
+          brokerList = "localhost:9092",
+          topic = "uppercaseStrings",
+          encoder = new StringEncoder()
+        )
+        val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
+        context.actorOf(subscriberActorProps)
+      }
 
-    val sinkDecider: Supervision.Decider = {
-      case _ => Supervision.Resume // Your error handling
+      override def receive: Receive = {
+        case _ =>
+      }
     }
-
-    Source(publisher)
-      .map(_.message().toUpperCase)
-      .to(Sink(subscriber).withAttributes(ActorAttributes.supervisionStrategy(sinkDecider)))
-      .run()
   }
 
   def consumerProperties() = {
