@@ -166,8 +166,9 @@ Source(publisher)
   .run()
 ```
 #### Cleaning up
-If you want to manually stop a publisher or a subscriber, you can just kill the actor using `context.stop()` or a 
-`PoisonPill`. Underlying Kafka resources will be cleaned up.
+If you want to manually stop a publisher or a subscriber, you have to send an appropriate message to the underlying
+actor. `KafkaActorPublisher` must receive a `ActorPublisherMessage.Cancel`, where `KafkaActorSubscriber` must receive
+a `ActorSubscriberMessage.OnComplete`.
 
 #### Manual Commit (version 0.8 and above)
 Current version supports manual commit only when committing to Zookeeper. Support for Committing to Kafka-based storage is
