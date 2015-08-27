@@ -74,7 +74,7 @@ class ReactiveKafkaIntegrationSpec
       shouldStartConsuming(fromEnd = true, f)
     }
 
-    "close producer, kill actor and log error when in trouble" in { f =>
+    "Log error and supervise when in trouble" in { f =>
       // given
       val producerProperties = createProducerProperties(f)
       val subscriberProps = createSubscriberProps(f.kafka, producerProperties)
