@@ -31,21 +31,20 @@ implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
-val publisher = kafka.consume(ConsumerProperties(
+val publisher: Publisher[StringKafkaMessage] = kafka.consume(ConsumerProperties(
   brokerList = "localhost:9092",
   zooKeeperHost = "localhost:2181",
   topic = "lowercaseStrings",
   groupId = "groupName",
   decoder = new StringDecoder()
 ))
-val subscriber = kafka.publish(ProducerProperties(
+val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
   brokerList = "localhost:9092",
   topic = "uppercaseStrings",
-  clientId = "groupName",
   encoder = new StringEncoder()
 ))
 
-Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
+Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
 ```
 
 #### Java
