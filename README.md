@@ -49,7 +49,7 @@ Source(publisher).map(_.toUpperCase).to(Sink(subscriber)).run()
 ```
 
 #### Java
-```Java
+```java
 String zooKeeperHost = "localhost:2181";
 String brokerList = "localhost:9092";
 
@@ -57,18 +57,22 @@ ReactiveKafka kafka = new ReactiveKafka();
 ActorSystem system = ActorSystem.create("ReactiveKafka");
 ActorMaterializer materializer = ActorMaterializer.create(system);
 
-ConsumerProperties<Byte[], String> cp =
+ConsumerProperties<String> cp =
    new PropertiesBuilder.Consumer(brokerList, zooKeeperHost, "topic", "groupId", new StringDecoder(null))
       .build();
 
-Publisher<KeyValueKafkaMessage<Byte[], String>> publisher = kafka.consume(cp, system);
+Publisher<MessageAndMetadata<byte[], String>> publisher = kafka.consume(cp, system);
 
-ProducerProperties<String> pp = new PropertiesBuilder.Producer(brokerList, zooKeeperHost, "topic", new StringEncoder(null))
-        .build();
+ProducerProperties<String> pp = new PropertiesBuilder.Producer(
+   brokerList,
+   zooKeeperHost,
+   "topic",
+   new StringEncoder(null)).build();
 
 Subscriber<String> subscriber = kafka.publish(pp, system);
 
-Source.from(publisher).map(KeyValueKafkaMessage::msg).to(Sink.create(subscriber)).run(materializer);
+Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
+
 ```
 
 Passing configuration properties to Kafka
