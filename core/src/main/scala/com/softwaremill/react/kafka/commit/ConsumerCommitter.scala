@@ -33,18 +33,19 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
   }
 
   override def postStop(): Unit = {
-    super.postStop()
+    log.debug("Stopping consumer committer")
     scheduledFlush.foreach(_.cancel())
     committerOpt.foreach(_.stop())
+    super.postStop()
   }
 
   def receive = {
     case TheEnd =>
       log.debug("Closing ConsumerCommitter")
-      kafkaConsumer.close()
+      context.stop(self)
     case Failure =>
       log.error("Closing offset committer due to a failure")
-      kafkaConsumer.close()
+      context.stop(self)
     case msg: MessageAndMetadata[_, T] => registerCommit(msg)
     case Flush => commitGatheredOffsets()
   }

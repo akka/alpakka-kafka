@@ -8,7 +8,6 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
-import com.softwaremill.react.kafka.commit.CommitSink
 import com.typesafe.config.ConfigFactory
 import kafka.producer.ProducerClosedException
 import org.scalatest.{Matchers, fixture}
@@ -39,31 +38,6 @@ class ReactiveKafkaIntegrationSpec
 
     "manually commit offsets with kafka" in { implicit f =>
       shouldCommitOffsets("kafka")
-    }
-
-    def shouldCommitOffsets(storage: String)(implicit f: FixtureParam) = {
-      // given
-      givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"), storage)
-
-      // when
-      val consumerProps = consumerProperties(f)
-        .commitInterval(100 millis)
-        .noAutoCommit()
-        .setProperty("offsets.storage", storage)
-
-      val actorWithConsumer = f.kafka.consumerActorWithConsumer(consumerProps, ReactiveKafka.ConsumerDefaultDispatcher)
-      val publisherWithCommitSink = PublisherWithCommitSink[String](
-        ActorPublisher[StringKafkaMessage](actorWithConsumer.actor),
-        CommitSink.create(actorWithConsumer.consumer)
-      )
-      Source(publisherWithCommitSink.publisher)
-        .filter(_.message().toInt < 3)
-        .to(publisherWithCommitSink.offsetCommitSink).run()
-      Thread.sleep(3000) // how to wait for commit?
-      cancelConsumer(actorWithConsumer.actor)
-
-      // then
-      verifyQueueHas(Seq("3", "4", "5"), storage)
     }
 
     "start consuming from the beginning of stream" in { f =>

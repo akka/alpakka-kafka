@@ -1,11 +1,11 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
+import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
-import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
-import com.softwaremill.react.kafka.commit.CommitSink
+import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
 import kafka.consumer._
 import kafka.producer._
 import kafka.serializer.{Decoder, Encoder}
@@ -163,6 +163,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
       ActorPublisher[KafkaMessage[T]](
         actorWithConsumer.actor
       ),
+      actorWithConsumer.actor,
       CommitSink.create(actorWithConsumer.consumer)
     )
   }
@@ -184,7 +185,7 @@ class ReactiveKafka(val host: String = "", val zooKeeperHost: String = "") {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher(dispatcher))
   }
 
-  def consumerActorWithConsumer[T](
+  private def consumerActorWithConsumer[T](
     props: ConsumerProperties[T],
     dispatcher: String
   )(implicit actorSystem: ActorSystem) = {
@@ -211,8 +212,16 @@ object ReactiveKafka {
 }
 
 case class PublisherWithCommitSink[T](
-  publisher: Publisher[KafkaMessage[T]],
-  offsetCommitSink: Sink[KafkaMessage[T], Unit]
-)
+    publisher: Publisher[KafkaMessage[T]],
+    publisherActor: ActorRef,
+    kafkaOffsetCommitSink: KafkaSink[KafkaMessage[T]]
+) {
+  def offsetCommitSink = kafkaOffsetCommitSink.sink
+
+  def cancel(): Unit = {
+    publisherActor ! Cancel
+    kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
+  }
+}
 private[kafka] case class ConsumerWithActorProps[T](consumer: KafkaConsumer[T], actorProps: Props)
 private[kafka] case class ConsumerWithActor[T](consumer: KafkaConsumer[T], actor: ActorRef)

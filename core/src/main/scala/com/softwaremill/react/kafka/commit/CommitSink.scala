@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka.commit
 
-import akka.actor.{Props, ActorSystem}
+import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.TheEnd
@@ -15,6 +15,8 @@ private[kafka] object CommitSink {
     val initialProps = Props(new ConsumerCommitter(new CommitterProvider(), kafkaConsumer))
     val props = customDispatcherName.map(initialProps.withDispatcher).getOrElse(initialProps)
     val actor = actorSystem.actorOf(props)
-    Sink.actorRef[KafkaMessage[T]](actor, TheEnd)
+    KafkaSink(Sink.actorRef[KafkaMessage[T]](actor, TheEnd), actor)
   }
 }
+
+case class KafkaSink[T](sink: Sink[T, Unit], underlyingCommitterActor: ActorRef)

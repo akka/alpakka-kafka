@@ -10,7 +10,6 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import com.softwaremill.react.kafka.KafkaMessages._
-import com.softwaremill.react.kafka.commit.CommitSink
 import org.scalatest.fixture.Suite
 
 import scala.concurrent.duration._
@@ -28,16 +27,13 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
       .noAutoCommit()
       .setProperty("offsets.storage", storage)
 
-    val actorWithConsumer = f.kafka.consumerActorWithConsumer(consumerProps, ReactiveKafka.ConsumerDefaultDispatcher)
-    val publisherWithCommitSink = PublisherWithCommitSink[String](
-      ActorPublisher[StringKafkaMessage](actorWithConsumer.actor),
-      CommitSink.create(actorWithConsumer.consumer)
-    )
-    Source(publisherWithCommitSink.publisher)
+    val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
+    Source(consumerWithSink.publisher)
       .filter(_.message().toInt < 3)
-      .to(publisherWithCommitSink.offsetCommitSink).run()
-    Thread.sleep(3000) // how to wait for commit?
-    cancelConsumer(actorWithConsumer.actor)
+      .to(consumerWithSink.offsetCommitSink).run()
+    Thread.sleep(3000) // wait for flush
+    consumerWithSink.cancel()
+    Thread.sleep(3000) // wait for cancel
 
     // then
     verifyQueueHas(Seq("3", "4", "5"), storage)
