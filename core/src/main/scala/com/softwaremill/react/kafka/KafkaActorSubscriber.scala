@@ -28,7 +28,7 @@ private[kafka] class KafkaActorSubscriber[T](
   }
 
   private def handleError(ex: Throwable) = {
-    log.error("Stopping Kafka subscriber due to fatal error.", ex)
+    log.error(ex, "Stopping Kafka subscriber due to fatal error.")
     stop()
   }
 
