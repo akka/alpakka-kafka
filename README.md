@@ -25,6 +25,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import kafka.serializer.{StringDecoder, StringEncoder}
+import org.reactivestreams.{Publisher, Subscriber}
 import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
