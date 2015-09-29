@@ -6,7 +6,7 @@ name := "reactive-kafka"
 
 val akkaVersion = "2.3.12"
 val akkaStreamVersion = "1.0"
-val curatorVersion = "2.8.0"
+val curatorVersion = "2.9.0"
 
 val kafka = "org.apache.kafka" %% "kafka" % "0.8.2.1" exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
 val curator = Seq("org.apache.curator" % "curator-framework" % curatorVersion,
