@@ -57,12 +57,19 @@ public class PropertiesBuilder {
 
         private Decoder decoder;
         private String groupId;
+        private Integer numThreads;
+
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
         public Consumer(String brokerList, String zooKeeperHost, String topic, String groupId, Decoder decoder) {
+            this(brokerList, zooKeeperHost, topic, groupId, decoder, 1);
+        }
+
+        public Consumer(String brokerList, String zooKeeperHost, String topic, String groupId, Decoder decoder, Integer numThreads) {
             super(brokerList, zooKeeperHost, topic);
             this.decoder = decoder;
             this.groupId = groupId;
+            this.numThreads = numThreads;
         }
 
         public Consumer withParams(Map<String, String> params) {
@@ -80,7 +87,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ConsumerProperties.<T>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
             }
-            return new ConsumerProperties(consumerParams, getTopic(), groupId, decoder);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, decoder, numThreads);
         }
 
     }

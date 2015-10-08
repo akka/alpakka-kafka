@@ -66,7 +66,8 @@ case class ConsumerProperties[T](
     params: Map[String, String],
     topic: String,
     groupId: String,
-    decoder: Decoder[T]
+    decoder: Decoder[T],
+    numThreads: Int = 1
 ) {
 
   /**
@@ -115,6 +116,7 @@ case class ConsumerProperties[T](
 
   def kafkaOffsetStorage = "kafka".equals(params("offsets.storage"))
 
+  def numThreads(count: Int) = copy(numThreads = count)
   /**
    * Set any additional properties as needed
    */
