@@ -34,13 +34,17 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
   type FixtureParam = CommitterFixture
 
   def withFixture(test: OneArgTest) = {
-    val kafka = newKafka()
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
     val consumer = new KafkaConsumer(properties)
-    val managerResolver = mock[OffsetManagerResolver]
-    val initialChannel = mock[BlockingChannel]
-    val theFixture = CommitterFixture(consumer, managerResolver, initialChannel)
-    withFixture(test.toNoArgTest(theFixture))
+    try {
+      val managerResolver = mock[OffsetManagerResolver]
+      val initialChannel = mock[BlockingChannel]
+      val theFixture = CommitterFixture(consumer, managerResolver, initialChannel)
+      withFixture(test.toNoArgTest(theFixture))
+    }
+    finally {
+      consumer.close()
+    }
   }
 
   private def newCommitter(
