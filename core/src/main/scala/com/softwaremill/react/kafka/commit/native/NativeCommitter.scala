@@ -45,8 +45,10 @@ private[native] class NativeCommitter(
       commitResult match {
         case Failure(exception) =>
           exception match {
-            case e: KafkaErrorException => handleCommitErrorCode(offsetsToCommit, retriesLeft, e)
-            case otherException => retry(offsetsToCommit, retriesLeft, otherException, commitPhaseTrial)
+            case e: KafkaErrorException =>
+              handleCommitErrorCode(offsetsToCommit, retriesLeft, e)
+            case otherException =>
+              retry(offsetsToCommit, retriesLeft, otherException, commitPhaseTrial)
           }
         case success => success
       }
@@ -139,20 +141,35 @@ private[native] class NativeCommitter(
     offsetFetchResponse.requestInfo.exists{ case (topicAndPartition, meta) => meta.error != ErrorMapping.NoError }
   }
 
+  def findNewCoordinator[T](
+    onFound: () => Try[T],
+    lastErr: Option[Throwable] = None,
+    retriesLeft: Int = NativeCommitter.MaxRetries
+  ): Try[T] = {
+    if (retriesLeft == 0)
+      Failure(new IllegalStateException(
+        "Cannot connect to coordinator",
+        lastErr.getOrElse(new IllegalStateException("Unknown reason"))
+      ))
+    else {
+      channel.disconnect()
+      val resolveResult = offsetManagerResolver.resolve(kafkaConsumer)
+      resolveResult match {
+        case Failure(exception) => findNewCoordinator(onFound, Some(exception), retriesLeft - 1)
+        case Success(newChannel) =>
+          this.channel = newChannel
+          onFound()
+      }
+    }
+  }
+
   private def findNewCoordinatorAndRetry[T](
     offsetsToVerify: OffsetMap,
     retriesLeft: Int,
     funToRetry: (OffsetMap, Int, Option[Throwable]) => Try[T]
   ): Try[T] = {
-    channel.disconnect()
-
-    val resolveResult = offsetManagerResolver.resolve(kafkaConsumer)
-    resolveResult match {
-      case Failure(exception) => retry(offsetsToVerify, retriesLeft, exception, funToRetry)
-      case Success(newChannel) =>
-        this.channel = newChannel
-        retry(offsetsToVerify, retriesLeft, noCoordinatorException, funToRetry)
-    }
+    def afterFindingNewCoordinator(): Try[T] = retry(offsetsToVerify, retriesLeft, noCoordinatorException, funToRetry)
+    findNewCoordinator(afterFindingNewCoordinator)
   }
 
   private def noCoordinatorException = new CoordinatorNotFoundException(kafkaConsumer.props.brokerList)

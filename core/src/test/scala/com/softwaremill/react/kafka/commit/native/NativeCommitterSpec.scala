@@ -8,8 +8,9 @@ import kafka.api._
 import kafka.common.{ErrorMapping, OffsetMetadataAndError, TopicAndPartition}
 import kafka.consumer.KafkaConsumer
 import kafka.network.BlockingChannel
+import org.hamcrest.{BaseMatcher, Description}
 import org.mockito.BDDMockito._
-import org.mockito.Matchers.{any, eq => meq}
+import org.mockito.Matchers.{any, eq => meq, intThat}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterEach, Matchers, fixture}
 
@@ -86,7 +87,7 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
     val result: Try[OffsetMap] = committer.commit(OffsetMap())
 
     // then
-    result.isFailure should equal(true)
+    result should be('isFailure)
     result.failed.get.getCause should equal(channelResolvingException)
   }
 
@@ -94,8 +95,10 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
     // given
     val channelResolvingException = new IllegalStateException("fatal!")
     givenResponseWithErrorCode(ErrorMapping.NotCoordinatorForConsumerCode, howManyTimes = 1)
-    given(f.offsetManagerResolver.resolve(meq(f.consumer), any[Int], any[Option[Throwable]]))
+    given(f.offsetManagerResolver.resolve(meq(f.consumer), intThat(gt(3)), any[Option[Throwable]]))
       .willReturn(Failure(channelResolvingException))
+    given(f.offsetManagerResolver.resolve(meq(f.consumer), intThat(lte(3)), any[Option[Throwable]]))
+      .willReturn(Success(f.initialChannel))
     givenFetchSuccess()
     val committer = newCommitter(f)
 
@@ -103,7 +106,7 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
     val result: Try[OffsetMap] = committer.commit(OffsetMap())
 
     // then
-    result.isFailure should equal(false)
+    result should be('isSuccess)
   }
 
   it should "Eventually succeed when a failing commit finally passes" in { implicit f =>
@@ -248,4 +251,17 @@ class NativeCommitterSpec extends TestKit(ActorSystem("NativeCommitterSpec"))
       resp(finalCode)
     }
   }
+
+  case class gt(num: Int) extends BaseMatcher[Integer] {
+    override def matches(o: scala.Any): Boolean = o.asInstanceOf[Integer] > num
+
+    override def describeTo(description: Description): Unit = ()
+  }
+
+  case class lte(num: Int) extends BaseMatcher[Integer] {
+    override def matches(o: scala.Any): Boolean = o.asInstanceOf[Integer] <= num
+
+    override def describeTo(description: Description): Unit = ()
+  }
+
 }
