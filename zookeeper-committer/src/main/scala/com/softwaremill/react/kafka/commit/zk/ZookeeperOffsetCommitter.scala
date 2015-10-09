@@ -77,5 +77,11 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
     }
   }
 
+  override def tryRestart(): Try[Unit] = {
+    Try({
+      stop()
+      start()
+    })
+  }
 }
 

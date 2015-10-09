@@ -176,4 +176,6 @@ class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
   override def start(): Unit = started = true
 
   override def stop(): Unit = stopped = true
+
+  override def tryRestart(): Try[Unit] = Success(())
 }

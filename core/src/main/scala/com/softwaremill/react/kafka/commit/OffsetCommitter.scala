@@ -7,6 +7,7 @@ import scala.util.Try
  */
 trait OffsetCommitter {
   def commit(offsets: OffsetMap): Try[OffsetMap]
+  def tryRestart(): Try[Unit]
 
   // optional / default fns below
   def start(): Unit = ()

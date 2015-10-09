@@ -83,7 +83,14 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
       case Success(resultOffsetMap) =>
         log.debug(s"committed offsets: $resultOffsetMap")
         committedOffsetMap = resultOffsetMap
-      case scala.util.Failure(ex) => log.error(ex, "Failed to commit offsets")
+      case scala.util.Failure(ex) =>
+        log.error(ex, "Failed to commit offsets")
+        committer.tryRestart() match {
+          case scala.util.Failure(cause) =>
+            log.error(cause, "Fatal error, cannot re-establish connection. Stopping native committer.")
+            context.stop(self)
+          case Success(()) =>
+        }
     }
   }
 

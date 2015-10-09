@@ -141,8 +141,8 @@ private[native] class NativeCommitter(
     offsetFetchResponse.requestInfo.exists{ case (topicAndPartition, meta) => meta.error != ErrorMapping.NoError }
   }
 
-  def findNewCoordinator[T](
-    onFound: () => Try[T],
+  private def findNewCoordinator[T](
+    onFound: => Try[T] = Success(()),
     lastErr: Option[Throwable] = None,
     retriesLeft: Int = NativeCommitter.MaxRetries
   ): Try[T] = {
@@ -158,7 +158,7 @@ private[native] class NativeCommitter(
         case Failure(exception) => findNewCoordinator(onFound, Some(exception), retriesLeft - 1)
         case Success(newChannel) =>
           this.channel = newChannel
-          onFound()
+          onFound
       }
     }
   }
@@ -188,6 +188,9 @@ private[native] class NativeCommitter(
     channel.disconnect()
     super.stop()
   }
+
+  override def tryRestart(): Try[Unit] = findNewCoordinator()
+
 }
 
 object NativeCommitter {
