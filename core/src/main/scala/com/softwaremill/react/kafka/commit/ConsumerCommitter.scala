@@ -74,11 +74,11 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
       if (offsetMapToFlush.nonEmpty)
         performFlush(committer, offsetMapToFlush)
     }
-    scheduledFlush = None
   }
 
   def performFlush(committer: OffsetCommitter, offsetMapToFlush: OffsetMap): Unit = {
     val committedOffsetMapTry = committer.commit(offsetMapToFlush)
+    scheduledFlush = None
     committedOffsetMapTry match {
       case Success(resultOffsetMap) =>
         log.debug(s"committed offsets: $resultOffsetMap")
@@ -90,6 +90,8 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
             log.error(cause, "Fatal error, cannot re-establish connection. Stopping native committer.")
             context.stop(self)
           case Success(()) =>
+            log.debug("Committer restarted. Rescheduling flush.")
+            scheduleFlush()
         }
     }
   }

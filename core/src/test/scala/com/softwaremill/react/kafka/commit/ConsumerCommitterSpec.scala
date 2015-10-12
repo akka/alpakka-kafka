@@ -15,7 +15,7 @@ import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Try, Success}
+import scala.util.{Failure, Try, Success}
 
 class ConsumerCommitterSpec extends TestKit(ActorSystem(
   "ConsumerCommitterSpec",
@@ -117,6 +117,24 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     ensureExactlyOneFlush(1, 190L)
   }
 
+  it should "try to re-establish channel" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new OccasionallyFailingCommitter(failingReqNo = 1)
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 1, offset = 190L)
+    ensureLastCommitted(0, 5L)
+    ensureLastCommitted(1, 190L)
+
+    // then
+    offsetCommitter.restartCount should be(1)
+  }
+
   def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
     ensureNever(offsetCommitter.flushCount((partition, offset)) != 1)
   }
@@ -125,7 +143,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
   }
 
-  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
+  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: CommiterVerifications): Unit = {
     awaitCond {
       offsetCommitter.lastCommittedOffsetFor(partition).equals(Some(offset))
     }
@@ -150,7 +168,33 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 
 }
 
-class AlwaysSuccessfullTestCommitter extends OffsetCommitter {
+trait CommiterVerifications {
+  def lastCommittedOffsetFor(partition: Int): Option[Long]
+}
+
+class OccasionallyFailingCommitter(failingReqNo: Int) extends OffsetCommitter with CommiterVerifications {
+  val innerSuccesfullCommitter = new AlwaysSuccessfullTestCommitter
+  var consumedRequests = 0
+  var restartCount = 0
+
+  override def commit(offsets: OffsetMap): Try[OffsetMap] = {
+    consumedRequests = consumedRequests + 1
+    if (consumedRequests == failingReqNo)
+      Failure(new RuntimeException("Could not commit"))
+    else
+      innerSuccesfullCommitter.commit(offsets)
+  }
+
+  override def tryRestart(): Try[Unit] = {
+    restartCount = restartCount + 1
+    Success(())
+  }
+
+  override def lastCommittedOffsetFor(partition: Int) =
+    innerSuccesfullCommitter.lastCommittedOffsetFor(partition)
+}
+
+class AlwaysSuccessfullTestCommitter extends OffsetCommitter with CommiterVerifications {
   var started, stopped: Boolean = false
   var innerMap: Offsets = Map.empty
   var flushCount: Map[(Int, Long), Int] = Map.empty
