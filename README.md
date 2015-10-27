@@ -8,7 +8,7 @@ If you have questions or are working on a pull request or just curious, please f
 
 Initiated by [SoftwareMill](https://softwaremill.com)
 
-Supports Kafka 0.8.2.1
+Supports Kafka 0.8.2.2
 
 Available at Maven Central for Scala 2.10 and 2.11:
 

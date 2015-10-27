@@ -4,11 +4,11 @@ import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactContr
 
 name := "reactive-kafka"
 
-val akkaVersion = "2.3.12"
+val akkaVersion = "2.3.14"
 val akkaStreamVersion = "1.0"
 val curatorVersion = "2.9.0"
 
-val kafka = "org.apache.kafka" %% "kafka" % "0.8.2.1" exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
+val kafka = "org.apache.kafka" %% "kafka" % "0.8.2.2" exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
 val curator = Seq("org.apache.curator" % "curator-framework" % curatorVersion,
   "org.apache.curator" % "curator-recipes" % curatorVersion
 )
@@ -21,7 +21,7 @@ val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
   kafka,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
-  "org.scalatest" %% "scalatest" % "2.2.1" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
