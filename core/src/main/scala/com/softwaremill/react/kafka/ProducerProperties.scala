@@ -61,6 +61,16 @@ object ProducerProperties {
       "producer.type" -> "sync"
     )
   }
+
+  def apply[T](
+    params: Map[String, String],
+    topic: String,
+    clientId: String,
+    encoder: Encoder[T]
+  ) = new ProducerProperties[T](
+    params + ("client.id" -> clientId),
+    topic, encoder, (_: T) => None)
+
 }
 
 case class ProducerProperties[T](

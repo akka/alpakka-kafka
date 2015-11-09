@@ -128,7 +128,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return new ProducerProperties(producerParams, getTopic(), encoder, null);
+            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder);
 
         }
 
