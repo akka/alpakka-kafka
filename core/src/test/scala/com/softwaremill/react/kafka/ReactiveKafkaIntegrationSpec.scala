@@ -5,11 +5,17 @@ import akka.actor._
 import akka.pattern.ask
 import akka.stream.actor._
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.typesafe.config.ConfigFactory
+import kafka.consumer.KafkaConsumer
+import kafka.message.{Message => KMessage}
 import kafka.producer.ProducerClosedException
+import kafka.utils.IteratorTemplate
+import org.mockito.BDDMockito.given
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, fixture}
 
 import scala.concurrent.Await
@@ -21,7 +27,7 @@ class ReactiveKafkaIntegrationSpec
       "ReactiveKafkaIntegrationSpec",
       ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
     ))
-    with ImplicitSender with fixture.WordSpecLike with Matchers with ReactiveKafkaIntegrationTestSupport {
+    with ImplicitSender with fixture.WordSpecLike with Matchers with ReactiveKafkaIntegrationTestSupport with MockitoSugar {
 
   implicit val timeout = Timeout(1 second)
 
@@ -65,6 +71,48 @@ class ReactiveKafkaIntegrationSpec
 
       // then
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[ProducerClosedException])
+    }
+
+    "allow Source supervision" in { implicit f =>
+      // given
+      givenQueueWithElements(Seq("test", "a", "b"))
+      var msgs = List.empty[StringKafkaMessage]
+
+      val publisher = f.kafka.consume(consumerProperties(f))
+      Source(publisher)
+        .map({ msg =>
+          msgs = msgs :+ msg
+          msg.message()
+        })
+        .runWith(TestSink.probe[String])
+        .request(1)
+        .expectNext("test")
+
+      val kafkaPublisherActor = {
+        val consumer = mock[KafkaConsumer[String]]
+        val iteratorStub =
+          new IteratorTemplate[StringKafkaMessage] {
+            var callCounter = 0
+            override protected def makeNext() = {
+              if (callCounter < 3) {
+                callCounter = callCounter + 1
+                msgs.head
+              }
+              else throw new IllegalStateException("Kafka stub disconnected")
+            }
+          }
+        given(consumer.iterator()).willReturn(iteratorStub)
+        val akkaConsumerProps = Props(new KafkaActorPublisher(consumer))
+        system.actorOf(akkaConsumerProps.withDispatcher(ReactiveKafka.ConsumerDefaultDispatcher))
+      }
+      val kafkaPublisher = ActorPublisher[StringKafkaMessage](kafkaPublisherActor)
+      watch(kafkaPublisherActor)
+
+      // when
+      Source(kafkaPublisher).to(Sink.ignore).run()
+
+      // then
+      expectTerminated(kafkaPublisherActor)
     }
 
     def shouldStartConsuming(fromEnd: Boolean, f: FixtureParam) = {

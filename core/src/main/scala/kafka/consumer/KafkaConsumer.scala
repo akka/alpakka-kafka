@@ -1,8 +1,9 @@
 package kafka.consumer
 
 import com.softwaremill.react.kafka.ConsumerProperties
+import kafka.message.MessageAndMetadata
 import kafka.serializer.DefaultDecoder
-import kafka.utils.Logging
+import kafka.utils.{IteratorTemplate, Logging}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -19,7 +20,7 @@ class KafkaConsumer[T](val props: ConsumerProperties[T]) extends Logging {
   val stream = connector.createMessageStreamsByFilter(filterSpec, props.numThreads, new DefaultDecoder(), props.decoder).head
   logger.info(s"setup:complete topic=${props.topic} for zk=${props.zookeeperConnect} and groupId=${props.groupId}")
 
-  def iterator() = stream.iterator()
+  def iterator(): IteratorTemplate[MessageAndMetadata[Array[Byte], T]] = stream.iterator()
 
   def close(): Unit = {
     connector.shutdown()
