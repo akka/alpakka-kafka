@@ -40,7 +40,9 @@ private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends 
       case Success(Some(element)) =>
         onNext(element)
         if (demand_?) readDemandedItems()
-      case Failure(ex) => onError(ex)
+      case Failure(ex) =>
+        cleanupResources()
+        onErrorThenStop(ex)
     }
   }
 
