@@ -2,7 +2,7 @@ package com.softwaremill.react.kafka.commit.native
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import com.softwaremill.react.kafka.KafkaTest
+import com.softwaremill.react.kafka.{ConsumerProperties, KafkaTest}
 import kafka.api.{ConsumerMetadataRequest, ConsumerMetadataResponse}
 import kafka.cluster.Broker
 import kafka.common.ErrorMapping
@@ -10,15 +10,35 @@ import kafka.consumer.KafkaConsumer
 import kafka.network.BlockingChannel
 import org.mockito.BDDMockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.{BeforeAndAfterEach, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfterEach, Matchers, fixture}
 
 import scala.util.Try
 
 class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolverSpec"))
-    with FlatSpecLike with Matchers with KafkaTest with MockitoSugar with BeforeAndAfterEach {
+    with fixture.FlatSpecLike with Matchers with KafkaTest with MockitoSugar with BeforeAndAfterEach {
 
   var channelMock: BlockingChannel = _
   var channelMockFactory: (String, Int) => BlockingChannel = _
+
+  case class OffsetManagerFixture() {
+    var consumer: KafkaConsumer[String] = _
+    def createConsumer(consumerProperties: ConsumerProperties[String]) = {
+      consumer = new KafkaConsumer(consumerProperties)
+      consumer
+    }
+
+    def clearResources(): Unit = consumer.close()
+  }
+
+  type FixtureParam = OffsetManagerFixture
+
+  def withFixture(test: OneArgTest) = {
+    val theFixture = OffsetManagerFixture()
+    try withFixture(test.toNoArgTest(theFixture))
+    finally {
+      theFixture.clearResources()
+    }
+  }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -32,10 +52,10 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
 
   behavior of "Offset manager resolver"
 
-  it should "use broker if it equals coordinator" in {
+  it should "use broker if it equals coordinator" in { f =>
     // given
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
-    val consumer = new KafkaConsumer(properties)
+    val consumer = f.createConsumer(properties)
     val metadata = givenCoordinatorMetadata(broker(kafkaHost), ErrorMapping.NoError)
     val reader = givenCoordinatorRequestWillReturn(metadata)
 
@@ -48,10 +68,10 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
     result.get.port should equal(9092)
   }
 
-  it should "use coordinator if it's different than initial channel" in {
+  it should "use coordinator if it's different than initial channel" in { f =>
     // given
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
-    val consumer = new KafkaConsumer(properties)
+    val consumer = f.createConsumer(properties)
     val metadata = givenCoordinatorMetadata(broker("otherhost:12535"), ErrorMapping.NoError)
     val reader = givenCoordinatorRequestWillReturn(metadata)
 
@@ -64,10 +84,10 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
     result.get.port should equal(12535)
   }
 
-  it should "handle error when connecting to initial channel" in {
+  it should "handle error when connecting to initial channel" in { f =>
     // given
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
-    val consumer = new KafkaConsumer(properties)
+    val consumer = f.createConsumer(properties)
     given(channelMock.connect()).willThrow(new NullPointerException("Channel closed"))
 
     // when
@@ -79,10 +99,10 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
     result.failed.get.getCause shouldBe a[NullPointerException]
   }
 
-  it should "handle error when connecting to coordinator" in {
+  it should "handle error when connecting to coordinator" in { f =>
     // given
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
-    val consumer = new KafkaConsumer(properties)
+    val consumer = f.createConsumer(properties)
     val metadata = givenCoordinatorMetadata(broker("otherhost:12535"), ErrorMapping.NoError)
     val reader = givenCoordinatorRequestWillReturn(metadata)
     val coordinatorMock = mock[BlockingChannel]
@@ -97,6 +117,7 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
 
     // when
     val result: Try[BlockingChannel] = new OffsetManagerResolver(channelMockFactory, reader).resolve(consumer)
+    consumer.close()
 
     // then
     result.isFailure should be(true)
@@ -104,10 +125,10 @@ class OffsetManagerResolverSpec extends TestKit(ActorSystem("OffsetManagerResolv
     result.failed.get.getCause shouldBe a[IllegalArgumentException]
   }
 
-  it should "handle error when resolving the coordinator" in {
+  it should "handle error when resolving the coordinator" in { f =>
     // given
     val properties = consumerProperties(FixtureParam("topic", "groupId", kafka))
-    val consumer = new KafkaConsumer(properties)
+    val consumer = f.createConsumer(properties)
     val metadata = givenCoordinatorMetadata(broker("otherhost:12535"), ErrorMapping.LeaderNotAvailableCode)
     val reader = givenCoordinatorRequestWillReturn(metadata)
 
