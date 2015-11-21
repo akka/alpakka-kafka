@@ -20,6 +20,8 @@ case class OffsetMap(map: Offsets = Map.empty) {
 
   def toCommitRequestInfo = {
     val now = System.currentTimeMillis()
+    // Kafka expects the offset of the first unfetched message, and we have the
+    // offset of the last fetched message
     map.mapValues(offset => OffsetAndMetadata(offset + 1, timestamp = now))
   }
 }
