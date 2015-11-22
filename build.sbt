@@ -4,7 +4,7 @@ import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactContr
 
 name := "reactive-kafka"
 
-val akkaVersion = "2.3.14"
+val akkaVersion = "2.4.0"
 val akkaStreamVersion = "1.0"
 val curatorVersion = "2.9.0"
 
@@ -19,6 +19,7 @@ val commonDependencies = Seq(
 
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
+  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   kafka,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
