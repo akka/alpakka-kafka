@@ -4,14 +4,13 @@ import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
 import akka.stream.actor._
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Source, Sink}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.typesafe.config.ConfigFactory
 import kafka.consumer.KafkaConsumer
-import kafka.message.{Message => KMessage}
 import kafka.producer.ProducerClosedException
 import kafka.utils.IteratorTemplate
 import org.mockito.BDDMockito.given
@@ -44,6 +43,48 @@ class ReactiveKafkaIntegrationSpec
 
     "manually commit offsets with kafka" in { implicit f =>
       shouldCommitOffsets("kafka")
+    }
+
+    "correctly commit when new flush comes with a single new commit" in { implicit f =>
+      // given
+      givenQueueWithElements(Seq("1", "2", "3"))
+
+      // then
+      val consumerProps = consumerProperties(f)
+        .commitInterval(100 millis)
+        .noAutoCommit()
+        .kafkaOffsetsStorage()
+
+      val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
+
+      // start reading from the queue
+      Source(consumerWithSink.publisher)
+        .to(consumerWithSink.offsetCommitSink).run()
+      Thread.sleep(3000) // wait for flush
+
+      // add one more msg
+      val kafkaSubscriberActor = stringSubscriberActor(f)
+      Source(List("4")).to(Sink(ActorSubscriber[String](kafkaSubscriberActor))).run()
+      Thread.sleep(3000) // wait for flush
+      completeProducer(kafkaSubscriberActor)
+
+      // then
+      var lastReadMsg: Option[String] = None
+      val consumerActor = f.kafka.consumerActor(consumerProps)
+      Source(ActorPublisher[StringKafkaMessage](consumerActor))
+        .map(_.message())
+        .runWith(Sink.foreach{
+          m => lastReadMsg = Some(m)
+        })
+      Thread.sleep(3000) // wait for consumption of eventual additional element
+
+      completeProducer(kafkaSubscriberActor)
+      consumerWithSink.cancel()
+      Thread.sleep(3000) // wait for complete
+
+      // kill the consumer
+      cancelConsumer(consumerActor)
+      lastReadMsg shouldBe None
     }
 
     "start consuming from the beginning of stream" in { f =>
