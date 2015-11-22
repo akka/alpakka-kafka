@@ -69,6 +69,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
 
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
+    scheduledFlush = None
     committerOpt.foreach { committer =>
       val offsetMapToFlush = partitionOffsetMap.diff(committedOffsetMap)
       if (offsetMapToFlush.nonEmpty)
@@ -78,11 +79,12 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
 
   def performFlush(committer: OffsetCommitter, offsetMapToFlush: OffsetMap): Unit = {
     val committedOffsetMapTry = committer.commit(offsetMapToFlush)
-    scheduledFlush = None
     committedOffsetMapTry match {
       case Success(resultOffsetMap) =>
         log.debug(s"committed offsets: $resultOffsetMap")
-        committedOffsetMap = resultOffsetMap
+        // We got the offset of the first unfetched message, and we want the
+        // offset of the last fetched message
+        committedOffsetMap = OffsetMap(resultOffsetMap.map.mapValues(_ - 1))
       case scala.util.Failure(ex) =>
         log.error(ex, "Failed to commit offsets")
         committer.tryRestart() match {
