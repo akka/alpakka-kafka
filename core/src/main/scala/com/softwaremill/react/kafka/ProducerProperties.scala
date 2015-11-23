@@ -69,7 +69,8 @@ object ProducerProperties {
     encoder: Encoder[T]
   ) = new ProducerProperties[T](
     params + ("client.id" -> clientId),
-    topic, encoder, (_: T) => None)
+    topic, encoder, (_: T) => None
+  )
 
 }
 
