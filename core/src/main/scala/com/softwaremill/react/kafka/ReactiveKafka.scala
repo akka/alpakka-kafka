@@ -3,123 +3,123 @@ package com.softwaremill.react.kafka
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
-import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
-import kafka.consumer._
 import kafka.producer._
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.reactivestreams.{Publisher, Subscriber}
 
 class ReactiveKafka {
 
-  def publish[T](
-    props: ProducerProperties[T],
+  def publish[K, V](
+    props: ProducerProperties[K, V],
     requestStrategy: () => RequestStrategy
-  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    ActorSubscriber[T](producerActor(props, requestStrategy))
+  )(implicit actorSystem: ActorSystem): Subscriber[ProducerMessage[K, V]] = {
+    ActorSubscriber[ProducerMessage[K, V]](producerActor(props, requestStrategy))
   }
 
-  def publish[T](
-    props: ProducerProperties[T],
+  def publish[K, V](
+    props: ProducerProperties[K, V],
     requestStrategy: () => RequestStrategy,
     dispatcher: String
-  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    ActorSubscriber[T](producerActor(props, requestStrategy, dispatcher))
+  )(implicit actorSystem: ActorSystem): Subscriber[ProducerMessage[K, V]] = {
+    ActorSubscriber[ProducerMessage[K, V]](producerActor(props, requestStrategy, dispatcher))
   }
 
-  def publish[T](
-    props: ProducerProperties[T],
+  def publish[K, V](
+    props: ProducerProperties[K, V],
     dispatcher: String
-  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    ActorSubscriber[T](producerActor(props, dispatcher))
+  )(implicit actorSystem: ActorSystem): Subscriber[ProducerMessage[K, V]] = {
+    ActorSubscriber[ProducerMessage[K, V]](producerActor(props, dispatcher))
   }
 
-  def publish[T](
-    props: ProducerProperties[T]
-  )(implicit actorSystem: ActorSystem): Subscriber[T] = {
-    ActorSubscriber[T](producerActor(props))
+  def publish[K, V](
+    props: ProducerProperties[K, V]
+  )(implicit actorSystem: ActorSystem): Subscriber[ProducerMessage[K, V]] = {
+    ActorSubscriber[ProducerMessage[K, V]](producerActor(props))
   }
 
-  def producerActor[T](
-    props: ProducerProperties[T],
+  def producerActor[K, V](
+    props: ProducerProperties[K, V],
     requestStrategy: () => RequestStrategy
   )(implicit actorSystem: ActorSystem): ActorRef = {
     producerActor(props, requestStrategy, "kafka-subscriber-dispatcher")
   }
 
-  def producerActor[T](
-    props: ProducerProperties[T],
+  def producerActor[K, V](
+    props: ProducerProperties[K, V],
     dispatcher: String
   )(implicit actorSystem: ActorSystem): ActorRef = {
     producerActor(props, DefaultRequestStrategy, dispatcher)
   }
 
-  def producerActor[T](
-    props: ProducerProperties[T],
+  def producerActor[K, V](
+    props: ProducerProperties[K, V],
     requestStrategy: () => RequestStrategy,
     dispatcher: String
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(producerActorProps(props, requestStrategy).withDispatcher(dispatcher))
   }
 
-  def producerActorProps[T](
-    props: ProducerProperties[T],
+  def producerActorProps[K, V](
+    props: ProducerProperties[K, V],
     requestStrategy: () => RequestStrategy
   ) = {
-    val producer = new KafkaProducer(props)
+    val producer = new ReactiveKafkaProducer(props)
     Props(
-      new KafkaActorSubscriber[T](producer, props, requestStrategy)
+      new KafkaActorSubscriber[K, V](producer, requestStrategy)
     )
   }
 
-  def producerActorProps[T](props: ProducerProperties[T]): Props = {
+  def producerActorProps[K, V](props: ProducerProperties[K, V]): Props = {
     producerActorProps(props, DefaultRequestStrategy)
   }
 
-  def producerActor[T](
-    props: ProducerProperties[T]
+  def producerActor[K, V](
+    props: ProducerProperties[K, V]
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(producerActorProps(props))
   }
 
-  def consume[T](
-    props: ConsumerProperties[T]
+  def consume[K, V](
+    props: ConsumerProperties[K, V]
   )(implicit actorSystem: ActorSystem) = {
-    ActorPublisher[KafkaMessage[T]](consumerActor(props))
+    ActorPublisher[ConsumerRecord[K, V]](consumerActor(props))
   }
 
-  def consumeWithOffsetSink[T](
-    props: ConsumerProperties[T]
-  )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[T] = {
+  def consumeWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V]
+  )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
     val actorWithConsumer = consumerActorWithConsumer(props.noAutoCommit(), ReactiveKafka.ConsumerDefaultDispatcher)
-    PublisherWithCommitSink[T](
-      ActorPublisher[KafkaMessage[T]](
+    PublisherWithCommitSink[K, V](
+      ActorPublisher[ConsumerRecord[K, V]](
         actorWithConsumer.actor
       ),
       actorWithConsumer.actor,
-      CommitSink.create(actorWithConsumer.consumer)
+      CommitSink.create(actorWithConsumer.actor, props)
     )
   }
 
-  def consume[T](
-    props: ConsumerProperties[T],
+  def consume[K, V](
+    props: ConsumerProperties[K, V],
     dispatcher: String
   )(implicit actorSystem: ActorSystem) = {
-    ActorPublisher[KafkaMessage[T]](consumerActor(props, dispatcher))
+    ActorPublisher[ConsumerRecord[K, V]](consumerActor(props, dispatcher))
   }
-  def consumerActor[T](props: ConsumerProperties[T])(implicit actorSystem: ActorSystem): ActorRef = {
+
+  def consumerActor[K, V](props: ConsumerProperties[K, V])(implicit actorSystem: ActorSystem): ActorRef = {
     consumerActor(props, ReactiveKafka.ConsumerDefaultDispatcher)
   }
 
-  def consumerActor[T](
-    props: ConsumerProperties[T],
+  def consumerActor[K, V](
+    props: ConsumerProperties[K, V],
     dispatcher: String
   )(implicit actorSystem: ActorSystem): ActorRef = {
     actorSystem.actorOf(consumerActorProps(props).withDispatcher(dispatcher))
   }
 
-  private def consumerActorWithConsumer[T](
-    props: ConsumerProperties[T],
+  private def consumerActorWithConsumer[K, V](
+    props: ConsumerProperties[K, V],
     dispatcher: String
   )(implicit actorSystem: ActorSystem) = {
     val propsWithConsumer = consumerActorPropsWithConsumer(props)
@@ -127,16 +127,15 @@ class ReactiveKafka {
     ConsumerWithActor(propsWithConsumer.consumer, actor)
   }
 
-  private def consumerActorPropsWithConsumer[T](props: ConsumerProperties[T]) = {
-    val consumer = new KafkaConsumer(props)
-    ConsumerWithActorProps(consumer, Props(new KafkaActorPublisher(consumer)))
+  private def consumerActorPropsWithConsumer[K, V](props: ConsumerProperties[K, V]) = {
+    val reactiveConsumer = ReactiveKafkaConsumer(props)
+    ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer.consumer)))
   }
 
-  def consumerActorProps[T](props: ConsumerProperties[T]) = {
-    val consumer = new KafkaConsumer(props)
-    Props(new KafkaActorPublisher(consumer))
+  def consumerActorProps[K, V](props: ConsumerProperties[K, V]) = {
+    val reactiveConsumer = ReactiveKafkaConsumer(props)
+    Props(new KafkaActorPublisher(reactiveConsumer.consumer))
   }
-
 }
 
 object ReactiveKafka {
@@ -144,10 +143,10 @@ object ReactiveKafka {
   val ConsumerDefaultDispatcher = "kafka-publisher-dispatcher"
 }
 
-case class PublisherWithCommitSink[T](
-    publisher: Publisher[KafkaMessage[T]],
+case class PublisherWithCommitSink[K, V](
+    publisher: Publisher[ConsumerRecord[K, V]],
     publisherActor: ActorRef,
-    kafkaOffsetCommitSink: KafkaSink[KafkaMessage[T]]
+    kafkaOffsetCommitSink: KafkaSink[ConsumerRecord[K, V]]
 ) {
   def offsetCommitSink = kafkaOffsetCommitSink.sink
 
@@ -156,5 +155,5 @@ case class PublisherWithCommitSink[T](
     kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
   }
 }
-private[kafka] case class ConsumerWithActorProps[T](consumer: KafkaConsumer[T], actorProps: Props)
-private[kafka] case class ConsumerWithActor[T](consumer: KafkaConsumer[T], actor: ActorRef)
+private[kafka] case class ConsumerWithActorProps[K, V](consumer: ReactiveKafkaConsumer[K, V], actorProps: Props)
+private[kafka] case class ConsumerWithActor[K, V](consumer: ReactiveKafkaConsumer[K, V], actor: ActorRef)

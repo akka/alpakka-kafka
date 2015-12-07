@@ -4,9 +4,10 @@ import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
 import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.ConsumerProperties
-import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
+import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
+import com.softwaremill.react.kafka.KafkaMessages._
 import kafka.serializer.{StringDecoder, StringEncoder}
+import org.apache.kafka.common.serialization.{StringSerializer, ByteArrayDeserializer, StringDeserializer}
 import org.reactivestreams.{Publisher, Subscriber}
 import scala.language.postfixOps
 import scala.concurrent.duration._
@@ -26,20 +27,21 @@ object examples {
     implicit val materializer = ActorMaterializer()
 
     val kafka = new ReactiveKafka()
-    val publisher: Publisher[StringKafkaMessage] = kafka.consume(ConsumerProperties(
-      brokerList = "localhost:9092",
-      zooKeeperHost = "localhost:2181",
+    val publisher: Publisher[StringConsumerRecord] = kafka.consume(ConsumerProperties(
+      bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      decoder = new StringDecoder()
+      keyDeserializer = new StringDeserializer(),
+      valueDeserializer = new StringDeserializer()
     ))
-    val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
-      brokerList = "localhost:9092",
+    val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
+      bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
-      encoder = new StringEncoder()
+      keySerializer = new StringSerializer(),
+      valueSerializer = new StringSerializer()
     ))
 
-    Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
+    Source(publisher).map(m => ProducerMessage(m.key(), m.value().toUpperCase)).to(Sink(subscriber)).run()
   }
 
   def handling(): Unit = {
@@ -59,9 +61,10 @@ object examples {
 
         // subscriber
         val subscriberProperties = ProducerProperties(
-          brokerList = "localhost:9092",
+          bootstrapServers = "localhost:9092",
           topic = "uppercaseStrings",
-          encoder = new StringEncoder()
+          keySerializer = new StringSerializer(),
+          valueSerializer = new StringSerializer()
         )
         val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
         context.actorOf(subscriberActorProps)
@@ -75,14 +78,13 @@ object examples {
 
   def consumerProperties() = {
     val consumerProperties = ConsumerProperties(
-      "localhost:9092",
-      "localhost:2181",
+      bootstrapServers = "localhost:9092",
       "topic",
       "groupId",
-      new StringDecoder()
+      new ByteArrayDeserializer(),
+      new StringDeserializer()
     )
       .consumerTimeoutMs(timeInMs = 100)
-      .kafkaOffsetsStorage(dualCommit = true)
       .setProperty("some.kafka.property", "value")
   }
 
@@ -102,11 +104,11 @@ object examples {
 
     val kafka = new ReactiveKafka()
     val consumerProperties = ConsumerProperties(
-      brokerList = "localhost:9092",
-      zooKeeperHost = "localhost:2181",
+      bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      decoder = new StringDecoder()
+      keyDeserializer = new ByteArrayDeserializer(),
+      valueDeserializer = new StringDeserializer()
     )
       .commitInterval(5 seconds) // flush interval
 

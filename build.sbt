@@ -6,12 +6,10 @@ name := "reactive-kafka"
 
 val akkaVersion = "2.3.14"
 val akkaStreamVersion = "1.0"
-val curatorVersion = "2.9.0"
+val kafkaVersion = "0.9.0.0"
 
-val kafka = "org.apache.kafka" %% "kafka" % "0.8.2.2" exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
-val curator = Seq("org.apache.curator" % "curator-framework" % curatorVersion,
-  "org.apache.curator" % "curator-recipes" % curatorVersion
-)
+val kafka = "org.apache.kafka" %% "kafka" % kafkaVersion exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
+val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
 val commonDependencies = Seq(
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
@@ -20,7 +18,7 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  kafka,
+  kafka, kafkaClients,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
@@ -31,8 +29,6 @@ val coreDependencies = Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test"
 )
-
-val zkCommitterDependencies = Seq(kafka) ++ curator
 
 val commonSettings =
 sonatypeSettings ++ scalariformSettings ++ Seq(
@@ -95,7 +91,7 @@ lazy val root =
     .settings(Seq(
     publishArtifact := false,
     publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo")))))
-    .aggregate(zookeeperCommitter, core)
+    .aggregate(core)
 
 lazy val core = project
   .settings(commonSettings)
@@ -104,12 +100,3 @@ lazy val core = project
     name := "reactive-kafka-core",
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
-
-lazy val zookeeperCommitter = Project(
-id = "zookeeper-committer",
-base = file("./zookeeper-committer")
-)
-  .settings(commonSettings)
-  .settings(publishSettings)
-  .settings(libraryDependencies ++= commonDependencies ++ zkCommitterDependencies)
-  .dependsOn(core % "compile->compile;test->test")

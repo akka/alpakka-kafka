@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka;
 
 import kafka.producer.ProducerConfig;
 import kafka.serializer.StringEncoder;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.testng.annotations.Test;
 
 import java.util.UUID;
@@ -14,23 +15,22 @@ public class JavaProducerPropertiesTest {
 
     private final String uuid = UUID.randomUUID().toString();
     private final String brokerList = "localhost:9092";
-    private final String zooKeepHost = "localhost:2181";
     private final String topic = uuid;
     private final String groupId = uuid;
+    private final StringSerializer serializer = new StringSerializer();
 
     @Test
     public void javaHandleBaseCase() {
 
-        final PropertiesBuilder.Producer propsBuilder = new PropertiesBuilder.Producer(brokerList, zooKeepHost, topic, groupId, new StringEncoder(null));
+        final PropertiesBuilder.Producer propsBuilder = new PropertiesBuilder.Producer(brokerList, topic, serializer, serializer);
         assertEquals(propsBuilder.getBrokerList(), brokerList);
-        assertEquals(propsBuilder.getZooKeeperHost(), zooKeepHost);
 
         final ProducerProperties producerProperties = propsBuilder.build();
 
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
         assertEquals(producerProperties.topic(), topic);
-        assertEquals(producerProperties.encoder().getClass().getSimpleName(), StringEncoder.class.getSimpleName());
+        assertEquals(producerProperties.keySerializer().getClass().getSimpleName(), StringSerializer.class.getSimpleName());
         assertEquals(producerConfig.clientId(), groupId);
         assertEquals(producerConfig.messageSendMaxRetries(), 3);
         assertEquals(producerConfig.requestRequiredAcks(), -1);
@@ -42,7 +42,7 @@ public class JavaProducerPropertiesTest {
     public void javaHandleAsyncSnappyCase() {
 
         final ProducerProperties producerProperties =
-                new PropertiesBuilder.Producer(brokerList, zooKeepHost, topic, groupId, new StringEncoder(null))
+                new PropertiesBuilder.Producer(brokerList, topic, groupId, serializer, serializer)
                         .build()
                         .asynchronous(123, 456)
                         .useSnappyCompression();
@@ -50,7 +50,7 @@ public class JavaProducerPropertiesTest {
         final ProducerConfig producerConfig = producerProperties.toProducerConfig();
 
         assertEquals(producerProperties.topic(), topic);
-        assertEquals(producerProperties.encoder().getClass().getSimpleName(), StringEncoder.class.getSimpleName());
+        assertEquals(producerProperties.valueSerializer().getClass().getSimpleName(), StringSerializer.class.getSimpleName());
         assertEquals(producerConfig.clientId(), groupId);
         assertEquals(producerConfig.messageSendMaxRetries(), 3);
         assertEquals(producerConfig.requestRequiredAcks(), -1);
