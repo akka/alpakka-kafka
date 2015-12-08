@@ -105,7 +105,7 @@ case class ConsumerProperties[K, V](
   def setProperty(key: String, value: String): ConsumerProperties[K, V] = copy(params = params + (key -> value))
   def setProperties(values: (String, String)*): ConsumerProperties[K, V] = copy(params = params ++ values)
 
-  def toProps = params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props }
+  def rawProperties = params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props }
 
   def commitInterval: Option[FiniteDuration] =
     params.get("auto.commit.interval.ms")

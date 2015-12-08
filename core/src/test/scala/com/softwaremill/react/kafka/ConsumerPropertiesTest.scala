@@ -19,7 +19,7 @@ class ConsumerPropertiesTest extends WordSpecLike with Matchers {
     "handle base case" in {
 
       val props = ConsumerProperties(bootstrapServers, topic, groupId, deserializer, deserializer)
-        .toProps
+        .rawProperties
 
       //      props.getProperty() should be(zooKeepHost)
       //      config.groupId should be(groupId)
@@ -35,7 +35,7 @@ class ConsumerPropertiesTest extends WordSpecLike with Matchers {
       val config = ConsumerProperties(bootstrapServers, topic, groupId, deserializer, deserializer)
         .readFromEndOfStream()
         .consumerTimeoutMs(1234)
-        .toProps
+        .rawProperties
 
       //      config.zkConnect should be(zooKeepHost)
       //      config.groupId should be(groupId)

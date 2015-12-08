@@ -7,7 +7,7 @@ case class ReactiveKafkaConsumer[K, V](properties: ConsumerProperties[K, V]) {
 
   lazy val consumer: KafkaConsumer[K, V] = {
     val c = new KafkaConsumer(
-      properties.toProps,
+      properties.rawProperties,
       properties.keyDeserializer,
       properties.valueDeserializer
     )

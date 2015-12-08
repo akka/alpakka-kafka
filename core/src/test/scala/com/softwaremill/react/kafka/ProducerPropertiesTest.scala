@@ -2,8 +2,7 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import kafka.serializer.StringEncoder
-import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
 
 class ProducerPropertiesTest extends WordSpecLike with Matchers {
@@ -11,6 +10,7 @@ class ProducerPropertiesTest extends WordSpecLike with Matchers {
   def uuid() = UUID.randomUUID().toString
   val brokerList = "localhost:9092"
   val serializer = new StringSerializer()
+  val bArrSerializer = new ByteArraySerializer()
   val topic = uuid()
   val clientId = uuid()
 
@@ -18,34 +18,25 @@ class ProducerPropertiesTest extends WordSpecLike with Matchers {
 
     "handle base case" in {
 
-      val config = ProducerProperties(brokerList, topic, serializer, serializer)
-        .toProducerConfig
+      val config = ProducerProperties(brokerList, topic, serializer, bArrSerializer).rawProperties
 
-      config.brokerList should be(brokerList)
-      config.compressionCodec.name should be("gzip")
-      config.producerType should be("sync")
-      config.clientId should be(clientId)
-      config.messageSendMaxRetries should be(3)
-      config.requestRequiredAcks should be(-1)
-      config.batchNumMessages should be(200) // kafka defaults
-      config.queueBufferingMaxMs should be(5000) // kafka defaults
+      config.getProperty("bootstrap.servers") should be(brokerList)
     }
 
     "handle async snappy case" in {
 
-      val config = ProducerProperties(brokerList, topic, serializer, serializer)
-        .asynchronous(123, 456)
+      val config = ProducerProperties(brokerList, topic, serializer, bArrSerializer)
         .useSnappyCompression()
-        .toProducerConfig
+        .messageSendMaxRetries(7)
+        .requestRequiredAcks(2)
+        .clientId("some-client")
+        .rawProperties
 
-      config.brokerList should be(brokerList)
-      config.compressionCodec.name should be("snappy")
-      config.producerType should be("async")
-      config.clientId should be(clientId)
-      config.messageSendMaxRetries should be(3)
-      config.requestRequiredAcks should be(-1)
-      config.batchNumMessages should be(123)
-      config.queueBufferingMaxMs should be(456)
+      config.getProperty("bootstrap.servers") should be(brokerList)
+      config.getProperty("compression.type") should be("snappy")
+      config.getProperty("retries") should be("7")
+      config.getProperty("acks") should be("2")
+      config.getProperty("client.id") should be("some-client")
     }
   }
 

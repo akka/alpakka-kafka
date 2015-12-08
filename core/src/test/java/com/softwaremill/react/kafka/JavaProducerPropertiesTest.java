@@ -1,14 +1,14 @@
 package com.softwaremill.react.kafka;
 
 
-import kafka.producer.ProducerConfig;
-import kafka.serializer.StringEncoder;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.testng.annotations.Test;
 
+import java.util.Properties;
 import java.util.UUID;
 
 import static junit.framework.Assert.assertEquals;
+
 
 public class JavaProducerPropertiesTest {
 
@@ -27,15 +27,8 @@ public class JavaProducerPropertiesTest {
 
         final ProducerProperties producerProperties = propsBuilder.build();
 
-        final ProducerConfig producerConfig = producerProperties.toProducerConfig();
-
-        assertEquals(producerProperties.topic(), topic);
-        assertEquals(producerProperties.keySerializer().getClass().getSimpleName(), StringSerializer.class.getSimpleName());
-        assertEquals(producerConfig.clientId(), groupId);
-        assertEquals(producerConfig.messageSendMaxRetries(), 3);
-        assertEquals(producerConfig.requestRequiredAcks(), -1);
-        assertEquals(producerConfig.batchNumMessages(), 200); // kafka defaults
-        assertEquals(producerConfig.queueBufferingMaxMs(), 5000); // kafka defaults
+        Properties rawProperties = producerProperties.rawProperties();
+        assertEquals(rawProperties.getProperty("bootstrap.servers"), brokerList);
     }
 
     @Test
@@ -44,18 +37,15 @@ public class JavaProducerPropertiesTest {
         final ProducerProperties producerProperties =
                 new PropertiesBuilder.Producer(brokerList, topic, groupId, serializer, serializer)
                         .build()
-                        .asynchronous(123, 456)
-                        .useSnappyCompression();
+                        .useSnappyCompression()
+                        .clientId("client-id2")
+                        .requestRequiredAcks(5);
 
-        final ProducerConfig producerConfig = producerProperties.toProducerConfig();
-
-        assertEquals(producerProperties.topic(), topic);
-        assertEquals(producerProperties.valueSerializer().getClass().getSimpleName(), StringSerializer.class.getSimpleName());
-        assertEquals(producerConfig.clientId(), groupId);
-        assertEquals(producerConfig.messageSendMaxRetries(), 3);
-        assertEquals(producerConfig.requestRequiredAcks(), -1);
-        assertEquals(producerConfig.batchNumMessages(), 123);
-        assertEquals(producerConfig.queueBufferingMaxMs(), 456);
+        Properties rawProperties = producerProperties.rawProperties();
+        assertEquals(rawProperties.getProperty("bootstrap.servers"), brokerList);
+        assertEquals(rawProperties.getProperty("compression.type"), "snappy");
+        assertEquals(rawProperties.getProperty("client.id"), "client-id2");
+        assertEquals(rawProperties.getProperty("acks"), "5");
     }
 
 }

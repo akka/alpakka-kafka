@@ -1,14 +1,14 @@
 package com.softwaremill.react.kafka;
 
 
-import kafka.consumer.ConsumerConfig;
-import kafka.serializer.StringDecoder;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.testng.annotations.Test;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -22,24 +22,21 @@ public class JavaConsumerPropertiesTest {
     public void javaHandleBaseCase() {
 
         String brokerList = "localhost:9092";
-        final PropertiesBuilder.Consumer propsBuilder = new PropertiesBuilder.Consumer(brokerList, topic, groupId, new ByteArrayDeserializer(), new StringDeserializer());
+        final PropertiesBuilder.Consumer propsBuilder = new PropertiesBuilder.Consumer(
+                brokerList,
+                topic,
+                groupId,
+                new ByteArrayDeserializer(),
+                new StringDeserializer(),
+                new FiniteDuration(2, TimeUnit.SECONDS));
         assertEquals(propsBuilder.getBrokerList(), brokerList);
 
         final ConsumerProperties consumerProperties = propsBuilder.build();
-
-        final Properties props = consumerProperties.toProps();
 
         assertEquals(consumerProperties.topic(), topic);
         assertEquals(consumerProperties.groupId(), groupId);
         assertEquals(consumerProperties.keyDeserializer().getClass().getSimpleName(), ByteArrayDeserializer.class.getSimpleName());
         assertEquals(consumerProperties.valueDeserializer().getClass().getSimpleName(), StringDeserializer.class.getSimpleName());
-// TODO
-//        assertEquals(consumerConfig.clientId(), groupId);
-//        assertEquals(consumerConfig.autoOffsetReset(), "smallest");
-//        assertEquals(consumerConfig.offsetsStorage(), "zookeeper");
-//        assertEquals(consumerConfig.consumerTimeoutMs(), 1500);
-//        assertEquals(consumerConfig.dualCommitEnabled(), false);
+        assertEquals(consumerProperties.pollTimeout(), new FiniteDuration(2, TimeUnit.SECONDS));
     }
-
-
 }
