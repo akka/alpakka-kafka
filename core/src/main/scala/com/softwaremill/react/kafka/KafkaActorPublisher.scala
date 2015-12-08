@@ -4,16 +4,17 @@ import akka.actor.ActorLogging
 import akka.stream.actor.{ActorPublisher, ActorPublisherMessage}
 import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitAck, CommitOffsets, Poll}
 import com.softwaremill.react.kafka.commit.OffsetMap
-import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import scala.collection.JavaConversions._
 import scala.annotation.tailrec
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
+private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaConsumer[K, V])
     extends ActorPublisher[ConsumerRecord[K, V]] with ActorLogging {
 
-  val pollTimeout = 100L // TODO from config, millis
+  val pollTimeoutMs = consumerAndProps.properties.pollTimeout.toMillis
+  val consumer = consumerAndProps.consumer
   var buffer: Option[java.util.Iterator[ConsumerRecord[K, V]]] = None
 
   override def receive = {
@@ -29,7 +30,7 @@ private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
       case Some(iterator) =>
         iterator
       case None =>
-        consumer.poll(pollTimeout).iterator()
+        consumer.poll(pollTimeoutMs).iterator()
     }
   }
 

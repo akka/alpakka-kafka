@@ -129,15 +129,18 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         .expectNext("test")
 
       val kafkaPublisherActor = {
-        val consumer = mock[KafkaConsumer[String, String]]
+        val mockConsumer = mock[KafkaConsumer[String, String]]
 
-        Mockito.when(consumer.poll(1000))
+        Mockito.when(mockConsumer.poll(1000))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 1L, "key", "value")))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 2L, "key", "value2")))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 3L, "key", "value3")))
-          .thenThrow(new KafkaException("Kafka stub disconnected"))
+          .thenThrow(new KafkaException("Kafka mock disconnected"))
 
-        val akkaConsumerProps = Props(new KafkaActorPublisher(consumer))
+        val reactiveConsumer = mock[ReactiveKafkaConsumer[String, String]]
+        Mockito.when(reactiveConsumer.properties).thenReturn(consumerProperties(f))
+        Mockito.when(reactiveConsumer.consumer).thenReturn(mockConsumer)
+        val akkaConsumerProps = Props(new KafkaActorPublisher(reactiveConsumer))
         system.actorOf(akkaConsumerProps.withDispatcher(ReactiveKafka.ConsumerDefaultDispatcher))
       }
       val kafkaPublisher = ActorPublisher[StringConsumerRecord](kafkaPublisherActor)

@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit
 import org.apache.kafka.common.serialization.Deserializer
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object ConsumerProperties {
 
@@ -57,7 +59,7 @@ case class ConsumerProperties[K, V](
     groupId: String,
     keyDeserializer: Deserializer[K],
     valueDeserializer: Deserializer[V],
-    numThreads: Int = 1
+    pollTimeout: FiniteDuration = 500 millis
 ) {
 
   /**
@@ -97,7 +99,6 @@ case class ConsumerProperties[K, V](
 
   def noAutoCommit(): ConsumerProperties[K, V] = setProperty("enable.auto.commit", "false")
 
-  def numThreads(count: Int) = copy(numThreads = count)
   /**
    * Set any additional properties as needed
    */
