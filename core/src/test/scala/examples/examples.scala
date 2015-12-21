@@ -2,15 +2,12 @@ package examples
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
-import akka.stream.{ActorAttributes, Supervision}
-import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
 import com.softwaremill.react.kafka.KafkaMessages._
-import kafka.serializer.{StringDecoder, StringEncoder}
 import org.apache.kafka.common.serialization.{StringSerializer, ByteArrayDeserializer, StringDeserializer}
 import org.reactivestreams.{Publisher, Subscriber}
 import scala.language.postfixOps
-import scala.concurrent.duration._
+
 /**
  * Code samples for the documentation.
  */
