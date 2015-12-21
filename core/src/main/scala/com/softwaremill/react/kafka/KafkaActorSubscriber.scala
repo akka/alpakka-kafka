@@ -8,12 +8,27 @@ import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 
-case class ProducerMessage[K, V](key: K, value: V)
-object ProducerMessage {
-  def apply[K, V](consumerRecord: ConsumerRecord[K, V]) =
-    new ProducerMessage(consumerRecord.key(), consumerRecord.value())
+sealed trait ProducerMessage[K, V] {
+  def key: K
+  def value: V
+}
 
-  def apply[V](v: V): ProducerMessage[V, V] = ProducerMessage(v, v)
+case class KeyValueProducerMessage[K, V](key: K, value: V) extends ProducerMessage[K, V]
+
+case class ValueProducerMessage[V](value: V) extends ProducerMessage[Array[Byte], V] {
+  override def key: Array[Byte] = null
+}
+
+object ProducerMessage {
+  def apply[K, V](consumerRecord: ConsumerRecord[K, V]): ProducerMessage[K, V] =
+    new KeyValueProducerMessage(consumerRecord.key(), consumerRecord.value())
+
+  def apply[K, V](k: K, v: V): ProducerMessage[K, V] =
+    new KeyValueProducerMessage(k, v)
+
+  def apply[V](v: V): ProducerMessage[Array[Byte], V] = {
+    new ValueProducerMessage(v)
+  }
 }
 
 private[kafka] class KafkaActorSubscriber[K, V](
