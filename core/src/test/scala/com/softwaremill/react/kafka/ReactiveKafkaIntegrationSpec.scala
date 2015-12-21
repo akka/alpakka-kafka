@@ -63,7 +63,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       // add one more msg
       val kafkaSubscriberActor = stringSubscriberActor(f)
       Source(List("4"))
-        .map(str => ProducerMessage(str, str))
+        .map(str => ProducerMessage(str))
         .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
       Thread.sleep(3000) // wait for flush
       completeProducer(kafkaSubscriberActor)
@@ -116,7 +116,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
     "allow Source supervision" in { implicit f =>
       // given
       givenQueueWithElements(Seq("test", "a", "b"))
-      var msgs = List.empty[StringConsumerRecord]
+      var msgs = List.empty[ConsumerRecord[String, String]]
 
       val publisher = f.kafka.consume(consumerProperties(f))
       Source(publisher)
@@ -130,7 +130,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
 
       val kafkaPublisherActor = {
         val mockConsumer = mock[KafkaConsumer[String, String]]
-
+        val k = new Array[Byte](1)
         Mockito.when(mockConsumer.poll(1000))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 1L, "key", "value")))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 2L, "key", "value2")))
@@ -143,7 +143,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         val akkaConsumerProps = Props(new KafkaActorPublisher(reactiveConsumer))
         system.actorOf(akkaConsumerProps.withDispatcher(ReactiveKafka.ConsumerDefaultDispatcher))
       }
-      val kafkaPublisher = ActorPublisher[StringConsumerRecord](kafkaPublisherActor)
+      val kafkaPublisher = ActorPublisher[ConsumerRecord[String, String]](kafkaPublisherActor)
       watch(kafkaPublisherActor)
 
       // when
@@ -153,8 +153,8 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       expectTerminated(kafkaPublisherActor)
     }
 
-    def consumerRecords(record: StringConsumerRecord) = {
-      new ConsumerRecords(Map[TopicPartition, java.util.List[StringConsumerRecord]](
+    def consumerRecords(record: ConsumerRecord[String, String]) = {
+      new ConsumerRecords(Map[TopicPartition, java.util.List[ConsumerRecord[String, String]]](
         new TopicPartition("topic", 1) -> List(record).asJava
       ).asJava)
     }

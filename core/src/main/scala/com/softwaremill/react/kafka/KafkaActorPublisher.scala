@@ -87,6 +87,6 @@ private[kafka] object KafkaActorPublisher {
 }
 
 object KafkaMessages {
-  type StringConsumerRecord = ConsumerRecord[String, String]
-  type StringProducerMessage = ProducerMessage[String, String]
+  type StringConsumerRecord = ConsumerRecord[Array[Byte], String]
+  type StringProducerMessage = ProducerMessage[Array[Byte], String]
 }

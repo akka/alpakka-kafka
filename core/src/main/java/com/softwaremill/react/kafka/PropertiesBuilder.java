@@ -111,6 +111,13 @@ public class PropertiesBuilder {
             this.valueSerializer = valueSerializer;
         }
 
+        public Producer(String brokerList, String topic, String clientId, Serializer valueSerializer) {
+            super(brokerList, topic);
+            this.clientId = clientId;
+            this.keySerializer = keySerializer;
+            this.valueSerializer = valueSerializer;
+        }
+
         public Producer(String brokerList, String topic, Serializer keySerializer, Serializer valueSerializer) {
             super(brokerList, topic);
             this.clientId = "";

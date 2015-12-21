@@ -4,7 +4,7 @@ import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
 import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
 import com.softwaremill.react.kafka.KafkaMessages._
-import org.apache.kafka.common.serialization.{StringSerializer, ByteArrayDeserializer, StringDeserializer}
+import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import org.reactivestreams.{Publisher, Subscriber}
 import scala.language.postfixOps
 
@@ -28,17 +28,15 @@ object examples {
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      keyDeserializer = new StringDeserializer(),
       valueDeserializer = new StringDeserializer()
     ))
     val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
       bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
-      keySerializer = new StringSerializer(),
       valueSerializer = new StringSerializer()
     ))
 
-    Source(publisher).map(m => ProducerMessage(m.key(), m.value().toUpperCase)).to(Sink(subscriber)).run()
+    Source(publisher).map(m => ProducerMessage(m.value().toUpperCase)).to(Sink(subscriber)).run()
   }
 
   def handling(): Unit = {
@@ -60,7 +58,6 @@ object examples {
         val subscriberProperties = ProducerProperties(
           bootstrapServers = "localhost:9092",
           topic = "uppercaseStrings",
-          keySerializer = new StringSerializer(),
           valueSerializer = new StringSerializer()
         )
         val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
@@ -78,7 +75,6 @@ object examples {
       bootstrapServers = "localhost:9092",
       "topic",
       "groupId",
-      new ByteArrayDeserializer(),
       new StringDeserializer()
     )
       .consumerTimeoutMs(timeInMs = 100)
@@ -104,7 +100,6 @@ object examples {
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      keyDeserializer = new ByteArrayDeserializer(),
       valueDeserializer = new StringDeserializer()
     )
       .commitInterval(5 seconds) // flush interval

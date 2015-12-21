@@ -3,7 +3,7 @@ package com.softwaremill.react.kafka
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import org.apache.kafka.common.serialization.Deserializer
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, Deserializer}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -46,8 +46,16 @@ object ConsumerProperties {
       // defaults
       "auto.offset.reset" -> "earliest"
     )
-
     new ConsumerProperties(props, topic, groupId, keyDeserializer, valueDeserializer)
+  }
+
+  def apply[V](
+    bootstrapServers: String,
+    topic: String,
+    groupId: String,
+    valueDeserializer: Deserializer[V]
+  ): ConsumerProperties[Array[Byte], V] = {
+    apply(bootstrapServers, topic, groupId, new ByteArrayDeserializer(), valueDeserializer)
   }
 
   val KeyBootstrapServers = "bootstrap.servers"

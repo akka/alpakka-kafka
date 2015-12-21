@@ -2,10 +2,8 @@ package com.softwaremill.react.kafka
 
 import java.util.Properties
 
-import kafka.message.{DefaultCompressionCodec, NoCompressionCodec, SnappyCompressionCodec}
-import kafka.producer.ProducerConfig
-import kafka.serializer.Encoder
-import org.apache.kafka.common.serialization.Serializer
+import kafka.message.{NoCompressionCodec, SnappyCompressionCodec}
+import org.apache.kafka.common.serialization.{ByteArraySerializer, Serializer}
 
 object ProducerProperties {
 
@@ -40,6 +38,25 @@ object ProducerProperties {
     valueSerializer: Serializer[V]): ProducerProperties[K, V] = {
     val props = initialMap(bootstrapServers)
     new ProducerProperties(props, topic, keySerializer, valueSerializer, (_: V) => None)
+  }
+
+  def apply[V](
+    bootstrapServers: String,
+    topic: String,
+    valueSerializer: Serializer[V],
+    partitionizer: V => Option[Int]
+  ): ProducerProperties[Array[Byte], V] = {
+    val props = initialMap(bootstrapServers)
+    new ProducerProperties(props, topic, new ByteArraySerializer(), valueSerializer, partitionizer)
+  }
+
+  def apply[V](
+    bootstrapServers: String,
+    topic: String,
+    valueSerializer: Serializer[V]
+  ): ProducerProperties[Array[Byte], V] = {
+    val props = initialMap(bootstrapServers)
+    new ProducerProperties(props, topic, new ByteArraySerializer(), valueSerializer, (_: V) => None)
   }
 
   private def initialMap[T](brokerList: String) = {

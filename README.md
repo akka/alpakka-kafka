@@ -27,7 +27,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages._
-import org.apache.kafka.common.serialization.{StringSerializer, ByteArrayDeserializer, StringDeserializer}
+import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
@@ -38,17 +38,15 @@ val publisher: Publisher[StringConsumerRecord] = kafka.consume(ConsumerPropertie
  bootstrapServers = "localhost:9092",
  topic = "lowercaseStrings",
  groupId = "groupName",
- keyDeserializer = new StringDeserializer(),
  valueDeserializer = new StringDeserializer()
 ))
 val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
   bootstrapServers = "localhost:9092",
   topic = "uppercaseStrings",
-  keySerializer = new StringSerializer(),
   valueSerializer = new StringSerializer()
 ))
 
-Source(publisher).map(m => ProducerMessage(m.key(), m.value().toUpperCase)).to(Sink(subscriber)).run()
+Source(publisher).map(m => ProducerMessage(m.value().toUpperCase)).to(Sink(subscriber)).run()
 ```
 
 #### Java
@@ -63,7 +61,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 
-
+public void run() {
 String brokerList = "localhost:9092";
 
 ReactiveKafka kafka = new ReactiveKafka();
@@ -85,10 +83,12 @@ ProducerProperties<String, String> pp = new PropertiesBuilder.Producer(
    serializer).build();
 
 Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
+Source.from(publisher).map(this::toProdMessage).to(Sink.create(subscriber)).run(materializer);
+}
 
-
-Source.from(publisher).map(ProducerMessage::apply).to(Sink.create(subscriber)).run(materializer);
-
+private ProducerMessage<String, String> toProdMessage(ConsumerRecord<String, String> record) {
+  return KeyValueProducerMessage.apply(record.key(), record.value());
+}
 ```
 
 Passing configuration properties to Kafka
@@ -103,7 +103,6 @@ val consumerProperties = ConsumerProperties(
   "localhost:2181",
   "topic",
   "groupId",
-  new StringDeserializer(),
   new StringDeserializer()
 )
   .readFromEndOfStream()
@@ -147,8 +146,7 @@ val consumerProperties = ConsumerProperties(
   brokerList = "localhost:9092",
   topic = "lowercaseStrings",
   groupId = "groupName",
-  new StringDeserializer(),
-  new StringDeserializer()
+  valueDeserializer = new StringDeserializer()
 )
 val consumerActorProps: Props = kafka.consumerActorProps(consumerProperties)
 val publisherActor: ActorRef = context.actorOf(consumerActorProps)
@@ -159,7 +157,6 @@ val topLevelPublisherActor: ActorRef = kafka.consumerActor(consumerActorProps)
 val producerProperties = ProducerProperties(
   brokerList = "localhost:9092",
   topic = "uppercaseStrings",
-  new StringSerializer(),
   new StringSerializer()
 )
 val producerActorProps: Props = kafka.producerActorProps(producerProperties)
@@ -191,13 +188,11 @@ class Handler extends Actor {
 
   def createSupervisedSubscriberActor() = {
     val kafka = new ReactiveKafka()
-    val serializer = new StringSerializer()
     // subscriber
     val subscriberProperties = ProducerProperties(
       brokerList = "localhost:9092",
       topic = "uppercaseStrings",
-      serializer,
-      serializer
+      valueSerializer = new StringSerializer()
     )
     val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
     context.actorOf(subscriberActorProps)
@@ -227,14 +222,12 @@ import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
 implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorMaterializer()
 
-val deserializer = new StringDeserializer()
 val kafka = new ReactiveKafka()
 val consumerProperties = ConsumerProperties(
   brokerList = "localhost:9092",
   topic = "lowercaseStrings",
   groupId = "groupName",
-  deserializer,
-  deserializer)
+  valueDeserializer = new StringDeserializer())
 .commitInterval(5 seconds) // flush interval
     
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)

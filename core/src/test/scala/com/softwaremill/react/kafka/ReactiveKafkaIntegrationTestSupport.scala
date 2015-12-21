@@ -41,7 +41,7 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
   def givenQueueWithElements(msgs: Seq[String])(implicit f: FixtureParam) = {
     val kafkaSubscriberActor = stringSubscriberActor(f)
     Source(msgs.toList)
-      .map(s => ProducerMessage(s, s))
+      .map(s => ProducerMessage(s))
       .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
     Thread.sleep(5000)
     verifyQueueHas(msgs)
