@@ -36,7 +36,8 @@ object examples {
       valueSerializer = new StringSerializer()
     ))
 
-    Source(publisher).map(m => ProducerMessage(m.value().toUpperCase)).to(Sink(subscriber)).run()
+    Source.fromPublisher(publisher).map(m => ProducerMessage(m.value().toUpperCase))
+      .to(Sink.fromSubscriber(subscriber)).run()
   }
 
   def handling(): Unit = {
@@ -105,7 +106,7 @@ object examples {
       .commitInterval(5 seconds) // flush interval
 
     val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-    Source(consumerWithOffsetSink.publisher)
+    Source.fromPublisher(consumerWithOffsetSink.publisher)
       .map(processMessage(_)) // your message processing
       .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
       .run()

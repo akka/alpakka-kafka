@@ -46,7 +46,8 @@ val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProper
   valueSerializer = new StringSerializer()
 ))
 
-Source(publisher).map(m => ProducerMessage(m.value().toUpperCase)).to(Sink(subscriber)).run()
+Source.fromPublisher(publisher).map(m => ProducerMessage(m.value().toUpperCase))
+  .to(Sink.fromSubscriber(subscriber)).run()
 ```
 
 #### Java
@@ -83,7 +84,8 @@ ProducerProperties<String, String> pp = new PropertiesBuilder.Producer(
    serializer).build();
 
 Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
-Source.from(publisher).map(this::toProdMessage).to(Sink.create(subscriber)).run(materializer);
+Source.fromPublisher(publisher).map(this::toProdMessage)
+  .to(Sink.fromSubscriber(subscriber)).run(materializer);
 }
 
 private ProducerMessage<String, String> toProdMessage(ConsumerRecord<String, String> record) {
@@ -231,7 +233,7 @@ val consumerProperties = ConsumerProperties(
 .commitInterval(5 seconds) // flush interval
     
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-Source(consumerWithOffsetSink.publisher)
+Source.fromPublisher(consumerWithOffsetSink.publisher)
   .map(processMessage(_)) // your message processing
   .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
   .run()

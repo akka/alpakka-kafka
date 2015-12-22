@@ -27,7 +27,7 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
       .commitInterval(1000 millis)
 
     val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
-    Source(consumerWithSink.publisher)
+    Source.fromPublisher(consumerWithSink.publisher)
       .filter(_.value().toInt < 3)
       .to(consumerWithSink.offsetCommitSink).run()
     Thread.sleep(10000) // wait for flush
@@ -42,7 +42,7 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
     val kafkaSubscriberActor = stringSubscriberActor(f)
     Source(msgs.toList)
       .map(s => ProducerMessage(s))
-      .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
+      .to(Sink.fromSubscriber(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
     Thread.sleep(5000)
     verifyQueueHas(msgs)
     completeProducer(kafkaSubscriberActor)
@@ -51,7 +51,7 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
   def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) = {
     val consumerProps = consumerProperties(f).noAutoCommit()
     val consumerActor = f.kafka.consumerActor(consumerProps)
-    Source(ActorPublisher[StringConsumerRecord](consumerActor))
+    Source.fromPublisher(ActorPublisher[StringConsumerRecord](consumerActor))
       .map(_.value())
       .runWith(TestSink.probe[String])
       .request(msgs.length.toLong)

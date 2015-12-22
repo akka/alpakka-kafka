@@ -56,7 +56,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
 
       // start reading from the queue
-      Source(consumerWithSink.publisher)
+      Source.fromPublisher(consumerWithSink.publisher)
         .to(consumerWithSink.offsetCommitSink).run()
       Thread.sleep(3000) // wait for flush
 
@@ -64,14 +64,14 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       val kafkaSubscriberActor = stringSubscriberActor(f)
       Source(List("4"))
         .map(str => ProducerMessage(str))
-        .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
+        .to(Sink.fromSubscriber(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
       Thread.sleep(3000) // wait for flush
       completeProducer(kafkaSubscriberActor)
 
       // then
       var lastReadMsg: Option[String] = None
       val consumerActor = f.kafka.consumerActor(consumerProps)
-      Source(ActorPublisher[StringConsumerRecord](consumerActor))
+      Source.fromPublisher(ActorPublisher[StringConsumerRecord](consumerActor))
         .map(_.value())
         .runWith(Sink.foreach{
           m => lastReadMsg = Some(m)
@@ -104,9 +104,9 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       watch(kafkaSubscriberActor)
       val nonStringMsg = Array.fill(5)('0'.toByte)
       val kafkaSubscriber = ActorSubscriber[ProducerMessage[String, Array[Byte]]](kafkaSubscriberActor)
-      Source(initialDelay = 100 millis, interval = 1000 millis, tick = nonStringMsg)
+      Source.tick(initialDelay = 100 millis, interval = 1000 millis, tick = nonStringMsg)
         .map(bytes => ProducerMessage("key", bytes))
-        .to(Sink(kafkaSubscriber)).run()
+        .to(Sink.fromSubscriber(kafkaSubscriber)).run()
 
       // then
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[SerializationException])
@@ -119,7 +119,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       var msgs = List.empty[ConsumerRecord[String, String]]
 
       val publisher = f.kafka.consume(consumerProperties(f))
-      Source(publisher)
+      Source.fromPublisher(publisher)
         .map({ msg =>
           msgs = msgs :+ msg
           msg.value()
@@ -147,7 +147,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       watch(kafkaPublisherActor)
 
       // when
-      Source(kafkaPublisher).to(Sink.ignore).run()
+      Source.fromPublisher(kafkaPublisher).to(Sink.ignore).run()
 
       // then
       expectTerminated(kafkaPublisherActor)
@@ -176,7 +176,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         consumerProperties(f)
 
       val consumer = f.kafka.consume(properties)(system)
-      Source(consumer)
+      Source.fromPublisher(consumer)
         .map({
           m =>
             buffer.add(m.value())

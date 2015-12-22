@@ -47,7 +47,7 @@ public class JavaConstructorTest {
                 serializer,
                 serializer).build();
         Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
-        Source.from(publisher).map(this::toProdMessage).to(Sink.create(subscriber)).run(materializer);
+        Source.fromPublisher(publisher).map(this::toProdMessage).to(Sink.fromSubscriber(subscriber)).run(materializer);
     }
 
     private ProducerMessage<String, String> toProdMessage(ConsumerRecord<String, String> record) {
