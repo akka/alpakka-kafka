@@ -168,13 +168,13 @@ val topLevelSubscriberActor: ActorRef = kafka.producerActor(producerProperties)
 ```
 
 #### Handling errors
-When consumer fails to load more elements from Kafka, an exception will be thrown, where
-the default behavior is actor restart, which closes Kafka resources and requires supervision to set up a new stream.
-This will also call `onError()` on all the subscribers that receive messages from our consumer.  
-Similarly when a producer fails to put message in Kafka - it will close the connection and signal the exception
-further up the supervision path.
-You can create the consumer/producer actor as a child of another actor and react to errors using supervision strategy.
-Example of custom error handling for a Kafka Sink:
+When a consumer or a producer fail to read/write from Kafka, the error is unrecoverable and it requires that
+the connection get terminated. This will be performed automatically and the KafkaActorSubscriber / KafkaActorPublisher
+which failed will be stopped. You can use DeathWatch to detect such failures in order to restart your stream.
+Additionally, when a producer fails, it will signal `onError()` to its inputs in order to stop the rest of stream 
+graph elements.
+
+Example of monitoring routine:
 ```Scala
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
@@ -184,21 +184,24 @@ import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, Rea
 class Handler extends Actor {
   implicit val materializer = ActorMaterializer()
 
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case exception => Stop // Your custom error handling
-  }
-
   def createSupervisedSubscriberActor() = {
     val kafka = new ReactiveKafka()
+
     // subscriber
     val subscriberProperties = ProducerProperties(
-      brokerList = "localhost:9092",
+      bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
       valueSerializer = new StringSerializer()
     )
     val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-    context.actorOf(subscriberActorProps)
+    val subscriberActor = context.actorOf(subscriberActorProps)
+    context.watch(subscriberActor)
   }
+
+  override def receive: Receive = {
+    case Terminated(actorRef) => // your custom handling
+  }
+  
   // Rest of the Actor's body
 }
 ```

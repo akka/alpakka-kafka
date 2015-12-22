@@ -1,7 +1,7 @@
 package examples
 
 import akka.actor.SupervisorStrategy.Resume
-import akka.actor.{OneForOneStrategy, SupervisorStrategy}
+import akka.actor.{Terminated, OneForOneStrategy, SupervisorStrategy}
 import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
 import com.softwaremill.react.kafka.KafkaMessages._
 import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
@@ -48,10 +48,6 @@ object examples {
     class Handler extends Actor {
       implicit val materializer = ActorMaterializer()
 
-      override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-        case exception => Resume // Your custom error handling
-      }
-
       def createSupervisedSubscriberActor() = {
         val kafka = new ReactiveKafka()
 
@@ -62,11 +58,12 @@ object examples {
           valueSerializer = new StringSerializer()
         )
         val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-        context.actorOf(subscriberActorProps)
+        val subscriberActor = context.actorOf(subscriberActorProps)
+        context.watch(subscriberActor)
       }
 
       override def receive: Receive = {
-        case _ =>
+        case Terminated(actorRef) => // your custom handling
       }
     }
   }
