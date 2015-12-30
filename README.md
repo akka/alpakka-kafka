@@ -1,4 +1,4 @@
-Reactive Streams for Kafka
+Reactive Streams for Kafka 0.8.x
 ====
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.softwaremill.reactivekafka/reactive-kafka-core_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.softwaremill/reactive-kafka_2.11)  
 If you have questions or are working on a pull request or just curious, please feel welcome to join the chat room: [![Join the chat at https://gitter.im/softwaremill/reactive-kafka](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/softwaremill/reactive-kafka?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
