@@ -8,14 +8,15 @@ If you have questions or are working on a pull request or just curious, please f
 
 Initiated by [SoftwareMill](https://softwaremill.com)
 
-Supports Kafka 0.9.0.0
+Supports Kafka 0.9.0.0  
+**For Kafka 0.8** see [this branch](https://github.com/softwaremill/reactive-kafka/tree/0.8).
 
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.9.0-SNAPSHOT"
+libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.9.0"
 ````
 
 Example usage
