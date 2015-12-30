@@ -1,7 +1,5 @@
 package com.softwaremill.react.kafka;
 
-import kafka.serializer.Decoder;
-import kafka.serializer.Encoder;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import scala.collection.JavaConverters;

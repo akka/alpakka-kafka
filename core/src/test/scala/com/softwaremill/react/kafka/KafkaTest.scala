@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
 import akka.testkit.TestKit
-import kafka.serializer.{StringDecoder, StringEncoder}
 import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import scala.annotation.tailrec

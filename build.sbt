@@ -8,7 +8,6 @@ val akkaVersion = "2.3.14"
 val akkaStreamVersion = "2.0"
 val kafkaVersion = "0.9.0.0"
 
-val kafka = "org.apache.kafka" %% "kafka" % kafkaVersion exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
 val commonDependencies = Seq(
@@ -18,7 +17,7 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  kafka, kafkaClients,
+  kafkaClients,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
