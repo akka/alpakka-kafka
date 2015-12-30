@@ -1,17 +1,16 @@
 package com.softwaremill.react.kafka.commit
 
-import kafka.common.{OffsetAndMetadata, TopicAndPartition}
-
-import scala.collection.immutable
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.common.TopicPartition
 
 case class OffsetMap(map: Offsets = Map.empty) {
 
-  def lastOffset(topicPartition: TopicAndPartition) = map.getOrElse(topicPartition, -1L)
+  def lastOffset(topicPartition: TopicPartition) = map.getOrElse(topicPartition, -1L)
 
   def diff(other: OffsetMap) =
     OffsetMap((map.toSet diff other.map.toSet).toMap)
 
-  def plusOffset(topicPartition: TopicAndPartition, offset: Long) =
+  def plusOffset(topicPartition: TopicPartition, offset: Long) =
     copy(map = map + (topicPartition -> offset))
 
   def nonEmpty = map.nonEmpty
@@ -19,10 +18,9 @@ case class OffsetMap(map: Offsets = Map.empty) {
   def toFetchRequestInfo = map.keys.toSeq
 
   def toCommitRequestInfo = {
-    val now = System.currentTimeMillis()
     // Kafka expects the offset of the first unfetched message, and we have the
     // offset of the last fetched message
-    map.mapValues(offset => OffsetAndMetadata(offset + 1, timestamp = now))
+    map.mapValues(offset => new OffsetAndMetadata(offset + 1))
   }
 }
 

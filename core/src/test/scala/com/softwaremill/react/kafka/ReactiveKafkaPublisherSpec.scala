@@ -2,10 +2,11 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
-import kafka.serializer.StringDecoder
-import ly.stealth.testing.BaseSpec
+import akka.actor.ActorSystem
+import com.softwaremill.react.kafka.KafkaMessages.StringConsumerRecord
+import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 import org.scalatest.testng.TestNGSuiteLike
@@ -14,10 +15,12 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
-    extends PublisherVerification[StringKafkaMessage](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
-    with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with BaseSpec {
+    extends PublisherVerification[StringConsumerRecord](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
+    with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
-  def this() = this(1300 millis)
+  override implicit val system: ActorSystem = ActorSystem("ReactiveKafkaPublisherSpec")
+
+  def this() = this(13000 millis)
 
   /**
    * This indicates that our publisher cannot provide an onComplete() signal
@@ -32,18 +35,23 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     // Test case which verifies point 3.17 may as well fill with small amount of elements. It verifies demand overflow
     // which has nothing to do with supply size.
     val realSize = if (l == Int.MaxValue) 30 else l
+    val properties = ProducerProperties(kafkaHost, topic, serializer, serializer)
+      .requestRequiredAcks(-1)
+      .messageSendMaxRetries(3)
+    val lowLevelProducer = new ReactiveKafkaProducer(properties)
 
-    val lowLevelProducer = createNewKafkaProducer(kafkaHost)
-    val record = new ProducerRecord(topic, 0, "key".getBytes, "msg".getBytes)
+    val record = new ProducerRecord(topic, 0, "key", "msg")
     (1L to realSize) foreach { number =>
-      lowLevelProducer.send(record)
+      lowLevelProducer.producer.send(record)
     }
-    kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
+    val c = kafka.consume(ConsumerProperties(kafkaHost, topic, group, new StringDeserializer(), new StringDeserializer()))
+    lowLevelProducer.producer.close()
+    c
   }
 
-  override def createFailedPublisher(): Publisher[StringKafkaMessage] = {
-    new Publisher[StringKafkaMessage] {
-      override def subscribe(subscriber: Subscriber[_ >: StringKafkaMessage]): Unit = {
+  override def createFailedPublisher(): Publisher[StringConsumerRecord] = {
+    new Publisher[StringConsumerRecord] {
+      override def subscribe(subscriber: Subscriber[_ >: StringConsumerRecord]): Unit = {
         subscriber.onSubscribe(new Subscription {
           override def cancel(): Unit = {}
 
@@ -53,5 +61,4 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
       }
     }
   }
-
 }
