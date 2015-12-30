@@ -5,6 +5,7 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import com.softwaremill.react.kafka.KafkaMessages.StringConsumerRecord
 import kafka.producer.ReactiveKafkaProducer
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
@@ -15,7 +16,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
-    extends PublisherVerification[StringConsumerRecord](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
+    extends PublisherVerification[ConsumerRecord[String, String]](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
   override implicit val system: ActorSystem = ActorSystem("ReactiveKafkaPublisherSpec")
@@ -49,9 +50,9 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     c
   }
 
-  override def createFailedPublisher(): Publisher[StringConsumerRecord] = {
-    new Publisher[StringConsumerRecord] {
-      override def subscribe(subscriber: Subscriber[_ >: StringConsumerRecord]): Unit = {
+  override def createFailedPublisher(): Publisher[ConsumerRecord[String, String]] = {
+    new Publisher[ConsumerRecord[String, String]] {
+      override def subscribe(subscriber: Subscriber[_ >: ConsumerRecord[String, String]]): Unit = {
         subscriber.onSubscribe(new Subscription {
           override def cancel(): Unit = {}
 

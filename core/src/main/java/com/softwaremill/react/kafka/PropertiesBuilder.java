@@ -6,8 +6,10 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Builder class wrapping Consumer & Producer properties creation in Java API.
@@ -54,20 +56,20 @@ public class PropertiesBuilder {
         private Deserializer keyDeserializer;
         private Deserializer valueDeserializer;
         private String groupId;
-        private Integer numThreads;
+        private FiniteDuration pollTimeout;
 
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
         public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer) {
-            this(brokerList, topic, groupId, keyDeserializer, valueDeserializer, 1);
+            this(brokerList, topic, groupId, keyDeserializer, valueDeserializer, new FiniteDuration(1, TimeUnit.SECONDS));
         }
 
-        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer, Integer numThreads) {
+        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer, FiniteDuration pollTimeout) {
             super(brokerList, topic);
             this.keyDeserializer = keyDeserializer;
             this.valueDeserializer = valueDeserializer;
             this.groupId = groupId;
-            this.numThreads = numThreads;
+            this.pollTimeout = pollTimeout;
         }
 
         public Consumer withParams(Map<String, String> params) {
@@ -86,7 +88,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ConsumerProperties.<K, V>apply(getBrokerList(), getTopic(), groupId, keyDeserializer, valueDeserializer);
             }
-            return new ConsumerProperties(consumerParams, getTopic(), groupId, keyDeserializer, valueDeserializer, numThreads);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, keyDeserializer, valueDeserializer, pollTimeout);
         }
 
     }
@@ -103,6 +105,13 @@ public class PropertiesBuilder {
         private scala.collection.immutable.Map<String, String> producerParams = new HashMap<>();
 
         public Producer(String brokerList, String topic, String clientId, Serializer keySerializer, Serializer valueSerializer) {
+            super(brokerList, topic);
+            this.clientId = clientId;
+            this.keySerializer = keySerializer;
+            this.valueSerializer = valueSerializer;
+        }
+
+        public Producer(String brokerList, String topic, String clientId, Serializer valueSerializer) {
             super(brokerList, topic);
             this.clientId = clientId;
             this.keySerializer = keySerializer;

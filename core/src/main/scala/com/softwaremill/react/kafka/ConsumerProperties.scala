@@ -3,9 +3,11 @@ package com.softwaremill.react.kafka
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import org.apache.kafka.common.serialization.Deserializer
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, Deserializer}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object ConsumerProperties {
 
@@ -44,8 +46,16 @@ object ConsumerProperties {
       // defaults
       "auto.offset.reset" -> "earliest"
     )
-
     new ConsumerProperties(props, topic, groupId, keyDeserializer, valueDeserializer)
+  }
+
+  def apply[V](
+    bootstrapServers: String,
+    topic: String,
+    groupId: String,
+    valueDeserializer: Deserializer[V]
+  ): ConsumerProperties[Array[Byte], V] = {
+    apply(bootstrapServers, topic, groupId, new ByteArrayDeserializer(), valueDeserializer)
   }
 
   val KeyBootstrapServers = "bootstrap.servers"
@@ -57,7 +67,7 @@ case class ConsumerProperties[K, V](
     groupId: String,
     keyDeserializer: Deserializer[K],
     valueDeserializer: Deserializer[V],
-    numThreads: Int = 1
+    pollTimeout: FiniteDuration = 500 millis
 ) {
 
   /**
@@ -97,14 +107,13 @@ case class ConsumerProperties[K, V](
 
   def noAutoCommit(): ConsumerProperties[K, V] = setProperty("enable.auto.commit", "false")
 
-  def numThreads(count: Int) = copy(numThreads = count)
   /**
    * Set any additional properties as needed
    */
   def setProperty(key: String, value: String): ConsumerProperties[K, V] = copy(params = params + (key -> value))
   def setProperties(values: (String, String)*): ConsumerProperties[K, V] = copy(params = params ++ values)
 
-  def toProps = params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props }
+  def rawProperties = params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props }
 
   def commitInterval: Option[FiniteDuration] =
     params.get("auto.commit.interval.ms")

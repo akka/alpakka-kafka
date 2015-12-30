@@ -56,22 +56,22 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
 
       // start reading from the queue
-      Source(consumerWithSink.publisher)
+      Source.fromPublisher(consumerWithSink.publisher)
         .to(consumerWithSink.offsetCommitSink).run()
       Thread.sleep(3000) // wait for flush
 
       // add one more msg
       val kafkaSubscriberActor = stringSubscriberActor(f)
       Source(List("4"))
-        .map(str => ProducerMessage(str, str))
-        .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
+        .map(str => ProducerMessage(str))
+        .to(Sink.fromSubscriber(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
       Thread.sleep(3000) // wait for flush
       completeProducer(kafkaSubscriberActor)
 
       // then
       var lastReadMsg: Option[String] = None
       val consumerActor = f.kafka.consumerActor(consumerProps)
-      Source(ActorPublisher[StringConsumerRecord](consumerActor))
+      Source.fromPublisher(ActorPublisher[StringConsumerRecord](consumerActor))
         .map(_.value())
         .runWith(Sink.foreach{
           m => lastReadMsg = Some(m)
@@ -104,9 +104,9 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       watch(kafkaSubscriberActor)
       val nonStringMsg = Array.fill(5)('0'.toByte)
       val kafkaSubscriber = ActorSubscriber[ProducerMessage[String, Array[Byte]]](kafkaSubscriberActor)
-      Source(initialDelay = 100 millis, interval = 1000 millis, tick = nonStringMsg)
+      Source.tick(initialDelay = 100 millis, interval = 1000 millis, tick = nonStringMsg)
         .map(bytes => ProducerMessage("key", bytes))
-        .to(Sink(kafkaSubscriber)).run()
+        .to(Sink.fromSubscriber(kafkaSubscriber)).run()
 
       // then
       expectMsgClass(classOf[Throwable]).getClass should equal(classOf[SerializationException])
@@ -116,10 +116,10 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
     "allow Source supervision" in { implicit f =>
       // given
       givenQueueWithElements(Seq("test", "a", "b"))
-      var msgs = List.empty[StringConsumerRecord]
+      var msgs = List.empty[ConsumerRecord[String, String]]
 
       val publisher = f.kafka.consume(consumerProperties(f))
-      Source(publisher)
+      Source.fromPublisher(publisher)
         .map({ msg =>
           msgs = msgs :+ msg
           msg.value()
@@ -129,29 +129,32 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         .expectNext("test")
 
       val kafkaPublisherActor = {
-        val consumer = mock[KafkaConsumer[String, String]]
-
-        Mockito.when(consumer.poll(1000))
+        val mockConsumer = mock[KafkaConsumer[String, String]]
+        val k = new Array[Byte](1)
+        Mockito.when(mockConsumer.poll(1000))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 1L, "key", "value")))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 2L, "key", "value2")))
           .thenReturn(consumerRecords(new ConsumerRecord("topic", 1, 3L, "key", "value3")))
-          .thenThrow(new KafkaException("Kafka stub disconnected"))
+          .thenThrow(new KafkaException("Kafka mock disconnected"))
 
-        val akkaConsumerProps = Props(new KafkaActorPublisher(consumer))
+        val reactiveConsumer = mock[ReactiveKafkaConsumer[String, String]]
+        Mockito.when(reactiveConsumer.properties).thenReturn(consumerProperties(f))
+        Mockito.when(reactiveConsumer.consumer).thenReturn(mockConsumer)
+        val akkaConsumerProps = Props(new KafkaActorPublisher(reactiveConsumer))
         system.actorOf(akkaConsumerProps.withDispatcher(ReactiveKafka.ConsumerDefaultDispatcher))
       }
-      val kafkaPublisher = ActorPublisher[StringConsumerRecord](kafkaPublisherActor)
+      val kafkaPublisher = ActorPublisher[ConsumerRecord[String, String]](kafkaPublisherActor)
       watch(kafkaPublisherActor)
 
       // when
-      Source(kafkaPublisher).to(Sink.ignore).run()
+      Source.fromPublisher(kafkaPublisher).to(Sink.ignore).run()
 
       // then
       expectTerminated(kafkaPublisherActor)
     }
 
-    def consumerRecords(record: StringConsumerRecord) = {
-      new ConsumerRecords(Map[TopicPartition, java.util.List[StringConsumerRecord]](
+    def consumerRecords(record: ConsumerRecord[String, String]) = {
+      new ConsumerRecords(Map[TopicPartition, java.util.List[ConsumerRecord[String, String]]](
         new TopicPartition("topic", 1) -> List(record).asJava
       ).asJava)
     }
@@ -173,7 +176,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         consumerProperties(f)
 
       val consumer = f.kafka.consume(properties)(system)
-      Source(consumer)
+      Source.fromPublisher(consumer)
         .map({
           m =>
             buffer.add(m.value())

@@ -129,12 +129,12 @@ class ReactiveKafka {
 
   private def consumerActorPropsWithConsumer[K, V](props: ConsumerProperties[K, V]) = {
     val reactiveConsumer = ReactiveKafkaConsumer(props)
-    ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer.consumer)))
+    ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer)))
   }
 
   def consumerActorProps[K, V](props: ConsumerProperties[K, V]) = {
     val reactiveConsumer = ReactiveKafkaConsumer(props)
-    Props(new KafkaActorPublisher(reactiveConsumer.consumer))
+    Props(new KafkaActorPublisher(reactiveConsumer))
   }
 }
 

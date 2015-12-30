@@ -2,9 +2,11 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import kafka.serializer.StringDecoder
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest._
+
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class ConsumerPropertiesTest extends WordSpecLike with Matchers {
 
@@ -16,34 +18,20 @@ class ConsumerPropertiesTest extends WordSpecLike with Matchers {
 
   "ConsumerProps" must {
 
-    "handle base case" in {
+    "handle rich case" in {
 
       val props = ConsumerProperties(bootstrapServers, topic, groupId, deserializer, deserializer)
-        .toProps
-
-      //      props.getProperty() should be(zooKeepHost)
-      //      config.groupId should be(groupId)
-      //      config.clientId should be(groupId)
-      //      config.autoOffsetReset should be("smallest")
-      //      config.offsetsStorage should be("zookeeper")
-      //      config.consumerTimeoutMs should be(1500)
-      //      config.dualCommitEnabled should be(false)
-    }
-
-    "handle kafka storage" in {
-
-      val config = ConsumerProperties(bootstrapServers, topic, groupId, deserializer, deserializer)
+        .noAutoCommit()
         .readFromEndOfStream()
-        .consumerTimeoutMs(1234)
-        .toProps
+        .consumerTimeoutMs(300)
+        .commitInterval(2 seconds)
+        .rawProperties
 
-      //      config.zkConnect should be(zooKeepHost)
-      //      config.groupId should be(groupId)
-      //      config.clientId should be(groupId)
-      //      config.autoOffsetReset should be("largest")
-      //      config.offsetsStorage should be("kafka")
-      //      config.dualCommitEnabled should be(true)
-      //      config.consumerTimeoutMs should be(1234)
+      props.getProperty("bootstrap.servers") should be(bootstrapServers)
+      props.getProperty("enable.auto.commit") should be("false")
+      props.getProperty("auto.offset.reset") should be("latest")
+      props.getProperty("consumer.timeout.ms") should be("300")
+      props.getProperty("auto.commit.interval.ms") should be("2000")
     }
 
   }

@@ -33,20 +33,25 @@ public class JavaConstructorTest {
         ActorSystem system = ActorSystem.create("ReactiveKafka");
         ActorMaterializer materializer = ActorMaterializer.create(system);
 
+        StringDeserializer deserializer = new StringDeserializer();
         ConsumerProperties<String, String> cp =
-                new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", new StringDeserializer(), new StringDeserializer())
+                new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", deserializer, deserializer)
                         .build();
 
         Publisher<ConsumerRecord<String, String>> publisher = kafka.consume(cp, system);
 
+        StringSerializer serializer = new StringSerializer();
         ProducerProperties<String, String> pp = new PropertiesBuilder.Producer(
                 brokerList,
                 "topic",
-                new StringSerializer(),
-                new StringSerializer()).build();
+                serializer,
+                serializer).build();
         Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
+        Source.fromPublisher(publisher).map(this::toProdMessage).to(Sink.fromSubscriber(subscriber)).run(materializer);
+    }
 
-        Source.from(publisher).map(ProducerMessage::apply).to(Sink.create(subscriber)).run(materializer);
+    private ProducerMessage<String, String> toProdMessage(ConsumerRecord<String, String> record) {
+        return KeyValueProducerMessage.apply(record.key(), record.value());
     }
 
 }

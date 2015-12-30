@@ -19,10 +19,10 @@ class ReactiveKafkaSubscriberWhiteboxSpec(defaultTimeout: FiniteDuration)
 
   override def createSubscriber(whiteboxSubscriberProbe: WhiteboxSubscriberProbe[StringProducerMessage]): Subscriber[StringProducerMessage] = {
     val topic = UUID.randomUUID().toString
-    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, serializer, serializer)), whiteboxSubscriberProbe)
+    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, serializer)), whiteboxSubscriberProbe)
   }
 
-  override def createElement(i: Int) = ProducerMessage(i.toString, i.toString)
+  override def createElement(i: Int) = ProducerMessage(i.toString)
 }
 
 class SubscriberDecorator[T](decoratee: Subscriber[T], probe: WhiteboxSubscriberProbe[T]) extends Subscriber[T] {

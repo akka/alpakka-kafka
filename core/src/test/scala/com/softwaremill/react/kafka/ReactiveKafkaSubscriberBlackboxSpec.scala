@@ -23,19 +23,20 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
   override def createSubscriber(): Subscriber[StringProducerMessage] = {
     val topic = UUID.randomUUID().toString
     val partitionizerProvider: (String) => Option[Int] = partitionizer
-    kafka.publish(ProducerProperties(kafkaHost, topic, serializer, serializer, partitionizerProvider))
+    val properties: ProducerProperties[Array[Byte], String] = ProducerProperties(kafkaHost, topic, serializer, partitionizerProvider)
+    kafka.publish(properties)
   }
 
   def createHelperSource(elements: Long): Source[StringProducerMessage, _] = elements match {
     case 0 => Source.empty
-    case Long.MaxValue => Source(initialDelay = 10 millis, interval = 10 millis, tick = ProducerMessage(message, message))
-    case n if n <= Int.MaxValue => Source(List.fill(n.toInt)(ProducerMessage(message, message)))
+    case Long.MaxValue => Source.tick(initialDelay = 10 millis, interval = 10 millis, tick = ProducerMessage(message))
+    case n if n <= Int.MaxValue => Source(List.fill(n.toInt)(ProducerMessage(message)))
     case n => sys.error("n > Int.MaxValue")
   }
 
   override def createHelperPublisher(elements: Long): Publisher[StringProducerMessage] = {
-    createHelperSource(elements).runWith(Sink.publisher)
+    createHelperSource(elements).runWith(Sink.asPublisher(fanout = false))
   }
 
-  override def createElement(i: Int): StringProducerMessage = ProducerMessage(i.toString, i.toString)
+  override def createElement(i: Int): StringProducerMessage = ProducerMessage(i.toString)
 }

@@ -1,16 +1,13 @@
 package examples
 
 import akka.actor.SupervisorStrategy.Resume
-import akka.actor.{OneForOneStrategy, SupervisorStrategy}
-import akka.stream.{ActorAttributes, Supervision}
-import akka.stream.scaladsl.{Sink, Source}
+import akka.actor.{Terminated, OneForOneStrategy, SupervisorStrategy}
 import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
 import com.softwaremill.react.kafka.KafkaMessages._
-import kafka.serializer.{StringDecoder, StringEncoder}
-import org.apache.kafka.common.serialization.{StringSerializer, ByteArrayDeserializer, StringDeserializer}
+import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import org.reactivestreams.{Publisher, Subscriber}
 import scala.language.postfixOps
-import scala.concurrent.duration._
+
 /**
  * Code samples for the documentation.
  */
@@ -31,17 +28,16 @@ object examples {
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      keyDeserializer = new StringDeserializer(),
       valueDeserializer = new StringDeserializer()
     ))
     val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
       bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
-      keySerializer = new StringSerializer(),
       valueSerializer = new StringSerializer()
     ))
 
-    Source(publisher).map(m => ProducerMessage(m.key(), m.value().toUpperCase)).to(Sink(subscriber)).run()
+    Source.fromPublisher(publisher).map(m => ProducerMessage(m.value().toUpperCase))
+      .to(Sink.fromSubscriber(subscriber)).run()
   }
 
   def handling(): Unit = {
@@ -52,10 +48,6 @@ object examples {
     class Handler extends Actor {
       implicit val materializer = ActorMaterializer()
 
-      override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-        case exception => Resume // Your custom error handling
-      }
-
       def createSupervisedSubscriberActor() = {
         val kafka = new ReactiveKafka()
 
@@ -63,15 +55,15 @@ object examples {
         val subscriberProperties = ProducerProperties(
           bootstrapServers = "localhost:9092",
           topic = "uppercaseStrings",
-          keySerializer = new StringSerializer(),
           valueSerializer = new StringSerializer()
         )
         val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-        context.actorOf(subscriberActorProps)
+        val subscriberActor = context.actorOf(subscriberActorProps)
+        context.watch(subscriberActor)
       }
 
       override def receive: Receive = {
-        case _ =>
+        case Terminated(actorRef) => // your custom handling
       }
     }
   }
@@ -81,7 +73,6 @@ object examples {
       bootstrapServers = "localhost:9092",
       "topic",
       "groupId",
-      new ByteArrayDeserializer(),
       new StringDeserializer()
     )
       .consumerTimeoutMs(timeInMs = 100)
@@ -107,13 +98,12 @@ object examples {
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
-      keyDeserializer = new ByteArrayDeserializer(),
       valueDeserializer = new StringDeserializer()
     )
       .commitInterval(5 seconds) // flush interval
 
     val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-    Source(consumerWithOffsetSink.publisher)
+    Source.fromPublisher(consumerWithOffsetSink.publisher)
       .map(processMessage(_)) // your message processing
       .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
       .run()

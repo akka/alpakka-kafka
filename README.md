@@ -8,12 +8,14 @@ If you have questions or are working on a pull request or just curious, please f
 
 Initiated by [SoftwareMill](https://softwaremill.com)
 
-Supports Kafka 0.8.2.2
+Supports Kafka 0.9.0.0
 
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
-libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.8.3"
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+
+libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.9.0-SNAPSHOT"
 ````
 
 Example usage
@@ -24,55 +26,71 @@ Example usage
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import kafka.serializer.{StringDecoder, StringEncoder}
-import org.reactivestreams.{Publisher, Subscriber}
-import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
+import com.softwaremill.react.kafka.KafkaMessages._
+import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
+import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
 implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
-val publisher: Publisher[StringKafkaMessage] = kafka.consume(ConsumerProperties(
-  brokerList = "localhost:9092",
-  zooKeeperHost = "localhost:2181",
-  topic = "lowercaseStrings",
-  groupId = "groupName",
-  decoder = new StringDecoder()
+val publisher: Publisher[StringConsumerRecord] = kafka.consume(ConsumerProperties(
+ bootstrapServers = "localhost:9092",
+ topic = "lowercaseStrings",
+ groupId = "groupName",
+ valueDeserializer = new StringDeserializer()
 ))
-val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
-  brokerList = "localhost:9092",
+val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
+  bootstrapServers = "localhost:9092",
   topic = "uppercaseStrings",
-  encoder = new StringEncoder()
+  valueSerializer = new StringSerializer()
 ))
 
-Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
+Source.fromPublisher(publisher).map(m => ProducerMessage(m.value().toUpperCase))
+  .to(Sink.fromSubscriber(subscriber)).run()
 ```
 
 #### Java
 ```java
-String zooKeeperHost = "localhost:2181";
+import akka.actor.ActorSystem;
+import akka.stream.ActorMaterializer;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+
+public void run() {
 String brokerList = "localhost:9092";
 
 ReactiveKafka kafka = new ReactiveKafka();
 ActorSystem system = ActorSystem.create("ReactiveKafka");
 ActorMaterializer materializer = ActorMaterializer.create(system);
 
+StringDeserializer deserializer = new StringDeserializer();
 ConsumerProperties<String> cp =
-   new PropertiesBuilder.Consumer(brokerList, zooKeeperHost, "topic", "groupId", new StringDecoder(null))
+   new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", deserializer)
       .build();
 
-Publisher<MessageAndMetadata<byte[], String>> publisher = kafka.consume(cp, system);
+Publisher<ConsumerRecord<String, String>> publisher = kafka.consume(cp, system);
 
-ProducerProperties<String> pp = new PropertiesBuilder.Producer(
+StringSerializer serializer = new StringSerializer();
+ProducerProperties<String, String> pp = new PropertiesBuilder.Producer(
    brokerList,
-   zooKeeperHost,
    "topic",
-   new StringEncoder(null)).build();
+   serializer,
+   serializer).build();
 
-Subscriber<String> subscriber = kafka.publish(pp, system);
+Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
+Source.fromPublisher(publisher).map(this::toProdMessage)
+  .to(Sink.fromSubscriber(subscriber)).run(materializer);
+}
 
-Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
-
+private ProducerMessage<String, String> toProdMessage(ConsumerRecord<String, String> record) {
+  return KeyValueProducerMessage.apply(record.key(), record.value());
+}
 ```
 
 Passing configuration properties to Kafka
@@ -80,15 +98,18 @@ Passing configuration properties to Kafka
 In order to set your own custom Kafka parameters, you can construct `ConsumerProperties` and `ProducerProperties` using
 some of their provided methods in a builder-pattern-style DSL, for example:  
 ```Scala
+import org.apache.kafka.common.serialization.StringDeserializer
+import com.softwaremill.react.kafka.ConsumerProperties
+
 val consumerProperties = ConsumerProperties(
-  "localhost:9092",
   "localhost:2181",
   "topic",
   "groupId",
-  new StringDecoder()
+  new StringDeserializer()
 )
-  .consumerTimeoutMs(timeInMs = 100)
-  .kafkaOffsetsStorage(dualCommit = true)
+  .readFromEndOfStream()
+  .consumerTimeoutMs(300)
+  .commitInterval(2 seconds)
   .setProperty("some.kafka.property", "value") 
 ```
 The `ProducerProperties` class offers a similar API.
@@ -96,8 +117,8 @@ The `ProducerProperties` class offers a similar API.
 Controlling consumer start offset
 ----
 
-By default a new consumer will start reading from the beginning of a topic. If you want to start reading from the end,
-you can specify this on your `ConsumerProperties`:
+By default a new consumer will start reading from the beginning of a topic, fetching all uncommitted messages. 
+If you want to start reading from the end, you can specify this on your `ConsumerProperties`:
 ```Scala
   val consumerProperties = ConsumerProperties(...).readFromEndOfStream()
 ````
@@ -115,70 +136,72 @@ Here are a some examples:
 ```Scala
 import akka.actor.{Props, ActorRef, Actor, ActorSystem}
 import akka.stream.ActorMaterializer
-import kafka.serializer.{StringEncoder, StringDecoder}
+import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import com.softwaremill.react.kafka.{ReactiveKafka, ProducerProperties, ConsumerProperties}
 
 // inside an Actor:
 implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
-// publisher
-val publisherProperties = ConsumerProperties(
+// consumer
+val consumerProperties = ConsumerProperties(
   brokerList = "localhost:9092",
-  zooKeeperHost = "localhost:2181",
   topic = "lowercaseStrings",
   groupId = "groupName",
-  decoder = new StringDecoder()
+  valueDeserializer = new StringDeserializer()
 )
-val publisherActorProps: Props = kafka.consumerActorProps(publisherProperties)
-val publisherActor: ActorRef = context.actorOf(publisherActorProps)
+val consumerActorProps: Props = kafka.consumerActorProps(consumerProperties)
+val publisherActor: ActorRef = context.actorOf(consumerActorProps)
 // or:
-val topLevelPublisherActor: ActorRef = kafka.consumerActor(publisherProperties)
+val topLevelPublisherActor: ActorRef = kafka.consumerActor(consumerActorProps)
 
 // subscriber
-val subscriberProperties = ProducerProperties(
+val producerProperties = ProducerProperties(
   brokerList = "localhost:9092",
   topic = "uppercaseStrings",
-  encoder = new StringEncoder()
+  new StringSerializer()
 )
-val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-val subscriberActor: ActorRef = context.actorOf(subscriberActorProps)
+val producerActorProps: Props = kafka.producerActorProps(producerProperties)
+val subscriberActor: ActorRef = context.actorOf(producerActorProps)
 // or:
-val topLevelSubscriberActor: ActorRef = kafka.producerActor(subscriberProperties)
+val topLevelSubscriberActor: ActorRef = kafka.producerActor(producerProperties)
 ```
 
 #### Handling errors
-When a publisher (consumer) fails to load more elements from Kafka, it calls `onError()` on all of its subscribers. 
-The error will be handled depending on subscriber implementation.  
-When a subscriber (producer) fails to get more elements from upstream due to an error, it is no longer usable. 
-It will throw an exception and close all underlying resource (effectively: the Kafka connection). 
-If there's a problem with putting elements into Kafka, only an exception will be thrown. 
-You can create the subscriber actor as a child of another actor and react to errors using supervision strategy.
-Example of custom error handling for a Kafka Sink:
+When a consumer or a producer fail to read/write from Kafka, the error is unrecoverable and it requires that
+the connection get terminated. This will be performed automatically and the KafkaActorSubscriber / KafkaActorPublisher
+which failed will be stopped. You can use DeathWatch to detect such failures in order to restart your stream.
+Additionally, when a producer fails, it will signal `onError()` to its inputs in order to stop the rest of stream 
+graph elements.
+
+Example of monitoring routine:
 ```Scala
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
+import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
 
 class Handler extends Actor {
   implicit val materializer = ActorMaterializer()
-
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case exception => Resume // Your custom error handling
-  }
 
   def createSupervisedSubscriberActor() = {
     val kafka = new ReactiveKafka()
 
     // subscriber
     val subscriberProperties = ProducerProperties(
-      brokerList = "localhost:9092",
+      bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
-      encoder = new StringEncoder()
+      valueSerializer = new StringSerializer()
     )
     val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-    context.actorOf(subscriberActorProps)
+    val subscriberActor = context.actorOf(subscriberActorProps)
+    context.watch(subscriberActor)
   }
+
+  override def receive: Receive = {
+    case Terminated(actorRef) => // your custom handling
+  }
+  
   // Rest of the Actor's body
 }
 ```
@@ -191,18 +214,13 @@ If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consume
 #### Manual Commit (version 0.8 and above)
 In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when
 you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed. 
-Reactive Kafka supports manual commit both to Zookeeper (legacy) and Kafka storage. Dual commit is not supported. 
-In order to commit manually to zookeeper, you have to add an optional module to your dependencies:
-
-````scala
-libraryDependencies += "com.softwaremill.reactivekafka" %% "zookeeper-committer" % reactiveKafkaVersion
-````
-Example of a consumer with manual commit for processed messages:  
+Example:  
 
 ```Scala
 import scala.concurrent.duration._
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.softwaremill.react.kafka.KafkaMessages._
 import akka.stream.scaladsl.Source
 import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
 
@@ -212,14 +230,13 @@ implicit val materializer = ActorMaterializer()
 val kafka = new ReactiveKafka()
 val consumerProperties = ConsumerProperties(
   brokerList = "localhost:9092",
-  zooKeeperHost = "localhost:2181",
   topic = "lowercaseStrings",
   groupId = "groupName",
-  decoder = new StringDecoder())
+  valueDeserializer = new StringDeserializer())
 .commitInterval(5 seconds) // flush interval
     
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-Source(consumerWithOffsetSink.publisher)
+Source.fromPublisher(consumerWithOffsetSink.publisher)
   .map(processMessage(_)) // your message processing
   .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
   .run()
