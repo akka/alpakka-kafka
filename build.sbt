@@ -32,7 +32,7 @@ val coreDependencies = Seq(
 
 val commonSettings =
 sonatypeSettings ++ scalariformSettings ++ Seq(
-  version := "0.9.0-SNAPSHOT",
+  version := "0.9.0",
   organization := "com.softwaremill.reactivekafka",
   startYear := Some(2014),
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
