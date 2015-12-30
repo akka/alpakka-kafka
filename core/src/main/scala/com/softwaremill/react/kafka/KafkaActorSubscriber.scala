@@ -1,7 +1,5 @@
 package com.softwaremill.react.kafka
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorLogging
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, RequestStrategy}
 import kafka.producer.ReactiveKafkaProducer
@@ -23,7 +21,6 @@ private[kafka] class KafkaActorSubscriber[K, V](
     extends ActorSubscriber with ActorLogging {
 
   override protected val requestStrategy = requestStrategyProvider()
-  val closeTimeoutMs = 1000L
 
   def receive = {
     case ActorSubscriberMessage.OnNext(element) =>
@@ -32,6 +29,7 @@ private[kafka] class KafkaActorSubscriber[K, V](
       handleError(ex)
     case ActorSubscriberMessage.OnComplete =>
       stop()
+    case "close_producer" => richProducer.producer.close()
   }
 
   private def processElement(element: ProducerMessage[K, V]) = {
@@ -49,13 +47,9 @@ private[kafka] class KafkaActorSubscriber[K, V](
   }
 
   def stop() = {
+    cleanupResources()
     context.stop(self)
   }
 
-  override def postStop(): Unit = {
-    cleanupResources()
-    super.postStop()
-  }
-
-  def cleanupResources(): Unit = richProducer.producer.close(closeTimeoutMs, TimeUnit.MILLISECONDS)
+  def cleanupResources(): Unit = richProducer.producer.close()
 }
