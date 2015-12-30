@@ -1,16 +1,16 @@
 package com.softwaremill.react.kafka
 
-import org.apache.kafka.common.TopicPartition
+import kafka.common.TopicAndPartition
 
 /**
  * Based on from https://github.com/cjdev/kafka-rx
  */
 package object commit {
 
-  type Offsets = Map[TopicPartition, Long]
+  type Offsets = Map[TopicAndPartition, Long]
   type OffsetMerge = (Offsets, Offsets) => Offsets
 
   private[commit] val defaultMerge: OffsetMerge = { case (theirs, ours) => ours }
-  private[commit] val defaultOffsets = Map[TopicPartition, Long]()
+  private[commit] val defaultOffsets = Map[TopicAndPartition, Long]()
 
 }

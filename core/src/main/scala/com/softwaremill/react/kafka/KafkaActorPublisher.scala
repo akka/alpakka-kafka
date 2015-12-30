@@ -1,78 +1,50 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.ActorLogging
 import akka.stream.actor.{ActorPublisher, ActorPublisherMessage}
-import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitAck, CommitOffsets, Poll}
-import com.softwaremill.react.kafka.commit.OffsetMap
-import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
-import scala.collection.JavaConversions._
+import com.softwaremill.react.kafka.KafkaActorPublisher.Poll
+import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
+import kafka.consumer.{ConsumerTimeoutException, KafkaConsumer}
+import kafka.message.MessageAndMetadata
+
 import scala.annotation.tailrec
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
-    extends ActorPublisher[ConsumerRecord[K, V]] with ActorLogging {
+private[kafka] class KafkaActorPublisher[T](consumer: KafkaConsumer[T]) extends ActorPublisher[KafkaMessage[T]] {
 
-  val pollTimeout = 100L // TODO from config, millis
-  var buffer: Option[java.util.Iterator[ConsumerRecord[K, V]]] = None
+  val iterator = consumer.iterator()
 
   override def receive = {
     case ActorPublisherMessage.Request(_) | Poll => readDemandedItems()
     case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded =>
       cleanupResources()
       context.stop(self)
-    case CommitOffsets(offsets) => runCommit(offsets)
   }
 
-  private def getIterator() = {
-    buffer match {
-      case Some(iterator) =>
-        iterator
-      case None =>
-        consumer.poll(pollTimeout).iterator()
-    }
-  }
+  private def demand_? : Boolean = totalDemand > 0
 
-  private def runCommit(offsets: OffsetMap): Unit = {
-    try {
-      consumer.commitSync(offsets.toCommitRequestInfo)
-      log.debug(s"committed offsets: $offsets")
-      sender() ! CommitAck
-    }
-    catch {
-      case ex: Exception =>
-        cleanupResources()
-        onErrorThenStop(ex)
+  private def tryReadingSingleElement(): Try[Option[KafkaMessage[T]]] = {
+    Try {
+      if (iterator.hasNext() && demand_?) Option(iterator.next()) else None
+    } recover {
+      // We handle timeout exceptions as normal 'end of the queue' cases
+      case _: ConsumerTimeoutException => None
     }
   }
 
   @tailrec
   private def readDemandedItems(): Unit = {
-    Try(getIterator()) match {
-      case Success(iterator) =>
-        if (!iterator.hasNext && demand_?)
-          self ! Poll
-        else {
-          while (iterator.hasNext && demand_?) {
-            val record = iterator.next()
-            onNext(record)
-          }
-          buffer = None
-          if (demand_?) { // nothing more in iterator but still some demand
-            readDemandedItems()
-          }
-          else if (iterator.hasNext) {
-            // no demand but data left, let's buffer whatever's left
-            buffer = Some(iterator)
-          }
-        }
+    tryReadingSingleElement() match {
+      case Success(None) =>
+        if (demand_?) self ! Poll
+      case Success(Some(element)) =>
+        onNext(element)
+        if (demand_?) readDemandedItems()
       case Failure(ex) =>
         cleanupResources()
         onErrorThenStop(ex)
     }
   }
-
-  private def demand_? : Boolean = totalDemand > 0
 
   private def cleanupResources(): Unit = {
     consumer.close()
@@ -81,11 +53,9 @@ private[kafka] class KafkaActorPublisher[K, V](consumer: KafkaConsumer[K, V])
 
 private[kafka] object KafkaActorPublisher {
   case object Poll
-  case class CommitOffsets(offsets: OffsetMap)
-  case class CommitAck(offsets: OffsetMap)
 }
 
 object KafkaMessages {
-  type StringConsumerRecord = ConsumerRecord[String, String]
-  type StringProducerMessage = ProducerMessage[String, String]
+  type KafkaMessage[T] = MessageAndMetadata[Array[Byte], T]
+  type StringKafkaMessage = MessageAndMetadata[Array[Byte], String]
 }

@@ -3,7 +3,8 @@ package com.softwaremill.react.kafka
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import org.apache.kafka.common.serialization.Deserializer
+import kafka.consumer.ConsumerConfig
+import kafka.serializer.Decoder
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -12,13 +13,19 @@ object ConsumerProperties {
   /**
    * Consumer Properties
    *
-   * bootstrapServers
-   * A list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
-   * The client will make use of all servers irrespective of which servers are specified here for bootstrapping—this
-   * list only impacts the initial hosts used to discover the full set of servers. This list should be in the
-   * form host1:port1,host2:port2,.... Since these servers are just used for the initial connection to discover the full
-   * cluster membership (which may change dynamically), this list need not contain the full set of servers
-   * (you may want more than one, though, in case a server is down).
+   * brokerList
+   * This is for bootstrapping and the producer will only use it for getting metadata (topics, partitions and replicas).
+   * The socket connections for sending the actual data will be established based on the broker information returned in
+   * the metadata. The format is host1:port1,host2:port2, and the list can be a subset of brokers or a VIP pointing to a
+   * subset of brokers.
+   *
+   * zooKeeperHost
+   * Specifies the zookeeper connection string in the form hostname:port where host and port are the host and port of
+   * a zookeeper server. To allow connecting through other zookeeper nodes when that zookeeper machine is down you can also
+   * specify multiple hosts in the form hostname1:port1,hostname2:port2,hostname3:port3. The server may also have a zookeeper
+   * chroot path as part of it's zookeeper connection string which puts its data under some path in the global zookeeper namespace.
+   * If so the consumer should use the same chroot path in its connection string. For example to give a chroot path of /chroot/path
+   * you would give the connection string as hostname1:port1,hostname2:port2,hostname3:port3/chroot/path.
    *
    * topic
    * The high-level API hides the details of brokers from the consumer and allows consuming off the cluster of machines
@@ -31,51 +38,54 @@ object ConsumerProperties {
    * group id multiple processes indicate that they are all part of the same consumer group.
    *
    */
-  def apply[K, V](
-    bootstrapServers: String,
+  def apply[T](
+    brokerList: String,
+    zooKeeperHost: String,
     topic: String,
     groupId: String,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V]
-  ): ConsumerProperties[K, V] = {
+    decoder: Decoder[T]
+  ): ConsumerProperties[T] = {
     val props = Map[String, String](
+      KeyBrokerList -> brokerList,
       "group.id" -> groupId,
-      KeyBootstrapServers -> bootstrapServers,
+      "zookeeper.connect" -> zooKeeperHost,
+
       // defaults
-      "auto.offset.reset" -> "earliest"
+      "auto.offset.reset" -> "smallest",
+      "consumer.timeout.ms" -> "1500",
+      "offsets.storage" -> "zookeeper"
     )
 
-    new ConsumerProperties(props, topic, groupId, keyDeserializer, valueDeserializer)
+    new ConsumerProperties(props, topic, groupId, decoder)
   }
 
-  val KeyBootstrapServers = "bootstrap.servers"
+  val KeyBrokerList = "metadata.broker.list"
 }
 
-case class ConsumerProperties[K, V](
+case class ConsumerProperties[T](
     params: Map[String, String],
     topic: String,
     groupId: String,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V],
+    decoder: Decoder[T],
     numThreads: Int = 1
 ) {
 
   /**
    * Use custom interval for auto-commit or commit flushing on manual commit.
    */
-  def commitInterval(time: FiniteDuration): ConsumerProperties[K, V] =
+  def commitInterval(time: FiniteDuration): ConsumerProperties[T] =
     setProperty("auto.commit.interval.ms", time.toMillis.toString)
 
   /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
    */
-  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[K, V] = setProperty("consumer.timeout.ms", timeInMs.toString)
+  def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] = setProperty("consumer.timeout.ms", timeInMs.toString)
 
   /**
    * What to do when there is no initial offset in Zookeeper or if an offset is out of range:
-   * 1) earliest : automatically reset the offset to the smallest offset
-   * 2) latest : automatically reset the offset to the largest offset
+   * 1) smallest : automatically reset the offset to the smallest offset
+   * 2) largest : automatically reset the offset to the largest offset
    * 3) anything else: throw exception to the consumer. If this is set to largest, the consumer may lose some
    * messages when the number of partitions, for the topics it subscribes to, changes on the broker.
    *
@@ -93,18 +103,38 @@ case class ConsumerProperties[K, V](
    * ***************************************************************************************
    *
    */
-  def readFromEndOfStream(): ConsumerProperties[K, V] = setProperty("auto.offset.reset", "latest")
+  def readFromEndOfStream(): ConsumerProperties[T] = setProperty("auto.offset.reset", "largest")
 
-  def noAutoCommit(): ConsumerProperties[K, V] = setProperty("enable.auto.commit", "false")
+  def noAutoCommit(): ConsumerProperties[T] = setProperty("auto.commit.enable", "false")
+  /**
+   * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
+   *
+   * dualCommit = true means store in both ZooKeeper(legacy) and Kafka(new) places.
+   */
+  def kafkaOffsetsStorage(dualCommit: Boolean = false): ConsumerProperties[T] =
+    setProperties(("offsets.storage", "kafka"), ("dual.commit.enabled", dualCommit.toString))
+
+  def kafkaOffsetStorage = "kafka".equals(params("offsets.storage"))
 
   def numThreads(count: Int) = copy(numThreads = count)
   /**
    * Set any additional properties as needed
    */
-  def setProperty(key: String, value: String): ConsumerProperties[K, V] = copy(params = params + (key -> value))
-  def setProperties(values: (String, String)*): ConsumerProperties[K, V] = copy(params = params ++ values)
+  def setProperty(key: String, value: String): ConsumerProperties[T] = copy(params = params + (key -> value))
+  def setProperties(values: (String, String)*): ConsumerProperties[T] = copy(params = params ++ values)
 
-  def toProps = params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props }
+  /**
+   *  Generate the Kafka ConsumerConfig object
+   *
+   */
+  def toConsumerConfig: ConsumerConfig = {
+    new ConsumerConfig(params.foldLeft(new Properties()) { (props, param) => props.put(param._1, param._2); props })
+  }
+
+  // accessors
+  def zookeeperConnect: String = params("zookeeper.connect")
+
+  def brokerList = params(ConsumerProperties.KeyBrokerList)
 
   def commitInterval: Option[FiniteDuration] =
     params.get("auto.commit.interval.ms")

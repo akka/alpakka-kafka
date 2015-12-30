@@ -1,28 +1,27 @@
 package com.softwaremill.react.kafka
 
 import java.util.UUID
-
-import com.softwaremill.react.kafka.KafkaMessages._
+import kafka.serializer.StringEncoder
+import org.reactivestreams.{Subscription, Subscriber}
 import org.reactivestreams.tck.SubscriberWhiteboxVerification.{SubscriberPuppet, WhiteboxSubscriberProbe}
 import org.reactivestreams.tck.{SubscriberWhiteboxVerification, TestEnvironment}
-import org.reactivestreams.{Subscriber, Subscription}
 import org.scalatest.testng.TestNGSuiteLike
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class ReactiveKafkaSubscriberWhiteboxSpec(defaultTimeout: FiniteDuration)
-    extends SubscriberWhiteboxVerification[StringProducerMessage](new TestEnvironment(defaultTimeout.toMillis))
+    extends SubscriberWhiteboxVerification[String](new TestEnvironment(defaultTimeout.toMillis))
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
   def this() = this(300 millis)
 
-  override def createSubscriber(whiteboxSubscriberProbe: WhiteboxSubscriberProbe[StringProducerMessage]): Subscriber[StringProducerMessage] = {
+  override def createSubscriber(whiteboxSubscriberProbe: WhiteboxSubscriberProbe[String]): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
-    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, serializer, serializer)), whiteboxSubscriberProbe)
+    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, "group", new StringEncoder())), whiteboxSubscriberProbe)
   }
 
-  override def createElement(i: Int) = ProducerMessage(i.toString, i.toString)
+  override def createElement(i: Int) = i.toString
 }
 
 class SubscriberDecorator[T](decoratee: Subscriber[T], probe: WhiteboxSubscriberProbe[T]) extends Subscriber[T] {

@@ -3,14 +3,12 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import kafka.serializer.StringEncoder
-import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest._
 
 class ProducerPropertiesTest extends WordSpecLike with Matchers {
 
   def uuid() = UUID.randomUUID().toString
   val brokerList = "localhost:9092"
-  val serializer = new StringSerializer()
   val topic = uuid()
   val clientId = uuid()
 
@@ -18,7 +16,7 @@ class ProducerPropertiesTest extends WordSpecLike with Matchers {
 
     "handle base case" in {
 
-      val config = ProducerProperties(brokerList, topic, serializer, serializer)
+      val config = ProducerProperties(brokerList, topic, clientId, new StringEncoder())
         .toProducerConfig
 
       config.brokerList should be(brokerList)
@@ -33,7 +31,7 @@ class ProducerPropertiesTest extends WordSpecLike with Matchers {
 
     "handle async snappy case" in {
 
-      val config = ProducerProperties(brokerList, topic, serializer, serializer)
+      val config = ProducerProperties(brokerList, topic, clientId, new StringEncoder())
         .asynchronous(123, 456)
         .useSnappyCompression()
         .toProducerConfig

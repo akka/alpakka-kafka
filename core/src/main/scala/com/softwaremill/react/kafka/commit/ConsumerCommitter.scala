@@ -1,28 +1,30 @@
 package com.softwaremill.react.kafka.commit
 
 import akka.actor.Status.Failure
-import akka.actor._
-import com.softwaremill.react.kafka.ConsumerProperties
-import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitOffsets, CommitAck}
+import akka.actor.{Actor, ActorLogging, Cancellable}
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, TheEnd}
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
+import kafka.common.TopicAndPartition
+import kafka.consumer.KafkaConsumer
+import kafka.message.MessageAndMetadata
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
+import scala.util.Success
 
-private[commit] class ConsumerCommitter[K, V](
-    consumerActor: ActorRef,
-    consumerProperties: ConsumerProperties[_, _]
-) extends Actor with ActorLogging {
+private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, kafkaConsumer: KafkaConsumer[T])
+    extends Actor with ActorLogging {
 
-  val DefaultCommitInterval = 30 seconds
-  val commitInterval = consumerProperties.commitInterval.getOrElse(DefaultCommitInterval)
+  val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
   var partitionOffsetMap = OffsetMap()
   var committedOffsetMap = OffsetMap()
-  val topic = consumerProperties.topic
+  val topic = kafkaConsumer.props.topic
   implicit val ec = context.dispatcher
+
+  lazy val committerOpt: Option[OffsetCommitter] = createOffsetCommitter()
+
+  override def preStart(): Unit = {
+    super.preStart()
+    committerOpt.foreach(_.start())
+  }
 
   def scheduleFlush(): Unit = {
     if (scheduledFlush.isEmpty) {
@@ -30,14 +32,10 @@ private[commit] class ConsumerCommitter[K, V](
     }
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    context.watch(consumerActor)
-    ()
-  }
-
   override def postStop(): Unit = {
+    log.debug("Stopping consumer committer")
     scheduledFlush.foreach(_.cancel())
+    committerOpt.foreach(_.stop())
     super.postStop()
   }
 
@@ -48,25 +46,21 @@ private[commit] class ConsumerCommitter[K, V](
     case Failure =>
       log.error("Closing offset committer due to a failure")
       context.stop(self)
-    case msg: ConsumerRecord[_, V] => registerCommit(msg)
-    case CommitAck(offsetMap) => handleAck(offsetMap)
-    case Terminated(_) =>
-      log.warning("Terminating the consumer committer due to the death of the consumer actor.")
-      context.stop(self)
+    case msg: MessageAndMetadata[_, T] => registerCommit(msg)
     case Flush => commitGatheredOffsets()
   }
 
-  def registerCommit(msg: ConsumerRecord[_, V]): Unit = {
+  def registerCommit(msg: MessageAndMetadata[_, T]): Unit = {
     log.debug(s"Received commit request for partition ${msg.partition} and offset ${msg.offset}")
-    val topicPartition = new TopicPartition(topic, msg.partition)
+    val topicPartition = TopicAndPartition(topic, msg.partition)
     val last = partitionOffsetMap.lastOffset(topicPartition)
     updateOffsetIfLarger(msg, last)
   }
 
-  def updateOffsetIfLarger(msg: ConsumerRecord[_, V], last: Long): Unit = {
+  def updateOffsetIfLarger(msg: MessageAndMetadata[_, T], last: Long): Unit = {
     if (msg.offset > last) {
       log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
-      partitionOffsetMap = partitionOffsetMap.plusOffset(new TopicPartition(topic, msg.partition), msg.offset)
+      partitionOffsetMap = partitionOffsetMap.plusOffset(TopicAndPartition(topic, msg.partition), msg.offset)
       scheduleFlush()
     }
     else
@@ -76,15 +70,39 @@ private[commit] class ConsumerCommitter[K, V](
   def commitGatheredOffsets(): Unit = {
     log.debug("Flushing offsets to commit")
     scheduledFlush = None
-    val offsetMapToFlush = partitionOffsetMap.diff(committedOffsetMap)
-    if (offsetMapToFlush.nonEmpty)
-      consumerActor ! CommitOffsets(offsetMapToFlush)
+    committerOpt.foreach { committer =>
+      val offsetMapToFlush = partitionOffsetMap.diff(committedOffsetMap)
+      if (offsetMapToFlush.nonEmpty)
+        performFlush(committer, offsetMapToFlush)
+    }
   }
 
-  private def handleAck(offsetMap: OffsetMap): Unit = {
-    committedOffsetMap = OffsetMap(offsetMap.map.mapValues(_ - 1))
+  def performFlush(committer: OffsetCommitter, offsetMapToFlush: OffsetMap): Unit = {
+    val committedOffsetMapTry = committer.commit(offsetMapToFlush)
+    committedOffsetMapTry match {
+      case Success(resultOffsetMap) =>
+        log.debug(s"committed offsets: $resultOffsetMap")
+        // We got the offset of the first unfetched message, and we want the
+        // offset of the last fetched message
+        committedOffsetMap = OffsetMap(resultOffsetMap.map.mapValues(_ - 1))
+      case scala.util.Failure(ex) =>
+        log.error(ex, "Failed to commit offsets")
+        committer.tryRestart() match {
+          case scala.util.Failure(cause) =>
+            log.error(cause, "Fatal error, cannot re-establish connection. Stopping native committer.")
+            context.stop(self)
+          case Success(()) =>
+            log.debug("Committer restarted. Rescheduling flush.")
+            scheduleFlush()
+        }
+    }
   }
 
+  def createOffsetCommitter() = {
+    val factoryOrError = committerFactory.create(kafkaConsumer)
+    factoryOrError.failed.foreach(err => log.error(err.toString))
+    factoryOrError.toOption
+  }
 }
 
 object ConsumerCommitter {

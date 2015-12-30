@@ -9,7 +9,6 @@ import akka.stream.actor.{ActorPublisher, ActorSubscriber}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
-import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
 import org.scalatest.fixture.Suite
 
@@ -18,41 +17,41 @@ import scala.language.postfixOps
 
 trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
 
-  def shouldCommitOffsets()(implicit f: FixtureParam) = {
+  def shouldCommitOffsets(storage: String)(implicit f: FixtureParam) = {
     // given
-    givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"))
+    givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"), storage)
 
     // when
     val consumerProps = consumerProperties(f)
-      .commitInterval(1000 millis)
+      .commitInterval(100 millis)
+      .noAutoCommit()
+      .setProperty("offsets.storage", storage)
 
     val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
     Source(consumerWithSink.publisher)
-      .filter(_.value().toInt < 3)
+      .filter(_.message().toInt < 3)
       .to(consumerWithSink.offsetCommitSink).run()
-    Thread.sleep(10000) // wait for flush
+    Thread.sleep(3000) // wait for flush
     consumerWithSink.cancel()
     Thread.sleep(3000) // wait for cancel
 
     // then
-    verifyQueueHas(Seq("3", "4", "5"))
+    verifyQueueHas(Seq("3", "4", "5"), storage)
   }
 
-  def givenQueueWithElements(msgs: Seq[String])(implicit f: FixtureParam) = {
+  def givenQueueWithElements(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
     val kafkaSubscriberActor = stringSubscriberActor(f)
-    Source(msgs.toList)
-      .map(s => ProducerMessage(s, s))
-      .to(Sink(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
-    Thread.sleep(5000)
-    verifyQueueHas(msgs)
+    Source(msgs.toList).to(Sink(ActorSubscriber[String](kafkaSubscriberActor))).run()
+    verifyQueueHas(msgs, storage)
     completeProducer(kafkaSubscriberActor)
   }
 
-  def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val consumerProps = consumerProperties(f).noAutoCommit()
+  def verifyQueueHas(msgs: Seq[String], storage: String = "kafka")(implicit f: FixtureParam) = {
+    val consumerProps = consumerProperties(f).noAutoCommit().setProperty("offsets.storage", storage)
     val consumerActor = f.kafka.consumerActor(consumerProps)
-    Source(ActorPublisher[StringConsumerRecord](consumerActor))
-      .map(_.value())
+
+    Source(ActorPublisher[StringKafkaMessage](consumerActor))
+      .map(_.message())
       .runWith(TestSink.probe[String])
       .request(msgs.length.toLong)
       .expectNext(msgs.head, msgs.tail.head, msgs.tail.tail: _*)

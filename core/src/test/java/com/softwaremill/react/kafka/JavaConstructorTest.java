@@ -5,9 +5,9 @@ import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
+import kafka.message.MessageAndMetadata;
+import kafka.serializer.StringDecoder;
+import kafka.serializer.StringEncoder;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
@@ -27,26 +27,27 @@ public class JavaConstructorTest {
     @Ignore("Disabled as we need a kafka endpoint - this example is displayed on the README")
     public void javaCanConstructKafkaConsumerAndProducerInJava() {
 
+        String zooKeeperHost = "localhost:2181";
         String brokerList = "localhost:9092";
 
         ReactiveKafka kafka = new ReactiveKafka();
         ActorSystem system = ActorSystem.create("ReactiveKafka");
         ActorMaterializer materializer = ActorMaterializer.create(system);
 
-        ConsumerProperties<String, String> cp =
-                new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", new StringDeserializer(), new StringDeserializer())
+        ConsumerProperties<String> cp =
+                new PropertiesBuilder.Consumer(brokerList, zooKeeperHost, "topic", "groupId", new StringDecoder(null))
                         .build();
 
-        Publisher<ConsumerRecord<String, String>> publisher = kafka.consume(cp, system);
+        Publisher<MessageAndMetadata<byte[], String>> publisher = kafka.consume(cp, system);
 
-        ProducerProperties<String, String> pp = new PropertiesBuilder.Producer(
+        ProducerProperties<String> pp = new PropertiesBuilder.Producer(
                 brokerList,
+                zooKeeperHost,
                 "topic",
-                new StringSerializer(),
-                new StringSerializer()).build();
-        Subscriber<ProducerMessage<String, String>> subscriber = kafka.publish(pp, system);
+                new StringEncoder(null)).build();
+        Subscriber<String> subscriber = kafka.publish(pp, system);
 
-        Source.from(publisher).map(ProducerMessage::apply).to(Sink.create(subscriber)).run(materializer);
+        Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
     }
 
 }

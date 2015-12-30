@@ -2,8 +2,6 @@ package com.softwaremill.react.kafka;
 
 import kafka.serializer.Decoder;
 import kafka.serializer.Encoder;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
 import scala.collection.JavaConverters;
 import scala.collection.immutable.HashMap;
 
@@ -20,10 +18,12 @@ public class PropertiesBuilder {
     private static class BaseProperties {
 
         private String brokerList;
+        private String zooKeeperHost;
         private String topic;
 
-        public BaseProperties(String brokerList, String topic) {
+        public BaseProperties(String brokerList, String zooKeeperHost, String topic) {
             this.brokerList = brokerList;
+            this.zooKeeperHost = zooKeeperHost;
             this.topic = topic;
         }
 
@@ -33,11 +33,15 @@ public class PropertiesBuilder {
          * @return boolean if both are not null
          */
         private boolean hasConnectionPropertiesSet() {
-            return this.brokerList != null;
+            return this.brokerList != null && this.zooKeeperHost != null;
         }
 
         public String getBrokerList() {
             return brokerList;
+        }
+
+        public String getZooKeeperHost() {
+            return zooKeeperHost;
         }
 
         public String getTopic() {
@@ -51,21 +55,19 @@ public class PropertiesBuilder {
      */
     public static class Consumer extends BaseProperties {
 
-        private Deserializer keyDeserializer;
-        private Deserializer valueDeserializer;
+        private Decoder decoder;
         private String groupId;
         private Integer numThreads;
 
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
-        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer) {
-            this(brokerList, topic, groupId, keyDeserializer, valueDeserializer, 1);
+        public Consumer(String brokerList, String zooKeeperHost, String topic, String groupId, Decoder decoder) {
+            this(brokerList, zooKeeperHost, topic, groupId, decoder, 1);
         }
 
-        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer, Integer numThreads) {
-            super(brokerList, topic);
-            this.keyDeserializer = keyDeserializer;
-            this.valueDeserializer = valueDeserializer;
+        public Consumer(String brokerList, String zooKeeperHost, String topic, String groupId, Decoder decoder, Integer numThreads) {
+            super(brokerList, zooKeeperHost, topic);
+            this.decoder = decoder;
             this.groupId = groupId;
             this.numThreads = numThreads;
         }
@@ -78,15 +80,14 @@ public class PropertiesBuilder {
         /**
          * Create a ConsumerProperties object
          *
-         * @param <K> type of partition key
-         * @param <V> type of message
+         * @param <T> type of message
          * @return a fully constructed ConsumerProperties
          */
-        public <K, V> ConsumerProperties<K, V> build() {
+        public <T> ConsumerProperties<T> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ConsumerProperties.<K, V>apply(getBrokerList(), getTopic(), groupId, keyDeserializer, valueDeserializer);
+                return ConsumerProperties.<T>apply(getBrokerList(), getZooKeeperHost(), getTopic(), groupId, decoder);
             }
-            return new ConsumerProperties(consumerParams, getTopic(), groupId, keyDeserializer, valueDeserializer, numThreads);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, decoder, numThreads);
         }
 
     }
@@ -97,23 +98,19 @@ public class PropertiesBuilder {
     public static class Producer extends BaseProperties {
 
         private String clientId;
-        private Serializer keySerializer;
-        private Serializer valueSerializer;
-
+        private Encoder encoder;
         private scala.collection.immutable.Map<String, String> producerParams = new HashMap<>();
 
-        public Producer(String brokerList, String topic, String clientId, Serializer keySerializer, Serializer valueSerializer) {
-            super(brokerList, topic);
+        public Producer(String brokerList, String zooKeeperHost, String topic, String clientId, Encoder encoder) {
+            super(brokerList, zooKeeperHost, topic);
             this.clientId = clientId;
-            this.keySerializer = keySerializer;
-            this.valueSerializer = valueSerializer;
+            this.encoder = encoder;
         }
 
-        public Producer(String brokerList, String topic, Serializer keySerializer, Serializer valueSerializer) {
-            super(brokerList, topic);
+        public Producer(String brokerList, String zooKeeperHost, String topic, Encoder encoder) {
+            super(brokerList, zooKeeperHost, topic);
             this.clientId = "";
-            this.keySerializer = keySerializer;
-            this.valueSerializer = valueSerializer;
+            this.encoder = encoder;
         }
 
         public Producer withParams(Map<String, String> params) {
@@ -124,15 +121,14 @@ public class PropertiesBuilder {
         /**
          * Create a ProducerProperties object
          *
-         * @param <K> key type of produced messages
-         * @param <V> value type of produced messages
+         * @param <P> the type of Producer to construct
          * @return a fully constructed ProducerProperties
          */
-        public <K ,V> ProducerProperties<K, V> build() {
+        public <P> ProducerProperties<P> build() {
             if (super.hasConnectionPropertiesSet()) {
-                return ProducerProperties.<K, V>apply(getBrokerList(), getTopic(), keySerializer, valueSerializer);
+                return ProducerProperties.<P>apply(getBrokerList(), getTopic(), clientId, encoder);
             }
-            return ProducerProperties.<K, V>apply(producerParams, getTopic(), keySerializer, valueSerializer);
+            return ProducerProperties.<P>apply(producerParams, getTopic(), clientId, encoder);
 
         }
 

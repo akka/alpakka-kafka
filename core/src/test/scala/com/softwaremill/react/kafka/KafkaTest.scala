@@ -5,7 +5,6 @@ import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
 import akka.testkit.TestKit
 import kafka.serializer.{StringDecoder, StringEncoder}
-import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -22,19 +21,19 @@ trait KafkaTest extends BeforeAndAfterAll {
 
   val kafkaHost = "localhost:9092"
   val zkHost = "localhost:2181"
-  val serializer = new StringSerializer()
+
   val kafka = new ReactiveKafka()
 
-  def createSubscriberProps(kafka: ReactiveKafka, producerProperties: ProducerProperties[String, String]): Props = {
+  def createSubscriberProps(kafka: ReactiveKafka, producerProperties: ProducerProperties[String]): Props = {
     kafka.producerActorProps(producerProperties, requestStrategy = defaultWatermarkStrategy)
   }
 
-  def createProducerProperties(f: FixtureParam): ProducerProperties[String, String] = {
-    ProducerProperties(kafkaHost, f.topic, serializer, serializer)
+  def createProducerProperties(f: FixtureParam): ProducerProperties[String] = {
+    ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder())
   }
 
-  def consumerProperties(f: FixtureParam): ConsumerProperties[String, String] = {
-    ConsumerProperties(kafkaHost, f.topic, f.group, new StringDeserializer(), new StringDeserializer()).commitInterval(2 seconds)
+  def consumerProperties(f: FixtureParam): ConsumerProperties[String] = {
+    ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder()).commitInterval(2 seconds)
   }
 
   def createTestSubscriber(): ActorRef = {
@@ -42,11 +41,13 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
   def stringSubscriber(f: FixtureParam) = {
-    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, serializer, serializer))(system)
+    val encoder = new StringEncoder()
+    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, encoder))(system)
   }
 
   def stringSubscriberActor(f: FixtureParam) = {
-    f.kafka.producerActor(ProducerProperties(kafkaHost, f.topic, serializer, serializer))(system)
+    val encoder = new StringEncoder()
+    f.kafka.producerActor(ProducerProperties(kafkaHost, f.topic, encoder))(system)
   }
 
   def stringConsumer(f: FixtureParam) = {
@@ -62,14 +63,14 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
   @tailrec
-  final def verifyNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
+  final def ensureNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
     val now = System.currentTimeMillis()
     if (start + 3000 >= now) {
       Thread.sleep(100)
       if (unexpectedCondition)
         fail("Assertion failed before timeout passed")
       else
-        verifyNever(unexpectedCondition, start)
+        ensureNever(unexpectedCondition, start)
     }
   }
 

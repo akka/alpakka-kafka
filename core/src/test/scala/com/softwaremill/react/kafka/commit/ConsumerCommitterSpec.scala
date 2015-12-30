@@ -1,207 +1,225 @@
 package com.softwaremill.react.kafka.commit
 
-import akka.actor._
-import akka.pattern.ask
+import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitAck, CommitOffsets}
 import com.softwaremill.react.kafka.{ConsumerProperties, KafkaTest}
 import com.typesafe.config.ConfigFactory
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.serialization.StringDeserializer
+import kafka.common.TopicAndPartition
+import kafka.consumer.KafkaConsumer
+import kafka.message.MessageAndMetadata
+import kafka.serializer.StringDecoder
+import org.mockito.BDDMockito._
 import org.scalatest._
 import org.scalatest.mock.MockitoSugar
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.{Failure, Try, Success}
 
 class ConsumerCommitterSpec extends TestKit(ActorSystem(
   "ConsumerCommitterSpec",
   ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
-)) with ImplicitSender with fixture.FlatSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
+)) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
     with KafkaTest with MockitoSugar {
 
   implicit val timeout = Timeout(1 second)
 
   behavior of "Consumer committer"
   val topic = "topicName"
-  val strDeserializer = new StringDeserializer()
-
-  case class CommitterFixtureParam(consumer: ActorRef, failingConsumer: ActorRef)
-  type FixtureParam = CommitterFixtureParam
-
-  def withFixture(test: OneArgTest) = {
-    val committer = system.actorOf(Props(new AlwaysSuccessfullTestCommitter))
-    val failingCommitter = system.actorOf(Props(new OccasionallyFailingCommitter(failingReqNo = 2, committer)))
-    val theFixture = CommitterFixtureParam(committer, failingCommitter)
-    try {
-      withFixture(test.toNoArgTest(theFixture))
-    }
-    finally {
-      system.stop(committer)
-      system.stop(failingCommitter)
-    }
-  }
+  val valueDecoder: StringDecoder = new StringDecoder()
+  val keyDecoder = valueDecoder
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
   }
 
-  it should "not call flush until a message arrives" in { implicit f =>
+  it should "not call flush until a message arrives" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
     // when
-    startCommitterActor(f.consumer, commitInterval = 100 milliseconds)
+    startCommitterActor(committerFactory, consumer)
 
     // then
-    verifyNever(committerFlushSum > 0)
+    awaitCond {
+      offsetCommitter.started
+    }
+    ensureNever(offsetCommitter.totalFlushCount > 0)
   }
 
-  it should "commit offset 0" in { implicit f =>
+  it should "commit offset 0" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
     // when
-    val committer = startCommitterActor(f.consumer, commitInterval = 100 milliseconds)
-    committer ! msg(partition = 0, offset = 0L)
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 0L)
 
     // then
-    verifyLastCommitted(partition = 0, offset = 0L)
+    ensureLastCommitted(partition = 0, offset = 0L)
   }
 
-  it should "not commit smaller offset" in { implicit f =>
-    // when
-    val committer = startCommitterActor(f.consumer, commitInterval = 100 milliseconds)
+  it should "not commit smaller offset" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
 
-    committer ! msg(partition = 0, offset = 5L)
-    verifyLastCommitted(partition = 0, offset = 5L)
-    committer ! msg(partition = 0, offset = 3L)
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    ensureLastCommitted(partition = 0, offset = 5L)
+    actor ! msg(partition = 0, offset = 3L)
 
     // then
-    verifyNever(lastCommitted(partition = 0).contains(3L))
+    ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).equals(Some(3L)))
   }
 
-  it should "commit larger offset" in { implicit f =>
+  it should "commit larger offset" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
     // when
-    val committer = startCommitterActor(f.consumer, commitInterval = 500 milliseconds)
-    committer ! msg(partition = 0, offset = 5L)
-    committer ! msg(partition = 1, offset = 151L)
-    committer ! msg(partition = 0, offset = 152L)
-    committer ! msg(partition = 1, offset = 190L)
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 0, offset = 152L)
+    actor ! msg(partition = 1, offset = 190L)
 
     // then
-    verifyLastCommitted(partition = 0, offset = 152L)
-    verifyLastCommitted(partition = 1, offset = 190L)
+    ensureLastCommitted(partition = 0, offset = 152L)
+    ensureLastCommitted(partition = 1, offset = 190L)
   }
 
-  it should "not commit the same offset twice" in { implicit f =>
+  it should "not commit the same offset twice" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new AlwaysSuccessfullTestCommitter()
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
     // when
-    val committer = startCommitterActor(f.consumer, commitInterval = 500 milliseconds)
-    committer ! msg(partition = 0, offset = 5L)
-    committer ! msg(partition = 1, offset = 151L)
-    committer ! msg(partition = 1, offset = 190L)
-    verifyLastCommitted(0, 5L)
-    verifyLastCommitted(1, 190L)
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 1, offset = 190L)
+    ensureLastCommitted(0, 5L)
+    ensureLastCommitted(1, 190L)
 
     // then
     ensureExactlyOneFlush(0, 5L)
     ensureExactlyOneFlush(1, 190L)
   }
 
-  it should "die when the committer dies" in { implicit f =>
+  it should "try to re-establish channel" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 500 millis)
+    implicit val offsetCommitter = new OccasionallyFailingCommitter(failingReqNo = 1)
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
     // when
-    watch(f.failingConsumer)
-    val committer = startCommitterActor(f.failingConsumer, commitInterval = 500 milliseconds)
-    watch(committer)
-    committer ! msg(partition = 0, offset = 5L)
-    verifyLastCommitted(0, 5L)
-    committer ! msg(partition = 1, offset = 151L)
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 0, offset = 5L)
+    actor ! msg(partition = 1, offset = 151L)
+    actor ! msg(partition = 1, offset = 190L)
+    ensureLastCommitted(0, 5L)
+    ensureLastCommitted(1, 190L)
 
     // then
-    expectTerminated(f.failingConsumer)
-    expectTerminated(committer)
+    offsetCommitter.restartCount should be(1)
   }
 
-  def committerFlushSum(implicit f: FixtureParam): Int =
-    Await.result(f.consumer ? GetTotalFlushCount, atMost = 1 second).asInstanceOf[Int]
-
-  def flushCount(partition: Int, offset: Long)(implicit f: FixtureParam): Option[Int] =
-    Await.result(f.consumer ? GetFlushCount(partition, offset), atMost = 1 second).asInstanceOf[Option[Int]]
-
-  def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit f: FixtureParam): Unit = {
-    verifyNever(!flushCount(partition, offset).contains(1))
+  def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
+    ensureNever(offsetCommitter.flushCount((partition, offset)) != 1)
   }
 
-  def lastCommitted(partition: Int)(implicit f: FixtureParam): Option[Int] = {
-    Await.result(f.consumer ? GetLastCommittedOffsetFor(partition), atMost = 1 second).asInstanceOf[Option[Int]]
+  def startCommitterActor(committerFactory: CommitterProvider, consumer: KafkaConsumer[String]) = {
+    system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
   }
 
-  def verifyLastCommitted(partition: Int, offset: Long)(implicit f: FixtureParam): Unit = {
-    awaitCond(lastCommitted(partition).contains(offset), max = 3 seconds, interval = 200 millis)
-  }
-
-  def startCommitterActor(consumerActor: ActorRef, commitInterval: FiniteDuration) = {
-    system.actorOf(Props(new ConsumerCommitter(consumerActor, consumerProperties(commitInterval))))
+  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: CommiterVerifications): Unit = {
+    awaitCond {
+      offsetCommitter.lastCommittedOffsetFor(partition).equals(Some(offset))
+    }
   }
 
   def msg(partition: Int, offset: Long) =
-    new ConsumerRecord(topic, partition, offset, null, null)
+    MessageAndMetadata(topic, partition, null, offset, keyDecoder, valueDecoder)
 
-  def consumerProperties(commitInterval: FiniteDuration) =
-    ConsumerProperties(kafkaHost, topic, "groupId", strDeserializer, strDeserializer)
-      .commitInterval(commitInterval)
-
-  def alwaysSuccessfullCommitter = system.actorOf(Props(new AlwaysSuccessfullTestCommitter))
-}
-
-class OccasionallyFailingCommitter(failingReqNo: Int, innerCommitter: ActorRef) extends Actor {
-  var consumedRequests = 0
-
-  override def receive: Actor.Receive = {
-    case CommitOffsets(offsets) => commit(offsets)
-    case msg: GetLastCommittedOffsetFor => innerCommitter forward msg
-    case GetTotalFlushCount => innerCommitter forward GetTotalFlushCount
+  def givenConsumer(commitInterval: FiniteDuration) = {
+    val consumer = mock[KafkaConsumer[String]]
+    val properties = ConsumerProperties(kafkaHost, zkHost, topic, "groupId", valueDecoder)
+    given(consumer.commitInterval).willReturn(commitInterval)
+    given(consumer.props).willReturn(properties)
+    consumer
   }
 
-  def commit(offsets: OffsetMap) = {
+  def givenOffsetCommitter(consumer: KafkaConsumer[String], committer: OffsetCommitter) = {
+    val factory = mock[CommitterProvider]
+    given(factory.create(consumer)).willReturn(Success(committer))
+    factory
+  }
+
+}
+
+trait CommiterVerifications {
+  def lastCommittedOffsetFor(partition: Int): Option[Long]
+}
+
+class OccasionallyFailingCommitter(failingReqNo: Int) extends OffsetCommitter with CommiterVerifications {
+  val innerSuccesfullCommitter = new AlwaysSuccessfullTestCommitter
+  var consumedRequests = 0
+  var restartCount = 0
+
+  override def commit(offsets: OffsetMap): Try[OffsetMap] = {
     consumedRequests = consumedRequests + 1
     if (consumedRequests == failingReqNo)
-      context.stop(self)
+      Failure(new RuntimeException("Could not commit"))
     else
-      innerCommitter forward CommitOffsets(offsets)
+      innerSuccesfullCommitter.commit(offsets)
   }
+
+  override def tryRestart(): Try[Unit] = {
+    restartCount = restartCount + 1
+    Success(())
+  }
+
+  override def lastCommittedOffsetFor(partition: Int) =
+    innerSuccesfullCommitter.lastCommittedOffsetFor(partition)
 }
 
-class AlwaysSuccessfullTestCommitter extends Actor {
-
+class AlwaysSuccessfullTestCommitter extends OffsetCommitter with CommiterVerifications {
+  var started, stopped: Boolean = false
   var innerMap: Offsets = Map.empty
   var flushCount: Map[(Int, Long), Int] = Map.empty
 
-  override def receive: Actor.Receive = {
-    case CommitOffsets(offsets) => commit(offsets)
-    case GetLastCommittedOffsetFor(partition) => sender() ! lastCommittedOffsetFor(partition)
-    case GetTotalFlushCount => sender() ! totalFlushCount
-    case GetFlushCount(partition, offset) => sender() ! flushCount.get((partition, offset))
-  }
-
-  def commit(offsets: OffsetMap): Unit = {
+  override def commit(offsets: OffsetMap): Try[OffsetMap] = {
     innerMap = offsets.map
     innerMap.foreach {
-      case tp =>
-        val partition = tp._1.partition()
-        val offset = tp._2
+      case (TopicAndPartition(topic, partition), offset) =>
         val currentFlushCount = flushCount.getOrElse((partition, offset), 0)
         flushCount = flushCount + ((partition, offset) -> (currentFlushCount + 1))
     }
-    sender() ! CommitAck(offsets)
+    Success(OffsetMap(innerMap))
   }
 
-  def lastCommittedOffsetFor(partition: Int): Option[Long] = innerMap.find {
-    case tp => tp._1.partition() == partition
+  def lastCommittedOffsetFor(partition: Int) = innerMap.find {
+    case (TopicAndPartition(_, p), _) => p == partition
   }.map {
-    case tp => tp._2
+    case (TopicAndPartition(_, p), o) => o
   }
 
-  def totalFlushCount: Int = flushCount.values.sum
+  def totalFlushCount = flushCount.values.sum
 
+  override def start(): Unit = started = true
+
+  override def stop(): Unit = stopped = true
+
+  override def tryRestart(): Try[Unit] = Success(())
 }
-
-case class GetLastCommittedOffsetFor(partition: Int)
-case object GetTotalFlushCount
-case class GetFlushCount(partition: Int, offset: Long)
