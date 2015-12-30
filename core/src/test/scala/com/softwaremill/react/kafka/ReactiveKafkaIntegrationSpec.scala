@@ -58,20 +58,20 @@ class ReactiveKafkaIntegrationSpec
       val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
 
       // start reading from the queue
-      Source(consumerWithSink.publisher)
+      Source.fromPublisher(consumerWithSink.publisher)
         .to(consumerWithSink.offsetCommitSink).run()
       Thread.sleep(3000) // wait for flush
 
       // add one more msg
       val kafkaSubscriberActor = stringSubscriberActor(f)
-      Source(List("4")).to(Sink(ActorSubscriber[String](kafkaSubscriberActor))).run()
+      Source(List("4")).to(Sink.fromSubscriber(ActorSubscriber[String](kafkaSubscriberActor))).run()
       Thread.sleep(3000) // wait for flush
       completeProducer(kafkaSubscriberActor)
 
       // then
       var lastReadMsg: Option[String] = None
       val consumerActor = f.kafka.consumerActor(consumerProps)
-      Source(ActorPublisher[StringKafkaMessage](consumerActor))
+      Source.fromPublisher(ActorPublisher[StringKafkaMessage](consumerActor))
         .map(_.message())
         .runWith(Sink.foreach{
           m => lastReadMsg = Some(m)
@@ -102,7 +102,7 @@ class ReactiveKafkaIntegrationSpec
       val supervisor = system.actorOf(Props(new TestHelperSupervisor(self, subscriberProps)))
       val kafkaSubscriberActor = Await.result(supervisor ? "supervise!", atMost = 1 second).asInstanceOf[ActorRef]
       val kafkaSubscriber = ActorSubscriber[String](kafkaSubscriberActor)
-      Source(initialDelay = 100 millis, interval = 1 second, tick = "tick").to(Sink(kafkaSubscriber)).run()
+      Source.tick(initialDelay = 100 millis, interval = 1 second, tick = "tick").to(Sink.fromSubscriber(kafkaSubscriber)).run()
 
       // when
       EventFilter[ProducerClosedException](message = "producer already closed") intercept {
@@ -120,7 +120,7 @@ class ReactiveKafkaIntegrationSpec
       var msgs = List.empty[StringKafkaMessage]
 
       val publisher = f.kafka.consume(consumerProperties(f))
-      Source(publisher)
+      Source.fromPublisher(publisher)
         .map({ msg =>
           msgs = msgs :+ msg
           msg.message()
@@ -150,7 +150,7 @@ class ReactiveKafkaIntegrationSpec
       watch(kafkaPublisherActor)
 
       // when
-      Source(kafkaPublisher).to(Sink.ignore).run()
+      Source.fromPublisher(kafkaPublisher).to(Sink.ignore).run()
 
       // then
       expectTerminated(kafkaPublisherActor)

@@ -13,7 +13,7 @@ Supports Kafka 0.8.2.2
 Available at Maven Central for Scala 2.10 and 2.11:
 
 ````scala
-libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.8.3"
+libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.8.4"
 ````
 
 Example usage
@@ -45,7 +45,8 @@ val subscriber: Subscriber[String] = kafka.publish(ProducerProperties(
   encoder = new StringEncoder()
 ))
 
-Source(publisher).map(_.message().toUpperCase).to(Sink(subscriber)).run()
+Source.fromPublisher(publisher).map(_.message().toUpperCase)
+  .to(Sink.fromSubscriber(subscriber)).run()
 ```
 
 #### Java
@@ -71,7 +72,7 @@ ProducerProperties<String> pp = new PropertiesBuilder.Producer(
 
 Subscriber<String> subscriber = kafka.publish(pp, system);
 
-Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
+Source.fromPublisher(publisher).map(msg -> msg.message()).to(Sink.fromSubscriber(subscriber)).run(materializer);
 
 ```
 
@@ -219,7 +220,7 @@ val consumerProperties = ConsumerProperties(
 .commitInterval(5 seconds) // flush interval
     
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-Source(consumerWithOffsetSink.publisher)
+Source.fromPublisher(consumerWithOffsetSink.publisher)
   .map(processMessage(_)) // your message processing
   .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
   .run()

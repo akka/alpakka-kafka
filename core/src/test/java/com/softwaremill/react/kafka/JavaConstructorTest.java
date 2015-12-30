@@ -47,7 +47,7 @@ public class JavaConstructorTest {
                 new StringEncoder(null)).build();
         Subscriber<String> subscriber = kafka.publish(pp, system);
 
-        Source.from(publisher).map(msg -> msg.message()).to(Sink.create(subscriber)).run(materializer);
+        Source.fromPublisher(publisher).map(msg -> msg.message()).to(Sink.fromSubscriber(subscriber)).run(materializer);
     }
 
 }
