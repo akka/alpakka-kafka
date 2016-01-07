@@ -14,7 +14,7 @@ object ConsumerProperties {
   /**
    * Consumer Properties
    *
-   * bootstrapServers
+   * @param bootstrapServers
    * A list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    * The client will make use of all servers irrespective of which servers are specified here for bootstrapping—this
    * list only impacts the initial hosts used to discover the full set of servers. This list should be in the
@@ -22,16 +22,20 @@ object ConsumerProperties {
    * cluster membership (which may change dynamically), this list need not contain the full set of servers
    * (you may want more than one, though, in case a server is down).
    *
-   * topic
+   * @param topic
    * The high-level API hides the details of brokers from the consumer and allows consuming off the cluster of machines
    * without concern for the underlying topology. It also maintains the state of what has been consumed. The high-level API
    * also provides the ability to subscribe to topics that match a filter expression (i.e., either a whitelist or a blacklist
    * regular expression).  This topic is a whitelist only but can change with re-factoring below on the filterSpec
    *
-   * groupId
+   * @param groupId
    * A string that uniquely identifies the group of consumer processes to which this consumer belongs. By setting the same
    * group id multiple processes indicate that they are all part of the same consumer group.
    *
+   * @param keyDeserializer
+   * Responsible for deserializing key represented as a byte array to desired type.
+   * @param valueDeserializer
+   * Responsible for deserializing message represented as a byte array to desired type.
    */
   def apply[K, V](
     bootstrapServers: String,

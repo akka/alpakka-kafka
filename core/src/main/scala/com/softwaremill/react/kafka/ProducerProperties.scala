@@ -8,18 +8,24 @@ object ProducerProperties {
   /**
    * Producer Properties
    *
-   * brokerList
+   * @param bootstrapServers
    * This is for bootstrapping and the producer will only use it for getting metadata (topics, partitions and replicas).
    * The socket connections for sending the actual data will be established based on the broker information returned in
    * the metadata. The format is host1:port1,host2:port2, and the list can be a subset of brokers or a VIP pointing to a
    * subset of brokers.
    *
-   * topic
+   * @param topic
    * The high-level API hides the details of brokers from the consumer and allows consuming off the cluster of machines
    * without concern for the underlying topology. It also maintains the state of what has been consumed. The high-level API
    * also provides the ability to subscribe to topics that match a filter expression (i.e., either a whitelist or a blacklist
    * regular expression).  This topic is a whitelist only but can change with re-factoring below on the filterSpec
    *
+   * @param keySerializer
+   * Responsible for serializing key represented as a custom type to a byte array.
+   * @param valueSerializer
+   * Responsible for serializing message represented as a custom type to a byte array.
+   * @param partitionizer
+   * Defines how to derive partition key basing on message content.
    */
   def apply[K, V](
     bootstrapServers: String,
