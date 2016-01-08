@@ -24,7 +24,7 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
     val topic = UUID.randomUUID().toString
     val partitionizerProvider: (String) => Option[Int] = partitionizer
     val properties: ProducerProperties[Array[Byte], String] = ProducerProperties(kafkaHost, topic, serializer, partitionizerProvider)
-    kafka.publish(properties)
+    Source.asSubscriber.to(Sink.fromGraph(kafka.graphStageSink(properties))).run()
   }
 
   def createHelperSource(elements: Long): Source[StringProducerMessage, _] = elements match {

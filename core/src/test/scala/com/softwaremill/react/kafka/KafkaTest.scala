@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka
 import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
+import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -32,6 +33,14 @@ trait KafkaTest extends BeforeAndAfterAll {
     ProducerProperties(kafkaHost, f.topic, serializer, serializer)
   }
 
+  def createSourceStage[K, V](f: FixtureParam): KafkaGraphStageSource[String, String] = {
+    createSourceStage(f, consumerProperties(f))
+  }
+
+  def createSourceStage[K, V](f: FixtureParam, properties: ConsumerProperties[K, V]): KafkaGraphStageSource[K, V] = {
+    f.kafka.graphStageSource(properties)
+  }
+
   def consumerProperties(f: FixtureParam): ConsumerProperties[String, String] = {
     ConsumerProperties(kafkaHost, f.topic, f.group, new StringDeserializer(), new StringDeserializer()).commitInterval(2 seconds)
   }
@@ -42,6 +51,10 @@ trait KafkaTest extends BeforeAndAfterAll {
 
   def stringSubscriber(f: FixtureParam) = {
     f.kafka.publish(ProducerProperties(kafkaHost, f.topic, serializer, serializer))(system)
+  }
+
+  def stringGraphSink(f: FixtureParam) = {
+    f.kafka.graphStageSink(ProducerProperties(kafkaHost, f.topic, serializer))
   }
 
   def stringSubscriberActor(f: FixtureParam) = {

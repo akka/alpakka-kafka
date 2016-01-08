@@ -28,7 +28,8 @@ public class JavaConsumerPropertiesTest {
                 groupId,
                 new ByteArrayDeserializer(),
                 new StringDeserializer(),
-                new FiniteDuration(2, TimeUnit.SECONDS));
+                new FiniteDuration(2, TimeUnit.SECONDS),
+                new FiniteDuration(3, TimeUnit.SECONDS));
         assertEquals(propsBuilder.getBrokerList(), brokerList);
 
         final ConsumerProperties consumerProperties = propsBuilder.build();
@@ -38,5 +39,6 @@ public class JavaConsumerPropertiesTest {
         assertEquals(consumerProperties.keyDeserializer().getClass().getSimpleName(), ByteArrayDeserializer.class.getSimpleName());
         assertEquals(consumerProperties.valueDeserializer().getClass().getSimpleName(), StringDeserializer.class.getSimpleName());
         assertEquals(consumerProperties.pollTimeout(), new FiniteDuration(2, TimeUnit.SECONDS));
+        assertEquals(consumerProperties.pollRetryDelay(), new FiniteDuration(3, TimeUnit.SECONDS));
     }
 }

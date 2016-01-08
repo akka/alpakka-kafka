@@ -55,19 +55,21 @@ public class PropertiesBuilder {
         private Deserializer valueDeserializer;
         private String groupId;
         private FiniteDuration pollTimeout;
-
+        private FiniteDuration pollRetryDelay;
+        private static final FiniteDuration DEFAULT_TIMEOUT = new FiniteDuration(500, TimeUnit.MILLISECONDS);
         private scala.collection.immutable.Map<String, String> consumerParams = new HashMap<>();
 
         public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer) {
-            this(brokerList, topic, groupId, keyDeserializer, valueDeserializer, new FiniteDuration(1, TimeUnit.SECONDS));
+            this(brokerList, topic, groupId, keyDeserializer, valueDeserializer, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT);
         }
 
-        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer, FiniteDuration pollTimeout) {
+        public Consumer(String brokerList, String topic, String groupId, Deserializer keyDeserializer, Deserializer valueDeserializer, FiniteDuration pollTimeout, FiniteDuration pollRetryDelay) {
             super(brokerList, topic);
             this.keyDeserializer = keyDeserializer;
             this.valueDeserializer = valueDeserializer;
             this.groupId = groupId;
             this.pollTimeout = pollTimeout;
+            this.pollRetryDelay = pollRetryDelay;
         }
 
         public Consumer withParams(Map<String, String> params) {
@@ -86,7 +88,7 @@ public class PropertiesBuilder {
             if (super.hasConnectionPropertiesSet()) {
                 return ConsumerProperties.<K, V>apply(getBrokerList(), getTopic(), groupId, keyDeserializer, valueDeserializer);
             }
-            return new ConsumerProperties(consumerParams, getTopic(), groupId, keyDeserializer, valueDeserializer, pollTimeout);
+            return new ConsumerProperties(consumerParams, getTopic(), groupId, keyDeserializer, valueDeserializer, pollTimeout, pollRetryDelay);
         }
 
     }

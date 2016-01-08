@@ -1,8 +1,10 @@
 package com.softwaremill.react.kafka
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
+import akka.stream.SourceShape
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
+import akka.stream.stage.GraphStage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
 import kafka.producer._
@@ -87,6 +89,16 @@ class ReactiveKafka {
     ActorPublisher[ConsumerRecord[K, V]](consumerActor(props))
   }
 
+  def graphStageSink[K, V](props: ProducerProperties[K, V]) = {
+    val producer = new ReactiveKafkaProducer(props)
+    new KafkaGraphStageSink(producer)
+  }
+
+  def graphStageSource[K, V](props: ConsumerProperties[K, V]) = {
+    val consumer = ReactiveKafkaConsumer(props)
+    new KafkaGraphStageSource(consumer)
+  }
+
   def consumeWithOffsetSink[K, V](
     props: ConsumerProperties[K, V]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
@@ -98,6 +110,13 @@ class ReactiveKafka {
       actorWithConsumer.actor,
       CommitSink.create(actorWithConsumer.actor, props)
     )
+  }
+
+  def graphStageSourceWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V]
+  )(implicit actorSystem: ActorSystem) = {
+    val stage = graphStageSource(props)
+
   }
 
   def consume[K, V](
@@ -155,5 +174,13 @@ case class PublisherWithCommitSink[K, V](
     kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
   }
 }
+
+case class GraphStageSourceWithCommitSink[K, V](
+    sourceStage: GraphStage[SourceShape[ConsumerRecord[K, V]]],
+    kafkaOffsetCommitSink: KafkaSink[ConsumerRecord[K, V]]
+) {
+  def offsetCommitSink = kafkaOffsetCommitSink.sink
+}
+
 private[kafka] case class ConsumerWithActorProps[K, V](consumer: ReactiveKafkaConsumer[K, V], actorProps: Props)
 private[kafka] case class ConsumerWithActor[K, V](consumer: ReactiveKafkaConsumer[K, V], actor: ActorRef)

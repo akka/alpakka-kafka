@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages.StringConsumerRecord
 import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -21,7 +22,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
 
   override implicit val system: ActorSystem = ActorSystem("ReactiveKafkaPublisherSpec")
 
-  def this() = this(13000 millis)
+  def this() = this(30000 millis)
 
   /**
    * This indicates that our publisher cannot provide an onComplete() signal
@@ -45,7 +46,8 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     (1L to realSize) foreach { number =>
       lowLevelProducer.producer.send(record)
     }
-    val c = kafka.consume(ConsumerProperties(kafkaHost, topic, group, new StringDeserializer(), new StringDeserializer()))
+    val src = kafka.graphStageSource(ConsumerProperties(kafkaHost, topic, group, new StringDeserializer(), new StringDeserializer()))
+    val c = Source.fromGraph(src).runWith(Sink.asPublisher(fanout = false))
     lowLevelProducer.producer.close()
     c
   }

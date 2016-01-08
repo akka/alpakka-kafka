@@ -5,7 +5,7 @@ import org.apache.kafka.clients.producer.KafkaProducer
 
 case class ReactiveKafkaProducer[K, V](props: ProducerProperties[K, V]) {
 
-  lazy val producer = {
+  val producer = {
     new KafkaProducer(props.rawProperties, props.keySerializer, props.valueSerializer)
   }
 }

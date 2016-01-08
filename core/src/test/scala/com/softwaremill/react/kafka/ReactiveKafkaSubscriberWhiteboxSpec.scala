@@ -2,6 +2,7 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
+import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages._
 import org.reactivestreams.tck.SubscriberWhiteboxVerification.{SubscriberPuppet, WhiteboxSubscriberProbe}
 import org.reactivestreams.tck.{SubscriberWhiteboxVerification, TestEnvironment}
@@ -19,7 +20,9 @@ class ReactiveKafkaSubscriberWhiteboxSpec(defaultTimeout: FiniteDuration)
 
   override def createSubscriber(whiteboxSubscriberProbe: WhiteboxSubscriberProbe[StringProducerMessage]): Subscriber[StringProducerMessage] = {
     val topic = UUID.randomUUID().toString
-    new SubscriberDecorator(kafka.publish(ProducerProperties(kafkaHost, topic, serializer)), whiteboxSubscriberProbe)
+    val sinkStage = kafka.graphStageSink(ProducerProperties(kafkaHost, topic, serializer))
+    val sub = Source.asSubscriber.to(Sink.fromGraph(sinkStage)).run()
+    new SubscriberDecorator(sub, whiteboxSubscriberProbe)
   }
 
   override def createElement(i: Int) = ProducerMessage(i.toString)

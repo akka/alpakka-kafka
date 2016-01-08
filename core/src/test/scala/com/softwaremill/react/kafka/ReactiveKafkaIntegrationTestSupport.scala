@@ -4,19 +4,18 @@ import java.util.UUID
 
 import akka.actor.ActorRef
 import akka.stream.actor.ActorPublisherMessage.Cancel
-import akka.stream.actor.ActorSubscriberMessage.OnComplete
-import akka.stream.actor.{ActorPublisher, ActorSubscriber}
-import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.testkit.scaladsl.TestSink
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestProbe
-import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaMessages._
+import org.apache.kafka.clients.producer.{ProducerRecord, KafkaProducer}
 import org.scalatest.fixture.Suite
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
+
+  val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
   def shouldCommitOffsets()(implicit f: FixtureParam) = {
     // given
@@ -39,38 +38,42 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
   }
 
   def givenQueueWithElements(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val kafkaSubscriberActor = stringSubscriberActor(f)
-    Source(msgs.toList)
-      .map(s => ProducerMessage(s))
-      .to(Sink.fromSubscriber(ActorSubscriber[StringProducerMessage](kafkaSubscriberActor))).run()
-    Thread.sleep(5000)
+    val graphSink = stringGraphSink(f)
+    val kafkaSink = Sink.fromGraph(graphSink)
+
+    val (probe, _) = TestSource.probe[String]
+      .map(msg => ProducerMessage(msg))
+      .toMat(kafkaSink)(Keep.both)
+      .run()
+    msgs.foreach(probe.sendNext)
+    probe.sendComplete()
     verifyQueueHas(msgs)
-    completeProducer(kafkaSubscriberActor)
+    ()
   }
 
   def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val consumerProps = consumerProperties(f).noAutoCommit()
-    val consumerActor = f.kafka.consumerActor(consumerProps)
-    Source.fromPublisher(ActorPublisher[StringConsumerRecord](consumerActor))
+    val sourceStage = createSourceStage(f)
+    val probe = TestSink.probe[String]
+    Source.fromGraph(sourceStage)
       .map(_.value())
-      .runWith(TestSink.probe[String])
+      .runWith(probe)
       .request(msgs.length.toLong)
       .expectNext(msgs.head, msgs.tail.head, msgs.tail.tail: _*)
-    // kill the consumer
-    cancelConsumer(consumerActor)
+      .cancel()
   }
-
-  def cancelConsumer(consumerActor: ActorRef) =
-    killActorWith(consumerActor, Cancel)
-
-  def completeProducer(producerActor: ActorRef) =
-    killActorWith(producerActor, OnComplete)
 
   def killActorWith(actor: ActorRef, msg: Any) = {
     val probe = TestProbe()
     probe.watch(actor)
     actor ! msg
     probe.expectTerminated(actor, max = 6 seconds)
+  }
+
+  def givenInitializedTopic()(implicit f: FixtureParam) = {
+    val props = createProducerProperties(f)
+    val producer = new KafkaProducer(createProducerProperties(f).rawProperties, props.keySerializer, props.valueSerializer)
+    producer.send(new ProducerRecord(f.topic, InitialMsg))
+    producer.close()
   }
 
   def withFixture(test: OneArgTest) = {
