@@ -4,7 +4,7 @@ import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import akka.actor._
 import akka.stream.actor._
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
@@ -30,7 +30,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       // given
       givenInitializedTopic()
       val msgs = Seq("a", "b", "c")
-      val sink: Sink[ProducerMessage[Array[Byte], String], Unit] = Sink.fromGraph(stringGraphSink(f))
+      val sink = stringGraphSink(f)
       // when
       val (probe, _) = TestSource.probe[String]
         .map(ProducerMessage(_))
@@ -40,8 +40,8 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       probe.sendComplete()
 
       // then
-      val sourceStage = createSourceStage(f, consumerProperties(f))
-      Source.fromGraph(sourceStage)
+      val source = createSource(f, consumerProperties(f))
+      source
         .map(_.value())
         .runWith(TestSink.probe[String])
         .request(msgs.length.toLong + 1)
@@ -71,8 +71,8 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       else
         consumerProperties(f)
 
-      val sourceGraph = createSourceStage(f, properties)
-      Source.fromGraph(sourceGraph)
+      val source = createSource(f, properties)
+      source
         .map({
           m =>
             buffer.add(m.value())

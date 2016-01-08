@@ -1,12 +1,14 @@
 package com.softwaremill.react.kafka
 
-import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
-import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest.{BeforeAndAfterAll, Suite}
+
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -33,11 +35,11 @@ trait KafkaTest extends BeforeAndAfterAll {
     ProducerProperties(kafkaHost, f.topic, serializer, serializer)
   }
 
-  def createSourceStage[K, V](f: FixtureParam): KafkaGraphStageSource[String, String] = {
-    createSourceStage(f, consumerProperties(f))
+  def createSource[K, V](f: FixtureParam): Source[ConsumerRecord[String, String], Unit] = {
+    createSource(f, consumerProperties(f))
   }
 
-  def createSourceStage[K, V](f: FixtureParam, properties: ConsumerProperties[K, V]): KafkaGraphStageSource[K, V] = {
+  def createSource[K, V](f: FixtureParam, properties: ConsumerProperties[K, V]) = {
     f.kafka.graphStageSource(properties)
   }
 

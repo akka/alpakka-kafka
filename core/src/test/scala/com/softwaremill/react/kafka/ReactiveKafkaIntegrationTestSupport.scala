@@ -3,11 +3,10 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 
 import akka.actor.ActorRef
-import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestProbe
-import org.apache.kafka.clients.producer.{ProducerRecord, KafkaProducer}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.fixture.Suite
 
 import scala.concurrent.duration._
@@ -52,9 +51,9 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
   }
 
   def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val sourceStage = createSourceStage(f)
+    val source = createSource(f)
     val probe = TestSink.probe[String]
-    Source.fromGraph(sourceStage)
+    source
       .map(_.value())
       .runWith(probe)
       .request(msgs.length.toLong)

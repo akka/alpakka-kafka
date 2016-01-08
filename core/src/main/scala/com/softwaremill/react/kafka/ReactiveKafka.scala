@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.stream.SourceShape
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
+import akka.stream.scaladsl.{Source, Sink}
 import akka.stream.stage.GraphStage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
@@ -91,12 +92,12 @@ class ReactiveKafka {
 
   def graphStageSink[K, V](props: ProducerProperties[K, V]) = {
     val producer = new ReactiveKafkaProducer(props)
-    new KafkaGraphStageSink(producer)
+    Sink.fromGraph(new KafkaGraphStageSink(producer))
   }
 
   def graphStageSource[K, V](props: ConsumerProperties[K, V]) = {
     val consumer = ReactiveKafkaConsumer(props)
-    new KafkaGraphStageSource(consumer)
+    Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
   def consumeWithOffsetSink[K, V](

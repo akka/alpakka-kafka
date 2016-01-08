@@ -24,48 +24,19 @@ object examples {
     implicit val materializer = ActorMaterializer()
 
     val kafka = new ReactiveKafka()
-    val publisher: Publisher[StringConsumerRecord] = kafka.consume(ConsumerProperties(
+    val source: Source[StringConsumerRecord, Unit] = kafka.graphStageSource(ConsumerProperties(
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
       valueDeserializer = new StringDeserializer()
     ))
-    val subscriber: Subscriber[StringProducerMessage] = kafka.publish(ProducerProperties(
+    val sink: Sink[StringProducerMessage, Unit] = kafka.graphStageSink(ProducerProperties(
       bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
       valueSerializer = new StringSerializer()
     ))
 
-    Source.fromPublisher(publisher).map(m => ProducerMessage(m.value().toUpperCase))
-      .to(Sink.fromSubscriber(subscriber)).run()
-  }
-
-  def handling(): Unit = {
-    import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-    import akka.stream.ActorMaterializer
-    import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
-
-    class Handler extends Actor {
-      implicit val materializer = ActorMaterializer()
-
-      def createSupervisedSubscriberActor() = {
-        val kafka = new ReactiveKafka()
-
-        // subscriber
-        val subscriberProperties = ProducerProperties(
-          bootstrapServers = "localhost:9092",
-          topic = "uppercaseStrings",
-          valueSerializer = new StringSerializer()
-        )
-        val subscriberActorProps: Props = kafka.producerActorProps(subscriberProperties)
-        val subscriberActor = context.actorOf(subscriberActorProps)
-        context.watch(subscriberActor)
-      }
-
-      override def receive: Receive = {
-        case Terminated(actorRef) => // your custom handling
-      }
-    }
+    source.map(m => ProducerMessage(m.value().toUpperCase)).to(sink).run()
   }
 
   def consumerProperties() = {
