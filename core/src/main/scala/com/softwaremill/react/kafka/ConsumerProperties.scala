@@ -112,6 +112,8 @@ case class ConsumerProperties[K, V](
 
   def noAutoCommit(): ConsumerProperties[K, V] = setProperty("enable.auto.commit", "false")
 
+  def hasManualCommit: Boolean = params.get("enable.auto.commit").contains("false")
+
   /**
    * Set any additional properties as needed
    */

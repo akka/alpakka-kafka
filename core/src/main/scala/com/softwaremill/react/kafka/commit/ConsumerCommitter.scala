@@ -11,6 +11,9 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
+/**
+  * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
+  */
 private[commit] class ConsumerCommitter[K, V](
     consumerActor: ActorRef,
     consumerProperties: ConsumerProperties[_, _]
@@ -56,14 +59,14 @@ private[commit] class ConsumerCommitter[K, V](
     case Flush => commitGatheredOffsets()
   }
 
-  def registerCommit(msg: ConsumerRecord[_, V]): Unit = {
+  def registerCommit(msg: ConsumerRecord[_, _]): Unit = {
     log.debug(s"Received commit request for partition ${msg.partition} and offset ${msg.offset}")
     val topicPartition = new TopicPartition(topic, msg.partition)
     val last = partitionOffsetMap.lastOffset(topicPartition)
     updateOffsetIfLarger(msg, last)
   }
 
-  def updateOffsetIfLarger(msg: ConsumerRecord[_, V], last: Long): Unit = {
+  def updateOffsetIfLarger(msg: ConsumerRecord[_, _], last: Long): Unit = {
     if (msg.offset > last) {
       log.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
       partitionOffsetMap = partitionOffsetMap.plusOffset(new TopicPartition(topic, msg.partition), msg.offset)

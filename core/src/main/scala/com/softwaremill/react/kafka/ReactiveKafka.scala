@@ -4,10 +4,10 @@ import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.stream.SourceShape
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
-import akka.stream.scaladsl.{Source, Sink}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.stage.GraphStage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
-import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
+import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, KafkaSink, OffsetMap}
 import kafka.producer._
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.reactivestreams.{Publisher, Subscriber}
@@ -113,11 +113,15 @@ class ReactiveKafka {
     )
   }
 
-  def graphStageSourceWithOffsetSink[K, V](
+  def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V]
-  )(implicit actorSystem: ActorSystem) = {
-    val stage = graphStageSource(props)
-
+  ): SourceWithCommitSink[K, V] = {
+    val offsetMap = OffsetMap()
+    val finalProperties: ConsumerProperties[K, V] = props.noAutoCommit()
+    val offsetSink = Sink.fromGraph(new KafkaCommitterSink(finalProperties, offsetMap))
+    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties)
+    val source = Source.fromGraph(new KafkaGraphStageSource(consumer, offsetMap))
+    SourceWithCommitSink(source, offsetSink, consumer)
   }
 
   def consume[K, V](
@@ -162,6 +166,12 @@ object ReactiveKafka {
   val DefaultRequestStrategy = () => WatermarkRequestStrategy(10)
   val ConsumerDefaultDispatcher = "kafka-publisher-dispatcher"
 }
+
+case class SourceWithCommitSink[K, V](
+  source: Source[ConsumerRecord[K, V], Unit],
+  offsetCommitSink: Sink[ConsumerRecord[K, V], Unit],
+  underlyingConsumer: ReactiveKafkaConsumer[K, V]
+)
 
 case class PublisherWithCommitSink[K, V](
     publisher: Publisher[ConsumerRecord[K, V]],

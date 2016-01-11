@@ -3,7 +3,10 @@ package com.softwaremill.react.kafka.commit
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 
-case class OffsetMap(map: Offsets = Map.empty) {
+/**
+ * Mutable, not thread safe. Can be used by multiple threads only if there's no more than one caller of 'updateWithOffset'
+ */
+case class OffsetMap(var map: Offsets = Map.empty) {
 
   def lastOffset(topicPartition: TopicPartition) = map.getOrElse(topicPartition, -1L)
 
@@ -12,6 +15,10 @@ case class OffsetMap(map: Offsets = Map.empty) {
 
   def plusOffset(topicPartition: TopicPartition, offset: Long) =
     copy(map = map + (topicPartition -> offset))
+
+  def updateWithOffset(topicPartition: TopicPartition, offset: Long) = {
+    map = map + (topicPartition -> offset)
+  }
 
   def nonEmpty = map.nonEmpty
 

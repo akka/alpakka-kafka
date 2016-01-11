@@ -1,65 +1,43 @@
 package com.softwaremill.react.kafka
 
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorRef
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.scaladsl.{TestSink, TestSource}
-import akka.testkit.TestProbe
+import akka.stream.scaladsl.Sink
+import akka.testkit.{TestKit, TestProbe}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.fixture.Suite
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
 
+  this: TestKit =>
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
-  def shouldCommitOffsets()(implicit f: FixtureParam) = {
-    // given
-    givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"))
-
-    // when
-    val consumerProps = consumerProperties(f)
-      .commitInterval(1000 millis)
-
-    val consumerWithSink = f.kafka.consumeWithOffsetSink(consumerProps)
-    Source.fromPublisher(consumerWithSink.publisher)
-      .filter(_.value().toInt < 3)
-      .to(consumerWithSink.offsetCommitSink).run()
-    Thread.sleep(10000) // wait for flush
-    consumerWithSink.cancel()
-    Thread.sleep(3000) // wait for cancel
-
-    // then
-    verifyQueueHas(Seq("3", "4", "5"))
-  }
-
   def givenQueueWithElements(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val graphSink = stringGraphSink(f)
-    val kafkaSink = Sink.fromGraph(graphSink)
-
-    val (probe, _) = TestSource.probe[String]
-      .map(msg => ProducerMessage(msg))
-      .toMat(kafkaSink)(Keep.both)
-      .run()
-    msgs.foreach(probe.sendNext)
-    probe.sendComplete()
-    verifyQueueHas(msgs)
-    ()
+    val prodProps: ProducerProperties[String, String] = createProducerProperties(f)
+    val producer = new KafkaProducer(prodProps.rawProperties, prodProps.keySerializer, prodProps.valueSerializer)
+    msgs.foreach { msg =>
+      producer.send(new ProducerRecord(f.topic, msg))
+    }
+    producer.close()
   }
 
-  def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) = {
-    val source = createSource(f)
-    val probe = TestSink.probe[String]
-    source
-      .map(_.value())
-      .runWith(probe)
-      .request(msgs.length.toLong)
-      .expectNext(msgs.head, msgs.tail.head, msgs.tail.tail: _*)
-      .cancel()
-  }
+  def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) =
+    awaitCond {
+      val source = createSource(f, consumerProperties(f).noAutoCommit())
+      val buffer: ConcurrentLinkedQueue[String] = new ConcurrentLinkedQueue[String]()
+      source
+        .map(_.value())
+        .take(msgs.length.toLong)
+        .runWith(Sink.foreach(str => { buffer.add(str); () }))
+      Thread.sleep(3000) // read messages into buffer
+      buffer.asScala.toSeq.sorted == msgs.sorted
+    }
 
   def killActorWith(actor: ActorRef, msg: Any) = {
     val probe = TestProbe()

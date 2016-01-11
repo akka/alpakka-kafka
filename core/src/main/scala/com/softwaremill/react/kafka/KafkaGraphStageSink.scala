@@ -31,7 +31,14 @@ class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
           case Some(partitionId) => new ProducerRecord(richProducer.props.topic, partitionId, element.key, element.value)
           case None => new ProducerRecord(richProducer.props.topic, element.key, element.value)
         }
-        producer.send(record)
+        try {
+          producer.send(record)
+        }
+        catch {
+          case ex: Exception =>
+            close()
+            failStage(ex)
+        }
         logger.debug(s"Written item to Kafka: $record")
         pull(in)
       }

@@ -73,8 +73,8 @@ object examples {
     )
       .commitInterval(5 seconds) // flush interval
 
-    val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
-    Source.fromPublisher(consumerWithOffsetSink.publisher)
+    val consumerWithOffsetSink = kafka.sourceWithOffsetSink(consumerProperties)
+    consumerWithOffsetSink.source
       .map(processMessage(_)) // your message processing
       .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
       .run()
