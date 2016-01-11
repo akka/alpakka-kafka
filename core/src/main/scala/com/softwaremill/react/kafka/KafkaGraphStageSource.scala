@@ -52,7 +52,7 @@ class KafkaGraphStageSource[K, V](
         super.beforePreStart()
       }
 
-      private def pollIterator() = {
+      private def pollIterator(): Iterator[ConsumerRecord[K, V]] = {
         buffer match {
           case Some(iterator) =>
             iterator
@@ -60,7 +60,7 @@ class KafkaGraphStageSource[K, V](
             if (!closed)
               consumer.poll(pollTimeoutMs).iterator()
             else
-              Iterator.empty[ConsumerRecord[K, V]]
+              Iterator.empty
         }
       }
 
