@@ -31,7 +31,13 @@ class KafkaGraphStageSource[K, V](
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
 
     new TimerGraphStageLogic(shape) {
+      var closed = false
       var buffer: Option[java.util.Iterator[ConsumerRecord[K, V]]] = None
+
+      override def afterPostStop(): Unit = {
+        close()
+        super.afterPostStop()
+      }
 
       override protected def onTimer(timerKey: Any): Unit = {
         if (timerKey == TimerPollKey)
@@ -51,8 +57,10 @@ class KafkaGraphStageSource[K, V](
           case Some(iterator) =>
             iterator
           case None =>
-            logger.debug("Polling consumer")
-            consumer.poll(pollTimeoutMs).iterator()
+            if (!closed)
+              consumer.poll(pollTimeoutMs).iterator()
+            else
+              Iterator.empty[ConsumerRecord[K, V]]
         }
       }
 
@@ -70,7 +78,7 @@ class KafkaGraphStageSource[K, V](
             }
             else scheduleOnce(TimerPollKey, pollRetryDelayMs)
           case Failure(ex) =>
-            consumer.close()
+            close()
             fail(out, ex)
         }
       }
@@ -92,6 +100,12 @@ class KafkaGraphStageSource[K, V](
         }
       }
 
+      def close(): Unit =
+        if (!closed) {
+          consumer.close()
+          closed = true
+        }
+
       def scheduleManualCommit(): Unit = {
         logger.debug(s"${this} Scheduling manual commit")
         schedulePeriodically(CommitPollKey, consumerAndProps.properties.commitInterval.getOrElse(DefaultCommitInterval))
@@ -104,7 +118,7 @@ class KafkaGraphStageSource[K, V](
 
         override def onDownstreamFinish(): Unit = {
           logger.debug("Closing Kafka reader due to onDownstreamFinish")
-          consumer.close()
+          close()
           super.onDownstreamFinish()
         }
       })

@@ -14,15 +14,13 @@ class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
   val producer = richProducer.producer
   val closeTimeoutMs = 1000L
 
-  def close(): Unit = {
-    richProducer.producer.close(closeTimeoutMs, TimeUnit.MILLISECONDS)
-  }
-
   val in: Inlet[ProducerMessage[K, V]] = Inlet("KafkaGraphStageSink")
 
   override val shape: SinkShape[ProducerMessage[K, V]] = SinkShape(in)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
+
+    var closed = false
 
     setHandler(in, new InHandler {
       override def onPush(): Unit = {
@@ -32,7 +30,7 @@ class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
           case None => new ProducerRecord(richProducer.props.topic, element.key, element.value)
         }
         try {
-          producer.send(record)
+          if (!closed) producer.send(record)
         }
         catch {
           case ex: Exception =>
@@ -53,6 +51,17 @@ class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
         close()
       }
     })
+
+    def close(): Unit =
+      if (!closed) {
+        richProducer.producer.close(closeTimeoutMs, TimeUnit.MILLISECONDS)
+        closed = true
+      }
+
+    override def afterPostStop(): Unit = {
+      close()
+      super.afterPostStop()
+    }
 
     override def preStart(): Unit = {
       pull(in)
