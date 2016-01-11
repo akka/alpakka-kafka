@@ -7,8 +7,8 @@ import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.TheEnd
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 /**
-  * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
-  */
+ * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
+ */
 private[kafka] object CommitSink {
 
   def create[K, V](

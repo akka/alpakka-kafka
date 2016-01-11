@@ -26,36 +26,36 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
   def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
   "Reactive kafka streams" must {
-        "publish and consume" in { implicit f =>
-          // given
-          givenInitializedTopic()
-          val msgs = Seq("a", "b", "c")
-          val sink = stringGraphSink(f)
-          // when
-          val (probe, _) = TestSource.probe[String]
-            .map(ProducerMessage(_))
-            .toMat(sink)(Keep.both)
-            .run()
-          msgs.foreach(probe.sendNext)
-          probe.sendComplete()
+    "publish and consume" in { implicit f =>
+      // given
+      givenInitializedTopic()
+      val msgs = Seq("a", "b", "c")
+      val sink = stringGraphSink(f)
+      // when
+      val (probe, _) = TestSource.probe[String]
+        .map(ProducerMessage(_))
+        .toMat(sink)(Keep.both)
+        .run()
+      msgs.foreach(probe.sendNext)
+      probe.sendComplete()
 
-          // then
-          val source = createSource(f, consumerProperties(f))
-          source
-            .map(_.value())
-            .runWith(TestSink.probe[String])
-            .request(msgs.length.toLong + 1)
-            .expectNext(InitialMsg, msgs.head, msgs.tail: _*)
-            .cancel()
-        }
+      // then
+      val source = createSource(f, consumerProperties(f))
+      source
+        .map(_.value())
+        .runWith(TestSink.probe[String])
+        .request(msgs.length.toLong + 1)
+        .expectNext(InitialMsg, msgs.head, msgs.tail: _*)
+        .cancel()
+    }
 
-        "start consuming from the beginning of stream" in { implicit f =>
-          shouldStartConsuming(fromEnd = false)
-        }
+    "start consuming from the beginning of stream" in { implicit f =>
+      shouldStartConsuming(fromEnd = false)
+    }
 
-        "start consuming from the end of stream" in { implicit f =>
-          shouldStartConsuming(fromEnd = true)
-        }
+    "start consuming from the end of stream" in { implicit f =>
+      shouldStartConsuming(fromEnd = true)
+    }
 
     "commit offsets manually" in { implicit f =>
       // given

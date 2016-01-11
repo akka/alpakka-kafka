@@ -12,8 +12,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 /**
-  * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
-  */
+ * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
+ */
 private[commit] class ConsumerCommitter[K, V](
     consumerActor: ActorRef,
     consumerProperties: ConsumerProperties[_, _]
