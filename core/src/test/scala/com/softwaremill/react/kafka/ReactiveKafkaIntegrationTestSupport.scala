@@ -3,14 +3,12 @@ package com.softwaremill.react.kafka
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.ActorRef
 import akka.stream.scaladsl.Sink
-import akka.testkit.{TestKit, TestProbe}
+import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.fixture.Suite
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
@@ -38,13 +36,6 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
       Thread.sleep(3000) // read messages into buffer
       buffer.asScala.toSeq.sorted == msgs.sorted
     }
-
-  def killActorWith(actor: ActorRef, msg: Any) = {
-    val probe = TestProbe()
-    probe.watch(actor)
-    actor ! msg
-    probe.expectTerminated(actor, max = 6 seconds)
-  }
 
   def givenInitializedTopic()(implicit f: FixtureParam) = {
     val props = createProducerProperties(f)
