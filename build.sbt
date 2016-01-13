@@ -91,7 +91,7 @@ lazy val root =
     .settings(Seq(
     publishArtifact := false,
     publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo")))))
-    .aggregate(core)
+    .aggregate(core, benchmarks)
 
 lazy val core = project
   .settings(commonSettings)
@@ -100,3 +100,10 @@ lazy val core = project
     name := "reactive-kafka-core",
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
+
+lazy val benchmarks = project
+  .settings(commonSettings)
+  .settings(Seq(
+    name := "reactive-kafka-benchmarks",
+    libraryDependencies ++= commonDependencies ++ coreDependencies
+  )).dependsOn(core)
