@@ -16,21 +16,25 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
   val pollTimeoutMs = consumerAndProps.properties.pollTimeout.toMillis
   val consumer = consumerAndProps.consumer
   var buffer: Option[java.util.Iterator[ConsumerRecord[K, V]]] = None
+  var closed = false
 
   override def receive = {
     case ActorPublisherMessage.Request(_) | Poll => readDemandedItems()
     case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded =>
       cleanupResources()
       context.stop(self)
-    case CommitOffsets(offsets) => runCommit(offsets)
+    case CommitOffsets(offsets) => if (!closed) runCommit(offsets)
   }
 
-  private def getIterator() = {
+  private def getIterator(): Iterator[ConsumerRecord[K, V]] = {
     buffer match {
       case Some(iterator) =>
         iterator
       case None =>
-        consumer.poll(pollTimeoutMs).iterator()
+        if (!closed)
+          consumer.poll(pollTimeoutMs).iterator()
+        else
+          Iterator.empty
     }
   }
 
@@ -76,7 +80,15 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
   private def demand_? : Boolean = totalDemand > 0
 
   private def cleanupResources(): Unit = {
-    consumer.close()
+    if (!closed) {
+      closed = true
+      consumer.close()
+    }
+  }
+
+  override def aroundPostStop(): Unit = {
+    cleanupResources()
+    super.aroundPostStop()
   }
 }
 
