@@ -98,7 +98,6 @@ class ReactiveKafka {
 
   def graphStageSource[K, V](
     props: ConsumerProperties[K, V],
-    topics: List[String] = List(),
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
@@ -121,7 +120,6 @@ class ReactiveKafka {
 
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    topics: List[String] = List(),
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ): SourceWithCommitSink[K, V] = {
@@ -162,7 +160,6 @@ class ReactiveKafka {
 
   private def consumerActorPropsWithConsumer[K, V](
     props: ConsumerProperties[K, V],
-    topics: List[String] = List(),
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
@@ -172,7 +169,6 @@ class ReactiveKafka {
 
   def consumerActorProps[K, V](
     props: ConsumerProperties[K, V],
-    topics: List[String] = List(),
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
