@@ -102,7 +102,7 @@ class ReactiveKafka {
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
-    val consumer = ReactiveKafkaConsumer(props, topics, partition, offset)
+    val consumer = ReactiveKafkaConsumer(props, partition, offset)
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
@@ -128,7 +128,7 @@ class ReactiveKafka {
     val offsetMap = OffsetMap()
     val finalProperties: ConsumerProperties[K, V] = props.noAutoCommit()
     val offsetSink = Sink.fromGraph(new KafkaCommitterSink(finalProperties, offsetMap))
-    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties, topics, partition, offset)
+    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties, partition, offset)
     val source = Source.fromGraph(new KafkaGraphStageSource(consumer, offsetMap))
     SourceWithCommitSink(source, offsetSink, consumer)
   }
@@ -166,7 +166,7 @@ class ReactiveKafka {
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
-    val reactiveConsumer = ReactiveKafkaConsumer(props, topics, partition, offset)
+    val reactiveConsumer = ReactiveKafkaConsumer(props, partition, offset)
     ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer)))
   }
 
@@ -176,7 +176,7 @@ class ReactiveKafka {
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
   ) = {
-    val reactiveConsumer = ReactiveKafkaConsumer(props, topics, partition, offset)
+    val reactiveConsumer = ReactiveKafkaConsumer(props, partition, offset)
     Props(new KafkaActorPublisher(reactiveConsumer))
   }
 }

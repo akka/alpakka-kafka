@@ -11,7 +11,6 @@ import scala.collection.mutable.ListBuffer
 
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
-    topics: List[String] = List(),
     partition: Int = NoPartitionSpecified,
     offset: Long = NoOffsetSpecified
 ) {
@@ -25,7 +24,7 @@ case class ReactiveKafkaConsumer[K, V](
       properties.valueDeserializer
     )
 
-    val ts = if (topics.isEmpty) List(properties.topic) else topics
+    val topics = properties.topic.split(",").toList
 
     if (partition > NoPartitionSpecified) {
       if (offset > NoOffsetSpecified) {
@@ -34,12 +33,12 @@ case class ReactiveKafkaConsumer[K, V](
       }
       else {
         val tps: ListBuffer[TopicPartition] = new ListBuffer[TopicPartition]
-        ts.foreach(topic => tps += new TopicPartition(topic, partition))
-        c.assign(tps.toList)
+        topics.foreach(topic => tps += new TopicPartition(topic, partition))
+        c.assign(tps)
       }
     }
     else {
-      c.subscribe(ts)
+      c.subscribe(topics)
     }
     c
   }
