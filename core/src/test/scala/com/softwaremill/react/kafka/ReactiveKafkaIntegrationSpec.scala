@@ -73,7 +73,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         .run()
 
       Thread.sleep(5000) // wait for flush
-      consumerWithSink.underlyingConsumer.consumer.close()
+      consumerWithSink.underlyingConsumer.close()
       Thread.sleep(3000) // wait for consumer to close
 
       // then
