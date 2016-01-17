@@ -2,12 +2,11 @@ package com.softwaremill.react.kafka
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.softwaremill.react.kafka.ReactiveKafkaConsumer.{NoOffsetSpecified, NoPartitionSpecified}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
-import scala.collection.JavaConversions._
-import ReactiveKafkaConsumer.{NoPartitionSpecified, NoOffsetSpecified}
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConversions._
 
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
@@ -24,21 +23,16 @@ case class ReactiveKafkaConsumer[K, V](
       properties.valueDeserializer
     )
 
-    val topics = properties.topic.split(",").toList
-
     if (partition > NoPartitionSpecified) {
       if (offset > NoOffsetSpecified) {
-        // limit to first topic for consuming from specified offset
-        c.seek(new TopicPartition(topics(0), partition), offset)
+        c.seek(new TopicPartition(properties.topic, partition), offset)
       }
       else {
-        val tps: ListBuffer[TopicPartition] = new ListBuffer[TopicPartition]
-        topics.foreach(topic => tps += new TopicPartition(topic, partition))
-        c.assign(tps)
+        c.assign(List(new TopicPartition(properties.topic, partition)))
       }
     }
     else {
-      c.subscribe(topics)
+      c.subscribe(List(properties.topic)) // support multiple topics?
     }
     c
   }
