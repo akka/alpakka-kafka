@@ -22,6 +22,8 @@ class TestFetchTotal(
     provideSource: Fixture => (SourceType, ReactiveKafkaConsumer[_, _])
 )(implicit m: Materializer) extends ReactiveKafkaPerfTest {
 
+  val bufferCheckTickMs = 100L
+  val testTimeoutMs = 60000L
   var sourceOpt: Option[Source[ConsumerRecord[String, String], Unit]] = None
   var consumerOpt: Option[ReactiveKafkaConsumer[_, _]] = None
 
@@ -42,15 +44,14 @@ class TestFetchTotal(
         }))
         .run()
 
-      val maxTimeout = 60000
-      var timeoutMs = maxTimeout
+      var timeoutMs = testTimeoutMs
 
       while (buffer.size() < elemCount && timeoutMs > 0) {
-        timeoutMs = timeoutMs - 100
-        Thread.sleep(100)
+        timeoutMs = timeoutMs - bufferCheckTickMs
+        Thread.sleep(bufferCheckTickMs)
       }
       if (buffer.size() < elemCount) {
-        val errMsg = s"Timing out after $maxTimeout, collected ${buffer.size()} of $elemCount elements"
+        val errMsg = s"Timing out after $testTimeoutMs, collected ${buffer.size()} of $elemCount elements"
         println(errMsg)
         Failure(new Exception(errMsg))
       }
@@ -67,8 +68,8 @@ object TestFetchTotal extends SourceProviders {
 
   def prepare(elemCounts: List[Long], f: Fixture)(implicit system: ActorSystem, m: Materializer) = {
     val pairs = elemCounts.map(count => {
-      (new TestFetchTotal(f, count, s"Fetching $count elements with actor-based provider", actorSourceProvider(system)),
-        new TestFetchTotal(f, count, s"Fetching $count elements with graphStage-based provider", graphSourceProvider))
+      (new TestFetchTotal(f, count, s"Fetching $count elements with actor-based provider", actorSourceProviderNoCommit(system)),
+        new TestFetchTotal(f, count, s"Fetching $count elements with graphStage-based provider", graphSourceProviderNoCommit))
     })
     pairs.map(_._1) ++ pairs.map(_._2)
   }

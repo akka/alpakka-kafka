@@ -1,13 +1,5 @@
 package com.softwaremill.react.kafka.benchmarks
 
-import scala.util.Try
-
-trait ReactiveKafkaPerfTest {
-  def warmup(): Unit = ()
-
-  def run(): Try[String]
-
-  def name: String
-
+trait ReactiveKafkaPerfTest extends PerfTest {
   def elemCount: Long
 }
