@@ -5,7 +5,6 @@ import akka.stream.{Attributes, Outlet, SourceShape}
 import com.softwaremill.react.kafka.commit.OffsetMap
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.errors.WakeupException
 
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
