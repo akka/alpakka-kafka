@@ -23,6 +23,7 @@ val coreDependencies = Seq(
   kafka,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
