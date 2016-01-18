@@ -108,7 +108,7 @@ class KafkaGraphStageSource[K, V](
         }
 
       def scheduleManualCommit(): Unit = {
-        logger.debug(s"${this} Scheduling manual commit (topic ${consumerAndProps.properties.topic})")
+        logger.debug(s"Scheduling manual commit (topic ${consumerAndProps.properties.topic})")
         schedulePeriodically(CommitPollKey, consumerAndProps.properties.commitInterval.getOrElse(DefaultCommitInterval))
       }
 
