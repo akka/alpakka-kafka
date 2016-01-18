@@ -11,7 +11,6 @@ import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, Kafk
 import kafka.producer._
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.reactivestreams.{Publisher, Subscriber}
-import ReactiveKafkaConsumer.{NoPartitionSpecified, NoOffsetSpecified}
 
 class ReactiveKafka {
 
@@ -98,10 +97,10 @@ class ReactiveKafka {
 
   def graphStageSource[K, V](
     props: ConsumerProperties[K, V],
-    partition: Int = NoPartitionSpecified,
-    offset: Long = NoOffsetSpecified
+    topicsAndPartitions: Array[TopicPartitionPair] = Array(),
+    topicPartitionOffset: TopicPartitionOffsetBase = NullTopicPartitionOffset
   ) = {
-    val consumer = ReactiveKafkaConsumer(props, partition, offset)
+    val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffset)
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
@@ -120,13 +119,13 @@ class ReactiveKafka {
 
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    partition: Int = NoPartitionSpecified,
-    offset: Long = NoOffsetSpecified
+    topicsAndPartitions: Array[TopicPartitionPair] = Array(),
+    topicPartitionOffset: TopicPartitionOffsetBase = NullTopicPartitionOffset
   ): SourceWithCommitSink[K, V] = {
     val offsetMap = OffsetMap()
     val finalProperties: ConsumerProperties[K, V] = props.noAutoCommit()
     val offsetSink = Sink.fromGraph(new KafkaCommitterSink(finalProperties, offsetMap))
-    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties, partition, offset)
+    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties, topicsAndPartitions, topicPartitionOffset)
     val source = Source.fromGraph(new KafkaGraphStageSource(consumer, offsetMap))
     SourceWithCommitSink(source, offsetSink, consumer)
   }
@@ -160,19 +159,19 @@ class ReactiveKafka {
 
   private def consumerActorPropsWithConsumer[K, V](
     props: ConsumerProperties[K, V],
-    partition: Int = NoPartitionSpecified,
-    offset: Long = NoOffsetSpecified
+    topicsAndPartitions: Array[TopicPartitionPair] = Array(),
+    topicPartitionOffset: TopicPartitionOffsetBase = NullTopicPartitionOffset
   ) = {
-    val reactiveConsumer = ReactiveKafkaConsumer(props, partition, offset)
+    val reactiveConsumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffset)
     ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer)))
   }
 
   def consumerActorProps[K, V](
     props: ConsumerProperties[K, V],
-    partition: Int = NoPartitionSpecified,
-    offset: Long = NoOffsetSpecified
+    topicsAndPartitions: Array[TopicPartitionPair] = Array(),
+    topicPartitionOffset: TopicPartitionOffsetBase = NullTopicPartitionOffset
   ) = {
-    val reactiveConsumer = ReactiveKafkaConsumer(props, partition, offset)
+    val reactiveConsumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffset)
     Props(new KafkaActorPublisher(reactiveConsumer))
   }
 }
