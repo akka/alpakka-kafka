@@ -1,6 +1,6 @@
 package com.softwaremill.react.kafka.commit
 
-import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.KafkaMessages._
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.TheEnd
@@ -16,6 +16,12 @@ private[kafka] object CommitSink {
     val props = customDispatcherName.map(initialProps.withDispatcher).getOrElse(initialProps)
     val actor = actorSystem.actorOf(props)
     KafkaSink(Sink.actorRef[KafkaMessage[T]](actor, TheEnd), actor)
+  }
+
+  def createGraphBased[T](
+                         kafkaConsumer: KafkaConsumer[T]
+                         ) = {
+    Sink.fromGraph(new KafkaCommitterSink(new CommitterProvider(), kafkaConsumer))
   }
 }
 

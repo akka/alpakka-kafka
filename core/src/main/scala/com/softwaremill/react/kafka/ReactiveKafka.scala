@@ -3,6 +3,7 @@ package com.softwaremill.react.kafka
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
+import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import com.softwaremill.react.kafka.commit.{CommitSink, KafkaSink}
@@ -101,6 +102,24 @@ class ReactiveKafka {
     )
   }
 
+  def graphStageSink[T](props: ProducerProperties[T]) = {
+    val producer = new KafkaProducer(props)
+    Sink.fromGraph(new KafkaGraphStageSink(producer, props))
+  }
+
+  def graphStageSource[T](props: ConsumerProperties[T]) = {
+    val consumer = new KafkaConsumer(props)
+    Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  def sourceWithOffsetSink[T](props: ConsumerProperties[T]): SourceWithCommitSink[T] = {
+    val finalProperties: ConsumerProperties[T] = props.noAutoCommit()
+    val consumer = new KafkaConsumer(finalProperties)
+    val offsetSink = CommitSink.createGraphBased(consumer)
+    val source = Source.fromGraph(new KafkaGraphStageSource(consumer))
+    SourceWithCommitSink(source, offsetSink, consumer)
+  }
+
   def consume[T](
     props: ConsumerProperties[T],
     dispatcher: String
@@ -156,5 +175,11 @@ case class PublisherWithCommitSink[T](
     kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
   }
 }
+case class SourceWithCommitSink[T](
+                                       source: Source[KafkaMessage[T], Unit],
+                                       offsetCommitSink: Sink[KafkaMessage[T], Unit],
+                                       underlyingConsumer: KafkaConsumer[T]
+                                     )
+
 private[kafka] case class ConsumerWithActorProps[T](consumer: KafkaConsumer[T], actorProps: Props)
 private[kafka] case class ConsumerWithActor[T](consumer: KafkaConsumer[T], actor: ActorRef)
