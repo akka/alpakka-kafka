@@ -82,6 +82,8 @@ case class ConsumerProperties[T](
    */
   def consumerTimeoutMs(timeInMs: Long): ConsumerProperties[T] = setProperty("consumer.timeout.ms", timeInMs.toString)
 
+  def consumerTimeoutMs = params("consumer.timeout.ms").toLong
+
   /**
    * What to do when there is no initial offset in Zookeeper or if an offset is out of range:
    * 1) smallest : automatically reset the offset to the smallest offset
@@ -106,6 +108,8 @@ case class ConsumerProperties[T](
   def readFromEndOfStream(): ConsumerProperties[T] = setProperty("auto.offset.reset", "largest")
 
   def noAutoCommit(): ConsumerProperties[T] = setProperty("auto.commit.enable", "false")
+
+  def hasManualCommit: Boolean = params.get("auto.commit.enable").exists(_ == "false")
   /**
    * Store offsets in Kafka and/or ZooKeeper. NOTE: Server instance must be 8.2 or higher
    *
