@@ -5,7 +5,7 @@ import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactContr
 name := "reactive-kafka"
 
 val akkaVersion = "2.3.14"
-val akkaStreamVersion = "2.0.1"
+val akkaStreamVersion = "2.0.2"
 val kafkaVersion = "0.9.0.0"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
