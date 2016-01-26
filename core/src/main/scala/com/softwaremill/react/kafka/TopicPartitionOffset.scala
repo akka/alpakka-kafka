@@ -9,8 +9,3 @@ package com.softwaremill.react.kafka
  * @param offset
  */
 case class TopicPartitionOffset(topic: String, partition: Int, offset: Long)
-
-object TopicPartitionOffset {
-  val NoPartitionSpecified: Int = -1
-  val NoOffsetSpecified: Long = -1
-}
