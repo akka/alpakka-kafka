@@ -28,7 +28,6 @@ class KafkaCommitterSink(consumerProps: ConsumerProperties[_, _], partitionOffse
 
       def updateOffsetIfLarger(msg: ConsumerRecord[_, _], last: Long): Unit = {
         if (msg.offset > last) {
-          logger.debug(s"Registering commit for partition ${msg.partition} and offset ${msg.offset}, last registered = $last")
           partitionOffsetMap.updateWithOffset(new TopicPartition(topic, msg.partition), msg.offset)
         }
         else

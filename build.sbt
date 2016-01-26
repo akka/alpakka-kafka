@@ -5,7 +5,7 @@ import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactContr
 name := "reactive-kafka"
 
 val akkaVersion = "2.3.14"
-val akkaStreamVersion = "2.0.1"
+val akkaStreamVersion = "2.0.2"
 val kafkaVersion = "0.9.0.0"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -35,6 +35,7 @@ sonatypeSettings ++ scalariformSettings ++ Seq(
   version := "0.9.1-SNAPSHOT",
   organization := "com.softwaremill.reactivekafka",
   startYear := Some(2014),
+  test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   homepage := Some(url("https://github.com/softwaremill/reactive-kafka")),
   scalaVersion := "2.11.7",
@@ -104,6 +105,7 @@ lazy val core = project
 lazy val benchmarks = project
   .settings(commonSettings)
   .settings(Seq(
+    publishArtifact := false,
     name := "reactive-kafka-benchmarks",
-    libraryDependencies ++= commonDependencies ++ coreDependencies
+    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq("ch.qos.logback" % "logback-classic" % "1.1.3")
   )).dependsOn(core)

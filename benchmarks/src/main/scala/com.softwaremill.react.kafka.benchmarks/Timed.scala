@@ -10,7 +10,7 @@ object Timed {
     (r, System.currentTimeMillis() - start)
   }
 
-  private def defaultWarmup(tests: List[ReactiveKafkaPerfTest]): Unit = {
+  private def defaultWarmup(tests: List[PerfTest]): Unit = {
     println("Warmup")
     for (test <- tests) {
       val (result, time) = timed { test.run() }
@@ -20,10 +20,10 @@ object Timed {
     println("---")
   }
 
-  def runTests(
-    tests: List[ReactiveKafkaPerfTest],
-    repetitions: Int,
-    warmup: List[ReactiveKafkaPerfTest] => Unit = defaultWarmup
+  def runTests[T <: PerfTest](
+                tests: List[T],
+                repetitions: Int,
+                warmup: List[T] => Unit = defaultWarmup _
   ): Unit = {
     val allTests = Random.shuffle(List.fill(repetitions)(tests).flatten)
     warmup(tests)
