@@ -6,7 +6,7 @@ import akka.actor.ActorLogging
 import akka.stream.actor.{ActorSubscriber, ActorSubscriberMessage, RequestStrategy}
 import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{RecordMetadata, Callback, ProducerRecord}
 
 sealed trait ProducerMessage[K, V] {
   def key: K
@@ -54,7 +54,14 @@ private[kafka] class KafkaActorSubscriber[K, V](
       case Some(partitionId) => new ProducerRecord(richProducer.props.topic, partitionId, element.key, element.value)
       case None => new ProducerRecord(richProducer.props.topic, element.key, element.value)
     }
-    richProducer.producer.send(record)
+    richProducer.producer.send(record, new Callback {
+      override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
+        if (exception != null) {
+          handleError(exception)
+        }
+      }
+    })
+
     ()
   }
 
