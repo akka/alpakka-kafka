@@ -6,7 +6,7 @@ import akka.stream.{Inlet, Attributes, SinkShape}
 import akka.stream.stage.{InHandler, GraphStageLogic, GraphStage}
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import kafka.producer.ReactiveKafkaProducer
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{RecordMetadata, Callback, ProducerRecord}
 
 class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
     extends GraphStage[SinkShape[ProducerMessage[K, V]]] with LazyLogging {
@@ -30,7 +30,14 @@ class KafkaGraphStageSink[K, V](richProducer: ReactiveKafkaProducer[K, V])
           case None => new ProducerRecord(richProducer.props.topic, element.key, element.value)
         }
         try {
-          if (!closed) producer.send(record)
+          if (!closed) producer.send(record, new Callback {
+            override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
+              if (exception != null) {
+                logger.error(s"Sending mesessage failed, closing Kafka resources for topic ${richProducer.props.topic}", exception)
+                close()
+              }
+            }
+          })
         }
         catch {
           case ex: Exception =>
