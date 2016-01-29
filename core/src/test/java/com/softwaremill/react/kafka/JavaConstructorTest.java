@@ -3,8 +3,8 @@ package com.softwaremill.react.kafka;
 
 import static org.junit.Assert.assertNotNull;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -70,7 +70,7 @@ public class JavaConstructorTest {
             .to(Sink.fromSubscriber(kafka.publish(pp, system)))
             .run(materializer);
 
-        Source.fromGraph(kafka.graphStageJavaSource(cp, new ArrayList<>()))
+        Source.fromGraph(kafka.graphStageJavaSource(cp, new HashSet<>()))
             .map(this::toProdMessage)
             .to(Sink.fromSubscriber(kafka.publish(pp, system)))
             .run(materializer);
@@ -102,7 +102,7 @@ public class JavaConstructorTest {
             .to(consumerWithOffsetSink1.offsetCommitSink())
             .run(materializer);
 
-        PublisherWithCommitSink consumerWithOffsetSink2 = kafka.consumeWithOffsetSink(cp, new ArrayList<>(), system);
+        PublisherWithCommitSink consumerWithOffsetSink2 = kafka.consumeWithOffsetSink(cp, new HashSet<>(), system);
         Source.fromPublisher(consumerWithOffsetSink1.publisher())
             .map(record -> toProdMessage((ConsumerRecord<String, String>) record))
             .to(consumerWithOffsetSink2.offsetCommitSink())

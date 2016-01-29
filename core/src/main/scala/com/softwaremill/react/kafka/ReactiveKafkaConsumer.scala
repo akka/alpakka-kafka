@@ -21,7 +21,7 @@ import scalaj.collection.Imports._
  */
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition],
+    topicsAndPartitions: Set[TopicPartition],
     topicPartitionOffsetsMap: Map[TopicPartition, Long]
 ) {
 
@@ -39,7 +39,7 @@ case class ReactiveKafkaConsumer[K, V](
       topicPartitionOffsetsMap.foreach { case (tp, o) => c.seek(tp, o) }
     }
     else if (topicsAndPartitions.nonEmpty) {
-      c.assign(topicsAndPartitions)
+      c.assign(topicsAndPartitions.toList)
     }
     else {
       c.subscribe(List(properties.topic)) // future support for multiple topics?
@@ -58,25 +58,25 @@ case class ReactiveKafkaConsumer[K, V](
 object ReactiveKafkaConsumer {
 
   def apply[K, V](properties: ConsumerProperties[K, V]): ReactiveKafkaConsumer[K, V] =
-    ReactiveKafkaConsumer(properties, List(), Map())
+    ReactiveKafkaConsumer(properties, Set(), Map())
 
   def apply[K, V](
     properties: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition]
+    topicsAndPartitions: Set[TopicPartition]
   ): ReactiveKafkaConsumer[K, V] =
     ReactiveKafkaConsumer(properties, topicsAndPartitions, Map())
 
   // Java DSL - topicsAndPartitions
   def apply[K, V](
     properties: ConsumerProperties[K, V],
-    topicsAndPartitions: java.util.List[TopicPartition]
+    topicsAndPartitions: java.util.Set[TopicPartition]
   ): ReactiveKafkaConsumer[K, V] =
-    ReactiveKafkaConsumer(properties, topicsAndPartitions.asScala.toList)
+    ReactiveKafkaConsumer(properties, topicsAndPartitions.asScala.toSet)
 
   // Java DSL - topicPartitionOffsetsMap
   def apply[K, V](
     properties: ConsumerProperties[K, V],
     topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
   ): ReactiveKafkaConsumer[K, V] =
-    ReactiveKafkaConsumer(properties, List(), topicPartitionOffsetsMap.asScala.toMap)
+    ReactiveKafkaConsumer(properties, Set(), topicPartitionOffsetsMap.asScala.toMap)
 }

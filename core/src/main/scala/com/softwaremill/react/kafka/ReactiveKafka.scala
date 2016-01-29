@@ -96,7 +96,7 @@ class ReactiveKafka {
     Sink.fromGraph(new KafkaGraphStageSink(producer))
   }
 
-  // Scala DSL
+  // Scala DSL - props
   def graphStageSource[K, V](
     props: ConsumerProperties[K, V]
   ) = {
@@ -104,22 +104,21 @@ class ReactiveKafka {
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
-  // Scala DSL
+  // Scala DSL - props and topicsAndPartitions
   def graphStageSource[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition]
+    topicsAndPartitions: Set[TopicPartition]
   ) = {
     val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions)
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
-  // Scala DSL
+  // Scala DSL - props and topicPartitionOffsetsMap
   def graphStageSource[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition],
     topicPartitionOffsetsMap: Map[TopicPartition, Long]
   ) = {
-    val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffsetsMap)
+    val consumer = ReactiveKafkaConsumer(props, Set(), topicPartitionOffsetsMap)
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
@@ -132,7 +131,7 @@ class ReactiveKafka {
   // Java DSL - props and topicsAndPartitions
   def graphStageJavaSource[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: java.util.List[TopicPartition]
+    topicsAndPartitions: java.util.Set[TopicPartition]
   ) = {
     val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions)
     akka.stream.javadsl.Source.fromGraph(new KafkaGraphStageSource(consumer))
@@ -153,7 +152,7 @@ class ReactiveKafka {
   // Scala DSL
   def consumeWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition] = List(),
+    topicsAndPartitions: Set[TopicPartition] = Set(),
     topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
     val actorWithConsumer = consumerActorWithConsumer(props.noAutoCommit(), ReactiveKafka.ConsumerDefaultDispatcher, topicsAndPartitions, topicPartitionOffsetsMap)
@@ -170,15 +169,15 @@ class ReactiveKafka {
   def consumeWithOffsetSink[K, V](
     props: ConsumerProperties[K, V]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
-    consumeWithOffsetSink(props, List(), Map())
+    consumeWithOffsetSink(props, Set(), Map())
   }
 
   // Java DSL - props and topicsAndPartitions
   def consumeWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: java.util.List[TopicPartition]
+    topicsAndPartitions: java.util.Set[TopicPartition]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
-    consumeWithOffsetSink(props, topicsAndPartitions.asScala.toList, Map())
+    consumeWithOffsetSink(props, topicsAndPartitions.asScala.toSet, Map())
   }
 
   // Java DSL - props and topicPartitionOffsetsMap
@@ -186,13 +185,13 @@ class ReactiveKafka {
     props: ConsumerProperties[K, V],
     topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
-    consumeWithOffsetSink(props, List(), topicPartitionOffsetsMap.asScala.toMap)
+    consumeWithOffsetSink(props, Set(), topicPartitionOffsetsMap.asScala.toMap)
   }
 
   // Scala DSL
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition] = List(),
+    topicsAndPartitions: Set[TopicPartition] = Set(),
     topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   ): SourceWithCommitSink[K, V] = {
     val offsetMap = OffsetMap()
@@ -207,15 +206,15 @@ class ReactiveKafka {
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V]
   ): SourceWithCommitSink[K, V] = {
-    sourceWithOffsetSink(props, List(), Map())
+    sourceWithOffsetSink(props, Set(), Map())
   }
 
   // Java DSL - props and partitionsAndTopics
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: java.util.List[TopicPartition]
+    topicsAndPartitions: java.util.Set[TopicPartition]
   ): SourceWithCommitSink[K, V] = {
-    sourceWithOffsetSink(props, topicsAndPartitions.asScala.toList, Map())
+    sourceWithOffsetSink(props, topicsAndPartitions.asScala.toSet, Map())
   }
 
   // Java DSL - props and topicPartitionOffsetsMap
@@ -223,7 +222,7 @@ class ReactiveKafka {
     props: ConsumerProperties[K, V],
     topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
   ): SourceWithCommitSink[K, V] = {
-    sourceWithOffsetSink(props, List(), topicPartitionOffsetsMap.asScala.toMap)
+    sourceWithOffsetSink(props, Set(), topicPartitionOffsetsMap.asScala.toMap)
   }
 
   def consume[K, V](
@@ -247,7 +246,7 @@ class ReactiveKafka {
   private def consumerActorWithConsumer[K, V](
     props: ConsumerProperties[K, V],
     dispatcher: String,
-    topicsAndPartitions: List[TopicPartition] = List(),
+    topicsAndPartitions: Set[TopicPartition] = Set(),
     topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   )(implicit actorSystem: ActorSystem) = {
     val propsWithConsumer = consumerActorPropsWithConsumer(props, topicsAndPartitions, topicPartitionOffsetsMap)
@@ -257,7 +256,7 @@ class ReactiveKafka {
 
   private def consumerActorPropsWithConsumer[K, V](
     props: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition] = List(),
+    topicsAndPartitions: Set[TopicPartition] = Set(),
     topicPartitionOffsetsMap: Map[TopicPartition, Long]
   ) = {
     val reactiveConsumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffsetsMap)
