@@ -6,22 +6,23 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConversions._
+import scalaj.collection.Imports._
 
 /**
- * {@code ReactiveKafkaConsumer} allows for instantiating KafkaConsumer
+ * ReactiveKafkaConsumer allows for instantiating KafkaConsumer
  * instances with several combinations of topic, partition, and offset parameters, depending on the
  * use case.
  *
  * @param properties
  * @param topicsAndPartitions
- * @param topicPartitionOffsets
+ * @param topicPartitionOffsetsMap
  * @tparam K
  * @tparam V
  */
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
-    topicsAndPartitions: List[TopicPartition] = List(),
-    topicPartitionOffsets: List[TopicPartitionOffset] = List()
+    topicsAndPartitions: List[TopicPartition],
+    topicPartitionOffsetsMap: Map[TopicPartition, Long]
 ) {
 
   val closed: AtomicBoolean = new AtomicBoolean(false)
@@ -33,14 +34,9 @@ case class ReactiveKafkaConsumer[K, V](
       properties.valueDeserializer
     )
 
-    if (topicPartitionOffsets.nonEmpty) {
-      val topicPartitions = topicPartitionOffsets.map(tp => {
-        new TopicPartition(tp.topic, tp.partition)
-      })
-
-      c.assign(topicPartitions)
-
-      topicPartitionOffsets.foreach(tpo => c.seek(new TopicPartition(tpo.topic, tpo.partition), tpo.offset))
+    if (topicPartitionOffsetsMap.nonEmpty) {
+      c.assign(topicPartitionOffsetsMap.keys.toList)
+      topicPartitionOffsetsMap.foreach { case (tp, o) => c.seek(tp, o) }
     }
     else if (topicsAndPartitions.nonEmpty) {
       c.assign(topicsAndPartitions)
@@ -57,4 +53,30 @@ case class ReactiveKafkaConsumer[K, V](
     consumer.wakeup()
   }
 
+}
+
+object ReactiveKafkaConsumer {
+
+  def apply[K, V](properties: ConsumerProperties[K, V]): ReactiveKafkaConsumer[K, V] =
+    ReactiveKafkaConsumer(properties, List(), Map())
+
+  def apply[K, V](
+    properties: ConsumerProperties[K, V],
+    topicsAndPartitions: List[TopicPartition]
+  ): ReactiveKafkaConsumer[K, V] =
+    ReactiveKafkaConsumer(properties, topicsAndPartitions, Map())
+
+  // Java DSL - topicsAndPartitions
+  def apply[K, V](
+    properties: ConsumerProperties[K, V],
+    topicsAndPartitions: java.util.List[TopicPartition]
+  ): ReactiveKafkaConsumer[K, V] =
+    ReactiveKafkaConsumer(properties, topicsAndPartitions.asScala.toList)
+
+  // Java DSL - topicPartitionOffsetsMap
+  def apply[K, V](
+    properties: ConsumerProperties[K, V],
+    topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
+  ): ReactiveKafkaConsumer[K, V] =
+    ReactiveKafkaConsumer(properties, List(), topicPartitionOffsetsMap.asScala.toMap)
 }
