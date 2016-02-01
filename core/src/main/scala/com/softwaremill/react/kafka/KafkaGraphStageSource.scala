@@ -86,16 +86,13 @@ class KafkaGraphStageSource[K, V](
         if (offsetMapToFlush.nonEmpty) {
           try {
             consumer.commitSync(offsetMapToFlush.toCommitRequestInfo)
-            committedOffsetMap = OffsetMap(offsetMapToFlush.map)
-            logger.debug(s"committed offsets: $offsetMapToFlush")
+            committedOffsetMap = OffsetMap(partitionOffsetMap.map)
+            logger.debug(s"Committed offsets: $offsetMapToFlush")
           }
           catch {
             case ex: Exception =>
               logger.error(s"Manual commit failed for offsets: $offsetMapToFlush", ex)
               failStage(ex)
-          }
-          finally {
-            close()
           }
         }
       }

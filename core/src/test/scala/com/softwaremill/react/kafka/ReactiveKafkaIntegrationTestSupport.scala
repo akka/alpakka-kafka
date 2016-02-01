@@ -28,13 +28,13 @@ trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {
   def verifyQueueHas(msgs: Seq[String])(implicit f: FixtureParam) =
     awaitCond {
       val source = createSource(f, consumerProperties(f).noAutoCommit())
-      val buffer: ConcurrentLinkedQueue[String] = new ConcurrentLinkedQueue[String]()
+      var buffer = Seq.empty[String]
       source
         .map(_.value())
         .take(msgs.length.toLong)
-        .runWith(Sink.foreach(str => { buffer.add(str); () }))
+        .runWith(Sink.foreach(str => { buffer :+= str; () }))
       Thread.sleep(3000) // read messages into buffer
-      buffer.asScala.toSeq.sorted == msgs.sorted
+      buffer.sorted == msgs.sorted
     }
 
   def givenInitializedTopic()(implicit f: FixtureParam) = {
