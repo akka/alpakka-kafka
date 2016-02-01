@@ -47,7 +47,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     awaitCond {
       offsetCommitter.started
     }
-    ensureNever(offsetCommitter.totalFlushCount > 0)
+    verifyNever(offsetCommitter.totalFlushCount > 0)
   }
 
   it should "commit offset 0" in {
@@ -77,7 +77,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     actor ! msg(partition = 0, offset = 3L)
 
     // then
-    ensureNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).equals(Some(3L)))
+    verifyNever(offsetCommitter.lastCommittedOffsetFor(partition = 0).equals(Some(3L)))
   }
 
   it should "commit larger offset" in {
@@ -136,7 +136,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   }
 
   def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
-    ensureNever(offsetCommitter.flushCount((partition, offset)) != 1)
+    verifyNever(offsetCommitter.flushCount((partition, offset)) != 1)
   }
 
   def startCommitterActor(committerFactory: CommitterProvider, consumer: KafkaConsumer[String]) = {

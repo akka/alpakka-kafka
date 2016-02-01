@@ -3,8 +3,11 @@ package com.softwaremill.react.kafka
 import akka.actor.{ActorRef, Props, ActorSystem}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
+import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
+import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -36,6 +39,14 @@ trait KafkaTest extends BeforeAndAfterAll {
     ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder()).commitInterval(2 seconds)
   }
 
+  def createSource(f: FixtureParam): Source[KafkaMessage[String], Unit] = {
+    createSource(f, consumerProperties(f))
+  }
+
+  def createSource[V](f: FixtureParam, properties: ConsumerProperties[V]) = {
+    f.kafka.graphStageSource(properties)
+  }
+
   def createTestSubscriber(): ActorRef = {
     system.actorOf(Props(new ReactiveTestSubscriber))
   }
@@ -63,14 +74,14 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
   @tailrec
-  final def ensureNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
+  final def verifyNever(unexpectedCondition: => Boolean, start: Long = System.currentTimeMillis()): Unit = {
     val now = System.currentTimeMillis()
     if (start + 3000 >= now) {
       Thread.sleep(100)
       if (unexpectedCondition)
         fail("Assertion failed before timeout passed")
       else
-        ensureNever(unexpectedCondition, start)
+        verifyNever(unexpectedCondition, start)
     }
   }
 

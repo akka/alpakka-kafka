@@ -6,8 +6,11 @@
     </appender>
 
     <logger name="org.apache" level="WARN"/>
+    <logger name="kafka.producer.BrokerPartitionInfo" level="ERROR"/>
+    <logger name="kafka.producer.async.DefaultEventHandler" level="OFF"/>
+    <logger name="com.softwaremill" level="DEBUG"/>
 
-    <root level="WARN">
+    <root level="DEBUG">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
