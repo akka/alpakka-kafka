@@ -7,7 +7,7 @@ import org.testng.annotations.Test;
 import java.util.Properties;
 import java.util.UUID;
 
-import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 
 public class JavaProducerPropertiesTest {

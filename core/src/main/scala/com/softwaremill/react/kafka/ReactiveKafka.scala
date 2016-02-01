@@ -1,16 +1,17 @@
 package com.softwaremill.react.kafka
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
-import akka.stream.SourceShape
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.stage.GraphStage
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
 import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, KafkaSink, OffsetMap}
 import kafka.producer._
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
 import org.reactivestreams.{Publisher, Subscriber}
+
+import scalaj.collection.Imports._
 
 class ReactiveKafka {
 
@@ -95,15 +96,66 @@ class ReactiveKafka {
     Sink.fromGraph(new KafkaGraphStageSink(producer))
   }
 
-  def graphStageSource[K, V](props: ConsumerProperties[K, V]) = {
+  // Scala DSL - props
+  def graphStageSource[K, V](
+    props: ConsumerProperties[K, V]
+  ) = {
     val consumer = ReactiveKafkaConsumer(props)
     Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
+  // Scala DSL - props and topicsAndPartitions
+  def graphStageSource[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: Set[TopicPartition]
+  ) = {
+    val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions)
+    Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  // Scala DSL - props and topicPartitionOffsetsMap
+  def graphStageSource[K, V](
+    props: ConsumerProperties[K, V],
+    topicPartitionOffsetsMap: Map[TopicPartition, Long]
+  ) = {
+    val consumer = ReactiveKafkaConsumer(props, Set(), topicPartitionOffsetsMap)
+    Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  // Java DSL - props
+  def graphStageJavaSource[K, V](props: ConsumerProperties[K, V]) = {
+    val consumer = ReactiveKafkaConsumer(props)
+    akka.stream.javadsl.Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  // Java DSL - props and topicsAndPartitions
+  def graphStageJavaSource[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: java.util.Set[TopicPartition]
+  ) = {
+    val consumer = ReactiveKafkaConsumer(props, topicsAndPartitions)
+    akka.stream.javadsl.Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  // Java DSL - props and topicPartitionOffsetMap
+  def graphStageJavaSource[K, V](
+    props: ConsumerProperties[K, V],
+    topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
+  ) = {
+    val consumer = ReactiveKafkaConsumer(
+      props,
+      topicPartitionOffsetsMap
+    )
+    akka.stream.javadsl.Source.fromGraph(new KafkaGraphStageSource(consumer))
+  }
+
+  // Scala DSL
   def consumeWithOffsetSink[K, V](
-    props: ConsumerProperties[K, V]
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: Set[TopicPartition] = Set(),
+    topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
-    val actorWithConsumer = consumerActorWithConsumer(props.noAutoCommit(), ReactiveKafka.ConsumerDefaultDispatcher)
+    val actorWithConsumer = consumerActorWithConsumer(props.noAutoCommit(), ReactiveKafka.ConsumerDefaultDispatcher, topicsAndPartitions, topicPartitionOffsetsMap)
     PublisherWithCommitSink[K, V](
       ActorPublisher[ConsumerRecord[K, V]](
         actorWithConsumer.actor
@@ -113,15 +165,64 @@ class ReactiveKafka {
     )
   }
 
-  def sourceWithOffsetSink[K, V](
+  // Java DSL - props
+  def consumeWithOffsetSink[K, V](
     props: ConsumerProperties[K, V]
+  )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
+    consumeWithOffsetSink(props, Set(), Map())
+  }
+
+  // Java DSL - props and topicsAndPartitions
+  def consumeWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: java.util.Set[TopicPartition]
+  )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
+    consumeWithOffsetSink(props, topicsAndPartitions.asScala.toSet, Map())
+  }
+
+  // Java DSL - props and topicPartitionOffsetsMap
+  def consumeWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V],
+    topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
+  )(implicit actorSystem: ActorSystem): PublisherWithCommitSink[K, V] = {
+    consumeWithOffsetSink(props, Set(), topicPartitionOffsetsMap.asScala.toMap)
+  }
+
+  // Scala DSL
+  def sourceWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: Set[TopicPartition] = Set(),
+    topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   ): SourceWithCommitSink[K, V] = {
     val offsetMap = OffsetMap()
     val finalProperties: ConsumerProperties[K, V] = props.noAutoCommit()
     val offsetSink = Sink.fromGraph(new KafkaCommitterSink(finalProperties, offsetMap))
-    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties)
+    val consumer: ReactiveKafkaConsumer[K, V] = new ReactiveKafkaConsumer(finalProperties, topicsAndPartitions, topicPartitionOffsetsMap)
     val source = Source.fromGraph(new KafkaGraphStageSource(consumer, offsetMap))
     SourceWithCommitSink(source, offsetSink, consumer)
+  }
+
+  // Java DSL - props
+  def sourceWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V]
+  ): SourceWithCommitSink[K, V] = {
+    sourceWithOffsetSink(props, Set(), Map())
+  }
+
+  // Java DSL - props and partitionsAndTopics
+  def sourceWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: java.util.Set[TopicPartition]
+  ): SourceWithCommitSink[K, V] = {
+    sourceWithOffsetSink(props, topicsAndPartitions.asScala.toSet, Map())
+  }
+
+  // Java DSL - props and topicPartitionOffsetsMap
+  def sourceWithOffsetSink[K, V](
+    props: ConsumerProperties[K, V],
+    topicPartitionOffsetsMap: java.util.Map[TopicPartition, java.lang.Long]
+  ): SourceWithCommitSink[K, V] = {
+    sourceWithOffsetSink(props, Set(), topicPartitionOffsetsMap.asScala.toMap)
   }
 
   def consume[K, V](
@@ -144,19 +245,27 @@ class ReactiveKafka {
 
   private def consumerActorWithConsumer[K, V](
     props: ConsumerProperties[K, V],
-    dispatcher: String
+    dispatcher: String,
+    topicsAndPartitions: Set[TopicPartition] = Set(),
+    topicPartitionOffsetsMap: Map[TopicPartition, Long] = Map()
   )(implicit actorSystem: ActorSystem) = {
-    val propsWithConsumer = consumerActorPropsWithConsumer(props)
+    val propsWithConsumer = consumerActorPropsWithConsumer(props, topicsAndPartitions, topicPartitionOffsetsMap)
     val actor = actorSystem.actorOf(propsWithConsumer.actorProps.withDispatcher(dispatcher))
     ConsumerWithActor(propsWithConsumer.consumer, actor)
   }
 
-  private def consumerActorPropsWithConsumer[K, V](props: ConsumerProperties[K, V]) = {
-    val reactiveConsumer = ReactiveKafkaConsumer(props)
+  private def consumerActorPropsWithConsumer[K, V](
+    props: ConsumerProperties[K, V],
+    topicsAndPartitions: Set[TopicPartition] = Set(),
+    topicPartitionOffsetsMap: Map[TopicPartition, Long]
+  ) = {
+    val reactiveConsumer = ReactiveKafkaConsumer(props, topicsAndPartitions, topicPartitionOffsetsMap)
     ConsumerWithActorProps(reactiveConsumer, Props(new KafkaActorPublisher(reactiveConsumer)))
   }
 
-  def consumerActorProps[K, V](props: ConsumerProperties[K, V]) = {
+  def consumerActorProps[K, V](
+    props: ConsumerProperties[K, V]
+  ) = {
     val reactiveConsumer = ReactiveKafkaConsumer(props)
     Props(new KafkaActorPublisher(reactiveConsumer))
   }
@@ -184,13 +293,6 @@ case class PublisherWithCommitSink[K, V](
     publisherActor ! KafkaActorPublisher.Stop
     kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
   }
-}
-
-case class GraphStageSourceWithCommitSink[K, V](
-    sourceStage: GraphStage[SourceShape[ConsumerRecord[K, V]]],
-    kafkaOffsetCommitSink: KafkaSink[ConsumerRecord[K, V]]
-) {
-  def offsetCommitSink = kafkaOffsetCommitSink.sink
 }
 
 private[kafka] case class ConsumerWithActorProps[K, V](consumer: ReactiveKafkaConsumer[K, V], actorProps: Props)

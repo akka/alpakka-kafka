@@ -23,7 +23,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
 
   implicit val timeout = Timeout(1 second)
 
-  def parititonizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
+  def partitionizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
   "Reactive kafka streams" must {
     "publish and consume" in { implicit f =>
@@ -73,7 +73,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         .run()
 
       Thread.sleep(5000) // wait for flush
-      consumerWithSink.underlyingConsumer.consumer.close()
+      consumerWithSink.underlyingConsumer.close()
       Thread.sleep(3000) // wait for consumer to close
 
       // then
