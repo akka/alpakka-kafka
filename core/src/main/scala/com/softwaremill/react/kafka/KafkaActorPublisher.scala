@@ -19,11 +19,9 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
   var closed = false
 
   override def receive = {
-    case ActorPublisherMessage.Request(_) | Poll => readDemandedItems()
-    case ActorPublisherMessage.Cancel | ActorPublisherMessage.SubscriptionTimeoutExceeded =>
-      cleanupResources()
-      context.stop(self)
-    case CommitOffsets(offsets) => if (!closed) runCommit(offsets)
+    case ActorPublisherMessage.Request(_) | Poll if isActive => readDemandedItems()
+    case ActorPublisherMessage.SubscriptionTimeoutExceeded => context.stop(self)
+    case CommitOffsets(offsets) => if (isActive && !closed) runCommit(offsets)
   }
 
   private def getIterator(): Iterator[ConsumerRecord[K, V]] = {
@@ -45,9 +43,7 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
       sender() ! CommitAck
     }
     catch {
-      case ex: Exception =>
-        cleanupResources()
-        onErrorThenStop(ex)
+      case ex: Exception => onErrorThenStop(ex)
     }
   }
 
@@ -63,7 +59,8 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
             onNext(record)
           }
           buffer = None
-          if (demand_?) { // nothing more in iterator but still some demand
+          if (demand_?) {
+            // nothing more in iterator but still some demand
             readDemandedItems()
           }
           else if (iterator.hasNext) {
@@ -71,9 +68,7 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
             buffer = Some(iterator)
           }
         }
-      case Failure(ex) =>
-        cleanupResources()
-        onErrorThenStop(ex)
+      case Failure(ex) => onErrorThenStop(ex)
     }
   }
 
@@ -86,16 +81,16 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
     }
   }
 
-  override def aroundPostStop(): Unit = {
+  override def postStop() = {
     cleanupResources()
-    super.aroundPostStop()
   }
 }
 
-private[kafka] object KafkaActorPublisher {
-  case object Poll
+object KafkaActorPublisher {
+  private[kafka] case object Poll
   case class CommitOffsets(offsets: OffsetMap)
   case class CommitAck(offsets: OffsetMap)
+  case object Stop
 }
 
 object KafkaMessages {

@@ -181,7 +181,7 @@ case class PublisherWithCommitSink[K, V](
   def offsetCommitSink = kafkaOffsetCommitSink.sink
 
   def cancel(): Unit = {
-    publisherActor ! Cancel
+    publisherActor ! KafkaActorPublisher.Stop
     kafkaOffsetCommitSink.underlyingCommitterActor ! PoisonPill
   }
 }
