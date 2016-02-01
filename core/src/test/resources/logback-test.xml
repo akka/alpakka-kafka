@@ -10,7 +10,7 @@
     <logger name="kafka.producer.async.DefaultEventHandler" level="OFF"/>
     <logger name="com.softwaremill" level="DEBUG"/>
 
-    <root level="DEBUG">
+    <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
