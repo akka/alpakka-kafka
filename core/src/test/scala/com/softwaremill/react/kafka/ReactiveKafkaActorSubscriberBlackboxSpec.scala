@@ -11,7 +11,7 @@ import org.scalatest.testng.TestNGSuiteLike
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
+class ReactiveKafkaActorSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
     extends SubscriberBlackboxVerification[String](new TestEnvironment(defaultTimeout.toMillis))
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase {
 
@@ -22,8 +22,7 @@ class ReactiveKafkaSubscriberBlackboxSpec(defaultTimeout: FiniteDuration)
   override def createSubscriber(): Subscriber[String] = {
     val topic = UUID.randomUUID().toString
     val partitionizerProvider: (String) => Option[Array[Byte]] = partitionizer
-    val properties = ProducerProperties(kafkaHost, topic, "group", new StringEncoder(), partitionizerProvider)
-    Source.asSubscriber.to(Sink.fromGraph(kafka.graphStageSink(properties))).run()
+    kafka.publish(ProducerProperties(kafkaHost, topic, "group", new StringEncoder(), partitionizerProvider))
   }
 
   def createHelperSource(elements: Long): Source[String, _] = elements match {

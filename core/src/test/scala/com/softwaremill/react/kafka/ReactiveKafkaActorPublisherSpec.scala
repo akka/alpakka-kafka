@@ -2,7 +2,6 @@ package com.softwaremill.react.kafka
 
 import java.util.UUID
 
-import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.StringDecoder
 import ly.stealth.testing.BaseSpec
@@ -14,7 +13,7 @@ import org.scalatest.testng.TestNGSuiteLike
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
+class ReactiveKafkaActorPublisherSpec(defaultTimeout: FiniteDuration)
     extends PublisherVerification[StringKafkaMessage](new TestEnvironment(defaultTimeout.toMillis), defaultTimeout.toMillis)
     with TestNGSuiteLike with ReactiveStreamsTckVerificationBase with BaseSpec {
 
@@ -39,11 +38,7 @@ class ReactiveKafkaPublisherSpec(defaultTimeout: FiniteDuration)
     (1L to realSize) foreach { number =>
       lowLevelProducer.send(record)
     }
-    val props = ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder())
-    val src = kafka.graphStageSource(props)
-    val c = Source.fromGraph(src).runWith(Sink.asPublisher(fanout = false))
-    lowLevelProducer.close()
-    c
+    kafka.consume(ConsumerProperties(kafkaHost, zkHost, topic, group, new StringDecoder()))
   }
 
   override def createFailedPublisher(): Publisher[StringKafkaMessage] = {
