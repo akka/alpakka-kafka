@@ -87,7 +87,7 @@ class KafkaCommitterSink(committerFactory: CommitterProvider, kafkaConsumer: Kaf
           logger.debug(s"committed offsets: $resultOffsetMap")
           // We got the offset of the first unfetched message, and we want the
           // offset of the last fetched message
-          committedOffsetMap = OffsetMap(resultOffsetMap.map.mapValues(_ - 1))
+          committedOffsetMap = OffsetMap(committedOffsetMap.map ++ resultOffsetMap.map.mapValues(_ - 1))
         case scala.util.Failure(ex) =>
           logger.error("Failed to commit offsets", ex)
           committer.tryRestart() match {
