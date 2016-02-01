@@ -19,8 +19,8 @@ private[kafka] object CommitSink {
   }
 
   def createGraphBased[T](
-                         kafkaConsumer: KafkaConsumer[T]
-                         ) = {
+    kafkaConsumer: KafkaConsumer[T]
+  ) = {
     Sink.fromGraph(new KafkaCommitterSink(new CommitterProvider(), kafkaConsumer))
   }
 }

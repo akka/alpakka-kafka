@@ -5,7 +5,7 @@ import akka.stream.{Attributes, Inlet, SinkShape}
 import kafka.producer.KafkaProducer
 
 class KafkaGraphStageSink[T](
-  val producer: KafkaProducer[T],
+    val producer: KafkaProducer[T],
     props: ProducerProperties[T]
 ) extends GraphStage[SinkShape[T]] {
 

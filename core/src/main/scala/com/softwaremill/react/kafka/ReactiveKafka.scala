@@ -176,10 +176,10 @@ case class PublisherWithCommitSink[T](
   }
 }
 case class SourceWithCommitSink[T](
-                                       source: Source[KafkaMessage[T], Unit],
-                                       offsetCommitSink: Sink[KafkaMessage[T], Unit],
-                                       underlyingConsumer: KafkaConsumer[T]
-                                     )
+  source: Source[KafkaMessage[T], Unit],
+  offsetCommitSink: Sink[KafkaMessage[T], Unit],
+  underlyingConsumer: KafkaConsumer[T]
+)
 
 private[kafka] case class ConsumerWithActorProps[T](consumer: KafkaConsumer[T], actorProps: Props)
 private[kafka] case class ConsumerWithActor[T](consumer: KafkaConsumer[T], actor: ActorRef)
