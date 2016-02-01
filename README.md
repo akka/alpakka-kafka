@@ -209,7 +209,7 @@ class Handler extends Actor {
 ```
 #### Cleaning up
 If you want to manually stop a publisher or a subscriber, you have to send an appropriate message to the underlying
-actor. `KafkaActorPublisher` must receive a `ActorPublisherMessage.Cancel`, where `KafkaActorSubscriber` must receive a `ActorSubscriberMessage.OnComplete`.  
+actor. `KafkaActorPublisher` must receive a `KafkaActorPublisher.Stop`, where `KafkaActorSubscriber` must receive a `ActorSubscriberMessage.OnComplete`.
 If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consumeWithOffsetSink()`, you must call its 
 `cancel()` method in order to gracefully close all underlying resources.
 
