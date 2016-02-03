@@ -34,9 +34,9 @@ class KafkaGraphStageSource[K, V](
       var buffer: Option[java.util.Iterator[ConsumerRecord[K, V]]] = None
       var closed = false
 
-      override def afterPostStop(): Unit = {
+      override def postStop(): Unit = {
         close()
-        super.afterPostStop()
+        super.postStop()
       }
 
       override protected def onTimer(timerKey: Any): Unit = {
@@ -46,7 +46,7 @@ class KafkaGraphStageSource[K, V](
           performManualCommit()
       }
 
-      override def beforePreStart(): Unit = {
+      override def preStart(): Unit = {
         if (consumerAndProps.properties.hasManualCommit)
           scheduleManualCommit()
         super.beforePreStart()
@@ -74,28 +74,24 @@ class KafkaGraphStageSource[K, V](
               else buffer = None
             }
             else scheduleOnce(TimerPollKey, pollRetryDelayMs)
-          case Failure(ex) =>
-            close()
-            fail(out, ex)
+          case Failure(ex) => fail(out, ex)
         }
       }
 
       def performManualCommit(): Unit = {
-        logger.debug(s"Flushing offsets to commit. Registered offsets: $partitionOffsetMap vs $committedOffsetMap")
-        val offsetMapToFlush = partitionOffsetMap.diff(committedOffsetMap)
+        val partitionOffsetMapCopy = partitionOffsetMap.copy()
+        logger.debug(s"Flushing offsets to commit. Registered offsets: $partitionOffsetMapCopy vs $committedOffsetMap")
+        val offsetMapToFlush = partitionOffsetMapCopy.diff(committedOffsetMap)
         if (offsetMapToFlush.nonEmpty) {
           try {
             consumer.commitSync(offsetMapToFlush.toCommitRequestInfo)
-            committedOffsetMap = OffsetMap(offsetMapToFlush.map)
-            logger.debug(s"committed offsets: $offsetMapToFlush")
+            committedOffsetMap = partitionOffsetMapCopy
+            logger.debug(s"Committed offsets: $offsetMapToFlush")
           }
           catch {
             case ex: Exception =>
               logger.error(s"Manual commit failed for offsets: $offsetMapToFlush", ex)
               failStage(ex)
-          }
-          finally {
-            close()
           }
         }
       }
