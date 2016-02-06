@@ -131,9 +131,9 @@ Since we are based upon akka-stream, the best way to handle errors is to leverag
 management capabilities. Producers and consumers are in fact actors. 
 
 #### Obtaining actor references
-`ReactiveKafka` comes with a few methods allowing working on the actor level. You can let it create Props to let your 
-own supervisor create these actor as children, or you can  directly create actors at the top level of supervision. 
-Here are a some examples:  
+`ReactiveKafka` comes with a few methods allowing working on the actor level. You can let it create `Props` to let your 
+own supervisor create these actors as children, or you can  directly create actors at the top level of supervision. 
+Here are some examples:  
 
 ```Scala
 import akka.actor.{Props, ActorRef, Actor, ActorSystem}
@@ -170,10 +170,10 @@ val topLevelSubscriberActor: ActorRef = kafka.producerActor(producerProperties)
 ```
 
 #### Handling errors
-When a consumer or a producer fail to read/write from Kafka, the error is unrecoverable and it requires that
-the connection get terminated. This will be performed automatically and the KafkaActorSubscriber / KafkaActorPublisher
-which failed will be stopped. You can use DeathWatch to detect such failures in order to restart your stream.
-Additionally, when a producer fails, it will signal `onError()` to its inputs in order to stop the rest of stream 
+When a consumer or a producer fails to read/write from Kafka, the error is unrecoverable and requires that
+the connection be terminated. This will be performed automatically and the `KafkaActorSubscriber` / `KafkaActorPublisher`
+which failed will be stopped. You can use `DeathWatch` to detect such failures in order to restart your stream.
+Additionally, when a producer fails, it will signal `onError()` to its inputs <!-- "inputs"? You mean it signals its failure upstream, is this true? Maybe other wording for people like me to get it? :) AKa060216 --> to stop the rest of stream 
 graph elements.
 
 Example of monitoring routine:
@@ -209,12 +209,12 @@ class Handler extends Actor {
 ```
 #### Cleaning up
 If you want to manually stop a publisher or a subscriber, you have to send an appropriate message to the underlying
-actor. `KafkaActorPublisher` must receive a `KafkaActorPublisher.Stop`, where `KafkaActorSubscriber` must receive a `ActorSubscriberMessage.OnComplete`.
+actor. `KafkaActorPublisher` must receive a `KafkaActorPublisher.Stop`, whereas `KafkaActorSubscriber` must receive a `ActorSubscriberMessage.OnComplete`.
 If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consumeWithOffsetSink()`, you must call its 
 `cancel()` method in order to gracefully close all underlying resources.
 
 #### Manual Commit (version 0.8 and above)
-In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when
+In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when <!-- "when"?? -->
 you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed. 
 Example:  
 
@@ -246,13 +246,27 @@ Source.fromPublisher(consumerWithOffsetSink.publisher)
 Tuning
 ----
 
-KafkaActorSubscriber and KafkaActorPublisher have their own thread pools, configured in `reference.conf`.
+`KafkaActorSubscriber` and `KafkaActorPublisher` have their own thread pools, configured in `reference.conf`.
 You can tune them by overriding `kafka-publisher-dispatcher.thread-pool-executor` and
 `kafka-subscriber-dispatcher.thread-pool-executor` in your `application.conf` file.  
-Alternatively you can provide your own dispatcher name. It can be passed to appropriate variants of factory methods in
+Alternatively, you can provide your own dispatcher name. It can be passed to appropriate variants of factory methods in
 `ReactiveKafka`: `publish()`, `producerActor()`, `producerActorProps()` or `consume()`, `consumerActor()`, `consumerActorProps()`.
 
 Testing
 ----
-Tests require Apache Kafka and Zookeeper to be available on localhost:9092 and localhost:2181
+Tests require Apache Kafka and Zookeeper to be available on `localhost:9092` and `localhost:2181`
 
+<!-- I'd start with the tests. We often want to just run tests as the first thing when looking at an open source
+project, to see if it's stable. This also tests the instructions - if the tests fail for us, and there's no indication
+on system requirements, the instructions are not that great. Will help you with this. AKa060216
+
+Suggested order for the README:
+
+- project scope / purpose (is already there)
+- Getting Started (new, includes requirements, how to run tests)
+- Using (includes lines to add in `build.sbt`)
+- Passing Configuration Properties to Kafka (as now)
+- Controlling consumer start offset (as now)
+- Working with actors (as now)
+- Tuning (as now; could be called Configuration?)
+-->
