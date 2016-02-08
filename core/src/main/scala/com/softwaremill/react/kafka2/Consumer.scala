@@ -19,8 +19,8 @@ object Consumer {
     Map(new TopicPartition(msg.topic(), msg.partition()) -> new OffsetAndMetadata(msg.offset()))
   }
 
-  def manual[K, V](provider: ConsumerProvider[K, V]) = new ManualCommitConsumer(provider)
-  def manualSource[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+  def apply[K, V](provider: ConsumerProvider[K, V]) = new ManualCommitConsumer(provider)
+  def source[K, V](consumerProvider: ConsumerProvider[K, V]) = {
     Source.fromGraph(
       GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
         import GraphDSL.Implicits._

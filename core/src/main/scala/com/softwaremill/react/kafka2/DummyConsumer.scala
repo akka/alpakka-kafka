@@ -7,7 +7,6 @@ import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
-import scala.concurrent.Await
 import scala.util.Failure
 
 object Streams {
@@ -37,7 +36,7 @@ object DummyConsumer extends App with LazyLogging {
     .autoCommit(false)
     .prop("auto.offset.reset", "earliest")
 
-  val graph = GraphDSL.create(Consumer.manual[Array[Byte], String](provider)) { implicit b => kafka =>
+  val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
     import GraphDSL.Implicits._
     type In = ConsumerRecord[Array[Byte], String]
     val dummyProcessor = Flow[In].map{ x => Thread.sleep(1000); x }

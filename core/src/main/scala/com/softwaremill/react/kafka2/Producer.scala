@@ -16,11 +16,11 @@ import scala.util.{Failure, Success}
 object Producer {
   def value2record[V](topic: String) = Flow[V].map(new ProducerRecord[Array[Byte], V](topic, _))
 
-  def send[K, V](producerProvider: () => KafkaProducer[K, V]) = {
+  def apply[K, V](producerProvider: () => KafkaProducer[K, V]) = {
     Flow.fromGraph(new ProducerSendFlowStage(producerProvider))
   }
   def sink[K, V](producerProvider: () => KafkaProducer[K, V]) = {
-    send(producerProvider).to(Sink.ignore)
+    apply(producerProvider).to(Sink.ignore)
   }
 }
 
