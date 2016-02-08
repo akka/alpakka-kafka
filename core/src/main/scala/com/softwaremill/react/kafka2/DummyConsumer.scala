@@ -15,10 +15,10 @@ object Streams {
     case Failure(ex) =>
       println("Stream finished with error")
       ex.printStackTrace()
-      as.terminate()
+      as.shutdown()
     case _ =>
       println("Stream finished successfully")
-      as.terminate()
+      as.shutdown()
   }
 }
 
@@ -32,17 +32,17 @@ object DummyConsumer extends App with LazyLogging {
   )
 
   val provider = ConsumerProvider("localhost:9092", new ByteArrayDeserializer, new StringDeserializer)
-    .topic("dummy")
+    .setup(TopicSubscription("dummy"))
     .groupId("c5")
     .autoCommit(false)
     .prop("auto.offset.reset", "earliest")
 
-  val graph = GraphDSL.create(new ManualCommitConsumer[Array[Byte], String](provider)) { implicit b => kafka =>
+  val graph = GraphDSL.create(Consumer.manual[Array[Byte], String](provider)) { implicit b => kafka =>
     import GraphDSL.Implicits._
     type In = ConsumerRecord[Array[Byte], String]
     val dummyProcessor = Flow[In].map{ x => Thread.sleep(1000); x }
 
-    kafka.messages ~> dummyProcessor ~> Consumer.commitFromRecord ~> kafka.commit
+    kafka.messages ~> dummyProcessor ~> Consumer.record2commit ~> kafka.commit
     SourceShape(kafka.confirmation)
   }
 
@@ -57,7 +57,7 @@ object DummyConsumer extends App with LazyLogging {
     control.stop()
 
     println("Waiting for stop!")
-    Await.ready(as.whenTerminated, 30 seconds)
+    as.awaitTermination(30.seconds)
     println("AS stopped!")
   }
 }

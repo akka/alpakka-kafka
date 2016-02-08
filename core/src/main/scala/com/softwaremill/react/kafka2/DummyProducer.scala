@@ -21,8 +21,8 @@ object DummyProducer extends App {
   Source
     .fromIterator(() => (1 to 10000).iterator)
     .map(_.toString)
-    .via(ProducerFlows.record("dummy"))
-    .via(ProducerFlows.send(producer))
+    .via(Producer.value2record("dummy"))
+    .via(Producer.send(producer))
     .mapAsync(1)(identity)
     .to(Streams.shutdownAsOnComplete)
     .run()
