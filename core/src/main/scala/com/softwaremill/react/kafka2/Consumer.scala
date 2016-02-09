@@ -30,6 +30,15 @@ object Consumer {
       }
     )
   }
+  def flow[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+    Flow.fromGraph(
+      GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
+        import GraphDSL.Implicits._
+        consumer.confirmation ~> Sink.ignore
+        FlowShape(consumer.commit, consumer.messages)
+      }
+    )
+  }
 }
 
 object ManualCommitConsumer {
