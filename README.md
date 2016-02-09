@@ -174,7 +174,6 @@ When a consumer or a producer fails to read/write from Kafka, the error is unrec
 the connection be terminated. This will be performed automatically and the `KafkaActorSubscriber` / `KafkaActorPublisher`
 which failed will be stopped. You can use `DeathWatch` to detect such failures in order to restart your stream.
 Additionally, when a producer fails, it will signal `onError()` to stop the rest of stream.
-<!-- btw. Isn't that obvious - does it even need to be mentioned? AKa090216 -->
 
 Example of monitoring routine:
 ```Scala
