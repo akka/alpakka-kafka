@@ -55,7 +55,6 @@ If you do not care about offset commit at all you may represent consumer as a me
 
 ![Consumer source shape](./Consumer-source.png)
 
-
 # Producer #
 
 Producer represents a process of message publishing to kafka and getting confirmation of this publication.
@@ -70,4 +69,43 @@ If you do not care about confirmation you can use producer as `Sink` and create 
 
 To complete producer just complete it `In`.
 
+# Consumer and producer providers
 
+To use producer and consumer in akka streams you should pass an information how to create kafka's producer/consumer.
+You can not pass it directly, because shapes and graphs should be reusable and kafka's producer/consumer are not thread safe.
+
+Reactive kafka provides an API to pass information how to create consumer/producer. On shapes level it is just `() => Producer` and `() => Consumer`. On user level it is an API
+which allows you to stack setup aspects
+
+## Consumer provider ##
+Here it is an example of consumer provider usage:
+```scala
+val consumerProvider =
+    ConsumerProvider("localhost:9092", new ByteArrayDeserializer, new StringDeserializer) //1
+    .setup(TopicSubscription("someTopic")) //2
+    .groupId("myGroup") //3
+    .autoCommit(false) //4
+    .prop("auto.offset.reset", "earliest") //5
+
+val consumer = consumerProvider.apply() //6
+```
+
+1. You should pass kafka server/port and deserializer to create basic consumer.
+2. There are several ways to setup a consumer offset. You can subscribe to topic/topics with `TopicSubscription` by passing some topics. Also you can manually set topics partitions and they offsets with `ManualOffset`, or left it "as is" with `NoSetup`.
+3. Set group id
+4. Set autocommit
+5. Set any other property
+6. Create an instance of a kafka consumer
+
+## Producer provider ##
+
+Here it is an example of producer provider usage:
+```scala
+val producerProvider = ProducerProvider[Array[Byte], String](
+    "localhost:9092",
+    new ByteArraySerializer(),
+    new StringSerializer()
+).props("some.props", "value")
+
+val producer = producerProvider.apply()
+```
