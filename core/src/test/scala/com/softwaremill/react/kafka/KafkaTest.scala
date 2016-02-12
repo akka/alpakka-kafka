@@ -24,7 +24,6 @@ trait KafkaTest extends BeforeAndAfterAll {
   def defaultWatermarkStrategy = () => WatermarkRequestStrategy(10)
 
   val kafkaHost = "localhost:9092"
-  val zkHost = "localhost:2181"
   val serializer = new StringSerializer()
   val kafka = new ReactiveKafka()
 
