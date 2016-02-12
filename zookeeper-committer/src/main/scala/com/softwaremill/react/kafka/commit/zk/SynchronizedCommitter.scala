@@ -7,7 +7,7 @@ import kafka.common.TopicAndPartition
  */
 private[zk] trait SynchronizedCommitter {
   def getPartitionLock(topicPartition: TopicAndPartition): PartitionLock
-  def withPartitionLocks[T](partitions: Iterable[TopicAndPartition])(callback: => T): T = {
+  def withPartitionLocks[T](partitions: Seq[TopicAndPartition])(callback: => T): T = {
     val locks = partitions.map(getPartitionLock)
     try {
       locks.foreach(_.acquire())

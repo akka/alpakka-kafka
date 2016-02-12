@@ -65,7 +65,7 @@ class ZookeeperOffsetCommitter(group: String, zk: CuratorFramework) extends Offs
   override def commit(offsetMap: OffsetMap): Try[OffsetMap] = {
     val merge: OffsetMerge = { case (theirs, ours) => ours }
     val offsets = offsetMap.map
-    withPartitionLocks(offsets.keys) {
+    withPartitionLocks(offsets.keys.toSeq.sortBy(_.toString)) {
       val zkOffsets = getOffsets(offsets.keys)
       val nextOffsets = merge(zkOffsets, offsets) map {
         case (topicPartition, offset) =>
