@@ -1,5 +1,6 @@
 package com.softwaremill.react.kafka
 
+import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
@@ -176,8 +177,8 @@ case class PublisherWithCommitSink[T](
   }
 }
 case class SourceWithCommitSink[T](
-  source: Source[KafkaMessage[T], Unit],
-  offsetCommitSink: Sink[KafkaMessage[T], Unit],
+  source: Source[KafkaMessage[T], NotUsed],
+  offsetCommitSink: Sink[KafkaMessage[T], NotUsed],
   underlyingConsumer: KafkaConsumer[T]
 )
 

@@ -2,14 +2,12 @@ package examples
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
-import akka.stream.{ActorAttributes, Supervision}
-import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ConsumerProperties
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import kafka.serializer.{StringDecoder, StringEncoder}
 import org.reactivestreams.{Publisher, Subscriber}
+
 import scala.language.postfixOps
-import scala.concurrent.duration._
 /**
  * Code samples for the documentation.
  */
@@ -41,12 +39,13 @@ object examples {
 
     Source.fromPublisher(publisher).map(_.message().toUpperCase)
       .to(Sink.fromSubscriber(subscriber)).run()
+    ()
   }
 
   def handling(): Unit = {
-    import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+    import akka.actor.{Actor, Props}
     import akka.stream.ActorMaterializer
-    import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
+    import com.softwaremill.react.kafka.{ProducerProperties, ReactiveKafka}
 
     class Handler extends Actor {
       implicit val materializer = ActorMaterializer()
@@ -92,11 +91,12 @@ object examples {
   }
 
   def manualCommit() = {
-    import scala.concurrent.duration._
     import akka.actor.ActorSystem
     import akka.stream.ActorMaterializer
     import akka.stream.scaladsl.Source
     import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
+
+    import scala.concurrent.duration._
 
     implicit val actorSystem = ActorSystem("ReactiveKafka")
     implicit val materializer = ActorMaterializer()
