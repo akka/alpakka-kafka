@@ -1,7 +1,7 @@
 package com.softwaremill.react.kafka
 
+import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
-import akka.stream.actor.ActorPublisherMessage.Cancel
 import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
@@ -277,8 +277,8 @@ object ReactiveKafka {
 }
 
 case class SourceWithCommitSink[K, V](
-  source: Source[ConsumerRecord[K, V], Unit],
-  offsetCommitSink: Sink[ConsumerRecord[K, V], Unit],
+  source: Source[ConsumerRecord[K, V], NotUsed],
+  offsetCommitSink: Sink[ConsumerRecord[K, V], NotUsed],
   underlyingConsumer: ReactiveKafkaConsumer[K, V]
 )
 

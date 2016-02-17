@@ -1,11 +1,10 @@
 package examples
 
-import akka.actor.SupervisorStrategy.Resume
-import akka.actor.{Terminated, OneForOneStrategy, SupervisorStrategy}
-import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties}
+import akka.NotUsed
 import com.softwaremill.react.kafka.KafkaMessages._
-import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
-import org.reactivestreams.{Publisher, Subscriber}
+import com.softwaremill.react.kafka.{ConsumerProperties, ProducerMessage}
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+
 import scala.language.postfixOps
 
 /**
@@ -24,19 +23,20 @@ object examples {
     implicit val materializer = ActorMaterializer()
 
     val kafka = new ReactiveKafka()
-    val source: Source[StringConsumerRecord, Unit] = kafka.graphStageSource(ConsumerProperties(
+    val source: Source[StringConsumerRecord, NotUsed] = kafka.graphStageSource(ConsumerProperties(
       bootstrapServers = "localhost:9092",
       topic = "lowercaseStrings",
       groupId = "groupName",
       valueDeserializer = new StringDeserializer()
     ))
-    val sink: Sink[StringProducerMessage, Unit] = kafka.graphStageSink(ProducerProperties(
+    val sink: Sink[StringProducerMessage, NotUsed] = kafka.graphStageSink(ProducerProperties(
       bootstrapServers = "localhost:9092",
       topic = "uppercaseStrings",
       valueSerializer = new StringSerializer()
     ))
 
     source.map(m => ProducerMessage(m.value().toUpperCase)).to(sink).run()
+    ()
   }
 
   def consumerProperties() = {
@@ -55,11 +55,11 @@ object examples {
   }
 
   def manualCommit() = {
-    import scala.concurrent.duration._
     import akka.actor.ActorSystem
     import akka.stream.ActorMaterializer
-    import akka.stream.scaladsl.Source
     import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
+
+    import scala.concurrent.duration._
 
     implicit val actorSystem = ActorSystem("ReactiveKafka")
     implicit val materializer = ActorMaterializer()

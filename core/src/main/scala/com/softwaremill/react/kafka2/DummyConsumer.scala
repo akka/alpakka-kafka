@@ -1,12 +1,13 @@
 package com.softwaremill.react.kafka2
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Flow, GraphDSL, Source}
+import akka.stream.scaladsl.{Flow, GraphDSL, Sink, Source}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, SourceShape}
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
+import scala.concurrent.Await
 import scala.util.Failure
 
 object Streams {
@@ -14,13 +15,14 @@ object Streams {
     case Failure(ex) =>
       println("Stream finished with error")
       ex.printStackTrace()
-      as.shutdown()
+      as.terminate()
+      println("Terminate AS.")
     case _ =>
       println("Stream finished successfully")
-      as.shutdown()
+      as.terminate()
+      println("Terminate AS.")
   }
 }
-
 
 object DummyConsumer extends App with LazyLogging {
   implicit val as = ActorSystem()
@@ -52,11 +54,11 @@ object DummyConsumer extends App with LazyLogging {
       .run()
 
   sys.addShutdownHook {
-    import scala.concurrent.duration._
     control.stop()
 
     println("Waiting for stop!")
-    as.awaitTermination(30.seconds)
+    import scala.concurrent.duration._
+    Await.result(as.whenTerminated, 30.seconds)
     println("AS stopped!")
   }
 }

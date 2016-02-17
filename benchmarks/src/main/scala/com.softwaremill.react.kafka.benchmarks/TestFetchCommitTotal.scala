@@ -2,14 +2,16 @@ package com.softwaremill.react.kafka.benchmarks
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.{ClosedShape, Materializer}
 import akka.stream.scaladsl._
 import com.softwaremill.react.kafka.ReactiveKafkaConsumer
 import com.softwaremill.react.kafka.benchmarks.ReactiveKafkaBenchmark._
 import org.apache.kafka.clients.consumer.ConsumerRecord
+
 import scala.language.{existentials, postfixOps}
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
  * Establishes a stream with source reading from Kafka (up to given number of elements). Also tests a sink that
@@ -19,11 +21,11 @@ class TestFetchCommitTotal(
     f: Fixture,
     val elemCount: Long,
     val name: String,
-    provideSource: Fixture => (SourceType, ReactiveKafkaConsumer[_, _], Sink[ConsumerRecord[String, String], Unit])
+    provideSource: Fixture => (SourceType, ReactiveKafkaConsumer[String, String], Sink[ConsumerRecord[String, String], NotUsed])
 )(implicit m: Materializer) extends ReactiveKafkaPerfTest with QueuePreparations {
 
-  var sourceOpt: Option[Source[ConsumerRecord[String, String], Unit]] = None
-  var commitSinkOpt: Option[Sink[ConsumerRecord[String, String], Unit]] = None
+  var sourceOpt: Option[Source[ConsumerRecord[String, String], NotUsed]] = None
+  var commitSinkOpt: Option[Sink[ConsumerRecord[String, String], NotUsed]] = None
   var consumerOpt: Option[ReactiveKafkaConsumer[_, _]] = None
   val bufferCheckTickMs = 100L
   val testTimeoutMs = 60000L
@@ -32,7 +34,7 @@ class TestFetchCommitTotal(
     val msgs = List.fill(elemCount.toInt)("message")
     givenQueueWithElements(msgs, f)
     val (src, consumer, commitSink) = provideSource(f)
-    sourceOpt = Some(src)
+    sourceOpt = Option(src)
     consumerOpt = Some(consumer)
     commitSinkOpt = Some(commitSink)
   }
@@ -43,7 +45,7 @@ class TestFetchCommitTotal(
       sink <- commitSinkOpt
     } yield {
       val buffer: ConcurrentLinkedQueue[String] = new ConcurrentLinkedQueue[String]()
-      val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
         import GraphDSL.Implicits._
 
         val in = source
