@@ -2,6 +2,7 @@ package com.softwaremill.react.kafka.benchmarks
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -24,7 +25,7 @@ class TestFetchTotal(
 
   val bufferCheckTickMs = 100L
   val testTimeoutMs = 60000L
-  var sourceOpt: Option[Source[ConsumerRecord[String, String], Unit]] = None
+  var sourceOpt: Option[Source[ConsumerRecord[String, String], NotUsed]] = None
   var consumerOpt: Option[ReactiveKafkaConsumer[_, _]] = None
 
   override def warmup(): Unit = {

@@ -1,11 +1,8 @@
-import SonatypeKeys._
-
-import scalariform.formatter.preferences.{SpacesAroundMultiImports, CompactControlReadability, PreserveSpaceBeforeArguments, DoubleIndentClassDeclaration}
+import scalariform.formatter.preferences.{CompactControlReadability, DoubleIndentClassDeclaration, PreserveSpaceBeforeArguments, SpacesAroundMultiImports}
 
 name := "reactive-kafka"
 
-val akkaVersion = "2.3.14"
-val akkaStreamVersion = "2.0.2"
+val akkaVersion = "2.4.2"
 val kafkaVersion = "0.9.0.0"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -15,8 +12,7 @@ val commonDependencies = Seq(
 )
 
 val coreDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion,
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
@@ -26,7 +22,7 @@ val coreDependencies = Seq(
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
-  "com.typesafe.akka" %% "akka-stream-testkit-experimental" % akkaStreamVersion % "test",
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test"
 )

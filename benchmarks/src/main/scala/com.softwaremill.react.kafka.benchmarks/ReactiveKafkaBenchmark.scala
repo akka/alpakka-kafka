@@ -2,11 +2,13 @@ package com.softwaremill.react.kafka.benchmarks
 
 import java.util.UUID
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
+import scala.concurrent.Await
 import scala.language.{existentials, postfixOps}
 
 case class Fixture(host: String, topic: String = ReactiveKafkaBenchmark.uuid(), group: String = ReactiveKafkaBenchmark.uuid())
@@ -17,7 +19,7 @@ object ReactiveKafkaBenchmark extends App with QueuePreparations {
 
   implicit lazy val system = ActorSystem("ReactiveKafkaBenchmark")
   implicit lazy val materializer = ActorMaterializer()
-  type SourceType = Source[ConsumerRecord[String, String], Unit]
+  type SourceType = Source[ConsumerRecord[String, String], NotUsed]
   val kafkaHost = "localhost:9092"
 
   val f = new Fixture(kafkaHost)
@@ -36,6 +38,7 @@ object ReactiveKafkaBenchmark extends App with QueuePreparations {
   }
 
   Timed.runTests(fetchTotalCommitTests, 30, warmup)
-  system.shutdown()
-
+  import scala.concurrent.duration._
+  Await.result(system.terminate(), 30.seconds)
+  println("AS terminated")
 }

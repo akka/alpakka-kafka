@@ -1,5 +1,6 @@
 package com.softwaremill.react.kafka
 
+import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
 import akka.stream.actor.WatermarkRequestStrategy
@@ -35,7 +36,7 @@ trait KafkaTest extends BeforeAndAfterAll {
     ProducerProperties(kafkaHost, f.topic, serializer, serializer)
   }
 
-  def createSource[K, V](f: FixtureParam): Source[ConsumerRecord[String, String], Unit] = {
+  def createSource[K, V](f: FixtureParam): Source[ConsumerRecord[String, String], NotUsed] = {
     createSource(f, consumerProperties(f))
   }
 

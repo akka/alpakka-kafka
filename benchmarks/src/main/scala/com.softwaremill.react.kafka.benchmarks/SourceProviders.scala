@@ -1,12 +1,14 @@
 package com.softwaremill.react.kafka.benchmarks
 
+import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.actor.ActorPublisher
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.commit.{KafkaCommitterSink, OffsetMap, CommitSink}
+import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, OffsetMap}
 import com.softwaremill.react.kafka.{ConsumerProperties, KafkaActorPublisher, KafkaGraphStageSource, ReactiveKafkaConsumer}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
+
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -42,7 +44,7 @@ trait SourceProviders {
     val actorSourceProps = Props(new KafkaActorPublisher(actorConsumer))
     val consumerActor: ActorRef = system.actorOf(actorSourceProps)
     val actorPublisher = ActorPublisher[ConsumerRecord[String, String]](consumerActor)
-    val sink: Sink[ConsumerRecord[String, String], Unit] = CommitSink.create(consumerActor, actorConsumerProps)(system).sink
+    val sink: Sink[ConsumerRecord[String, String], NotUsed] = CommitSink.create(consumerActor, actorConsumerProps)(system).sink
     (Source.fromPublisher(actorPublisher), actorConsumer, sink)
   }
 
@@ -58,7 +60,7 @@ trait SourceProviders {
   def graphSourceProviderCommitSink(propsProvider: Fixture => ConsumerProperties[String, String])(f: Fixture) = {
     val graphConsumerProps = propsProvider(f)
     val offsetMap = OffsetMap()
-    val offsetSink: Sink[ConsumerRecord[String, String], Unit] = Sink.fromGraph(new KafkaCommitterSink(graphConsumerProps, offsetMap))
+    val offsetSink: Sink[ConsumerRecord[String, String], NotUsed] = Sink.fromGraph(new KafkaCommitterSink(graphConsumerProps, offsetMap))
     println(s"Creating commit sink and graph source for consumer properties: $graphConsumerProps")
     val graphConsumer = ReactiveKafkaConsumer(graphConsumerProps)
     (Source.fromGraph(new KafkaGraphStageSource(graphConsumer)), graphConsumer, offsetSink)

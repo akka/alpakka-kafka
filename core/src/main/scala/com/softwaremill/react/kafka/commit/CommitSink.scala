@@ -1,5 +1,6 @@
 package com.softwaremill.react.kafka.commit
 
+import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Sink
 import com.softwaremill.react.kafka.ConsumerProperties
@@ -23,4 +24,4 @@ private[kafka] object CommitSink {
   }
 }
 
-case class KafkaSink[T](sink: Sink[T, Unit], underlyingCommitterActor: ActorRef)
+case class KafkaSink[T](sink: Sink[T, NotUsed], underlyingCommitterActor: ActorRef)
