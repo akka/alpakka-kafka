@@ -6,16 +6,16 @@ Reactive Streams for Kafka. New API
 ## Core ##
 
 Consumer in new API represents two processes:
- - message emmit
+ - message emit
  - offset commit
 
-The message emmit represented as a `message` `Out` and the offset commit represented as a `commit` `In` and a `confirmation` `Out`.
+The message emit represented as a `message` `Out` and the offset commit represented as a `commit` `In` and a `confirmation` `Out`.
 
 ![Consumer shape](./Consumer.png)
 
 You can create such consumer via `Consumer.apply` method.
 
-Here it is an example consumer usage:
+Here is an example consumer usage:
 
 ![Consumer example](./Consumer-example.png)
 
@@ -35,7 +35,7 @@ Here it is an example consumer usage:
 
 ## Consumer control ##
 
-To control consumer you should use `Control` object given after meterialization:
+To control consumer you should use `Control` object given after materialization:
 
 ```scala
 val control = RunnableGraph.fromGraph(graph).run()
@@ -67,7 +67,7 @@ If you do not care about confirmation you can use producer as `Sink` and create 
 
 ![Producer shape](./Producer-sink.png)
 
-To complete producer just complete it `In`.
+To complete producer just complete it `In`. <!-- something missing here?? -->
 
 # Consumer and producer providers
 
@@ -75,10 +75,10 @@ To use producer and consumer in akka streams you should pass an information how 
 You can not pass it directly, because shapes and graphs should be reusable and kafka's producer/consumer are not thread safe.
 
 Reactive kafka provides an API to pass information how to create consumer/producer. On shapes level it is just `() => Producer` and `() => Consumer`. On user level it is an API
-which allows you to stack setup aspects
+which allows you to stack setup aspects.
 
 ## Consumer provider ##
-Here it is an example of consumer provider usage:
+Here is an example of consumer provider usage:
 ```scala
 val consumerProvider =
     ConsumerProvider("localhost:9092", new ByteArrayDeserializer, new StringDeserializer) //1
