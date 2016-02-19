@@ -42,11 +42,9 @@ object NewAPIExample {
 
   //--- Producer provider ---
   {
-    val producerProvider = ProducerProvider[Array[Byte], String](
-      "localhost:9092",
-      new ByteArraySerializer(),
-      new StringSerializer()
-    ).props("some.props" -> "value")
+    val producerProvider =
+      ProducerProvider[Array[Byte], String]("localhost:9092", new ByteArraySerializer, new StringSerializer)
+        .props("some.props" -> "value")
 
     val producer = producerProvider.apply()
   }
