@@ -12,7 +12,6 @@ import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-
 object Producer {
   def value2record[V](topic: String) = Flow[V].map(new ProducerRecord[Array[Byte], V](topic, _))
 
@@ -25,9 +24,8 @@ object Producer {
 }
 
 class ProducerSendFlowStage[K, V](producerProvider: () => KafkaProducer[K, V])
-  extends GraphStageWithMaterializedValue[FlowShape[ProducerRecord[K, V], Future[(ProducerRecord[K, V], RecordMetadata)]], KafkaProducer[K, V]]
-  with LazyLogging
-{
+    extends GraphStageWithMaterializedValue[FlowShape[ProducerRecord[K, V], Future[(ProducerRecord[K, V], RecordMetadata)]], KafkaProducer[K, V]]
+    with LazyLogging {
   private val messages = Inlet[ProducerRecord[K, V]]("messages")
   private val confirmation = Outlet[Future[(ProducerRecord[K, V], RecordMetadata)]]("confirmation")
   val shape = new FlowShape(messages, confirmation)
