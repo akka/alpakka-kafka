@@ -13,7 +13,7 @@ object NewAPIExample {
 
   //--- Graph ---
   {
-    // tbd. What's the 'provider' in the sample?
+    /* tbd. What's the 'provider' in the sample?
     //
     val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
       import GraphDSL.Implicits._
@@ -25,6 +25,7 @@ object NewAPIExample {
       kafka.confirmation ~> shutdownHandler
       ClosedShape
     }
+    */
   }
 
   //--- Consumer provider ---
@@ -41,13 +42,11 @@ object NewAPIExample {
 
   //--- Producer provider ---
   {
-    // tbd. Below code gives "cannot resolve reference props" in IntelliJ IDEA.
-    //
     val producerProvider = ProducerProvider[Array[Byte], String](
       "localhost:9092",
       new ByteArraySerializer(),
       new StringSerializer()
-    ).props("some.props", "value")
+    ).props("some.props" -> "value")
 
     val producer = producerProvider.apply()
   }
