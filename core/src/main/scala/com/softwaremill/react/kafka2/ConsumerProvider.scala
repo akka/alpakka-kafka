@@ -22,10 +22,10 @@ object ConsumerProvider {
 }
 
 case class ConsumerProvider[K, V](
-  properties: Map[String, String],
-  keyDe: Deserializer[K],
-  valueDe: Deserializer[V],
-  setup: ConsumerSetup
+    properties: Map[String, String],
+    keyDe: Deserializer[K],
+    valueDe: Deserializer[V],
+    setup: ConsumerSetup
 ) extends (() => KafkaConsumer[K, V]) {
 
   def prop(k: String, v: String) = copy[K, V](properties + (k -> v))

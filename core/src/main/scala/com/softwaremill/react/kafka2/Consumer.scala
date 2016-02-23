@@ -46,11 +46,10 @@ object ManualCommitConsumer {
   type CommitConfirmation = Future[CommitMsg]
 
   case class ConsumerShape[K, V](
-    commit: Inlet[CommitMsg],
-    messages: Outlet[ConsumerRecord[K, V]],
-    confirmation: Outlet[CommitConfirmation]
-  ) extends Shape
-  {
+      commit: Inlet[CommitMsg],
+      messages: Outlet[ConsumerRecord[K, V]],
+      confirmation: Outlet[CommitConfirmation]
+  ) extends Shape {
     override def inlets: immutable.Seq[Inlet[_]] = immutable.Seq(commit)
     override def outlets: immutable.Seq[Outlet[_]] = immutable.Seq(messages, confirmation)
     override def deepCopy(): Shape = ConsumerShape(
@@ -75,9 +74,8 @@ object ManualCommitConsumer {
 }
 
 class ManualCommitConsumer[K, V](consumerProvider: ConsumerProvider[K, V])
-  extends GraphStageWithMaterializedValue[ManualCommitConsumer.ConsumerShape[K, V], ManualCommitConsumer.Control]
-  with LazyLogging
-{
+    extends GraphStageWithMaterializedValue[ManualCommitConsumer.ConsumerShape[K, V], ManualCommitConsumer.Control]
+    with LazyLogging {
   import ManualCommitConsumer._
   val commitIn = Inlet[CommitMsg]("commitIn")
   val confirmationOut = Outlet[CommitConfirmation]("confirmationOut")
@@ -99,7 +97,8 @@ class ManualCommitConsumer[K, V](consumerProvider: ConsumerProvider[K, V])
         def setupConsumer() = {
           if (isAvailable(messagesOut)) {
             consumer.resume(consumer.assignment().toSeq: _*)
-          } else {
+          }
+          else {
             consumer.pause(consumer.assignment().toSeq: _*)
           }
         }
