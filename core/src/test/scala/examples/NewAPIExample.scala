@@ -13,8 +13,8 @@ object NewAPIExample {
 
   //--- Graph ---
   {
-    /* tbd. What's the 'provider' in the sample?
-    //
+    val provider: ConsumerProvider[Array[Byte],String] = ???
+
     val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
       import GraphDSL.Implicits._
       type In = ConsumerRecord[Array[Byte], String]
@@ -25,7 +25,6 @@ object NewAPIExample {
       kafka.confirmation ~> shutdownHandler
       ClosedShape
     }
-    */
   }
 
   //--- Consumer provider ---
