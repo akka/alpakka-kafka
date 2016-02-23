@@ -67,7 +67,7 @@ If you do not care about confirmation you can use producer as `Sink` and create 
 
 ![Producer shape](./Producer-sink.png)
 
-To complete producer just complete it `In`. <!-- something missing here?? -->
+To complete a producer just complete its `In` port.
 
 # Consumer and producer providers
 
