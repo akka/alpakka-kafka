@@ -14,9 +14,9 @@ object ProducerProvider {
 }
 
 case class ProducerProvider[K, V](
-  properties: Map[String, String],
-  keySe: Serializer[K],
-  valueSe: Serializer[V]
+    properties: Map[String, String],
+    keySe: Serializer[K],
+    valueSe: Serializer[V]
 ) extends (() => KafkaProducer[K, V]) {
   def prop(k: String, v: String) = copy[K, V](properties + (k -> v))
   def props(ps: (String, String)*) = copy[K, V](properties ++ ps.toMap)
