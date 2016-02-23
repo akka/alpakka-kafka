@@ -1,10 +1,17 @@
-package com.softwaremill.react.kafka2
+package examples
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
+import com.softwaremill.react.kafka2._
+
+// tbd. What is the purpose of this?
+//
+// Usage:
+//    sbt core/test:run
+//
 object DummyProducer extends App {
   implicit val as = ActorSystem()
   implicit val m = ActorMaterializer(

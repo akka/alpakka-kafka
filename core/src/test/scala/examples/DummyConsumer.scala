@@ -1,4 +1,4 @@
-package com.softwaremill.react.kafka2
+package examples
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Flow, GraphDSL, Sink, Source}
@@ -9,6 +9,8 @@ import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeser
 
 import scala.concurrent.Await
 import scala.util.Failure
+import com.softwaremill.react.kafka2._
+import scala.concurrent.duration._
 
 object Streams {
   def shutdownAsOnComplete[T](implicit as: ActorSystem) = Sink.onComplete[T] {
@@ -24,6 +26,11 @@ object Streams {
   }
 }
 
+// tbd. What is the purpose of this?
+//
+// Usage:
+//    sbt core/test:run
+//
 object DummyConsumer extends App with LazyLogging {
   implicit val as = ActorSystem()
   implicit val m = ActorMaterializer(
@@ -57,7 +64,6 @@ object DummyConsumer extends App with LazyLogging {
     control.stop()
 
     println("Waiting for stop!")
-    import scala.concurrent.duration._
     Await.result(as.whenTerminated, 30.seconds)
     println("AS stopped!")
   }
