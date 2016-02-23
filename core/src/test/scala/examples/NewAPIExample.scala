@@ -13,7 +13,9 @@ object NewAPIExample {
 
   //--- Graph ---
   {
-    val provider: ConsumerProvider[Array[Byte],String] = ???
+  /* Disabled because '???' would give "dead code" error in 'sbt test'.
+   *
+    val provider: ConsumerProvider[Array[Byte], String] = ???
 
     val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
       import GraphDSL.Implicits._
@@ -25,6 +27,7 @@ object NewAPIExample {
       kafka.confirmation ~> shutdownHandler
       ClosedShape
     }
+  */
   }
 
   //--- Consumer provider ---
