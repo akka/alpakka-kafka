@@ -11,13 +11,13 @@ Consumer in new API represents two processes:
 
 The message emit represented as a `message` `Out` and the offset commit represented as a `commit` `In` and a `confirmation` `Out`.
 
-![Consumer shape](./Consumer.png)
+![Consumer shape](images/Consumer.png)
 
 You can create such consumer via `Consumer.apply` method.
 
 Here is an example consumer usage:
 
-![Consumer example](./Consumer-example.png)
+![Consumer example](images/Consumer-example.png)
 
 ```scala
   val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
@@ -49,11 +49,11 @@ You can use simpler shapes based on a consumer shape.
 
 If you do not care about offset confirmations then the consumer may be represented as `Flow` and created via `Consumer.flow`:
 
-![Consumer flow shape](./Consumer-flow.png)
+![Consumer flow shape](images/Consumer-flow.png)
 
 If you do not care about offset commit at all you may represent consumer as a message `Source` and create it via `Consumer.source`:
 
-![Consumer source shape](./Consumer-source.png)
+![Consumer source shape](images/Consumer-source.png)
 
 # Producer #
 
@@ -61,11 +61,11 @@ Producer represents a process of message publishing to kafka and getting confirm
 
 Producer is represented as a `Flow` shape and may be created with `Producer.apply` method.
 
-![Producer shape](./Producer.png)
+![Producer shape](images/Producer.png)
 
 If you do not care about confirmation you can use producer as `Sink` and create it with `Producer.sink`.
 
-![Producer shape](./Producer-sink.png)
+![Producer shape](images/Producer-sink.png)
 
 To complete a producer just complete its `In` port.
 
