@@ -254,18 +254,3 @@ Alternatively, you can provide your own dispatcher name. It can be passed to app
 Testing
 ----
 Tests require Apache Kafka and Zookeeper to be available on `localhost:9092` and `localhost:2181`
-
-<!-- I'd start with the tests. We often want to just run tests as the first thing when looking at an open source
-project, to see if it's stable. This also tests the instructions - if the tests fail for us, and there's no indication
-on system requirements, the instructions are not that great. Will help you with this. AKa060216
-
-Suggested order for the README:
-
-- project scope / purpose (is already there)
-- Getting Started (new, includes requirements, how to run tests)
-- Using (includes lines to add in `build.sbt`)
-- Passing Configuration Properties to Kafka (as now)
-- Controlling consumer start offset (as now)
-- Working with actors (as now)
-- Tuning (as now; could be called Configuration?)
--->
