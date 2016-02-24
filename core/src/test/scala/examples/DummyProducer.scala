@@ -7,7 +7,8 @@ import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSeriali
 
 import com.softwaremill.react.kafka2._
 
-// tbd. What is the purpose of this?
+// Publishes 1 to 10000 (as strings) into Kafka and waits for publishing confirmation.
+// Also provides an example of correct shutdown.
 //
 // Usage:
 //    sbt core/test:run
@@ -19,7 +20,8 @@ object DummyProducer extends App {
       .withAutoFusing(true)
       .withInputBuffer(1024, 1024)
   )
-  val producer = ProducerProvider[Array[Byte], String](
+
+  val provider = ProducerProvider[Array[Byte], String](
     "localhost:9092",
     new ByteArraySerializer(),
     new StringSerializer()
@@ -29,8 +31,8 @@ object DummyProducer extends App {
     .fromIterator(() => (1 to 10000).iterator)
     .map(_.toString)
     .via(Producer.value2record("dummy"))
-    .via(Producer(producer))
+    .via(Producer(provider))
     .mapAsync(1)(identity)
-    .to(Streams.shutdownAsOnComplete)
+    .to(shutdownAsOnComplete)
     .run()
 }
