@@ -6,18 +6,18 @@ Reactive Streams for Kafka. New API
 ## Core ##
 
 Consumer in new API represents two processes:
- - message emmit
+ - message emit
  - offset commit
 
-The message emmit represented as a `message` `Out` and the offset commit represented as a `commit` `In` and a `confirmation` `Out`.
+The message emit represented as a `message` `Out` and the offset commit represented as a `commit` `In` and a `confirmation` `Out`.
 
-![Consumer shape](./Consumer.png)
+![Consumer shape](images/Consumer.png)
 
 You can create such consumer via `Consumer.apply` method.
 
-Here it is an example consumer usage:
+Here is an example consumer usage:
 
-![Consumer example](./Consumer-example.png)
+![Consumer example](images/Consumer-example.png)
 
 ```scala
   val graph = GraphDSL.create(Consumer[Array[Byte], String](provider)) { implicit b => kafka =>
@@ -35,7 +35,7 @@ Here it is an example consumer usage:
 
 ## Consumer control ##
 
-To control consumer you should use `Control` object given after meterialization:
+To control consumer you should use `Control` object given after materialization:
 
 ```scala
 val control = RunnableGraph.fromGraph(graph).run()
@@ -49,11 +49,11 @@ You can use simpler shapes based on a consumer shape.
 
 If you do not care about offset confirmations then the consumer may be represented as `Flow` and created via `Consumer.flow`:
 
-![Consumer flow shape](./Consumer-flow.png)
+![Consumer flow shape](images/Consumer-flow.png)
 
 If you do not care about offset commit at all you may represent consumer as a message `Source` and create it via `Consumer.source`:
 
-![Consumer source shape](./Consumer-source.png)
+![Consumer source shape](images/Consumer-source.png)
 
 # Producer #
 
@@ -61,13 +61,13 @@ Producer represents a process of message publishing to kafka and getting confirm
 
 Producer is represented as a `Flow` shape and may be created with `Producer.apply` method.
 
-![Producer shape](./Producer.png)
+![Producer shape](images/Producer.png)
 
 If you do not care about confirmation you can use producer as `Sink` and create it with `Producer.sink`.
 
-![Producer shape](./Producer-sink.png)
+![Producer shape](images/Producer-sink.png)
 
-To complete producer just complete it `In`.
+To complete a producer just complete its `In` port.
 
 # Consumer and producer providers
 
@@ -75,10 +75,10 @@ To use producer and consumer in akka streams you should pass an information how 
 You can not pass it directly, because shapes and graphs should be reusable and kafka's producer/consumer are not thread safe.
 
 Reactive kafka provides an API to pass information how to create consumer/producer. On shapes level it is just `() => Producer` and `() => Consumer`. On user level it is an API
-which allows you to stack setup aspects
+which allows you to stack setup aspects.
 
 ## Consumer provider ##
-Here it is an example of consumer provider usage:
+Here is an example of consumer provider usage:
 ```scala
 val consumerProvider =
     ConsumerProvider("localhost:9092", new ByteArrayDeserializer, new StringDeserializer) //1
