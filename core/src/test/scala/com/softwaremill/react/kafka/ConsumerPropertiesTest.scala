@@ -25,6 +25,7 @@ class ConsumerPropertiesTest extends WordSpecLike with Matchers {
         .readFromEndOfStream()
         .consumerTimeoutMs(300)
         .commitInterval(2 seconds)
+        .clientId("client0")
         .rawProperties
 
       props.getProperty("bootstrap.servers") should be(bootstrapServers)
@@ -32,6 +33,7 @@ class ConsumerPropertiesTest extends WordSpecLike with Matchers {
       props.getProperty("auto.offset.reset") should be("latest")
       props.getProperty("consumer.timeout.ms") should be("300")
       props.getProperty("auto.commit.interval.ms") should be("2000")
+      props.getProperty("client.id") should be("client0")
     }
 
   }

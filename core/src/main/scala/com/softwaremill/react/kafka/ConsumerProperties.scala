@@ -81,6 +81,8 @@ case class ConsumerProperties[K, V](
   def commitInterval(time: FiniteDuration): ConsumerProperties[K, V] =
     setProperty("auto.commit.interval.ms", time.toMillis.toString)
 
+  def clientId(id: String): ConsumerProperties[K, V] =
+    setProperty("client.id", id)
   /**
    * Consumer Timeout
    * Throw a timeout exception to the consumer if no message is available for consumption after the specified interval
