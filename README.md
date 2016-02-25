@@ -147,7 +147,7 @@ implicit val materializer = ActorMaterializer()
 val kafka = new ReactiveKafka()
 // consumer
 val consumerProperties = ConsumerProperties(
-  brokerList = "localhost:9092",
+  bootstrapServers = "localhost:9092",
   topic = "lowercaseStrings",
   groupId = "groupName",
   valueDeserializer = new StringDeserializer()
@@ -159,7 +159,7 @@ val topLevelPublisherActor: ActorRef = kafka.consumerActor(consumerActorProps)
 
 // subscriber
 val producerProperties = ProducerProperties(
-  brokerList = "localhost:9092",
+  bootstrapServers = "localhost:9092",
   topic = "uppercaseStrings",
   new StringSerializer()
 )
@@ -231,7 +231,7 @@ implicit val materializer = ActorMaterializer()
 
 val kafka = new ReactiveKafka()
 val consumerProperties = ConsumerProperties(
-  brokerList = "localhost:9092",
+  bootstrapServers = "localhost:9092",
   topic = "lowercaseStrings",
   groupId = "groupName",
   valueDeserializer = new StringDeserializer())
