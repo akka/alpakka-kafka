@@ -10,7 +10,7 @@ import scala.language.postfixOps
 /**
  * Code samples for the documentation.
  */
-object examples {
+object Snippets {
 
   def simple(): Unit = {
 
