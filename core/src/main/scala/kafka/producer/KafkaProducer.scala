@@ -14,7 +14,7 @@ case class KafkaProducer[T](props: ProducerProperties[T]) {
       new KeyedMessage(props.topic, message)
     }
     else {
-      new KeyedMessage(props.topic, partition, message)
+      new KeyedMessage(props.topic, partition.toList, message)
     }
   }
 
