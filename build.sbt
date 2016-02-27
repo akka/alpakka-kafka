@@ -29,7 +29,7 @@ val coreDependencies = Seq(
 
 val commonSettings =
 sonatypeSettings ++ scalariformSettings ++ Seq(
-  version := "0.10.0",
+  version := "0.11.0-SNAPSHOT",
   organization := "com.softwaremill.reactivekafka",
   startYear := Some(2014),
   test in assembly := {},
