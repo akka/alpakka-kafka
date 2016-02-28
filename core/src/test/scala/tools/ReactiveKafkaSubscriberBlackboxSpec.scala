@@ -1,9 +1,10 @@
-package com.softwaremill.react.kafka
+package test.tools
 
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages.StringProducerMessage
+import com.softwaremill.react.kafka.{ProducerMessage, ProducerProperties}
 import org.reactivestreams.tck.{SubscriberBlackboxVerification, TestEnvironment}
 import org.reactivestreams.{Publisher, Subscriber}
 import org.scalatest.testng.TestNGSuiteLike

@@ -1,4 +1,4 @@
-package com.softwaremill.react.kafka
+package test.tools
 
 import akka.actor.ActorSystem
 import org.scalatest.Suite

@@ -1,4 +1,4 @@
-package com.softwaremill.react.kafka
+package test
 
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
@@ -9,6 +9,8 @@ import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages._
+import com.softwaremill.react.kafka.ProducerMessage
+import com.softwaremill.react.kafka.tools.ReactiveKafkaIntegrationTestSupport
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, fixture}
@@ -17,7 +19,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaIntegrationSpec"))
+class ReactiveKafkaIntegrationTest extends TestKit(ActorSystem("ReactiveKafkaIntegrationSpec"))
     with ImplicitSender with fixture.WordSpecLike with Matchers
     with ReactiveKafkaIntegrationTestSupport with MockitoSugar {
 
@@ -117,18 +119,4 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
     }
   }
 
-}
-
-class ReactiveTestSubscriber extends ActorSubscriber {
-
-  protected def requestStrategy = WatermarkRequestStrategy(10)
-
-  var elements: Vector[StringConsumerRecord] = Vector.empty
-
-  def receive = {
-
-    case ActorSubscriberMessage.OnNext(element) =>
-      elements = elements :+ element.asInstanceOf[StringConsumerRecord]
-    case "get elements" => sender ! elements
-  }
 }

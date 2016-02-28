@@ -1,15 +1,16 @@
-package com.softwaremill.react.kafka
+package test
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Flow, Sink}
 import akka.stream.testkit.scaladsl.TestSource
+import com.softwaremill.react.kafka.{ProducerMessage, ReactiveKafka, ProducerProperties}
 import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.FlatSpec
 
-class ReactiveKafkaSubscriberSpec extends FlatSpec {
+class ReactiveKafkaSubscriberTest extends FlatSpec {
 
   implicit val actorSystem = ActorSystem("test")
   implicit val materializer = ActorMaterializer()

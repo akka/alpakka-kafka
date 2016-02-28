@@ -1,11 +1,12 @@
-package com.softwaremill.react.kafka.commit
+package test
 
 import akka.actor._
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
+import com.softwaremill.react.kafka._
+import com.softwaremill.react.kafka.commit.{Offsets, OffsetMap, ConsumerCommitter}
 import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitAck, CommitOffsets}
-import com.softwaremill.react.kafka.{ConsumerProperties, KafkaTest}
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -16,7 +17,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class ConsumerCommitterSpec extends TestKit(ActorSystem(
+import test.tools.KafkaTest
+
+class ConsumerCommitterTest extends TestKit(ActorSystem(
   "ConsumerCommitterSpec",
   ConfigFactory.parseString("""akka.loggers = ["akka.testkit.TestEventListener"]""")
 )) with ImplicitSender with fixture.FlatSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
