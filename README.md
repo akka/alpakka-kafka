@@ -251,4 +251,4 @@ Alternatively, you can provide your own dispatcher name. It can be passed to app
 
 Testing
 ----
-Tests require Apache Kafka and Zookeeper to be available on `localhost:9092` and `localhost:2181`
+Tests require Apache Kafka and Zookeeper to be available on `localhost:9092` and `localhost:2181`. Note that `auto.create.topics.enable` should be `true`.
