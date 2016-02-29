@@ -33,7 +33,7 @@ class ProducerTest(_system: ActorSystem)
     with MockitoSugar {
   def this() = this(ActorSystem())
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system))
+  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
 
   type K = String
