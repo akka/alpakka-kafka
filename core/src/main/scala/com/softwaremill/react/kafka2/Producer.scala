@@ -2,7 +2,7 @@ package com.softwaremill.react.kafka2
 
 import java.util.concurrent.TimeUnit
 
-import akka.stream.scaladsl.{Sink, Flow}
+import akka.stream.scaladsl.{Flow, Sink}
 import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.typesafe.scalalogging.slf4j.LazyLogging
@@ -34,32 +34,53 @@ class ProducerSendFlowStage[K, V](producerProvider: () => KafkaProducer[K, V])
     val closeTimeout = 60000L
     val producer = producerProvider()
     val logic = new GraphStageLogic(shape) {
+      var awaitingConfirmation = 0L
+
+      def checkForCompletion() = {
+        if (isClosed(messages) && awaitingConfirmation == 0) {
+          completeStage()
+        }
+      }
+
+      val decrementConfirmation = getAsyncCallback[Unit] { _ =>
+        awaitingConfirmation -= 1
+        checkForCompletion()
+        ()
+      }
+
       setHandler(confirmation, new OutHandler {
-        override def onPull(): Unit = {
+        override def onPull() = {
           tryPull(messages)
         }
       })
 
       setHandler(messages, new InHandler {
-        override def onPush(): Unit = {
+        override def onPush() = {
           val msg = grab(messages)
           val result = Promise[(ProducerRecord[K, V], RecordMetadata)]
           producer.send(msg, new Callback {
-            override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+            override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
               val completion = Option(metadata).map(m => Success((msg, m))).getOrElse(Failure(exception))
               result.complete(completion)
+              decrementConfirmation.invoke(())
               ()
             }
           })
+          awaitingConfirmation += 1
           push(confirmation, result.future)
+        }
+
+        override def onUpstreamFinish() = {
+          checkForCompletion()
         }
       })
 
-      override def postStop(): Unit = {
+      override def postStop() = {
         logger.debug("Stage completed")
         try {
           producer.flush()
           producer.close(closeTimeout, TimeUnit.MILLISECONDS)
+          logger.debug("Producer closed")
         }
         catch {
           case NonFatal(ex) => logger.error("Problem occurred during producer close", ex)

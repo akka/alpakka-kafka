@@ -19,9 +19,9 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 /**
  * @author Alexey Romanchuk
@@ -40,13 +40,19 @@ class ProducerTest(_system: ActorSystem)
   type V = String
   type Record = ProducerRecord[K, V]
 
+  def recordAndMetadata(seed: Int) = {
+    new ProducerRecord("test", seed.toString, seed.toString) ->
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong)
+
+  }
+
   "Producer" should "not send messages when source is empty" in {
     val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
 
     val probe = Source
       .empty[Record]
       .via(Producer(() => client.mock))
-      .runWith(TestSink.probe[Any])
+      .runWith(TestSink.probe)
 
     probe
       .request(1)
@@ -59,21 +65,17 @@ class ProducerTest(_system: ActorSystem)
   }
 
   it should "emit confirmation in same order as inputs" in {
-    val input = Vector(
-      new ProducerRecord("test", "1", "1") -> new RecordMetadata(new TopicPartition("test", 1), 1L, 1L),
-      new ProducerRecord("test", "2", "2") -> new RecordMetadata(new TopicPartition("test", 2), 2L, 2L),
-      new ProducerRecord("test", "3", "3") -> new RecordMetadata(new TopicPartition("test", 3), 3L, 3L)
-    )
+    val input = 1 to 3 map recordAndMetadata
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(inputMap))
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try{ inputMap(x) }))
     }
     val probe = Source
       .fromIterator(() => input.map(_._1).toIterator)
       .via(Producer(() => client.mock))
       .mapAsync(1)(identity)
-      .runWith(TestSink.probe[(Record, RecordMetadata)])
+      .runWith(TestSink.probe)
 
     probe
       .request(10)
@@ -86,30 +88,60 @@ class ProducerTest(_system: ActorSystem)
     ()
   }
 
-  it should "wait for confirmed messages in case of source error" in {
-    val input = Vector(
-      new ProducerRecord("test", "1", "1") -> new RecordMetadata(new TopicPartition("test", 1), 1L, 1L),
-      new ProducerRecord("test", "2", "2") -> new RecordMetadata(new TopicPartition("test", 2), 2L, 2L),
-      new ProducerRecord("test", "3", "3") -> new RecordMetadata(new TopicPartition("test", 3), 3L, 3L)
-    )
+  it should "fail fast in case of source error" in {
+    val input = 1 to 3 map recordAndMetadata
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(inputMap))
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try{ inputMap(x) }))
     }
     val (source, sink) = TestSource
       .probe[Record]
       .via(Producer(() => client.mock))
       .mapAsync(1)(identity)
-      .toMat(TestSink.probe[(Record, RecordMetadata)])(Keep.both)
+      .toMat(TestSink.probe)(Keep.both)
       .run()
 
     sink.request(100)
     input.map(_._1).foreach(source.sendNext)
     source.sendError(new Exception())
+
+    sink.expectError()
+
+    client.verifyClosed()
+    client.verifySend(atLeastOnce())
+    client.verifyNoMoreInteractions()
+  }
+
+  it should "fail future in case of fail to send message and did not fail stage" in {
+    val input = 1 to 3 map recordAndMetadata
+    val error = new Exception("Something wrong in kafka")
+
+    val client = {
+      val inputMap = input.toMap
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis) { msg =>
+        if (msg.value() == "2") Failure(error)
+        else Success(inputMap(msg))
+      })
+    }
+    val (source, sink) = TestSource
+      .probe[Record]
+      .via(Producer(() => client.mock))
+      .map { f => Await.ready(f, 1 second); f.value.get }
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    sink.request(100)
+    input.map(_._1).foreach(source.sendNext)
+    source.sendComplete()
+
+    val expectedResult = input.map {
+      case x @ (msg, _) if msg.value() == "2" => Failure(error)
+      case x => Success(x)
+    }
     sink
-      .expectNextN(input)
-      .expectError()
+      .expectNextN(expectedResult)
+      .expectComplete()
 
     client.verifyClosed()
     client.verifySend(atLeastOnce())
@@ -121,15 +153,12 @@ object ProducerMock {
   type Handler[K, V] = (ProducerRecord[K, V], Callback) => Future[RecordMetadata]
   object handlers {
     def fail[K, V]: Handler[K, V] = (_, _) => throw new Exception("Should not be called")
-    def instantMap[K, V](f: ProducerRecord[K, V] => RecordMetadata): Handler[K, V] = {
-      (record, _) => Future.successful(f(record))
-    }
-    def delayedMap[K, V](delay: FiniteDuration)(f: ProducerRecord[K, V] => RecordMetadata)(implicit as: ActorSystem): Handler[K, V] = {
+    def delayedMap[K, V](delay: FiniteDuration)(f: ProducerRecord[K, V] => Try[RecordMetadata])(implicit as: ActorSystem): Handler[K, V] = {
       (record, _) =>
         implicit val ec = as.dispatcher
         val promise = Promise[RecordMetadata]()
         as.scheduler.scheduleOnce(delay) {
-          promise.success(f(record))
+          promise.complete(f(record))
           ()
         }
         promise.future
@@ -178,4 +207,3 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     Mockito.verifyNoMoreInteractions(mock)
   }
 }
-
