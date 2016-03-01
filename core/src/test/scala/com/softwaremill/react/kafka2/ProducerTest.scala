@@ -3,7 +3,7 @@ package com.softwaremill.react.kafka2
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.{Sink, Keep, Source}
 import akka.stream.testkit.scaladsl.{TestSource, TestSink}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.testkit.TestKit
@@ -88,25 +88,34 @@ class ProducerTest(_system: ActorSystem)
     ()
   }
 
-  it should "fail fast in case of source error" in {
-    val input = 1 to 3 map recordAndMetadata
+  it should "in case of source error complete emitted messages and push error" in {
+    val input = 1 to 10 map recordAndMetadata
 
     val client = {
       val inputMap = input.toMap
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try{ inputMap(x) }))
     }
+    var emitted = Seq.empty[Future[Any]]
     val (source, sink) = TestSource
       .probe[Record]
       .via(Producer(() => client.mock))
-      .mapAsync(1)(identity)
-      .toMat(TestSink.probe)(Keep.both)
+      .map { x => emitted :+= x; x }
+      .toMat(Sink.lastOption)(Keep.both)
       .run()
 
-    sink.request(100)
     input.map(_._1).foreach(source.sendNext)
     source.sendError(new Exception())
 
-    sink.expectError()
+    // Here we can not be sure that all messages from source delivered to producer
+    // because of buffers in akka-stream and faster error pushing that ignores buffers
+    // So we just check that all futures that we emmited successfully completed
+
+    Await.ready(sink, 500 millis)
+    sink.value should matchPattern {
+      case Some(Failure(_)) =>
+    }
+
+    Await.result(Future.sequence(emitted), 500 millis) shouldBe 'nonEmpty
 
     client.verifyClosed()
     client.verifySend(atLeastOnce())
@@ -146,6 +155,30 @@ class ProducerTest(_system: ActorSystem)
     client.verifyClosed()
     client.verifySend(atLeastOnce())
     client.verifyNoMoreInteractions()
+  }
+
+  it should "close client and complete in case of cancellation of outlet" in {
+    val input = 1 to 3 map recordAndMetadata
+
+    val client = {
+      val inputMap = input.toMap
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(1 second)(x => Try{ inputMap(x) }))
+    }
+    val (source, sink) = TestSource
+      .probe[Record]
+      .via(Producer(() => client.mock))
+      .mapAsync(1)(identity)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    sink.request(10)
+    input.map(_._1).foreach(source.sendNext)
+
+    sink.cancel()
+    source.expectCancellation()
+
+    client.verifyClosed()
+    ()
   }
 }
 

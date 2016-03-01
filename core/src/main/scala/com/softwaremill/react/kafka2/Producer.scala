@@ -10,7 +10,7 @@ import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecor
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object Producer {
   def value2record[V](topic: String) = Flow[V].map(new ProducerRecord[Array[Byte], V](topic, _))
@@ -35,10 +35,15 @@ class ProducerSendFlowStage[K, V](producerProvider: () => KafkaProducer[K, V])
     val producer = producerProvider()
     val logic = new GraphStageLogic(shape) {
       var awaitingConfirmation = 0L
+      var completionState: Option[Try[Unit]] = None
 
       def checkForCompletion() = {
         if (isClosed(messages) && awaitingConfirmation == 0) {
-          completeStage()
+          completionState match {
+            case Some(Success(_)) => completeStage()
+            case Some(Failure(ex)) => failStage(ex)
+            case None => failStage(new IllegalStateException("Stage completed, but there is not info about status"))
+          }
         }
       }
 
@@ -71,6 +76,12 @@ class ProducerSendFlowStage[K, V](producerProvider: () => KafkaProducer[K, V])
         }
 
         override def onUpstreamFinish() = {
+          completionState = Some(Success(()))
+          checkForCompletion()
+        }
+
+        override def onUpstreamFailure(ex: Throwable) = {
+          completionState = Some(Failure(ex))
           checkForCompletion()
         }
       })
