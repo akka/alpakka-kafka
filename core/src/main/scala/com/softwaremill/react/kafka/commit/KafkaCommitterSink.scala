@@ -6,7 +6,7 @@ import akka.stream.{Attributes, Inlet, SinkShape}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.Flush
-import com.typesafe.scalalogging.slf4j.LazyLogging
+import com.typesafe.scalalogging.LazyLogging
 import kafka.common.TopicAndPartition
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
