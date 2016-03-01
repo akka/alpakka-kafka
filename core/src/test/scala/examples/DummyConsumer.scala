@@ -3,7 +3,7 @@ package examples
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Flow, GraphDSL, Source}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, SourceShape}
-import com.typesafe.scalalogging.slf4j.LazyLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
