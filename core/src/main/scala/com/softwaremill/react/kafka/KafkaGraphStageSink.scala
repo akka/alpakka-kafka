@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.{Inlet, Attributes, SinkShape}
 import akka.stream.stage.{InHandler, GraphStageLogic, GraphStage}
-import com.typesafe.scalalogging.slf4j.LazyLogging
+import com.typesafe.scalalogging.LazyLogging
 import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.producer.{RecordMetadata, Callback, ProducerRecord}
 

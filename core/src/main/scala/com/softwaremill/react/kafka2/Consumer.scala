@@ -5,7 +5,7 @@ import java.util
 import akka.stream._
 import akka.stream.scaladsl.{Source, Sink, GraphDSL, Flow}
 import akka.stream.stage._
-import com.typesafe.scalalogging.slf4j.LazyLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, OffsetCommitCallback}
 import org.apache.kafka.common.TopicPartition
 
