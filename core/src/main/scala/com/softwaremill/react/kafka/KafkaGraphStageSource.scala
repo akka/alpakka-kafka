@@ -3,7 +3,7 @@ package com.softwaremill.react.kafka
 import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler, TimerGraphStageLogic}
 import akka.stream.{Attributes, Outlet, SourceShape}
 import com.softwaremill.react.kafka.commit.OffsetMap
-import com.typesafe.scalalogging.slf4j.LazyLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.collection.JavaConversions._
