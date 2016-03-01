@@ -42,7 +42,7 @@ class ProducerSendFlowStage[K, V](producerProvider: () => KafkaProducer[K, V])
           completionState match {
             case Some(Success(_)) => completeStage()
             case Some(Failure(ex)) => failStage(ex)
-            case None => failStage(new IllegalStateException("Stage completed, but there is not info about status"))
+            case None => failStage(new IllegalStateException("Stage completed, but there is no info about status"))
           }
         }
       }
