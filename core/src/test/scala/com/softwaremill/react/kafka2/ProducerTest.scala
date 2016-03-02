@@ -71,8 +71,7 @@ class ProducerTest(_system: ActorSystem)
       val inputMap = input.toMap
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try{ inputMap(x) }))
     }
-    val probe = Source
-      .fromIterator(() => input.map(_._1).toIterator)
+    val probe = Source(input.map(_._1))
       .via(Producer(() => client.mock))
       .mapAsync(1)(identity)
       .runWith(TestSink.probe)
@@ -211,7 +210,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
           case Success(value) if !closed => callback.onCompletion(value, null)
           case Success(value) if closed => callback.onCompletion(null, new Exception("Kafka producer already closed"))
           case Failure(ex: Exception) => callback.onCompletion(null, ex)
-          case Failure(ex) => ???
+          case Failure(throwableUnsupported) => throw new Exception("Throwable failure are not supported")
         }
         val result = new CompletableFuture[RecordMetadata]()
         result.completeExceptionally(new Exception("Not implemented yet"))
