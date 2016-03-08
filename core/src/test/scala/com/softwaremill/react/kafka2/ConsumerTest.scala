@@ -17,7 +17,6 @@ import scala.language.postfixOps
 /**
  * @author Alexey Romanchuk
  */
-
 object ConsumerTest {
   def noopFlow[K, V] = Flow[ConsumerRecord[K, V]].map { r =>
     Map(new TopicPartition(r.topic(), r.partition()) -> new OffsetAndMetadata(r.offset()))
@@ -63,27 +62,68 @@ class ConsumerTest(_system: ActorSystem)
 
   import scala.concurrent.duration._
 
-  it should "complete messages outlet when stream about to close" in {
-    val (control, (in, out), sink) = graph(new ConsumerMock[K, V](), testFlow[Record, CommitInfo], TestSink.probe)
-    in.expectSubscription()
+  it should "complete graph when stream control.stop called" in {
+    val mock = new ConsumerMock[K, V]()
+    val (control, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
 
     sink.request(100)
+    in.expectSubscription()
 
     control.stop()
     sink.expectNoMsg(200 millis)
     in.expectComplete()
+    mock.verifyNotClosed()
 
     out.sendComplete()
     sink.expectComplete()
-
+    mock.verifyClosed()
     ()
   }
+
+  it should "complete graph when processing flow send complete" in {
+    val mock = new ConsumerMock[K, V]()
+    val (_, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    sink.request(100)
+
+    in.cancel()
+    mock.verifyNotClosed()
+
+    out.sendComplete()
+    sink.expectComplete()
+    mock.verifyClosed()
+    ()
+  }
+
+  it should "complete graph when confirmation sink canceled" in {
+    val mock = new ConsumerMock[K, V]()
+    val (_, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    sink.request(100)
+
+    sink.cancel()
+    out.expectCancellation()
+    mock.verifyNotClosed()
+
+    in.cancel()
+    Thread.sleep(100) //we probably need some kind of Future related to lifecycle of graph shape instance
+    mock.verifyClosed()
+    ()
+  }
+
 }
 
 class ConsumerMock[K, V]() {
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
-
     result
+  }
+
+  def verifyClosed() = {
+    Mockito.verify(mock).close()
+  }
+
+  def verifyNotClosed() = {
+    Mockito.verify(mock, Mockito.never()).close()
   }
 }

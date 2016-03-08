@@ -154,6 +154,9 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
         }
 
         override def onDownstreamFinish(): Unit = {
+          if (!isClosed(commitIn)) {
+            cancel(commitIn)
+          }
           poll()
         }
       })
