@@ -3,7 +3,7 @@ package com.softwaremill.react.kafka2
 import java.util
 
 import akka.stream._
-import akka.stream.scaladsl.{Source, Sink, GraphDSL, Flow}
+import akka.stream.scaladsl.{Flow, GraphDSL, Sink, Source}
 import akka.stream.stage._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer._
@@ -12,6 +12,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.collection.JavaConversions._
 import scala.collection.immutable
 import scala.concurrent.{Future, Promise}
+import scala.language.reflectiveCalls
 import scala.util.{Failure, Success}
 
 object Consumer {
@@ -90,12 +91,12 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
     var stopping = false
 
     val logic = new TimerGraphStageLogic(shape) {
-      case object Poll
+      private case object Poll
 
-      var awaitingConfirmation = 0L
-      var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
+      private var awaitingConfirmation = 0L
+      private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
-      def poll() = {
+      private def poll() = {
         def setupConsumer() = {
           if (isAvailable(messagesOut)) {
             consumer.resume(consumer.assignment().toSeq: _*)
@@ -133,7 +134,9 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
         }
       }
 
-      def pushMsg(msg: ConsumerRecord[K, V]) = {
+      val pollCallback = getAsyncCallback[Unit] { _ => poll() }
+
+      private def pushMsg(msg: ConsumerRecord[K, V]) = {
         logger.trace("Push element {}", msg)
         push(messagesOut, msg)
       }
@@ -193,14 +196,17 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
       }
 
       override def postStop(): Unit = {
-        logger.debug("Stage completed. Closing consumer")
+        logger.debug("Stage completed. Closing kafka consumer")
         consumer.close()
         super.postStop()
       }
     }
+
     val control = new Control {
       override def stop(): Unit = {
+        logger.debug("Stopping consumer shape")
         stopping = true
+        logic.pollCallback.invoke(())
       }
     }
     (logic, control)

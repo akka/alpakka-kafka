@@ -65,12 +65,13 @@ class ConsumerTest(_system: ActorSystem)
 
   it should "complete messages outlet when stream about to close" in {
     val (control, (in, out), sink) = graph(new ConsumerMock[K, V](), testFlow[Record, CommitInfo], TestSink.probe)
+    in.expectSubscription()
 
     sink.request(100)
 
     control.stop()
+    sink.expectNoMsg(200 millis)
     in.expectComplete()
-    out.expectNoMsg(100 millis)
 
     out.sendComplete()
     sink.expectComplete()
