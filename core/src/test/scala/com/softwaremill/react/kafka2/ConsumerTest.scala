@@ -5,10 +5,14 @@ import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
-import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
+import org.mockito
 import org.mockito.Mockito
-import org.scalatest.mock.MockitoSugar
+import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.verification.VerificationMode
 import org.scalatest.{FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
@@ -46,8 +50,7 @@ object ConsumerTest {
 class ConsumerTest(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
-    with Matchers
-    with MockitoSugar {
+    with Matchers {
   def this() = this(ActorSystem())
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
@@ -72,7 +75,7 @@ class ConsumerTest(_system: ActorSystem)
     control.stop()
     sink.expectNoMsg(200 millis)
     in.expectComplete()
-    mock.verifyNotClosed()
+    mock.verifyClosed(never())
 
     out.sendComplete()
     sink.expectComplete()
@@ -87,7 +90,7 @@ class ConsumerTest(_system: ActorSystem)
     sink.request(100)
 
     in.cancel()
-    mock.verifyNotClosed()
+    mock.verifyClosed(never())
 
     out.sendComplete()
     sink.expectComplete()
@@ -103,27 +106,50 @@ class ConsumerTest(_system: ActorSystem)
 
     sink.cancel()
     out.expectCancellation()
-    mock.verifyNotClosed()
+    mock.verifyClosed(never())
 
     in.cancel()
     Thread.sleep(100) //we probably need some kind of Future related to lifecycle of graph shape instance
     mock.verifyClosed()
     ()
   }
-
 }
 
 class ConsumerMock[K, V]() {
+  var actions = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
+
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
+    Mockito.when(result.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
+      override def answer(invocation: InvocationOnMock) = this.synchronized {
+        import scala.collection.JavaConversions._
+        val records = actions.dequeueOption.map {
+          case (element, remains) =>
+            actions = remains
+            element
+              .groupBy(x => new TopicPartition(x.topic(), x.partition()))
+              .map {
+                case (topicPart, messages) => (topicPart, seqAsJavaList(messages))
+              }
+        }.getOrElse(Map.empty)
+        new ConsumerRecords[K, V](records)
+      }
+    })
     result
   }
 
-  def verifyClosed() = {
-    Mockito.verify(mock).close()
+  def enqueue(records: Seq[ConsumerRecord[K, V]]) = {
+    this.synchronized {
+      actions :+= records
+    }
+    ()
   }
 
-  def verifyNotClosed() = {
-    Mockito.verify(mock, Mockito.never()).close()
+  def verifyClosed(mode: VerificationMode = Mockito.times(1)) = {
+    verify(mock, mode).close()
+  }
+
+  def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) = {
+    verify(mock, mode).poll(mockito.Matchers.any[Long])
   }
 }

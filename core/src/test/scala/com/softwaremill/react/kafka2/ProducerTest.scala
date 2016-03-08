@@ -29,8 +29,7 @@ import scala.util.{Try, Failure, Success}
 class ProducerTest(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
-    with Matchers
-    with MockitoSugar {
+    with Matchers {
   def this() = this(ActorSystem())
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
