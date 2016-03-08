@@ -6,7 +6,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Source, Sink, GraphDSL, Flow}
 import akka.stream.stage._
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, OffsetCommitCallback}
+import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConversions._
@@ -75,7 +75,7 @@ object ManualCommitConsumer {
   }
 }
 
-class ManualCommitConsumer[K, V](consumerProvider: ConsumerProvider[K, V])
+class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
     extends GraphStageWithMaterializedValue[ManualCommitConsumer.ConsumerShape[K, V], ManualCommitConsumer.Control]
     with LazyLogging {
   import ManualCommitConsumer._
