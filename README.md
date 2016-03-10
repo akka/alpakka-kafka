@@ -6,7 +6,8 @@ If you have questions or are working on a pull request or just curious, please f
 
 [Reactive Streams](http://www.reactive-streams.org) wrapper for [Apache Kafka](https://kafka.apache.org/).  
 
-Created and maintained by [SoftwareMill](https://softwaremill.com) ![SoftwareMill Logo](https://softwaremill.com/img/logo2x.png)
+Created and maintained by 
+[<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
 Supports Kafka 0.9.0.x  
 **For Kafka 0.8** see [this branch](https://github.com/softwaremill/reactive-kafka/tree/0.8).
