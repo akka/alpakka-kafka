@@ -132,9 +132,11 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     Await.result(f.consumer ? GetLastCommittedOffsetFor(partition), atMost = 1 second).asInstanceOf[Option[Int]]
   }
 
-  def verifyLastCommitted(partition: Int, offset: Long)(implicit f: FixtureParam): Unit = {
-    awaitCond(lastCommitted(partition).contains(offset), max = 3 seconds, interval = 200 millis)
-  }
+  def verifyLastCommitted(partition: Int, offset: Long)(implicit f: FixtureParam): Unit =
+    awaitAssert(
+      lastCommitted(partition) should ===(Some(offset)),
+      max = 3 seconds, interval = 200 millis
+    )
 
   def startCommitterActor(consumerActor: ActorRef, commitInterval: FiniteDuration) = {
     system.actorOf(Props(new ConsumerCommitter(consumerActor, consumerProperties(commitInterval))))

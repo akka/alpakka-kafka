@@ -20,7 +20,8 @@ object Consumer {
   }
 
   def apply[K, V](provider: ConsumerProvider[K, V]) = new ManualCommitConsumer(provider)
-  def source[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+
+  def source[K, V](consumerProvider: ConsumerProvider[K, V]): Source[ConsumerRecord[K, V], ManualCommitConsumer.Control] = {
     Source.fromGraph(
       GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
         import GraphDSL.Implicits._
@@ -30,7 +31,8 @@ object Consumer {
       }
     )
   }
-  def flow[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+
+  def flow[K, V](consumerProvider: ConsumerProvider[K, V]): Flow[Map[TopicPartition, OffsetAndMetadata], ConsumerRecord[K, V], ManualCommitConsumer.Control] = {
     Flow.fromGraph(
       GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
         import GraphDSL.Implicits._
@@ -153,6 +155,11 @@ class ManualCommitConsumer[K, V](consumerProvider: ConsumerProvider[K, V])
         }
       })
 
+      val decrementConfirmation = getAsyncCallback[Unit] { _ =>
+        awaitingConfirmation -= 1
+        logger.trace(s"Commits in progress {}", awaitingConfirmation.toString)
+      }
+
       setHandler(commitIn, new InHandler {
         override def onPush(): Unit = {
           val toCommit = grab(commitIn)
@@ -161,11 +168,10 @@ class ManualCommitConsumer[K, V](consumerProvider: ConsumerProvider[K, V])
           logger.trace(s"Start commit {}. Commits in progress {}", toCommit, awaitingConfirmation.toString)
           consumer.commitAsync(toCommit, new OffsetCommitCallback {
             override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
-              awaitingConfirmation -= 1
-              logger.trace(s"Commit completed {}. Commits in progress {}", toCommit, awaitingConfirmation.toString)
+              logger.trace(s"Commit completed {}", toCommit)
               val completion = Option(exception).map(Failure(_)).getOrElse(Success(toCommit))
               result.complete(completion)
-              ()
+              decrementConfirmation.invoke(())
             }
           })
           push(confirmationOut, result.future)
