@@ -1,4 +1,5 @@
 import scalariform.formatter.preferences.{CompactControlReadability, DoubleIndentClassDeclaration, PreserveSpaceBeforeArguments, SpacesAroundMultiImports}
+import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "reactive-kafka"
 
@@ -53,7 +54,17 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   .setPreference(DoubleIndentClassDeclaration, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(CompactControlReadability, true)
-  .setPreference(SpacesAroundMultiImports, false))
+  .setPreference(SpacesAroundMultiImports, false),
+headers := headers.value ++ Map(
+  "scala" -> (
+    HeaderPattern.cStyleBlockComment,
+    """|/*
+       | * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+       | * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+       | */
+       |""".stripMargin
+  )
+))
 
 lazy val root =
   project.in( file(".") )
@@ -64,6 +75,7 @@ lazy val root =
     .aggregate(core, benchmarks)
 
 lazy val core = project
+  .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(Seq(
     name := "reactive-kafka-core",
@@ -71,6 +83,7 @@ lazy val core = project
 ))
 
 lazy val benchmarks = project
+  .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(Seq(
     publishArtifact := false,
