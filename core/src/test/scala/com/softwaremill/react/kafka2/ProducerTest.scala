@@ -135,7 +135,7 @@ class ProducerTest(_system: ActorSystem)
     val (source, sink) = TestSource
       .probe[Record]
       .via(Producer(() => client.mock))
-      .map { f => Await.ready(f, 1 second); f.value.get }
+      .map { f => Await.ready(f, 5.seconds); f.value.get }
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
@@ -161,7 +161,7 @@ class ProducerTest(_system: ActorSystem)
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(1 second)(x => Try{ inputMap(x) }))
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(5.seconds)(x => Try{ inputMap(x) }))
     }
     val (source, sink) = TestSource
       .probe[Record]

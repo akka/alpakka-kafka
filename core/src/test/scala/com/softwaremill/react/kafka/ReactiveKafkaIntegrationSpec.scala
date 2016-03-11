@@ -21,7 +21,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
     with ImplicitSender with fixture.WordSpecLike with Matchers
     with ReactiveKafkaIntegrationTestSupport with MockitoSugar {
 
-  implicit val timeout = Timeout(1 second)
+  implicit val timeout = Timeout(5.seconds)
 
   def partitionizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
