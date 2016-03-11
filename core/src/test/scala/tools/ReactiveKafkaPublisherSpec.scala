@@ -1,10 +1,11 @@
-package com.softwaremill.react.kafka
+package test.tools
 
 import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages.StringConsumerRecord
+import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties}
 import kafka.producer.ReactiveKafkaProducer
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord

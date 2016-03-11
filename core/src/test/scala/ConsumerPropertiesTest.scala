@@ -1,7 +1,8 @@
-package com.softwaremill.react.kafka
+package test
 
 import java.util.UUID
 
+import com.softwaremill.react.kafka.ConsumerProperties
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest._
 

@@ -1,14 +1,14 @@
-package com.softwaremill.react.kafka
+package com.softwaremill.react.kafka.tools
 
 import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
+import com.softwaremill.react.kafka.ProducerProperties
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.fixture.Suite
+import test.tools.KafkaTest
 
-import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
 trait ReactiveKafkaIntegrationTestSupport extends Suite with KafkaTest {

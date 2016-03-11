@@ -1,7 +1,8 @@
-package com.softwaremill.react.kafka
+package test
 
 import java.util.UUID
 
+import com.softwaremill.react.kafka.ProducerProperties
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
 

@@ -14,7 +14,9 @@ import scala.language.postfixOps
 /**
  * This should become deprecated as soon as we remove KafkaActorSubscriber/KafkaActorPublisher and related stuff.
  */
-private[commit] class ConsumerCommitter[K, V](
+// Commenting out the package private, to make tests more distant from code (using separate package names). AKa270216
+//private[commit]
+class ConsumerCommitter[K, V](
     consumerActor: ActorRef,
     consumerProperties: ConsumerProperties[_, _]
 ) extends Actor with ActorLogging {

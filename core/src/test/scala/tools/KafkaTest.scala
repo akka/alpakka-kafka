@@ -1,11 +1,13 @@
-package com.softwaremill.react.kafka
+package test.tools
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.ActorMaterializer
-import akka.stream.actor.WatermarkRequestStrategy
+import akka.stream.actor.{ActorSubscriberMessage, ActorSubscriber, WatermarkRequestStrategy}
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
+import com.softwaremill.react.kafka.KafkaMessages._
+import com.softwaremill.react.kafka._
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -16,6 +18,9 @@ import scala.language.postfixOps
 
 trait KafkaTest extends BeforeAndAfterAll {
   this: Suite =>
+
+  import KafkaTest._
+
   implicit def system: ActorSystem
   implicit lazy val materializer = ActorMaterializer()
 
@@ -93,3 +98,20 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
 }
+
+object KafkaTest {
+  class ReactiveTestSubscriber extends ActorSubscriber {
+
+    protected def requestStrategy = WatermarkRequestStrategy(10)
+
+    var elements: Vector[StringConsumerRecord] = Vector.empty
+
+    def receive = {
+
+      case ActorSubscriberMessage.OnNext(element) =>
+        elements = elements :+ element.asInstanceOf[StringConsumerRecord]
+      case "get elements" => sender ! elements
+    }
+  }
+}
+
