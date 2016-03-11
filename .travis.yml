@@ -1,0 +1,16 @@
+language: scala
+sudo: false
+scala:
+  - "2.11.8"
+jdk:
+  - oraclejdk8
+env:
+  matrix:
+    - SCRIPT="sbt test:compile"
+# important to use eval, otherwise "&&" is passed as an argument to sbt rather than being processed by bash
+script: eval $SCRIPT
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot
+
