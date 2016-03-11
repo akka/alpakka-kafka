@@ -1,7 +1,6 @@
 package com.softwaremill.react.kafka
 
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
-
 import akka.actor._
 import akka.stream.actor._
 import akka.stream.scaladsl.{Keep, Sink}
@@ -12,13 +11,14 @@ import com.softwaremill.react.kafka.KafkaMessages._
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, fixture}
-
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import org.scalactic.ConversionCheckedTripleEquals
 
 class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaIntegrationSpec"))
     with ImplicitSender with fixture.WordSpecLike with Matchers
+    with ConversionCheckedTripleEquals
     with ReactiveKafkaIntegrationTestSupport with MockitoSugar {
 
   implicit val timeout = Timeout(1 second)
@@ -108,11 +108,11 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
       producer.close(2000, TimeUnit.SECONDS)
 
       if (fromEnd) {
-        awaitCond(buffer.iterator().asScala.toList == List("three"))
+        awaitAssert(buffer.iterator().asScala.toList should ===(List("three")))
         verifyNever(buffer.contains("one"))
       }
       else {
-        awaitCond(buffer.iterator().asScala.toList == List("one", "two", "three"))
+        awaitAssert(buffer.iterator().asScala.toList should ===(List("one", "two", "three")))
       }
     }
   }
