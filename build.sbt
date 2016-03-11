@@ -28,13 +28,12 @@ val coreDependencies = Seq(
 )
 
 val commonSettings =
-sonatypeSettings ++ scalariformSettings ++ Seq(
-  version := "0.11.0-SNAPSHOT",
-  organization := "com.softwaremill.reactivekafka",
+  scalariformSettings ++ Seq(
+  organization := "com.typesafe.akka",
+  organizationName := "Lightbend",
   startYear := Some(2014),
   test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
-  homepage := Some(url("https://github.com/softwaremill/reactive-kafka")),
   scalaVersion := "2.11.8",
   scalacOptions ++= Seq(
   "-deprecation",
@@ -56,32 +55,6 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   .setPreference(CompactControlReadability, true)
   .setPreference(SpacesAroundMultiImports, false))
 
-val publishSettings = Seq(
-  publishMavenStyle := true,
-  publishTo := {
-    val nexus = "https://oss.sonatype.org/"
-    if (isSnapshot.value)
-      Some("snapshots" at nexus + "content/repositories/snapshots")
-    else
-      Some("releases" at nexus + "service/local/staging/deploy/maven2")
-  },
-  pomIncludeRepository := {
-    x => false
-  },
-  pomExtra := (
-    <scm>
-      <url>git@github.com:softwaremill/reactive-kafka.git</url>
-      <connection>scm:git:git@github.com:softwaremill/reactive-kafka.git</connection>
-    </scm>
-      <developers>
-        <developer>
-          <id>kciesielski</id>
-          <name>Krzysztof Ciesielski</name>
-          <url>https://twitter.com/kpciesielski</url>
-        </developer>
-      </developers>
-    ))
-
 lazy val root =
   project.in( file(".") )
     .settings(commonSettings)
@@ -92,7 +65,6 @@ lazy val root =
 
 lazy val core = project
   .settings(commonSettings)
-  .settings(publishSettings)
   .settings(Seq(
     name := "reactive-kafka-core",
     libraryDependencies ++= commonDependencies ++ coreDependencies
