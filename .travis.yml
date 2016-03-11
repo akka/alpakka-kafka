@@ -12,7 +12,7 @@ before_install:
 - sleep 5
 env:
   matrix:
-    - SCRIPT="sbt test"
+    - SCRIPT="sbt -jvm-opts .travis-jvmopts test"
 # important to use eval, otherwise "&&" is passed as an argument to sbt rather than being processed by bash
 script: eval $SCRIPT
 cache:
