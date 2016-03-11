@@ -23,4 +23,5 @@ test-output
 .classpath
 .project
 .settings/
+.tmpBin
 
