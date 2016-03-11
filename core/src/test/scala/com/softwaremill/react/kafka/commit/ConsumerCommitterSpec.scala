@@ -22,7 +22,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 )) with ImplicitSender with fixture.FlatSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
     with KafkaTest with MockitoSugar {
 
-  implicit val timeout = Timeout(1 second)
+  implicit val timeout = Timeout(5.seconds)
 
   behavior of "Consumer committer"
   val topic = "topicName"
@@ -119,17 +119,17 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
   }
 
   def committerFlushSum(implicit f: FixtureParam): Int =
-    Await.result(f.consumer ? GetTotalFlushCount, atMost = 1 second).asInstanceOf[Int]
+    Await.result(f.consumer ? GetTotalFlushCount, atMost = 5.seconds).asInstanceOf[Int]
 
   def flushCount(partition: Int, offset: Long)(implicit f: FixtureParam): Option[Int] =
-    Await.result(f.consumer ? GetFlushCount(partition, offset), atMost = 1 second).asInstanceOf[Option[Int]]
+    Await.result(f.consumer ? GetFlushCount(partition, offset), atMost = 5.seconds).asInstanceOf[Option[Int]]
 
   def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit f: FixtureParam): Unit = {
     verifyNever(!flushCount(partition, offset).contains(1))
   }
 
   def lastCommitted(partition: Int)(implicit f: FixtureParam): Option[Int] = {
-    Await.result(f.consumer ? GetLastCommittedOffsetFor(partition), atMost = 1 second).asInstanceOf[Option[Int]]
+    Await.result(f.consumer ? GetLastCommittedOffsetFor(partition), atMost = 5.seconds).asInstanceOf[Option[Int]]
   }
 
   def verifyLastCommitted(partition: Int, offset: Long)(implicit f: FixtureParam): Unit =
