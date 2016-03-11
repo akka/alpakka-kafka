@@ -20,3 +20,7 @@ dist
 node_modules/
 .DS_Store
 test-output
+.classpath
+.project
+.settings/
+
