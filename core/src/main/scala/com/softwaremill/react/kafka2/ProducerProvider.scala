@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package com.softwaremill.react.kafka2
 
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
@@ -27,4 +31,3 @@ case class ProducerProvider[K, V](
     new KafkaProducer[K, V](javaProps, keySe, valueSe)
   }
 }
-

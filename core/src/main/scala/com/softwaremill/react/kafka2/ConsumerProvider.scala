@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package com.softwaremill.react.kafka2
 
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -71,4 +75,3 @@ case class ManualOffset(offsets: Map[TopicPartition, Long]) extends ConsumerSetu
     }
   }
 }
-
