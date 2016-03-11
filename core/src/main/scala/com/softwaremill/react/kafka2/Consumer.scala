@@ -20,7 +20,8 @@ object Consumer {
   }
 
   def apply[K, V](provider: ConsumerProvider[K, V]) = new ManualCommitConsumer(provider)
-  def source[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+
+  def source[K, V](consumerProvider: ConsumerProvider[K, V]): Source[ConsumerRecord[K, V], ManualCommitConsumer.Control] = {
     Source.fromGraph(
       GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
         import GraphDSL.Implicits._
@@ -30,7 +31,8 @@ object Consumer {
       }
     )
   }
-  def flow[K, V](consumerProvider: ConsumerProvider[K, V]) = {
+
+  def flow[K, V](consumerProvider: ConsumerProvider[K, V]): Flow[Map[TopicPartition, OffsetAndMetadata], ConsumerRecord[K, V], ManualCommitConsumer.Control] = {
     Flow.fromGraph(
       GraphDSL.create(new ManualCommitConsumer[K, V](consumerProvider)) { implicit b => consumer =>
         import GraphDSL.Implicits._

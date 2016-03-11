@@ -15,7 +15,8 @@ import scala.util.{Failure, Success, Try}
 object Producer {
   def value2record[V](topic: String) = Flow[V].map(new ProducerRecord[Array[Byte], V](topic, _))
 
-  def apply[K, V](producerProvider: () => KafkaProducer[K, V]) = {
+  // FIXME is the KafkaProducer materialized value needed?
+  def apply[K, V](producerProvider: () => KafkaProducer[K, V]): Flow[ProducerRecord[K, V], Future[(ProducerRecord[K, V], RecordMetadata)], KafkaProducer[K, V]] = {
     Flow.fromGraph(new ProducerSendFlowStage(producerProvider))
   }
   def sink[K, V](producerProvider: () => KafkaProducer[K, V]) = {
