@@ -92,9 +92,18 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
 
     val logic = new TimerGraphStageLogic(shape) {
       private case object Poll
-
+      private val POLL_INTERVAL = 10.millis
+      private val POLL_TIMEOUT = 10.millis
       private var awaitingConfirmation = 0L
       private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
+      private var pollScheduled = false
+
+      private def schedulePoll() = {
+        if (!pollScheduled) {
+          pollScheduled = true
+          scheduleOnce(Poll, POLL_INTERVAL)
+        }
+      }
 
       private def poll() = {
         def setupConsumer() = {
@@ -125,16 +134,16 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
         }
         if (needPolling) {
           setupConsumer()
-          val msgs = consumer.poll(100)
+          val msgs = consumer.poll(POLL_TIMEOUT.toMillis)
           handleResult(msgs)
-          if (needPolling) scheduleOnce(Poll, 100.millis)
+          if (needPolling) schedulePoll()
         }
         if (stopping && isClosed(commitIn) && awaitingConfirmation == 0) {
           completeStage()
         }
       }
 
-      val pollCallback = getAsyncCallback[Unit] { _ => poll() }
+      val pollCallback = getAsyncCallback[Unit] { _ => schedulePoll() }
 
       private def pushMsg(msg: ConsumerRecord[K, V]) = {
         logger.trace("Push element {}", msg)
@@ -161,7 +170,7 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
         }
       })
 
-      val decrementConfirmation = getAsyncCallback[Unit] { _ =>
+      private val decrementConfirmation = getAsyncCallback[Unit] { _ =>
         awaitingConfirmation -= 1
         logger.trace(s"Commits in progress {}", awaitingConfirmation.toString)
       }
@@ -181,7 +190,7 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
             }
           })
           push(confirmationOut, result.future)
-          poll()
+          schedulePoll()
         }
 
         override def onUpstreamFinish(): Unit = {
@@ -193,6 +202,7 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
         timerKey match {
           case Poll =>
             logger.trace("Scheduled poll")
+            pollScheduled = false
             poll()
           case msg => super.onTimer(msg)
         }

@@ -130,7 +130,7 @@ class ConsumerTest(_system: ActorSystem)
     ()
   }
 
-  val messages = (1 to 10000).map(record).to[Seq]
+  val messages = (1 to 10000).map(record)
   it should "emit messages received as one big chunk" in {
     checkMessagesReceiving(Seq(messages))
   }
@@ -142,15 +142,25 @@ class ConsumerTest(_system: ActorSystem)
   it should "emit messages received as one message per chunk" in {
     checkMessagesReceiving(messages.grouped(1).to[Seq])
   }
+
+  it should "emit messages received with empty some messages" in {
+    checkMessagesReceiving(
+      messages
+      .grouped(97)
+      .map(x => Seq(Seq.empty, x))
+      .flatten
+      .to[Seq]
+    )
+  }
 }
 
-class ConsumerMock[K, V]() {
+class ConsumerMock[K, V]() { self =>
   var actions = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
 
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
     Mockito.when(result.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
-      override def answer(invocation: InvocationOnMock) = this.synchronized {
+      override def answer(invocation: InvocationOnMock) = self.synchronized {
         import scala.collection.JavaConversions._
         val records = actions.dequeueOption.map {
           case (element, remains) =>
@@ -168,7 +178,7 @@ class ConsumerMock[K, V]() {
   }
 
   def enqueue(records: Seq[ConsumerRecord[K, V]]) = {
-    this.synchronized {
+    self.synchronized {
       actions :+= records
     }
     ()
