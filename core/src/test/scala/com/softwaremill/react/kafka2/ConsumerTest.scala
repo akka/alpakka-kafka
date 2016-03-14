@@ -17,11 +17,14 @@ import org.scalatest.{FlatSpecLike, Matchers}
 
 import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.collection.immutable.Seq
 
 /**
  * @author Alexey Romanchuk
  */
 object ConsumerTest {
+  def record(seed: Int) = new ConsumerRecord[String, String]("topic", 1, seed.toLong, seed.toString, seed.toString)
+
   def noopFlow[K, V] = Flow[ConsumerRecord[K, V]].map { r =>
     Map(new TopicPartition(r.topic(), r.partition()) -> new OffsetAndMetadata(r.offset()))
   }
@@ -112,6 +115,32 @@ class ConsumerTest(_system: ActorSystem)
     Thread.sleep(100) //we probably need some kind of Future related to lifecycle of graph shape instance
     mock.verifyClosed()
     ()
+  }
+
+  def checkMessagesReceiving(msgss: Seq[Seq[ConsumerRecord[K, V]]]) = {
+    val mock = new ConsumerMock[K, V]()
+    val (control, (in, out), _) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    in.request(msgss.map(_.size).sum.toLong)
+    msgss.foreach(mock.enqueue)
+    in.expectNextN(msgss.flatten)
+
+    control.stop()
+    out.sendComplete()
+    ()
+  }
+
+  val messages = (1 to 10000).map(record).to[Seq]
+  it should "emit messages received as one big chunk" in {
+    checkMessagesReceiving(Seq(messages))
+  }
+
+  it should "emit messages received as medium chunks" in {
+    checkMessagesReceiving(messages.grouped(97).to[Seq])
+  }
+
+  it should "emit messages received as one message per chunk" in {
+    checkMessagesReceiving(messages.grouped(1).to[Seq])
   }
 }
 
