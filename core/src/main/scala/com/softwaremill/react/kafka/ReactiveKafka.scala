@@ -1,15 +1,13 @@
 package com.softwaremill.react.kafka
 
 import akka.NotUsed
-import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
-import akka.stream.actor.{ActorPublisher, ActorSubscriber, RequestStrategy, WatermarkRequestStrategy}
+import akka.actor.{ActorRef, Props}
+import akka.stream.actor.WatermarkRequestStrategy
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.ReactiveKafka.DefaultRequestStrategy
-import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, KafkaSink, OffsetMap}
+import com.softwaremill.react.kafka.commit.{KafkaCommitterSink, OffsetMap}
 import kafka.producer._
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
-import org.reactivestreams.{Publisher, Subscriber}
 
 import scalaj.collection.Imports._
 
