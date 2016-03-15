@@ -4,7 +4,7 @@ import akka.actor._
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitAck, CommitOffsets}
+import com.softwaremill.react.kafka.commit.ConsumerCommitter.{CommitAck, CommitOffsets}
 import com.softwaremill.react.kafka.{ConsumerProperties, KafkaTest}
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer.ConsumerRecord

@@ -1,20 +1,22 @@
 package com.softwaremill.react.kafka
 
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+
 import akka.actor._
 import akka.stream.actor._
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import com.softwaremill.react.kafka.KafkaMessages._
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, fixture}
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import org.scalactic.ConversionCheckedTripleEquals
 
 class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaIntegrationSpec"))
     with ImplicitSender with fixture.WordSpecLike with Matchers
@@ -123,12 +125,17 @@ class ReactiveTestSubscriber extends ActorSubscriber {
 
   protected def requestStrategy = WatermarkRequestStrategy(10)
 
-  var elements: Vector[StringConsumerRecord] = Vector.empty
+  var elements: Vector[KafkaMessages.StringConsumerRecord] = Vector.empty
 
   def receive = {
 
     case ActorSubscriberMessage.OnNext(element) =>
-      elements = elements :+ element.asInstanceOf[StringConsumerRecord]
+      elements = elements :+ element.asInstanceOf[KafkaMessages.StringConsumerRecord]
     case "get elements" => sender ! elements
   }
+}
+
+object KafkaMessages {
+  type StringConsumerRecord = ConsumerRecord[Array[Byte], String]
+  type StringProducerMessage = ProducerMessage[Array[Byte], String]
 }

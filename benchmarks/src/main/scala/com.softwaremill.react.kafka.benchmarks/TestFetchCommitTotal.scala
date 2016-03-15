@@ -87,11 +87,9 @@ object TestFetchCommitTotal extends SourceProviders {
 
   def prepare(host: String, elemCounts: List[Long])(implicit system: ActorSystem, m: Materializer) = {
     val pairs = elemCounts.map(count => {
-      val fixtureForActorBased = new Fixture(host)
       val fixtureForGraphBased = new Fixture(host)
-      (new TestFetchCommitTotal(fixtureForActorBased, count, s"Fetching $count elements with actor-based provider (+commit)", actorSourceProviderWithCommit(system)),
-        new TestFetchCommitTotal(fixtureForGraphBased, count, s"Fetching $count elements with graphStage-based provider", graphSourceProviderWithCommit))
+      new TestFetchCommitTotal(fixtureForGraphBased, count, s"Fetching $count elements with graphStage-based provider", graphSourceProviderWithCommit)
     })
-    pairs.map(_._1) ++ pairs.map(_._2)
+    pairs
   }
 }

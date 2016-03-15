@@ -69,9 +69,8 @@ object TestFetchTotal extends SourceProviders {
 
   def prepare(elemCounts: List[Long], f: Fixture)(implicit system: ActorSystem, m: Materializer) = {
     val pairs = elemCounts.map(count => {
-      (new TestFetchTotal(f, count, s"Fetching $count elements with actor-based provider", actorSourceProviderNoCommit(system)),
-        new TestFetchTotal(f, count, s"Fetching $count elements with graphStage-based provider", graphSourceProviderNoCommit))
+      new TestFetchTotal(f, count, s"Fetching $count elements with graphStage-based provider", graphSourceProviderNoCommit)
     })
-    pairs.map(_._1) ++ pairs.map(_._2)
+    pairs
   }
 }
