@@ -235,7 +235,7 @@ class ConsumerTest(_system: ActorSystem)
 
     messages.expectComplete()
     confirmationOut.expectNext()
-    confirmationOut.expectNoMsg()
+    confirmationOut.expectNoMsg(200 millis)
 
     //emulate commit
     commitLog.calls.head match {
@@ -243,6 +243,7 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     confirmationOut.expectComplete()
+    mock.verifyClosed()
     ()
   }
 }
