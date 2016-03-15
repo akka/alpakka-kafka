@@ -1,11 +1,13 @@
 package com.softwaremill.react.kafka2
 
+import java.util.{Map => JMap}
+
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
-import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.mockito
 import org.mockito.Mockito
@@ -15,15 +17,21 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{FlatSpecLike, Matchers}
 
-import scala.concurrent.Future
-import scala.language.postfixOps
+import scala.collection.JavaConversions._
 import scala.collection.immutable.Seq
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 /**
  * @author Alexey Romanchuk
  */
 object ConsumerTest {
   def record(seed: Int) = new ConsumerRecord[String, String]("topic", 1, seed.toLong, seed.toString, seed.toString)
+  def commit(record: ConsumerRecord[_, _]) = Map(
+    new TopicPartition(record.topic(), record.partition()) -> new OffsetAndMetadata(record.offset())
+  )
 
   def noopFlow[K, V] = Flow[ConsumerRecord[K, V]].map { r =>
     Map(new TopicPartition(r.topic(), r.partition()) -> new OffsetAndMetadata(r.offset()))
@@ -31,12 +39,12 @@ object ConsumerTest {
   def testFlow[I, O](implicit as: ActorSystem) = Flow.fromSinkAndSourceMat(TestSink.probe[I], TestSource.probe[O])(Keep.both)
 
   def graph[Key, Value, FlowMat, SinkMat](
-    provider: ConsumerMock[Key, Value],
+    consumer: KafkaConsumer[Key, Value],
     processing: Flow[ConsumerRecord[Key, Value], Map[TopicPartition, OffsetAndMetadata], FlowMat],
     confirmation: Sink[Future[Map[TopicPartition, OffsetAndMetadata]], SinkMat]
   )(implicit m: Materializer) = {
     val graph = GraphDSL.create(
-      new ManualCommitConsumer[Key, Value](() => provider.mock),
+      new ManualCommitConsumer[Key, Value](() => consumer),
       processing,
       confirmation
     )(Tuple3.apply) { implicit b => (kafka, processing, confirmation) =>
@@ -65,12 +73,9 @@ class ConsumerTest(_system: ActorSystem)
   type CommitInfo = Map[TopicPartition, OffsetAndMetadata]
 
   import ConsumerTest._
-
-  import scala.concurrent.duration._
-
   it should "complete graph when stream control.stop called" in {
     val mock = new ConsumerMock[K, V]()
-    val (control, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+    val (control, (in, out), sink) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
 
     sink.request(100)
     in.expectSubscription()
@@ -88,7 +93,7 @@ class ConsumerTest(_system: ActorSystem)
 
   it should "complete graph when processing flow send complete" in {
     val mock = new ConsumerMock[K, V]()
-    val (_, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+    val (_, (in, out), sink) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
 
     sink.request(100)
 
@@ -103,7 +108,7 @@ class ConsumerTest(_system: ActorSystem)
 
   it should "complete graph when confirmation sink canceled" in {
     val mock = new ConsumerMock[K, V]()
-    val (_, (in, out), sink) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+    val (_, (in, out), sink) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
 
     sink.request(100)
 
@@ -119,7 +124,7 @@ class ConsumerTest(_system: ActorSystem)
 
   def checkMessagesReceiving(msgss: Seq[Seq[ConsumerRecord[K, V]]]) = {
     val mock = new ConsumerMock[K, V]()
-    val (control, (in, out), _) = graph(mock, testFlow[Record, CommitInfo], TestSink.probe)
+    val (control, (in, out), _) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
 
     in.request(msgss.map(_.size).sum.toLong)
     msgss.foreach(mock.enqueue)
@@ -152,9 +157,110 @@ class ConsumerTest(_system: ActorSystem)
       .to[Seq]
     )
   }
+
+  it should "call commitAsync for commit message and then complete future" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (_, (_, commitIn), confirmationOut) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    //send message to commit
+    confirmationOut.request(100)
+    commitIn.sendNext(commit(record(1)))
+
+    //expect future and one call to commitAsync
+    val confirmation = confirmationOut.expectNext()
+    commitLog.calls should have size (1)
+    confirmation.isCompleted should be (false)
+
+    //emulate commit
+    commitLog.calls.head match {
+      case (offsets, callback) => callback.onComplete(offsets, null)
+    }
+
+    // check that the future is successfully completed
+    confirmation.value should be (Some(Success(commit(record(1)))))
+  }
+
+  it should "fail future in case of commit fail" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (_, (_, commitIn), confirmationOut) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    //send message to commit
+    confirmationOut.request(100)
+    commitIn.sendNext(commit(record(1)))
+
+    //expect future and one call to commitAsync
+    val confirmation = confirmationOut.expectNext()
+    confirmation.isCompleted should be (false)
+
+    //emulate commit
+    val failure = new Exception()
+    commitLog.calls.head match {
+      case (offsets, callback) => callback.onComplete(null, failure)
+    }
+
+    // check that the future is failed
+    confirmation.value should be (Some(Failure(failure)))
+  }
+
+  it should "call commitAsync for every commit message (no commit batching)" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (_, (_, commitIn), confirmationOut) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    //send message to commit
+    confirmationOut.request(100)
+    (1 to 100).foreach(x => commitIn.sendNext(commit(record(x))))
+
+    confirmationOut.expectNextN(100)
+    commitLog.calls should have size (100)
+  }
+
+  it should "keep graph running until all futures completed" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, (messages, commitIn), confirmationOut) = graph(mock.mock, testFlow[Record, CommitInfo], TestSink.probe)
+
+    //setup sinks
+    messages.request(100)
+    confirmationOut.request(100)
+
+    //send a message
+    commitIn.sendNext(commit(record(1)))
+
+    //complete the graph
+    commitIn.sendComplete()
+    control.stop()
+
+    messages.expectComplete()
+    confirmationOut.expectNext()
+    confirmationOut.expectNoMsg()
+
+    //emulate commit
+    commitLog.calls.head match {
+      case (offsets, callback) => callback.onComplete(offsets, null)
+    }
+
+    confirmationOut.expectComplete()
+    ()
+  }
 }
 
-class ConsumerMock[K, V]() { self =>
+object ConsumerMock {
+  type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
+
+  def notImplementedHandler: CommitHandler = (_, _) => ???
+
+  class LogHandler extends CommitHandler {
+    var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
+    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = {
+      calls :+= ((offsets, callback))
+    }
+  }
+}
+
+class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notImplementedHandler) { self =>
   var actions = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
 
   val mock = {
@@ -172,6 +278,15 @@ class ConsumerMock[K, V]() { self =>
               }
         }.getOrElse(Map.empty)
         new ConsumerRecords[K, V](records)
+      }
+    })
+    Mockito.when(result.commitAsync(mockito.Matchers.any[JMap[TopicPartition, OffsetAndMetadata]], mockito.Matchers.any[OffsetCommitCallback])).thenAnswer(new Answer[Unit] {
+      override def answer(invocation: InvocationOnMock) = {
+        import scala.collection.JavaConversions._
+        val offsets = invocation.getArgumentAt(0, classOf[JMap[TopicPartition, OffsetAndMetadata]])
+        val callback = invocation.getArgumentAt(1, classOf[OffsetCommitCallback])
+        handler(mapAsScalaMap(offsets).toMap, callback)
+        ()
       }
     })
     result
