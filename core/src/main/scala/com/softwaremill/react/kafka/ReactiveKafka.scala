@@ -70,7 +70,6 @@ class ReactiveKafka {
     akka.stream.javadsl.Source.fromGraph(new KafkaGraphStageSource(consumer))
   }
 
-
   // Scala DSL
   def sourceWithOffsetSink[K, V](
     props: ConsumerProperties[K, V],
