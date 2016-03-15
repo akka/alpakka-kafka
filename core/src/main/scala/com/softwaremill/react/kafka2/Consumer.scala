@@ -2,6 +2,7 @@ package com.softwaremill.react.kafka2
 
 import java.util
 
+import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Flow, GraphDSL, Sink, Source}
 import akka.stream.stage._
@@ -11,14 +12,26 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 import scala.language.reflectiveCalls
 import scala.util.{Failure, Success}
 
 object Consumer {
-  def record2commit = Flow[ConsumerRecord[_, _]].map { msg =>
-    Map(new TopicPartition(msg.topic(), msg.partition()) -> new OffsetAndMetadata(msg.offset()))
-  }
+  def record2commit: Flow[ConsumerRecord[_, _], Map[TopicPartition, OffsetAndMetadata], NotUsed] =
+    Flow[ConsumerRecord[_, _]]
+      .map { msg =>
+        Map(new TopicPartition(msg.topic(), msg.partition()) -> new OffsetAndMetadata(msg.offset()))
+      }
+
+  def batchCommit(maxCount: Int, maxDuration: FiniteDuration): Flow[Map[TopicPartition, OffsetAndMetadata], Map[TopicPartition, OffsetAndMetadata], NotUsed] =
+    Flow[Map[TopicPartition, OffsetAndMetadata]]
+      .groupedWithin(maxCount, maxDuration)
+      .map {
+        _.flatten.groupBy(_._1).map {
+          case (topic, offsets) => (topic, offsets.map(_._2).maxBy(_.offset()))
+        }.toMap
+      }
 
   def apply[K, V](provider: ConsumerProvider[K, V]) = new ManualCommitConsumer(provider)
 
@@ -92,8 +105,9 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
 
     val logic = new TimerGraphStageLogic(shape) {
       private case object Poll
-      private val POLL_INTERVAL = 10.millis
-      private val POLL_TIMEOUT = 10.millis
+      private val POLL_INTERVAL = 100.millis
+      private val POLL_DATA_TIMEOUT = 50.millis
+      private val POLL_COMMIT_TIMEOUT = 1.millis
       private var awaitingConfirmation = 0L
       private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
       private var pollScheduled = false
@@ -123,21 +137,26 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
             pushMsg(buffer.next())
           }
         }
-        def needPolling = {
-          (isAvailable(messagesOut) && !buffer.hasNext) ||
-            awaitingConfirmation > 0
+        def pollTimeout = {
+          val data = Option(POLL_DATA_TIMEOUT).filter(_ => isAvailable(messagesOut) && !buffer.hasNext)
+          val commit = Option(POLL_COMMIT_TIMEOUT).filter(_ => awaitingConfirmation > 0)
+          data.orElse(commit)
+        }
+
+        pollTimeout match {
+          case Some(timeout) =>
+            setupConsumer()
+            val msgs = consumer.poll(timeout.toMillis)
+            handleResult(msgs)
+            if (pollTimeout.isDefined) schedulePoll()
+          case None =>
         }
 
         if (stopping && !isClosed(messagesOut)) {
           logger.debug("Stop producing messages")
           complete(messagesOut)
         }
-        if (needPolling) {
-          setupConsumer()
-          val msgs = consumer.poll(POLL_TIMEOUT.toMillis)
-          handleResult(msgs)
-          if (needPolling) schedulePoll()
-        }
+
         if (stopping && isClosed(commitIn) && awaitingConfirmation == 0) {
           completeStage()
         }
@@ -183,18 +202,24 @@ class ManualCommitConsumer[K, V](consumerProvider: () => KafkaConsumer[K, V])
           logger.trace(s"Start commit {}. Commits in progress {}", toCommit, awaitingConfirmation.toString)
           consumer.commitAsync(toCommit, new OffsetCommitCallback {
             override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
-              logger.trace(s"Commit completed {}", toCommit)
               val completion = Option(exception).map(Failure(_)).getOrElse(Success(toCommit))
+              logger.trace(s"Commit completed {} - {}", toCommit, completion)
               result.complete(completion)
               decrementConfirmation.invoke(())
             }
           })
           push(confirmationOut, result.future)
-          schedulePoll()
+          poll()
         }
 
         override def onUpstreamFinish(): Unit = {
+          logger.trace("Commit upstream finished")
           poll()
+        }
+
+        override def onUpstreamFailure(ex: Throwable): Unit = {
+          logger.trace("Commit upstream failed {}", ex)
+          super.onUpstreamFailure(ex)
         }
       })
 
