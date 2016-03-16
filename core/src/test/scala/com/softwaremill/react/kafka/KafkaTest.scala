@@ -27,10 +27,6 @@ trait KafkaTest extends BeforeAndAfterAll {
   val serializer = new StringSerializer()
   val kafka = new ReactiveKafka()
 
-  def createSubscriberProps(kafka: ReactiveKafka, producerProperties: ProducerProperties[String, String]): Props = {
-    kafka.producerActorProps(producerProperties, requestStrategy = defaultWatermarkStrategy)
-  }
-
   def createProducerProperties(f: FixtureParam): ProducerProperties[String, String] = {
     ProducerProperties(kafkaHost, f.topic, serializer, serializer)
   }
@@ -51,24 +47,8 @@ trait KafkaTest extends BeforeAndAfterAll {
     system.actorOf(Props(new ReactiveTestSubscriber))
   }
 
-  def stringSubscriber(f: FixtureParam) = {
-    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, serializer, serializer))(system)
-  }
-
   def stringGraphSink(f: FixtureParam) = {
     f.kafka.graphStageSink(ProducerProperties(kafkaHost, f.topic, serializer))
-  }
-
-  def stringSubscriberActor(f: FixtureParam) = {
-    f.kafka.producerActor(ProducerProperties(kafkaHost, f.topic, serializer, serializer))(system)
-  }
-
-  def stringConsumer(f: FixtureParam) = {
-    f.kafka.consume(consumerProperties(f))(system)
-  }
-
-  def stringConsumerWithOffsetSink(f: FixtureParam) = {
-    f.kafka.consumeWithOffsetSink(consumerProperties(f))(system)
   }
 
   def newKafka(): ReactiveKafka = {

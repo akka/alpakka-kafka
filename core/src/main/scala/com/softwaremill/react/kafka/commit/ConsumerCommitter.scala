@@ -3,8 +3,8 @@ package com.softwaremill.react.kafka.commit
 import akka.actor.Status.Failure
 import akka.actor._
 import com.softwaremill.react.kafka.ConsumerProperties
-import com.softwaremill.react.kafka.KafkaActorPublisher.{CommitOffsets, CommitAck}
 import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, TheEnd}
+import com.softwaremill.react.kafka.commit.ConsumerCommitter.{CommitAck, CommitOffsets}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -91,11 +91,10 @@ private[commit] class ConsumerCommitter[K, V](
 }
 
 object ConsumerCommitter {
+  case class CommitOffsets(offsets: OffsetMap)
+  case class CommitAck(offsets: OffsetMap)
   object Contract {
-
     object TheEnd
-
     object Flush
-
   }
 }

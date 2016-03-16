@@ -1,11 +1,9 @@
 package com.softwaremill.react.kafka.benchmarks
 
 import akka.NotUsed
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.actor.ActorPublisher
 import akka.stream.scaladsl.{Sink, Source}
-import com.softwaremill.react.kafka.commit.{CommitSink, KafkaCommitterSink, OffsetMap}
-import com.softwaremill.react.kafka.{ConsumerProperties, KafkaActorPublisher, KafkaGraphStageSource, ReactiveKafkaConsumer}
+import com.softwaremill.react.kafka.commit.{KafkaCommitterSink, OffsetMap}
+import com.softwaremill.react.kafka.{ConsumerProperties, KafkaGraphStageSource, ReactiveKafkaConsumer}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 
@@ -24,28 +22,6 @@ trait SourceProviders {
     ConsumerProperties(f.host, f.topic, ReactiveKafkaBenchmark.uuid(), new StringDeserializer(), new StringDeserializer())
       .noAutoCommit()
       .commitInterval(1 second)
-  }
-
-  def actorSourceProviderNoCommit(system: ActorSystem) = actorSourceProvider(system, consumerPropsNoCommit_randomGroup) _
-
-  def actorSourceProvider(system: ActorSystem, propsProvider: Fixture => ConsumerProperties[String, String])(f: Fixture) = {
-    val actorConsumerProps = propsProvider(f)
-    println(s"Creating actor for consumer properties: $actorConsumerProps")
-    val actorConsumer = ReactiveKafkaConsumer(actorConsumerProps)
-    val actorSourceProps = Props(new KafkaActorPublisher(actorConsumer))
-    val actorPublisher = ActorPublisher[ConsumerRecord[String, String]](system.actorOf(actorSourceProps))
-    (Source.fromPublisher(actorPublisher), actorConsumer)
-  }
-
-  def actorSourceProviderWithCommitSink(system: ActorSystem, propsProvider: Fixture => ConsumerProperties[String, String])(f: Fixture) = {
-    val actorConsumerProps = propsProvider(f)
-    println(s"Creating actor for consumer properties: $actorConsumerProps")
-    val actorConsumer = ReactiveKafkaConsumer(actorConsumerProps)
-    val actorSourceProps = Props(new KafkaActorPublisher(actorConsumer))
-    val consumerActor: ActorRef = system.actorOf(actorSourceProps)
-    val actorPublisher = ActorPublisher[ConsumerRecord[String, String]](consumerActor)
-    val sink: Sink[ConsumerRecord[String, String], NotUsed] = CommitSink.create(consumerActor, actorConsumerProps)(system).sink
-    (Source.fromPublisher(actorPublisher), actorConsumer, sink)
   }
 
   def graphSourceProviderNoCommit = graphSourceProvider(consumerPropsNoCommit_randomGroup) _
@@ -67,7 +43,4 @@ trait SourceProviders {
   }
 
   def graphSourceProviderWithCommit = graphSourceProviderCommitSink(consumerPropsFrequentCommit_randomGroup) _
-
-  def actorSourceProviderWithCommit(system: ActorSystem) = actorSourceProviderWithCommitSink(system, consumerPropsFrequentCommit_randomGroup) _
-
 }
