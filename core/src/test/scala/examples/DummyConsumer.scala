@@ -12,7 +12,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.concurrent.Await
-import com.softwaremill.react.kafka2._
+import com.softwaremill.react.kafka.internal._
 import scala.concurrent.duration._
 
 // Reads from topic "dummy", processes messages and commits offset into kafka after processing.

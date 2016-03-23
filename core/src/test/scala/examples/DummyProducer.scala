@@ -9,7 +9,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
-import com.softwaremill.react.kafka2._
+import com.softwaremill.react.kafka.internal._
 
 // Publishes 1 to 10000 (as strings) into Kafka and waits for publishing confirmation.
 // Also provides an example of correct shutdown.
