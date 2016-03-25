@@ -82,7 +82,7 @@ private[commit] class ConsumerCommitter[K, V](
   }
 
   private def handleAck(offsetMap: OffsetMap): Unit = {
-    committedOffsetMap = OffsetMap(offsetMap.map.mapValues(_ - 1))
+    committedOffsetMap = committedOffsetMap.merge(offsetMap)
   }
 
 }
