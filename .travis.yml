@@ -1,0 +1,21 @@
+language: scala
+sudo: false
+scala:
+  - "2.11.8"
+jdk:
+  - oraclejdk8
+before_install:
+- wget http://apache.mirrors.spacedump.net/kafka/0.9.0.1/kafka_2.11-0.9.0.1.tgz -O kafka.tgz
+- mkdir -p kafka && tar xzf kafka.tgz -C kafka --strip-components 1
+- nohup bash -c "cd kafka && bin/zookeeper-server-start.sh config/zookeeper.properties &"
+- nohup bash -c "cd kafka && bin/kafka-server-start.sh config/server.properties &"
+- sleep 5
+env:
+  matrix:
+    - SCRIPT="sbt -jvm-opts .travis-jvmopts test"
+# important to use eval, otherwise "&&" is passed as an argument to sbt rather than being processed by bash
+script: eval $SCRIPT
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot
