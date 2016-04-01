@@ -1,9 +1,9 @@
 import scalariform.formatter.preferences.{CompactControlReadability, DoubleIndentClassDeclaration, PreserveSpaceBeforeArguments, SpacesAroundMultiImports}
 import de.heikoseeberger.sbtheader.HeaderPattern
 
-name := "reactive-kafka"
+name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.2"
+val akkaVersion = "2.4.3"
 val kafkaVersion = "0.9.0.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -77,7 +77,7 @@ lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(Seq(
-    name := "reactive-kafka-core",
+    name := "akka-stream-kafka",
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
 
@@ -86,6 +86,6 @@ lazy val benchmarks = project
   .settings(commonSettings)
   .settings(Seq(
     publishArtifact := false,
-    name := "reactive-kafka-benchmarks",
+    name := "akka-stream-kafka-benchmarks",
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq("ch.qos.logback" % "logback-classic" % "1.1.3")
   )).dependsOn(core)

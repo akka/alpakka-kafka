@@ -1,15 +1,151 @@
 Reactive Streams for Kafka
 ====
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.softwaremill.reactivekafka/reactive-kafka-core_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.softwaremill/reactive-kafka_2.11)  
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.11)
 If you have questions or are working on a pull request or just curious, please feel welcome to join the chat room: [![Join the chat at https://gitter.im/akka/reactive-kafka](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/akka/reactive-kafka?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
-[Reactive Streams](http://www.reactive-streams.org) wrapper for [Apache Kafka](https://kafka.apache.org/).  
+[Akka Streams](http://doc.akka.io/docs/akka/2.4.3/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
 
 Created and maintained by 
 [<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
-Supports Kafka 0.9.0.x  
+## New API: 0.11-M1
+
+Supports Kafka 0.9.0.x
+
+This version of `akka-stream-kafka` depends on Akka 2.4.3 and Scala 2.11.8. 
+
+Available at Maven Central for Scala 2.11:
+
+````scala
+libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M1"
+````
+
+Example usage
+----
+
+#### Scala
+
+Producer Settings:
+
+```Scala
+import akka.kafka.scaladsl._
+import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.serialization.ByteArraySerializer
+
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+    .withBootstrapServers("localhost:9092")
+```
+
+Produce messages:
+
+```Scala
+  Source(1 to 10000)
+    .map(_.toString)
+    .map(elem => new ProducerRecord[Array[Byte], String]("topic1", elem))
+    .to(Producer.plainSink(producerSettings))
+```
+
+Produce messages in a flow:
+
+```Scala
+  Source(1 to 10000)
+    .map(elem => Producer.Message(new ProducerRecord[Array[Byte], String]("topic1", elem.toString), elem))
+    .via(Producer.flow(producerSettings))
+    .map { result =>
+      val record = result.message.record
+      println(s"${record.topic}/${record.partition} ${result.offset}: ${record.value} (${result.message.passThrough}")
+      result
+    }
+```
+
+Consumer Settings:
+
+```Scala
+import akka.kafka.scaladsl._
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.ByteArrayDeserializer
+import org.apache.kafka.clients.consumer.ConsumerConfig
+
+val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, 
+    Set("topic1"))
+  .withBootstrapServers("localhost:9092")
+  .withGroupId("group1")
+  .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+```
+
+Consume messages and store a representation, including offset, in DB:
+
+```Scala
+  db.loadOffset().foreach { fromOffset =>
+    val settings = consumerSettings
+      .withFromOffset(new TopicPartition("topic1", 1), fromOffset)
+    Consumer.plainSource(settings)
+      .mapAsync(1)(db.save)
+  }
+```
+
+Consume messages at-most-once:
+
+```Scala
+  Consumer.atMostOnceSource(consumerSettings.withClientId("client1"))
+    .mapAsync(1) { record =>
+      rocket.launch(record.value)
+    }
+```
+
+Consume messages at-least-once:
+
+```Scala
+  Consumer.committableSource(consumerSettings.withClientId("client1"))
+    .mapAsync(1) { msg =>
+      db.update(msg.value).flatMap(_ => msg.committableOffset.commit())
+    }
+```
+
+Connect a Consumer to Producer:
+
+```Scala
+  Consumer.committableSource(consumerSettings.withClientId("client1"))
+    .map(msg =>
+      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+    .to(Producer.commitableSink(producerSettings))
+```
+
+Consume messages at-least-once, and commit in batches:
+
+```Scala
+  Consumer.committableSource(consumerSettings.withClientId("client1"))
+    .mapAsync(1) { msg =>
+      db.update(msg.value).map(_ => msg.committableOffset)
+    }
+    .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+      batch.updated(elem)
+    }
+    .mapAsync(1)(_.commit())
+```
+
+Additional examples are available in 
+[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M1/src/test/scala/examples/ConsumerExample.scala)
+
+
+#### Java
+
+Java API is not included in 0.11-M1. It will be added soon.
+
+
+Configuration
+----
+
+The configuration properties are defined in [reference.conf](https://github.com/akka/reactive-kafka/blob/v0.11-M1/src/main/resources/reference.conf)
+
+Testing
+----
+Tests require Apache Kafka and Zookeeper to be available on `localhost:9092` and `localhost:2181`. Note that `auto.create.topics.enable` should be `true`.
+
+## Old API: 0.10.0
+
+Supports Kafka 0.9.0.x
 **For Kafka 0.8** see [this branch](https://github.com/softwaremill/reactive-kafka/tree/0.8).
 
 Available at Maven Central for Scala 2.11:

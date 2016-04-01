@@ -9,9 +9,16 @@ import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import akka.kafka.scaladsl.Producer
 import akka.kafka.ProducerSettings
+import akka.actor.ActorSystem
+import akka.kafka.scaladsl._
+import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.serialization.ByteArraySerializer
 
 trait ProducerExample {
-  def producerSettings: ProducerSettings[Array[Byte], String] = ???
+  val system = ActorSystem("example")
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+    .withBootstrapServers("localhost:9092")
+
 }
 
 object PlainSinkExample extends ProducerExample {
