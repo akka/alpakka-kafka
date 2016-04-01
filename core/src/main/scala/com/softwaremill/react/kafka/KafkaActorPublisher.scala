@@ -40,7 +40,7 @@ private[kafka] class KafkaActorPublisher[K, V](consumerAndProps: ReactiveKafkaCo
     try {
       consumer.commitSync(offsets.toCommitRequestInfo)
       log.debug(s"committed offsets: $offsets")
-      sender() ! CommitAck
+      sender() ! CommitAck(offsets)
     }
     catch {
       case ex: Exception => onErrorThenStop(ex)

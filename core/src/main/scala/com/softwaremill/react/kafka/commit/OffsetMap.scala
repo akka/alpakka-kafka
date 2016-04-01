@@ -24,6 +24,9 @@ case class OffsetMap(var map: Offsets = Map.empty) {
 
   def toFetchRequestInfo = map.keys.toSeq
 
+  def merge(other: OffsetMap) =
+    OffsetMap(map ++ other.map)
+
   def toCommitRequestInfo = {
     // Kafka expects the offset of the first unfetched message, and we have the
     // offset of the last fetched message
