@@ -1,8 +1,7 @@
 package com.softwaremill.react.kafka
 
 import java.util.concurrent.atomic.AtomicBoolean
-
-import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.consumer.{Consumer, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConversions._
@@ -22,17 +21,13 @@ import scalaj.collection.Imports._
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
     topicsAndPartitions: Set[TopicPartition],
-    topicPartitionOffsetsMap: Map[TopicPartition, Long]
+    topicPartitionOffsetsMap: Map[TopicPartition, Long],
+    consumerProvider: ConsumerProperties[K, V] => Consumer[K, V] = ReactiveKafkaConsumer.defaultInternalConsumerProvider[K, V] _
 ) {
-
   val closed: AtomicBoolean = new AtomicBoolean(false)
 
-  lazy val consumer: KafkaConsumer[K, V] = {
-    val c = new KafkaConsumer(
-      properties.rawProperties,
-      properties.keyDeserializer,
-      properties.valueDeserializer
-    )
+  lazy val consumer: Consumer[K, V] = {
+    val c = consumerProvider(properties)
 
     if (topicPartitionOffsetsMap.nonEmpty) {
       c.assign(topicPartitionOffsetsMap.keys.toList)
@@ -46,6 +41,7 @@ case class ReactiveKafkaConsumer[K, V](
     }
 
     c
+
   }
 
   def close() = {
@@ -56,6 +52,15 @@ case class ReactiveKafkaConsumer[K, V](
 }
 
 object ReactiveKafkaConsumer {
+
+  def defaultInternalConsumerProvider[K, V](
+    properties: ConsumerProperties[K, V]
+  ): Consumer[K, V] =
+    new KafkaConsumer(
+      properties.rawProperties,
+      properties.keyDeserializer,
+      properties.valueDeserializer
+    )
 
   def apply[K, V](properties: ConsumerProperties[K, V]): ReactiveKafkaConsumer[K, V] =
     ReactiveKafkaConsumer(properties, Set(), Map())
