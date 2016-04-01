@@ -9,7 +9,7 @@
     <!--<logger name="org.apache.kafka" level="WARN"/>-->
     <!--<logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>-->
     <!--<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>-->
-    <!--<logger name="com.softwaremill.react" level="TRACE"/>-->
+    <!--<logger name="akka.kafka" level="TRACE"/>-->
 
     <root level="WARN">
         <appender-ref ref="STDOUT" />

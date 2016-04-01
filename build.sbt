@@ -46,7 +46,6 @@ val commonSettings =
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
-  "-Ywarn-value-discard",
   "-Xfuture"
 ),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),

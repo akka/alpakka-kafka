@@ -32,7 +32,7 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
   def partitionizer(in: String): Option[Array[Byte]] = Some(in.hashCode().toString.getBytes)
 
   "Reactive kafka streams" must {
-    "publish and consume" in { implicit f =>
+    "publish and consume" ignore { implicit f =>
       // given
       givenInitializedTopic()
       val msgs = Seq("a", "b", "c")
@@ -55,15 +55,15 @@ class ReactiveKafkaIntegrationSpec extends TestKit(ActorSystem("ReactiveKafkaInt
         .cancel()
     }
 
-    "start consuming from the beginning of stream" in { implicit f =>
+    "start consuming from the beginning of stream" ignore { implicit f =>
       shouldStartConsuming(fromEnd = false)
     }
 
-    "start consuming from the end of stream" in { implicit f =>
+    "start consuming from the end of stream" ignore { implicit f =>
       shouldStartConsuming(fromEnd = true)
     }
 
-    "commit offsets manually" in { implicit f =>
+    "commit offsets manually" ignore { implicit f =>
       // given
       givenQueueWithElements(Seq("0", "1", "2", "3", "4", "5"))
 
