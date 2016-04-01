@@ -11,12 +11,6 @@ import scalaj.collection.Imports._
  * ReactiveKafkaConsumer allows for instantiating KafkaConsumer
  * instances with several combinations of topic, partition, and offset parameters, depending on the
  * use case.
- *
- * @param properties
- * @param topicsAndPartitions
- * @param topicPartitionOffsetsMap
- * @tparam K
- * @tparam V
  */
 case class ReactiveKafkaConsumer[K, V](
     properties: ConsumerProperties[K, V],
