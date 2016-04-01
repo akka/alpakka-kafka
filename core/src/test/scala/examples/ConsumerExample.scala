@@ -17,13 +17,24 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import akka.kafka.ConsumerSettings
 import akka.kafka.ProducerSettings
 import org.apache.kafka.common.TopicPartition
+import akka.actor.ActorSystem
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.ByteArrayDeserializer
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.serialization.ByteArraySerializer
 
 trait ConsumerExample {
-  implicit val ec = scala.concurrent.ExecutionContext.Implicits.global
+  val system = ActorSystem("example")
+  implicit val ec = system.dispatcher
 
-  def consumerSettings: ConsumerSettings[Array[Byte], String] = ???
+  val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set("topic1"))
+    .withBootstrapServers("localhost:9092")
+    .withGroupId("group1")
+    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
-  def producerSettings: ProducerSettings[Array[Byte], String] = ???
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+    .withBootstrapServers("localhost:9092")
 
   class DB {
     def save(record: ConsumerRecord[Array[Byte], String]): Future[Done] = ???
