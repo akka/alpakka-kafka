@@ -126,7 +126,7 @@ Consume messages at-least-once, and commit in batches:
 ```
 
 Additional examples are available in 
-[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M1/src/test/scala/examples/ConsumerExample.scala)
+[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M1/core/src/test/scala/examples/ConsumerExample.scala)
 
 
 #### Java
@@ -137,7 +137,7 @@ Java API is not included in 0.11-M1. It will be added soon.
 Configuration
 ----
 
-The configuration properties are defined in [reference.conf](https://github.com/akka/reactive-kafka/blob/v0.11-M1/src/main/resources/reference.conf)
+The configuration properties are defined in [reference.conf](https://github.com/akka/reactive-kafka/blob/v0.11-M1/core/src/main/resources/reference.conf)
 
 Testing
 ----
