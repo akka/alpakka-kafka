@@ -16,7 +16,7 @@ Available at Maven Central for Scala 2.11:
 ````scala
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.10.0"
+libraryDependencies += "com.softwaremill.reactivekafka" %% "reactive-kafka-core" % "0.10.1"
 ````
 
 Example usage
