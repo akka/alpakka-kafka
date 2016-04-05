@@ -29,6 +29,7 @@ import akka.Done
 import akka.stream.scaladsl.Keep
 import scala.concurrent.Await
 import java.util.concurrent.atomic.AtomicInteger
+import akka.stream.ActorMaterializerSettings
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -147,6 +148,52 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .expectNextN(((committedElement.get + 1) to 100).map(_.toString))
 
       probe2.cancel()
+    }
+
+    "handle commit without demand" in {
+      givenInitializedTopic()
+
+      // important to use more messages than the internal buffer sizes
+      // to trigger the intended scenario
+      Source(1 to 100)
+        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .runWith(Producer.plainSink(producerSettings))
+
+      val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
+        .withBootstrapServers("localhost:9092")
+        .withGroupId(group1)
+        .withClientId(client1)
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+
+      val (control, probe1) = Consumer.committableSource(consumerSettings)
+        .filterNot(_.value == InitialMsg)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      // request one, only
+      probe1.request(1)
+
+      val committableOffset = probe1.expectNext().committableOffset
+
+      // enqueue some more
+      Source(101 to 110)
+        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .runWith(Producer.plainSink(producerSettings))
+
+      probe1.expectNoMsg(200.millis)
+
+      // then commit, which triggers a new poll while we haven't drained
+      // previous buffer
+      val done1 = committableOffset.commit()
+
+      Await.result(done1, remainingOrDefault)
+
+      probe1.request(1)
+      val done2 = probe1.expectNext().committableOffset.commit()
+      Await.result(done2, remainingOrDefault)
+
+      probe1.cancel()
+      Await.result(control.stopped, remainingOrDefault)
     }
 
     // TODO add more tests
