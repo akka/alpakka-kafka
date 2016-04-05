@@ -323,7 +323,6 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
   private val pollDataTimeout = Some(settings.pollTimeout)
   private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   private var pollScheduled = false
-  private val assignments = consumer.assignment().asScala.toArray
 
   private val pollCallback = getAsyncCallback[Unit] { _ => schedulePoll() }
   private val stopCallback = getAsyncCallback[Unit] { _ => stopInternal() }
@@ -360,15 +359,17 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
   protected def poll(): Unit = {
     try {
       def toggleConsumption() = {
+        // note that consumer.assignment() is automatically changed when using
+        // dynamic subscriptions and we must use the current value to resume/pause
         if (isAvailable(out))
-          consumer.resume(assignments: _*)
+          consumer.resume(consumer.assignment().asScala.toArray: _*)
         else
-          consumer.pause(assignments: _*)
+          consumer.pause(consumer.assignment().asScala.toArray: _*)
       }
 
       def handleResult(records: ConsumerRecords[K, V]) = {
         if (!records.isEmpty) {
-          logger.trace(s"Got messages - {}", records)
+          logger.trace(s"Got ${records.count} messages, out isAvailable ${isAvailable(out)}")
           require(!buffer.hasNext)
           buffer = records.iterator().asScala
           if (isAvailable(out))
