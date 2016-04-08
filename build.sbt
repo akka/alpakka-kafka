@@ -2,7 +2,7 @@ import scalariform.formatter.preferences.{CompactControlReadability, DoubleInden
 
 name := "reactive-kafka"
 
-val akkaVersion = "2.4.2"
+val akkaVersion = "2.4.3"
 val curatorVersion = "2.9.0"
 
 val kafka = "org.apache.kafka" %% "kafka" % "0.8.2.2" exclude("org.slf4j", "slf4j-log4j12") exclude("log4j", "log4j")
