@@ -110,6 +110,7 @@ object examples {
       decoder = new StringDecoder()
     )
       .commitInterval(5 seconds) // flush interval
+      .kafkaOffsetsStorage()
 
     val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
     Source.fromPublisher(consumerWithOffsetSink.publisher)

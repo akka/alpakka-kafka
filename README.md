@@ -189,16 +189,10 @@ actor. `KafkaActorPublisher` must receive a `ActorPublisherMessage.Cancel`, wher
 If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consumeWithOffsetSink()`, you must call its 
 `cancel()` method in order to gracefully close all underlying resources.
 
-#### Manual Commit (version 0.8 and above)
+#### Manual Commit
 In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, when
 you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed. 
-Reactive Kafka supports manual commit both to Zookeeper (legacy) and Kafka storage. Dual commit is not supported. 
-In order to commit manually to zookeeper, you have to add an optional module to your dependencies:
-
-````scala
-libraryDependencies += "com.softwaremill.reactivekafka" %% "zookeeper-committer" % reactiveKafkaVersion
-````
-Example of a consumer with manual commit for processed messages:  
+Example of a consumer with manual commit for processed messages, storing offsets to Kafka:  
 
 ```Scala
 import scala.concurrent.duration._
@@ -217,6 +211,7 @@ val consumerProperties = ConsumerProperties(
   topic = "lowercaseStrings",
   groupId = "groupName",
   decoder = new StringDecoder())
+.kafkaOffsetStorage()
 .commitInterval(5 seconds) // flush interval
     
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
@@ -225,6 +220,14 @@ Source.fromPublisher(consumerWithOffsetSink.publisher)
   .to(consumerWithOffsetSink.offsetCommitSink) // stream back for commit
   .run()
 ```
+
+If you want to store offsets to Zookeeper, omit `.kafkaOffsetStorage()` when building `ConsumerProperties`. You also
+need to add an extra dependency:
+
+````scala
+libraryDependencies += "com.softwaremill.reactivekafka" %% "zookeeper-committer" % reactiveKafkaVersion
+````
+
 Tuning
 ----
 
