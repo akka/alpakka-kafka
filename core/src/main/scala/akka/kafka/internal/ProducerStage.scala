@@ -15,7 +15,6 @@ import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
 import akka.stream._
 import akka.stream.stage._
-import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
 
 /**
@@ -24,8 +23,7 @@ import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadat
 private[kafka] class ProducerStage[K, V, P](
   settings: ProducerSettings[K, V], producerProvider: () => KafkaProducer[K, V]
 )
-    extends GraphStage[FlowShape[Producer.Message[K, V, P], Future[Producer.Result[K, V, P]]]]
-    with LazyLogging {
+    extends GraphStage[FlowShape[Producer.Message[K, V, P], Future[Producer.Result[K, V, P]]]] {
 
   private val in = Inlet[Producer.Message[K, V, P]]("messages")
   private val out = Outlet[Future[Producer.Result[K, V, P]]]("result")
@@ -33,9 +31,11 @@ private[kafka] class ProducerStage[K, V, P](
 
   override def createLogic(inheritedAttributes: Attributes) = {
     val producer = producerProvider()
-    val logic = new GraphStageLogic(shape) {
+    val logic = new GraphStageLogic(shape) with StageLogging {
       var awaitingConfirmation = 0L
       var completionState: Option[Try[Unit]] = None
+
+      override protected def logSource: Class[_] = classOf[ProducerStage[K, V, P]]
 
       def checkForCompletion() = {
         if (isClosed(in) && awaitingConfirmation == 0) {
@@ -88,14 +88,14 @@ private[kafka] class ProducerStage[K, V, P](
       })
 
       override def postStop() = {
-        logger.debug("Stage completed")
+        log.debug("Stage completed")
         try {
           producer.flush()
           producer.close(settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
-          logger.debug("Producer closed")
+          log.debug("Producer closed")
         }
         catch {
-          case NonFatal(ex) => logger.error("Problem occurred during producer close", ex)
+          case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
         }
         super.postStop()
       }
