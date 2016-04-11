@@ -15,16 +15,14 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
-  "org.scalaj" %% "scalaj-collection" % "1.6",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test"
 )
 

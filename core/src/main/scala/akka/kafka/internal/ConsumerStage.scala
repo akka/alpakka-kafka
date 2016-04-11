@@ -21,7 +21,6 @@ import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.stage._
-import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import java.util.concurrent.TimeUnit
@@ -93,8 +92,7 @@ private[kafka] object ConsumerStage {
  * INTERNAL API
  */
 private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K, V], consumerProvider: () => KafkaConsumer[K, V])
-    extends GraphStageWithMaterializedValue[SourceShape[Consumer.CommittableMessage[K, V]], Consumer.Control]
-    with LazyLogging {
+    extends GraphStageWithMaterializedValue[SourceShape[Consumer.CommittableMessage[K, V]], Consumer.Control] {
   import ConsumerStage._
 
   val out = Outlet[Consumer.CommittableMessage[K, V]]("messages")
@@ -121,7 +119,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
 
       private val decrementConfirmation = getAsyncCallback[NotUsed] { _ =>
         awaitingConfirmation -= 1
-        logger.trace(s"Commits in progress {}", awaitingConfirmation.toString)
+        log.debug("Commits in progress {}", awaitingConfirmation.toString)
       }
 
       private val commitBatchCallback = getAsyncCallback[(CommittableOffsetBatchImpl, Promise[Done])] {
@@ -130,6 +128,8 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       private val commitSingleCallback = getAsyncCallback[(Consumer.PartitionOffset, Promise[Done])] {
         case (offset, done) => commitSingleInternal(offset, done)
       }
+
+      override protected def logSource: Class[_] = classOf[CommittableConsumerStage[K, V]]
 
       override def preStart(): Unit = {
         setKeepGoing(true)
@@ -145,7 +145,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
         super.poll()
 
         if (stopping && !isClosed(out)) {
-          logger.debug(s"Stop producing messages, commits in progress $awaitingConfirmation")
+          log.debug("Stop producing messages, commits in progress {}", awaitingConfirmation)
           complete(out)
         }
 
@@ -165,7 +165,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
         )
         val committable = CommittableOffsetImpl(offset)(this)
         val msg = Consumer.CommittableMessage(record.key, record.value, committable)
-        logger.trace("Push element {}", msg)
+        log.debug("Push element {}", msg)
         push(out, msg)
       }
 
@@ -241,14 +241,15 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
 
       private def commitAsync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata], done: Promise[Done]): Unit = {
         awaitingConfirmation += 1
-        logger.trace(s"Start commit {}. Commits in progress {}", offsets, awaitingConfirmation.toString)
+        log.debug("Start commit {}. Commits in progress {}", offsets, awaitingConfirmation)
         consumer.commitAsync(offsets, new OffsetCommitCallback {
           override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
             if (exception == null)
               done.success(Done)
             else
               done.failure(exception)
-            logger.trace(s"Commit completed {} - {}", offsets, done.future.value)
+            if (log.isDebugEnabled)
+              log.debug("Commit completed {} - {}", offsets, done.future.value)
             decrementConfirmation.invoke(NotUsed)
           }
         })
@@ -260,7 +261,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       override protected def onTimer(timerKey: Any): Unit = {
         timerKey match {
           case StopTimeout =>
-            logger.trace(s"Stop timeout, commits in progress $awaitingConfirmation")
+            log.debug("Stop timeout, commits in progress {}", awaitingConfirmation)
             completeStage()
           case msg => super.onTimer(msg)
         }
@@ -283,8 +284,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
  * INTERNAL API
  */
 private[kafka] class PlainConsumerStage[K, V](settings: ConsumerSettings[K, V], consumerProvider: () => KafkaConsumer[K, V])
-    extends GraphStageWithMaterializedValue[SourceShape[ConsumerRecord[K, V]], Consumer.Control]
-    with LazyLogging {
+    extends GraphStageWithMaterializedValue[SourceShape[ConsumerRecord[K, V]], Consumer.Control] {
   import ConsumerStage._
 
   val out = Outlet[ConsumerRecord[K, V]]("messages")
@@ -293,8 +293,10 @@ private[kafka] class PlainConsumerStage[K, V](settings: ConsumerSettings[K, V], 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
     val logic = new ConsumerStageLogic[K, V, ConsumerRecord[K, V]](settings, consumerProvider(), out, shape) {
 
+      override protected def logSource: Class[_] = classOf[PlainConsumerStage[K, V]]
+
       override protected def pushMsg(record: ConsumerRecord[K, V]): Unit = {
-        logger.trace("Push element {}", record)
+        log.debug("Push element {}", record)
         push(out, record)
       }
 
@@ -314,7 +316,7 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
   out: Outlet[Out],
   shape: SourceShape[Out]
 ) extends TimerGraphStageLogic(shape)
-    with Consumer.Control with LazyLogging {
+    with Consumer.Control with StageLogging {
   import ConsumerStage._
 
   val stoppedPromise = Promise[Done]
@@ -369,7 +371,8 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
 
       def handleResult(records: ConsumerRecords[K, V]) = {
         if (!records.isEmpty) {
-          logger.trace(s"Got ${records.count} messages, out isAvailable ${isAvailable(out)}")
+          if (log.isDebugEnabled)
+            log.debug("Got {} messages, out isAvailable {}", records.count, isAvailable(out))
           require(!buffer.hasNext)
           buffer = records.iterator().asScala
           if (isAvailable(out))
@@ -389,7 +392,7 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
     }
     catch {
       case NonFatal(e) =>
-        logger.error("Error in poll", e)
+        log.error(e, "Error in poll")
         throw e
     }
 
@@ -398,14 +401,14 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
   override protected def onTimer(timerKey: Any): Unit = {
     timerKey match {
       case Poll =>
-        logger.trace("Scheduled poll")
+        log.debug("Scheduled poll")
         pollScheduled = false
         poll()
     }
   }
 
   override def postStop(): Unit = {
-    logger.debug("Stage completed. Closing kafka consumer")
+    log.debug("Stage completed. Closing kafka consumer")
     val stopTimeoutTask = materializer match {
       case a: ActorMaterializer =>
         Some(a.system.scheduler.scheduleOnce(settings.closeTimeout) {
@@ -425,7 +428,7 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
 
   // impl of Consumer.Control that is called from outside via materialized value
   override def stop(): Future[Done] = {
-    logger.debug("Stopping consumer stage")
+    log.debug("Stopping consumer stage")
     stopCallback.invoke(())
     stopped
   }
