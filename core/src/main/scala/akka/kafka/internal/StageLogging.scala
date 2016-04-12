@@ -23,7 +23,6 @@ trait StageLogging { self: GraphStageLogic =>
         case a: ActorMaterializer =>
           _log = akka.event.Logging(a.system, logSource)
         case _ =>
-          println("Logging is disabled because materializer is not an ActorMaterializer")
           _log = NoLogging
       }
     }
