@@ -8,19 +8,13 @@ package examples.javadsl;
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerMessage;
-import akka.kafka.ConsumerMessage.CommittableOffsetBatch;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.ProducerMessage;
 import akka.kafka.ProducerSettings;
+import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.stream.javadsl.Source;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -31,12 +25,15 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import scala.concurrent.duration.Duration;
 
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
 
   protected final ConsumerSettings<byte[], String> consumerSettings =
-      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer(),
-          ConsumerSettings.asSet("topic1"))
+      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -68,14 +65,14 @@ abstract class ConsumerExample {
 
 // Consume messages and store a representation, including offset, in DB
 class ExternalOffsetStorageExample extends ConsumerExample {
-
   public void demo() {
     final DB db = new DB();
 
     db.loadOffset().thenAccept(fromOffset -> {
-      ConsumerSettings<byte[], String> settings = consumerSettings
-        .withFromOffset(new TopicPartition("topic1", 1), fromOffset);
-      Consumer.plainSource(settings).mapAsync(1, record -> db.save(record));
+      Consumer.plainSource(
+              consumerSettings,
+              Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 1), fromOffset)
+      ).mapAsync(1, record -> db.save(record));
     });
   }
 }
@@ -85,7 +82,7 @@ class AtMostOnceExample extends ConsumerExample {
   public void demo() {
     final Rocket rocket = new Rocket();
 
-    Consumer.atMostOnceSource(consumerSettings.withClientId("client1"))
+    Consumer.atMostOnceSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .mapAsync(1, record -> rocket.launch(record.value()));
   }
 }
@@ -95,7 +92,7 @@ class AtLeastOnceExample extends ConsumerExample {
   public void demo() {
     final DB db = new DB();
 
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
+    Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .mapAsync(1, msg -> db.update(msg.value())
         .thenCompose(done -> msg.committableOffset().commitJavadsl()));
   }
@@ -106,7 +103,7 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
   public void demo() {
     final DB db = new DB();
 
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
+    Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .mapAsync(1, msg ->
         db.update(msg.value()).thenApply(done -> msg.committableOffset()))
       .batch(10,
@@ -119,7 +116,7 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 // Connect a Consumer to Producer
 class ConsumerToProducerSinkExample extends ConsumerExample {
   public void demo() {
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
+    Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .map(msg ->
         new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
             new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
@@ -130,7 +127,7 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
 //// Connect a Consumer to Producer
 class ConsumerToProducerFlowExample extends ConsumerExample {
   public void demo() {
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
+    Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .map(msg ->
         new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
           new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
@@ -144,7 +141,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
 class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
   public void demo() {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
-      Consumer.committableSource(consumerSettings.withClientId("client1"))
+      Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
         .map(msg ->
             new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
                 new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
@@ -162,7 +159,7 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
 class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   public void demo() {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
-      Consumer.committableSource(consumerSettings.withClientId("client1"))
+      Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
         .map(msg ->
             new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
                 new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))

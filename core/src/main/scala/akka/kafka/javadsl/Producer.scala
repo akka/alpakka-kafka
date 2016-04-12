@@ -5,14 +5,11 @@
 package akka.kafka.javadsl
 
 import akka.NotUsed
-import akka.kafka.ConsumerMessage
 import akka.kafka.ProducerMessage._
-import akka.kafka.ProducerSettings
+import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.kafka.internal.ProducerStage
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Flow, Keep, Sink}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 /**

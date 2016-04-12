@@ -4,16 +4,19 @@
  */
 package akka.kafka.scaladsl
 
-import scala.concurrent.Future
-
-import akka.Done
+import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
-import akka.kafka.ConsumerMessage._
-import akka.kafka.ConsumerSettings
-import akka.kafka.internal.{CommittableConsumerStage, PlainConsumerStage}
+import akka.kafka.ConsumerMessage.{CommittableMessage, Message}
+import akka.kafka.internal.ConsumerStage
+import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
+import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
+
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -58,8 +61,8 @@ object Consumer {
    * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
-  def plainSource[K, V](settings: ConsumerSettings[K, V]): Source[ConsumerRecord[K, V], Control] = {
-    val src = Source.fromGraph(new PlainConsumerStage[K, V](settings, () => settings.createKafkaConsumer()))
+  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] = {
+    val src = Source.fromGraph(ConsumerStage.plainSource[K, V](settings, subscription))
     if (settings.dispatcher.isEmpty) src
     else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
@@ -77,8 +80,8 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V]): Source[CommittableMessage[K, V], Control] = {
-    val src = Source.fromGraph(new CommittableConsumerStage[K, V](settings, () => settings.createKafkaConsumer()))
+  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[CommittableMessage[K, V], Control] = {
+    val src = Source.fromGraph(ConsumerStage.committableSource[K, V](settings, subscription))
     if (settings.dispatcher.isEmpty) src
     else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
@@ -87,11 +90,47 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V]): Source[Message[K, V], Control] = {
-    committableSource[K, V](settings).mapAsync(1) { m =>
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[Message[K, V], Control] = {
+    committableSource[K, V](settings, subscription).mapAsync(1) { m =>
       m.committableOffset.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
     }
   }
 
+  /**
+   * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
+   * When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source
+   * When topic-partition is revoked then corresponding source completes
+   */
+  def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] = {
+    val src = Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription))
+    if (settings.dispatcher.isEmpty) src
+    else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
+  }
+
+  /**
+   * The same as `plainPartitionedSource` but with offset commit support
+   */
+  def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] = {
+    val src = Source.fromGraph(ConsumerStage.committableSubSource[K, V](settings, subscription))
+    if (settings.dispatcher.isEmpty) src
+    else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
+  }
+
+  /**
+   * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
+   * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
+   */
+  def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
+    Source.fromGraph(ConsumerStage.externalPlainSource[K, V](consumer, subscription))
+  }
+
+  /**
+   * The same as `plainExternalSource` but with offset commit support
+   */
+  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, clientId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
+    Source.fromGraph(ConsumerStage.externalCommittableSource[K, V](
+      consumer, clientId, commitTimeout, subscription
+    ))
+  }
 }
 

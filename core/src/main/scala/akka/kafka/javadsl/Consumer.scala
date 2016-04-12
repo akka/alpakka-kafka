@@ -8,9 +8,8 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.kafka.ConsumerMessage._
-import akka.kafka.ConsumerSettings
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
-import akka.kafka.scaladsl
+import akka.kafka.{ConsumerSettings, Subscription, scaladsl}
 import akka.stream.javadsl.Source
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -57,8 +56,8 @@ object Consumer {
    * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
-  def plainSource[K, V](settings: ConsumerSettings[K, V]): Source[ConsumerRecord[K, V], Control] =
-    scaladsl.Consumer.plainSource(settings)
+  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
+    scaladsl.Consumer.plainSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -75,8 +74,8 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V]): Source[CommittableMessage[K, V], Control] =
-    scaladsl.Consumer.committableSource(settings)
+  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[CommittableMessage[K, V], Control] =
+    scaladsl.Consumer.committableSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -84,8 +83,8 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V]): Source[Message[K, V], Control] =
-    scaladsl.Consumer.atMostOnceSource(settings)
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[Message[K, V], Control] =
+    scaladsl.Consumer.atMostOnceSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 

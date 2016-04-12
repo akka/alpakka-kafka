@@ -4,43 +4,145 @@
  */
 package akka.kafka.internal
 
-import java.util
-import java.util.Collections
 import java.util.Optional
 import java.util.concurrent.CompletionStage
-import java.util.concurrent.TimeoutException
 
-import scala.collection.JavaConverters._
-import scala.compat.java8.FutureConverters.FutureOps
-import scala.compat.java8.OptionConverters._
-import scala.concurrent.{Future, Promise}
-import scala.concurrent.duration._
-import scala.util.Try
-import scala.util.control.NonFatal
-
-import akka.{Done, NotUsed}
+import akka.actor.ActorRef
 import akka.kafka.ConsumerMessage._
-import akka.kafka.ConsumerSettings
-import akka.kafka.javadsl
-import akka.kafka.scaladsl
-import akka.kafka.scaladsl.Consumer
+import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed}
+import akka.kafka.scaladsl.Consumer._
+import akka.kafka.{javadsl, scaladsl, _}
 import akka.stream._
-import akka.stream.stage._
-import org.apache.kafka.clients.consumer._
+import akka.stream.scaladsl.Source
+import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
+import akka.util.Timeout
+import akka.{Done, NotUsed}
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
+
+import scala.compat.java8.FutureConverters.FutureOps
+import scala.compat.java8.OptionConverters.RichOptionForJava8
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
  * INTERNAL API
  */
 private[kafka] object ConsumerStage {
+  def plainSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) = {
+    new KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])] {
+      override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
+        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
+    }
+  }
 
-  final case class CommittableOffsetImpl(override val partitionOffset: PartitionOffset)(val stage: Committer)
+  def committableSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) = {
+    new KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])] {
+      override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
+        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
+          override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
+          lazy val committer: Committer = {
+            val ec = ActorMaterializer.downcast(materializer).executionContext
+            new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+          }
+        }
+    }
+  }
+
+  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) = {
+    new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
+      override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
+        new SingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
+    }
+  }
+
+  def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) = {
+    new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
+      override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
+        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V]
+    }
+  }
+
+  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) = {
+    new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
+      override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
+        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
+          override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
+          lazy val committer: Committer = {
+            val ec = ActorMaterializer.downcast(materializer).executionContext
+            new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+          }
+        }
+    }
+  }
+
+  def externalCommittableSource[K, V](consumer: ActorRef, _clientId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
+    new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
+      override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
+        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] {
+          override def clientId: String = _clientId
+          lazy val committer: Committer = {
+            val ec = ActorMaterializer.downcast(materializer).executionContext
+            new KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
+          }
+        }
+    }
+  }
+
+  // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
+  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, timeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
+    import akka.pattern.ask
+    implicit val to = Timeout(timeout)
+    override def commit(offset: PartitionOffset): Future[Done] = {
+      val offsets = Map(
+        new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
+      )
+      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+    }
+    override def commit(batch: CommittableOffsetBatchImpl): Future[Done] = {
+      val offsets = batch.offsets.map {
+        case (ctp, offset) => new TopicPartition(ctp.topic, ctp.partition) -> (offset + 1)
+      }
+      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+    }
+  }
+
+  abstract class KafkaSourceStage[K, V, Msg]()
+      extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
+    protected val out = Outlet[Msg]("out")
+    val shape = new SourceShape(out)
+    protected def logic(shape: SourceShape[Msg]): GraphStageLogic with Control
+    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
+      val result = logic(shape)
+      (result, result)
+    }
+  }
+
+  private trait PlainMessageBuilder[K, V] extends MessageBuilder[K, V, ConsumerRecord[K, V]] {
+    override def createMessage(rec: ConsumerRecord[K, V]) = rec
+  }
+
+  private trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
+    def clientId: String
+    def committer: Committer
+
+    override def createMessage(rec: ConsumerRecord[K, V]) = {
+      val offset = ConsumerMessage.PartitionOffset(
+        ClientTopicPartition(
+          clientId = clientId,
+          topic = rec.topic,
+          partition = rec.partition
+        ),
+        offset = rec.offset
+      )
+      ConsumerMessage.CommittableMessage(rec.key, rec.value, CommittableOffsetImpl(offset)(committer))
+    }
+  }
+
+  final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(val committer: Committer)
       extends CommittableOffset {
-    override def commitScaladsl(): Future[Done] =
-      stage.commit(partitionOffset)
-
-    override def commitJavadsl(): CompletionStage[Done] =
-      commitScaladsl().toJava
+    override def commitScaladsl(): Future[Done] = committer.commit(partitionOffset)
+    override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   }
 
   trait Committer {
@@ -58,7 +160,7 @@ private[kafka] object ConsumerStage {
       val newOffsets = offsets.updated(key, committableOffset.partitionOffset.offset)
 
       val stage = committableOffset match {
-        case c: CommittableOffsetImpl => c.stage
+        case c: CommittableOffsetImpl => c.committer
         case _ => throw new IllegalArgumentException(
           s"Unknow CommittableOffset, got [${committableOffset.getClass.getName}], " +
             s"expected [${classOf[CommittableOffsetImpl].getName}]"
@@ -94,8 +196,7 @@ private[kafka] object ConsumerStage {
       }
     }
 
-    override def commitJavadsl(): CompletionStage[Done] =
-      commitScaladsl().toJava
+    override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
 
   }
 
@@ -106,364 +207,45 @@ private[kafka] object ConsumerStage {
 
     override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
   }
-
 }
 
-/**
- * INTERNAL API
- */
-private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K, V], consumerProvider: () => KafkaConsumer[K, V])
-    extends GraphStageWithMaterializedValue[SourceShape[CommittableMessage[K, V]], Consumer.Control] {
-  import ConsumerStage._
+private[kafka] trait MessageBuilder[K, V, Msg] {
+  def createMessage(rec: ConsumerRecord[K, V]): Msg
+}
 
-  val out = Outlet[CommittableMessage[K, V]]("messages")
-  override val shape = SourceShape(out)
+private[kafka] trait PromiseControl extends Control {
+  this: GraphStageLogic =>
 
-  require(
-    settings.properties.contains(ConsumerConfig.CLIENT_ID_CONFIG),
-    "client id must be defined when using committable offsets"
-  )
-  private val clientId = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
-
-  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
-    val logic = new ConsumerStageLogic[K, V, CommittableMessage[K, V]](
-      settings,
-      consumerProvider(), out, shape
-    ) with ConsumerStage.Committer {
-
-      private case object StopTimeout
-
-      private val pollCommitTimeout = Some(settings.pollCommitTimeout)
-
-      private var awaitingConfirmation = 0L
-      private var shutdownInProgress = false
-
-      private val decrementConfirmation = getAsyncCallback[NotUsed] { _ =>
-        awaitingConfirmation -= 1
-        log.debug("Commits in progress {}", awaitingConfirmation.toString)
-      }
-
-      private val commitBatchCallback = getAsyncCallback[(CommittableOffsetBatchImpl, Promise[Done])] {
-        case (batch, done) => commitBatchInternal(batch, done)
-      }
-      private val commitSingleCallback = getAsyncCallback[(PartitionOffset, Promise[Done])] {
-        case (offset, done) => commitSingleInternal(offset, done)
-      }
-
-      override protected def logSource: Class[_] = classOf[CommittableConsumerStage[K, V]]
-
-      override def preStart(): Unit = {
-        setKeepGoing(true)
-      }
-
-      override def pollTimeout(): Option[FiniteDuration] = {
-        val data = super.pollTimeout()
-        def commit = if (awaitingConfirmation > 0) pollCommitTimeout else None
-        data.orElse(commit)
-      }
-
-      override protected def poll(): Unit = {
-        super.poll()
-
-        if (shutdownInProgress && !isClosed(out)) {
-          log.debug("Stop producing messages, commits in progress {}", awaitingConfirmation)
-          complete(out)
-        }
-
-        if (shutdownInProgress && awaitingConfirmation == 0) {
-          completeStage()
-        }
-      }
-
-      override protected def pushMsg(record: ConsumerRecord[K, V]): Unit = {
-        val offset = PartitionOffset(
-          ClientTopicPartition(
-            clientId = clientId,
-            topic = record.topic,
-            partition = record.partition
-          ),
-          offset = record.offset
-        )
-        val committable = CommittableOffsetImpl(offset)(this)
-        val msg = CommittableMessage(record.key, record.value, committable)
-        log.debug("Push element {}", msg)
-        push(out, msg)
-      }
-
-      // impl of ConsumerStage.Committer that is called from the outside via CommittableOffsetImpl
-      override def commit(offset: PartitionOffset): Future[Done] = {
-        if (shutdownPromise.isCompleted)
-          Future.failed(new IllegalStateException("ConsumerStage is stopped, offset commit not performed"))
-        else {
-          val done = Promise[Done]()
-          scheduleCommitTimeout(done)
-          commitSingleCallback.invoke((offset, done))
-          done.future
-        }
-      }
-
-      // impl of ConsumerStage.Committer that is called from the outside via CommittableOffsetBatchImpl
-      override def commit(batch: CommittableOffsetBatchImpl): Future[Done] = {
-        if (shutdownPromise.isCompleted)
-          Future.failed(new IllegalStateException("ConsumerStage is stopped, offset commit not performed"))
-        else {
-          val done = Promise[Done]()
-          scheduleCommitTimeout(done)
-          commitBatchCallback.invoke((batch, done))
-          done.future
-        }
-      }
-
-      private def scheduleCommitTimeout(done: Promise[Done]): Unit = {
-        // It's not safe to call `materializer` from the outside like this,
-        // but in practice it will work after the stage has been started,
-        // which is always the case for these commits. It's important to
-        // not leave futures uncompleted.
-        try {
-          val c = materializer.scheduleOnce(settings.commitTimeout, new Runnable {
-            override def run(): Unit = {
-              done.tryFailure(new TimeoutException(
-                s"Offset commit timed out after ${settings.commitTimeout.toMillis} ms"
-              ))
-            }
-          })
-          done.future.onComplete(__ => c.cancel())(materializer.executionContext)
-        }
-        catch {
-          case NonFatal(e) =>
-            done.tryFailure(new IllegalStateException("ConsumerStage is not started, offset commit not performed"))
-        }
-      }
-
-      private def commitSingleInternal(partitionOffset: PartitionOffset, done: Promise[Done]): Unit = {
-        // committed offset should be the next message the application will consume, i.e. +1
-        val offsets = Collections.singletonMap(
-          new TopicPartition(partitionOffset.key.topic, partitionOffset.key.partition),
-          new OffsetAndMetadata(partitionOffset.offset + 1)
-        )
-        commitAsync(offsets, done)
-      }
-
-      private def commitBatchInternal(batch: CommittableOffsetBatchImpl, done: Promise[Done]): Unit = {
-        val (mine, others) = batch.offsets.partition { case (key, value) => key.clientId == clientId }
-        // committed offset should be the next message the application will consume, i.e. +1
-        val offsets = mine.map { case (key, value) => new TopicPartition(key.topic, key.partition) -> new OffsetAndMetadata(value + 1) }
-        if (others.isEmpty)
-          commitAsync(offsets.asJava, done)
-        else {
-          val done2 = Promise[Done]()
-          commitAsync(offsets.asJava, done2)
-          val remainingBatch = new CommittableOffsetBatchImpl(others, batch.stages - clientId)
-          val done3 = remainingBatch.stages.head._2.commit(remainingBatch)
-          implicit val ec = materializer.executionContext
-          done.completeWith(done2.future.flatMap(_ => done3))
-        }
-      }
-
-      private def commitAsync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata], done: Promise[Done]): Unit = {
-        awaitingConfirmation += 1
-        log.debug("Start commit {}. Commits in progress {}", offsets, awaitingConfirmation)
-        consumer.commitAsync(offsets, new OffsetCommitCallback {
-          override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
-            if (exception == null)
-              done.success(Done)
-            else
-              done.failure(exception)
-            if (log.isDebugEnabled)
-              log.debug("Commit completed {} - {}", offsets, done.future.value)
-            decrementConfirmation.invoke(NotUsed)
-          }
-        })
-        // TODO This can be optimized to scheduling poll after
-        //      https://issues.apache.org/jira/browse/KAFKA-3412 has been fixed
-        poll()
-      }
-
-      override protected def onTimer(timerKey: Any): Unit = {
-        timerKey match {
-          case StopTimeout =>
-            log.debug("Stop timeout, commits in progress {}", awaitingConfirmation)
-            completeStage()
-          case msg => super.onTimer(msg)
-        }
-      }
-
-      override protected def shutdownInternal(): Unit = {
-        if (!shutdownInProgress) {
-          shutdownInProgress = true
-          scheduleOnce(StopTimeout, settings.stopTimeout)
-          poll()
-        }
-      }
-
-    }
-    (logic, logic)
+  def shape: SourceShape[_]
+  def performShutdown(): Unit
+  def performStop(): Unit = {
+    setKeepGoing(true)
+    complete(shape.out)
+    onStop()
   }
-}
 
-/**
- * INTERNAL API
- */
-private[kafka] class PlainConsumerStage[K, V](settings: ConsumerSettings[K, V], consumerProvider: () => KafkaConsumer[K, V])
-    extends GraphStageWithMaterializedValue[SourceShape[ConsumerRecord[K, V]], Consumer.Control] {
+  private val shutdownPromise: Promise[Done] = Promise()
+  private val stopPromise: Promise[Done] = Promise()
 
-  val out = Outlet[ConsumerRecord[K, V]]("messages")
-  override val shape = SourceShape(out)
-
-  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
-    val logic = new ConsumerStageLogic[K, V, ConsumerRecord[K, V]](settings, consumerProvider(), out, shape) {
-
-      override protected def logSource: Class[_] = classOf[PlainConsumerStage[K, V]]
-
-      override protected def pushMsg(record: ConsumerRecord[K, V]): Unit = {
-        log.debug("Push element {}", record)
-        push(out, record)
-      }
-
-      override protected def shutdownInternal(): Unit =
-        completeStage()
-    }
-    (logic, logic)
-  }
-}
-
-/**
- * INTERNAL API
- */
-private[kafka] abstract class ConsumerStageLogic[K, V, Out](
-  settings: ConsumerSettings[K, V],
-  val consumer: KafkaConsumer[K, V],
-  out: Outlet[Out],
-  shape: SourceShape[Out]
-) extends TimerGraphStageLogic(shape)
-    with Consumer.Control with StageLogging {
-
-  val stopPromise = Promise[Done]
-  val shutdownPromise = Promise[Done]
-
-  private case object Poll
-  private val pollDataTimeout = Some(settings.pollTimeout)
-  private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
-  private var pollScheduled = false
-
-  private val shutdownCallback = getAsyncCallback[Unit] { _ => shutdownInternal() }
-  private val stopCallback = getAsyncCallback[Unit] { p =>
-    complete(out)
+  def onStop() = {
     stopPromise.trySuccess(Done)
   }
 
-  setHandler(out, new OutHandler {
-    override def onPull(): Unit = {
-      // TODO preemptively try to fetch new batches when we are below a low watermark?
-      //      We also should pay attention to how it optimized in kafka client.
-      //      There is also prefetch algorithm in it.
-      if (!buffer.hasNext) poll()
-      else pushMsg(buffer.next())
-    }
-
-    override def onDownstreamFinish(): Unit = {
-      shutdownInternal()
-    }
-  })
-
-  protected def pushMsg(record: ConsumerRecord[K, V]): Unit
-
-  protected def shutdownInternal(): Unit
-
-  private def schedulePoll() = {
-    if (!pollScheduled) {
-      pollScheduled = true
-      scheduleOnce(Poll, settings.pollInterval)
-    }
-  }
-
-  protected def pollTimeout(): Option[FiniteDuration] =
-    if (isAvailable(out) && buffer.isEmpty) pollDataTimeout
-    else None
-
-  protected def poll(): Unit = {
-    try {
-      def toggleConsumption() = {
-        // note that consumer.assignment() is automatically changed when using
-        // dynamic subscriptions and we must use the current value to resume/pause
-        if (isAvailable(out))
-          consumer.resume(consumer.assignment().asScala.toArray: _*)
-        else
-          consumer.pause(consumer.assignment().asScala.toArray: _*)
-      }
-
-      def handleResult(records: ConsumerRecords[K, V]) = {
-        if (!records.isEmpty) {
-          if (log.isDebugEnabled)
-            log.debug("Got {} messages, out isAvailable {}", records.count, isAvailable(out))
-          require(!buffer.hasNext)
-          buffer = records.iterator().asScala
-          if (isAvailable(out))
-            pushMsg(buffer.next())
-        }
-      }
-
-      pollTimeout() match {
-        case Some(timeout) =>
-          toggleConsumption()
-          // TODO poll is blocking, perhaps we can use some adaptive algorithm
-          val msgs = consumer.poll(timeout.toMillis)
-          handleResult(msgs)
-          if (pollTimeout().isDefined) schedulePoll()
-        case None =>
-      }
-    }
-    catch {
-      case NonFatal(e) =>
-        log.error(e, "Error in poll")
-        throw e
-    }
-
-  }
-
-  override protected def onTimer(timerKey: Any): Unit = {
-    timerKey match {
-      case Poll =>
-        log.debug("Scheduled poll")
-        pollScheduled = false
-        poll()
-    }
-  }
-
-  override def postStop(): Unit = {
-    log.debug("Stage completed. Closing kafka consumer")
-    val shutdownTimeoutTask = materializer match {
-      case a: ActorMaterializer =>
-        Some(a.system.scheduler.scheduleOnce(settings.closeTimeout) {
-          consumer.wakeup()
-        }(materializer.executionContext))
-      case _ =>
-        // not much we can do without scheduler
-        None
-    }
-    // close() is blocking (stupid api that doesn't take timeout parameters)
-    // WakeupException will be thrown by close() if the wakeup from shutdownTimeout is triggered
-    Try(consumer.close())
-    shutdownTimeoutTask.foreach(_.cancel())
+  def onShutdown() = {
+    stopPromise.trySuccess(Done)
     shutdownPromise.trySuccess(Done)
-    stopPromise.trySuccess(Done)
-    super.postStop()
   }
 
-  // impl of Consumer.Control that is called from outside via materialized value
-  override def shutdown(): Future[Done] = {
-    log.debug("Shutdown consumer stage")
-    shutdownCallback.invoke(())
-    isShutdown
-  }
-
-  // impl of Consumer.Control that is called from outside via materialized value
-  override def isShutdown: Future[Done] = shutdownPromise.future
+  val performStopCallback = getAsyncCallback[Unit]({ _ => performStop() })
+  val performShutdownCallback = getAsyncCallback[Unit](_ => performShutdown())
 
   override def stop(): Future[Done] = {
-    log.debug("Stop producing messages")
-    stopCallback.invoke(())
+    performStopCallback.invoke(())
     stopPromise.future
   }
+  override def shutdown(): Future[Done] = {
+    performShutdownCallback.invoke(())
+    shutdownPromise.future
+  }
+  override def isShutdown: Future[Done] = shutdownPromise.future
 }
-

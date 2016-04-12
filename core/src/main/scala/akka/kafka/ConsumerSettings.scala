@@ -4,17 +4,64 @@
  */
 package akka.kafka
 
-import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
-import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.Deserializer
-import java.util.concurrent.TimeUnit
+
 import scala.annotation.varargs
+import scala.concurrent.duration._
+
+sealed trait Subscription
+sealed trait ManualSubscription extends Subscription
+sealed trait AutoSubscription extends Subscription
+
+object Subscriptions {
+  final case class TopicSubscription(tps: Set[String]) extends AutoSubscription
+  final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
+  final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
+  final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
+
+  /**
+   * Creates subscription for given set of topics
+   */
+  def topics(topics: Set[String]): AutoSubscription = TopicSubscription(topics)
+  /**
+   * Creates subscription for given set of topics
+   */
+  @varargs
+  def topics(topics: String*): AutoSubscription = TopicSubscription(topics.toSet)
+
+  /**
+   * Creates subscription for given topics pattern
+   */
+  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern)
+
+  /**
+   * Manually assign given topics and partitions
+   */
+  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)
+  /**
+   * Manually assign given topics and partitions
+   */
+  @varargs
+  def assignment(tps: TopicPartition*): ManualSubscription = Assignment(tps.toSet)
+  /**
+   * Manually assign given topics and partitions with offsets
+   */
+  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)
+  /**
+   * Manually assign given topics and partitions with offsets
+   */
+  @varargs
+  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)
+
+  def assignmentWithOffset(tp: TopicPartition, offset: Long): ManualSubscription = assignmentWithOffset((tp, offset))
+}
 
 object ConsumerSettings {
 
@@ -29,78 +76,52 @@ object ConsumerSettings {
   def apply[K, V](
     system: ActorSystem,
     keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V],
-    topics: Set[String]
-  ): ConsumerSettings[K, V] =
-    apply(system.settings.config.getConfig("akka.kafka.consumer"), keyDeserializer, valueDeserializer, topics)
+    valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] = {
+    apply(system.settings.config.getConfig("akka.kafka.consumer"), keyDeserializer, valueDeserializer)
+  }
 
   /**
    * Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
-   *
-   * It will subscribe to the given `topics`, use empty `Set` if you
-   * use manually assigned topics/partitions using [[ConsumerSettings#withAssignment]]
-   * and/or [[ConsumerSettings#withFromOffset]].
    */
   def apply[K, V](
     config: Config,
     keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V],
-    topics: Set[String]
+    valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] = {
     val properties = ConfigSettings.parseKafkaClientsProperties(config.getConfig("kafka-clients"))
     val pollInterval = config.getDuration("poll-interval", TimeUnit.MILLISECONDS).millis
     val pollTimeout = config.getDuration("poll-timeout", TimeUnit.MILLISECONDS).millis
-    val pollCommitTimeout = config.getDuration("poll-commit-timeout", TimeUnit.MILLISECONDS).millis
     val stopTimeout = config.getDuration("stop-timeout", TimeUnit.MILLISECONDS).millis
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
     val dispatcher = config.getString("use-dispatcher")
-    new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer, topics, Set.empty, Map.empty,
-      pollInterval, pollTimeout, pollCommitTimeout, stopTimeout, closeTimeout, commitTimeout, dispatcher)
+    new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, dispatcher)
   }
 
   /**
    * Java API: Create settings from the default configuration
    * `akka.kafka.consumer`.
-   *
-   * It will subscribe to the given `topics`, use empty `Set` if you
-   * use manually assigned topics/partitions using [[ConsumerSettings#withAssignment]]
-   * and/or [[ConsumerSettings#withFromOffset]].
    */
   def create[K, V](
     system: ActorSystem,
     keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V],
-    topics: java.util.Set[String]
+    valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
-    apply(system, keyDeserializer, valueDeserializer, topics.asScala.toSet)
+    apply(system, keyDeserializer, valueDeserializer)
 
   /**
    * Java API: Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
-   *
-   * It will subscribe to the given `topics`, use empty `Set` if you
-   * use manually assigned topics/partitions using [[ConsumerSettings#withAssignment]]
-   * and/or [[ConsumerSettings#withFromOffset]].
    */
   def create[K, V](
     config: Config,
     keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V],
-    topics: java.util.Set[String]
+    valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
-    apply(config, keyDeserializer, valueDeserializer, topics.asScala.toSet)
-
-  /**
-   * Java API: convenience to create a Set from varargs
-   */
-  @varargs def asSet(topics: String*): java.util.Set[String] = {
-    val result = new java.util.HashSet[String]
-    result.addAll(topics.asJava)
-    result
-  }
-
+    apply(config, keyDeserializer, valueDeserializer)
 }
 
 /**
@@ -109,16 +130,12 @@ object ConsumerSettings {
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  */
-final class ConsumerSettings[K, V](
+class ConsumerSettings[K, V](
     val properties: Map[String, String],
     val keyDeserializer: Deserializer[K],
     val valueDeserializer: Deserializer[V],
-    val topics: Set[String],
-    val assignments: Set[TopicPartition],
-    val fromOffsets: Map[TopicPartition, Long],
     val pollInterval: FiniteDuration,
     val pollTimeout: FiniteDuration,
-    val pollCommitTimeout: FiniteDuration,
     val stopTimeout: FiniteDuration,
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
@@ -146,17 +163,8 @@ final class ConsumerSettings[K, V](
    */
   def getProperty(key: String): String = properties.getOrElse(key, null)
 
-  def withAssignment(assignment: TopicPartition): ConsumerSettings[K, V] =
-    copy(assignments = assignments + assignment)
-
-  def withFromOffset(topicPartition: TopicPartition, offset: Long): ConsumerSettings[K, V] =
-    copy(fromOffsets = fromOffsets.updated(topicPartition, offset))
-
   def withPollTimeout(pollTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(pollTimeout = pollTimeout)
-
-  def withPollCommitTimeout(pollCommitTimeout: FiniteDuration): ConsumerSettings[K, V] =
-    copy(pollCommitTimeout = pollCommitTimeout)
 
   def withPollInterval(pollInterval: FiniteDuration): ConsumerSettings[K, V] =
     copy(pollInterval = pollInterval)
@@ -177,50 +185,24 @@ final class ConsumerSettings[K, V](
     properties: Map[String, String] = properties,
     keyDeserializer: Deserializer[K] = keyDeserializer,
     valueDeserializer: Deserializer[V] = valueDeserializer,
-    topics: Set[String] = topics,
-    assignments: Set[TopicPartition] = assignments,
-    fromOffsets: Map[TopicPartition, Long] = fromOffsets,
     pollInterval: FiniteDuration = pollInterval,
     pollTimeout: FiniteDuration = pollTimeout,
-    pollCommitTimeout: FiniteDuration = pollCommitTimeout,
     stopTimeout: FiniteDuration = stopTimeout,
     closeTimeout: FiniteDuration = closeTimeout,
     commitTimeout: FiniteDuration = commitTimeout,
     dispatcher: String = dispatcher
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      topics, assignments, fromOffsets,
-      pollInterval, pollTimeout, pollCommitTimeout, stopTimeout, closeTimeout, commitTimeout,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout,
       dispatcher)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
-   * It will subscribe to the defined `topics` or set topic/partition
-   * assignments. Either topics or assignments must be defined, not both.
-   * It will `seek` to the defined `fromOffset` if any.
    */
   def createKafkaConsumer(): KafkaConsumer[K, V] = {
     val javaProps = properties.foldLeft(new java.util.Properties) {
       case (p, (k, v)) => p.put(k, v); p
     }
-    val consumer = new KafkaConsumer[K, V](javaProps, keyDeserializer, valueDeserializer)
-    val assignments2 = assignments union fromOffsets.keySet
-    if (topics.nonEmpty && assignments2.nonEmpty)
-      throw new IllegalArgumentException("Either topics or assignments must be defined, both of them were defined: $settings")
-    else if (topics.nonEmpty)
-      consumer.subscribe(topics.toList.asJava)
-    else if (assignments2.nonEmpty)
-      consumer.assign(assignments2.toList.asJava)
-    else
-      throw new IllegalArgumentException("Either topics or assignments must be defined, none of them were defined: $settings")
-
-    if (fromOffsets.nonEmpty) {
-      fromOffsets.foreach {
-        case (partition, offset) =>
-          consumer.seek(partition, offset)
-      }
-    }
-
-    consumer
+    new KafkaConsumer[K, V](javaProps, keyDeserializer, valueDeserializer)
   }
 }

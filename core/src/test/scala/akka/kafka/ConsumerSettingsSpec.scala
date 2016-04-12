@@ -20,7 +20,7 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers {
         akka.kafka.consumer.kafka-clients.foo = bar
         akka.kafka.consumer.kafka-clients.client.id = client1
         """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.consumer")
-      val settings = ConsumerSettings(conf, new ByteArrayDeserializer, new StringDeserializer, Set("topic1"))
+      val settings = ConsumerSettings(conf, new ByteArrayDeserializer, new StringDeserializer)
       settings.getProperty("bootstrap.servers") should ===("localhost:9092")
       settings.getProperty("client.id") should ===("client1")
       settings.getProperty("foo") should ===("bar")
