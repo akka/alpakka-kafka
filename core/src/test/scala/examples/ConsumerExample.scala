@@ -6,9 +6,7 @@ package examples
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
-import akka.Done
-import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.clients.producer.KafkaProducer
+import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
 import akka.kafka.scaladsl.Consumer
@@ -18,6 +16,8 @@ import akka.kafka.ConsumerSettings
 import akka.kafka.ProducerSettings
 import org.apache.kafka.common.TopicPartition
 import akka.actor.ActorSystem
+import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -25,9 +25,11 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 
 trait ConsumerExample {
-  val system = ActorSystem("example")
+  implicit val system = ActorSystem("example")
   implicit val ec = system.dispatcher
+  implicit val m = ActorMaterializer(ActorMaterializerSettings(system))
 
+  val maxPartitions = 100
   val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set("topic1"))
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
@@ -35,6 +37,8 @@ trait ConsumerExample {
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
+
+  def business[T] = Flow[T]
 
   class DB {
     def save(record: ConsumerRecord[Array[Byte], String]): Future[Done] = ???
@@ -136,3 +140,55 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
     .mapAsync(producerSettings.parallelism)(_.commit())
 }
 
+
+// Backpressure per partition with batch commit
+object ConsumerWithPerPartitionBackpressure extends ConsumerExample {
+  val control = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"))
+    .flatMapMerge(maxPartitions, _._2)
+    .via(business)
+    .batch(max = 100, first => CommittableOffsetBatch.empty.updated(first.committableOffset)) { (batch, elem) =>
+      batch.updated(elem.committableOffset)
+    }
+    .mapAsync(1)(_.commit())
+}
+
+// Flow per partition
+object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
+  val control = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"))
+    .map { case (topicPartition, source) =>
+      source
+        .via(business)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+    }
+    .mapAsyncUnordered(maxPartitions)(_._2)
+}
+
+// Join flows based on automatically assigned partitions
+object ConsumerWithOtherSource extends ConsumerExample {
+  type Msg = Consumer.CommittableMessage[Array[Byte], String]
+  def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
+
+  val control = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"))
+    .map { case (topicPartition, source) =>
+      // get corresponding partition from other topic
+      val otherSource = {
+        val otherTopicPartition = new TopicPartition("otherTopic", topicPartition.partition())
+        Consumer.committableSource(consumerSettings.withAssignment(otherTopicPartition))
+      }
+      zipper(source, otherSource)
+    }
+    .flatMapMerge(maxPartitions, identity)
+    .via(business)
+    //build commit offsets
+    .batch(max = 100, { case (l, r) => (
+      CommittableOffsetBatch.empty.updated(l.committableOffset),
+      CommittableOffsetBatch.empty.updated(r.committableOffset)
+    )}) { case ((batchL, batchR), (l, r)) =>
+      batchL.updated(l.committableOffset)
+      batchR.updated(r.committableOffset)
+      (batchL, batchR)
+    }
+    .mapAsync(1) { case (l, r) => l.commit().map(_ => r) }
+    .mapAsync(1)(_.commit())
+}
