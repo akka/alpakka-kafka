@@ -4,16 +4,16 @@
  */
 package akka.kafka.scaladsl
 
-import scala.concurrent.Future
 import akka.Done
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerSettings
-import akka.kafka.internal.CommittableConsumerStage
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
-import akka.kafka.internal.PlainConsumerStage
+import akka.kafka.internal.{CommittableConsumerStage, PlainConsumerStage}
+import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import akka.stream.ActorAttributes
+
+import scala.concurrent.Future
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -111,18 +111,27 @@ object Consumer {
    * Materialized value of the consumer `Source`.
    */
   trait Control {
+
     /**
-     * Stop the consumer `Source`. It will wait for outstanding offset
-     * commit requests before shutting down.
+     * Stop producing messages from the `Source`. This does not stop underlying kafka consumer
+     * and does not unsubscribe from any topics/partitions.
+     *
+     * Call [[#shutdown]] to close consumer
      */
     def stop(): Future[Done]
 
     /**
-     * Stopped status. The `Future` will be completed when the stage has been stopped
-     * and the underlying `KafkaConsumer` has been closed. Stopping can be triggered
-     * from downstream cancellation, errors, or [[#stop]].
+     * Shutdown the consumer `Source`. It will wait for outstanding offset
+     * commit requests before shutting down.
      */
-    def stopped: Future[Done]
+    def shutdown(): Future[Done]
+
+    /**
+     * Shutdown status. The `Future` will be completed when the stage has been shut down
+     * and the underlying `KafkaConsumer` has been closed. Shutdown can be triggered
+     * from downstream cancellation, errors, or [[#shutdown]].
+     */
+    def isShutdown: Future[Done]
   }
 
   /**
