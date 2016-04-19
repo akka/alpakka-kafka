@@ -7,24 +7,21 @@ package akka.kafka.internal
 import java.util
 import java.util.Collections
 import java.util.concurrent.TimeoutException
-import scala.collection.JavaConverters._
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.concurrent.duration._
-import scala.util.control.NonFatal
-import akka.Done
-import akka.NotUsed
+
+import akka.{Done, NotUsed}
 import akka.kafka.ConsumerSettings
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.Consumer.ClientTopicPartition
-import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
+import akka.kafka.scaladsl.Consumer.{ClientTopicPartition, CommittableOffsetBatch}
 import akka.stream._
-import akka.stream.scaladsl._
 import akka.stream.stage._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
-import java.util.concurrent.TimeUnit
+
+import scala.collection.JavaConverters._
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
  * INTERNAL API
@@ -115,7 +112,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       private val pollCommitTimeout = Some(settings.pollCommitTimeout)
 
       private var awaitingConfirmation = 0L
-      private var stopping = false
+      private var shutdownInProgress = false
 
       private val decrementConfirmation = getAsyncCallback[NotUsed] { _ =>
         awaitingConfirmation -= 1
@@ -144,12 +141,12 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       override protected def poll(): Unit = {
         super.poll()
 
-        if (stopping && !isClosed(out)) {
+        if (shutdownInProgress && !isClosed(out)) {
           log.debug("Stop producing messages, commits in progress {}", awaitingConfirmation)
           complete(out)
         }
 
-        if (stopping && awaitingConfirmation == 0) {
+        if (shutdownInProgress && awaitingConfirmation == 0) {
           completeStage()
         }
       }
@@ -171,7 +168,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
 
       // impl of ConsumerStage.Committer that is called from the outside via CommittableOffsetImpl
       override def commit(offset: Consumer.PartitionOffset): Future[Done] = {
-        if (stoppedPromise.isCompleted)
+        if (shutdownPromise.isCompleted)
           Future.failed(new IllegalStateException("ConsumerStage is stopped, offset commit not performed"))
         else {
           val done = Promise[Done]()
@@ -183,7 +180,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
 
       // impl of ConsumerStage.Committer that is called from the outside via CommittableOffsetBatchImpl
       override def commit(batch: CommittableOffsetBatchImpl): Future[Done] = {
-        if (stoppedPromise.isCompleted)
+        if (shutdownPromise.isCompleted)
           Future.failed(new IllegalStateException("ConsumerStage is stopped, offset commit not performed"))
         else {
           val done = Promise[Done]()
@@ -267,9 +264,9 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
         }
       }
 
-      override protected def stopInternal(): Unit = {
-        if (!stopping) {
-          stopping = true
+      override protected def shutdownInternal(): Unit = {
+        if (!shutdownInProgress) {
+          shutdownInProgress = true
           scheduleOnce(StopTimeout, settings.stopTimeout)
           poll()
         }
@@ -285,7 +282,6 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
  */
 private[kafka] class PlainConsumerStage[K, V](settings: ConsumerSettings[K, V], consumerProvider: () => KafkaConsumer[K, V])
     extends GraphStageWithMaterializedValue[SourceShape[ConsumerRecord[K, V]], Consumer.Control] {
-  import ConsumerStage._
 
   val out = Outlet[ConsumerRecord[K, V]]("messages")
   override val shape = SourceShape(out)
@@ -300,7 +296,7 @@ private[kafka] class PlainConsumerStage[K, V](settings: ConsumerSettings[K, V], 
         push(out, record)
       }
 
-      override protected def stopInternal(): Unit =
+      override protected def shutdownInternal(): Unit =
         completeStage()
     }
     (logic, logic)
@@ -317,17 +313,20 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
   shape: SourceShape[Out]
 ) extends TimerGraphStageLogic(shape)
     with Consumer.Control with StageLogging {
-  import ConsumerStage._
 
-  val stoppedPromise = Promise[Done]
+  val stopPromise = Promise[Done]
+  val shutdownPromise = Promise[Done]
 
   private case object Poll
   private val pollDataTimeout = Some(settings.pollTimeout)
   private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   private var pollScheduled = false
 
-  private val pollCallback = getAsyncCallback[Unit] { _ => schedulePoll() }
-  private val stopCallback = getAsyncCallback[Unit] { _ => stopInternal() }
+  private val shutdownCallback = getAsyncCallback[Unit] { _ => shutdownInternal() }
+  private val stopCallback = getAsyncCallback[Unit] { p =>
+    complete(out)
+    stopPromise.trySuccess(Done)
+  }
 
   setHandler(out, new OutHandler {
     override def onPull(): Unit = {
@@ -339,13 +338,13 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
     }
 
     override def onDownstreamFinish(): Unit = {
-      stopInternal()
+      shutdownInternal()
     }
   })
 
   protected def pushMsg(record: ConsumerRecord[K, V]): Unit
 
-  protected def stopInternal(): Unit
+  protected def shutdownInternal(): Unit
 
   private def schedulePoll() = {
     if (!pollScheduled) {
@@ -386,7 +385,7 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
           // TODO poll is blocking, perhaps we can use some adaptive algorithm
           val msgs = consumer.poll(timeout.toMillis)
           handleResult(msgs)
-          if (pollTimeout.isDefined) schedulePoll()
+          if (pollTimeout().isDefined) schedulePoll()
         case None =>
       }
     }
@@ -409,7 +408,7 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
 
   override def postStop(): Unit = {
     log.debug("Stage completed. Closing kafka consumer")
-    val stopTimeoutTask = materializer match {
+    val shutdownTimeoutTask = materializer match {
       case a: ActorMaterializer =>
         Some(a.system.scheduler.scheduleOnce(settings.closeTimeout) {
           consumer.wakeup()
@@ -419,22 +418,28 @@ private[kafka] abstract class ConsumerStageLogic[K, V, Out](
         None
     }
     // close() is blocking (stupid api that doesn't take timeout parameters)
-    // WakeupException will be thrown by close() if the wakeup from stopTimeout is triggered
+    // WakeupException will be thrown by close() if the wakeup from shutdownTimeout is triggered
     Try(consumer.close())
-    stopTimeoutTask.foreach(_.cancel())
-    stoppedPromise.success(Done)
+    shutdownTimeoutTask.foreach(_.cancel())
+    shutdownPromise.trySuccess(Done)
+    stopPromise.trySuccess(Done)
     super.postStop()
   }
 
   // impl of Consumer.Control that is called from outside via materialized value
-  override def stop(): Future[Done] = {
-    log.debug("Stopping consumer stage")
-    stopCallback.invoke(())
-    stopped
+  override def shutdown(): Future[Done] = {
+    log.debug("Shutdown consumer stage")
+    shutdownCallback.invoke(())
+    isShutdown
   }
 
   // impl of Consumer.Control that is called from outside via materialized value
-  override def stopped: Future[Done] =
-    stoppedPromise.future
+  override def isShutdown: Future[Done] = shutdownPromise.future
+
+  override def stop(): Future[Done] = {
+    log.debug("Stop producing messages")
+    stopCallback.invoke(())
+    stopPromise.future
+  }
 }
 

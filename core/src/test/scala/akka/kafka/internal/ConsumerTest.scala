@@ -5,33 +5,31 @@
 package akka.kafka.internal
 
 import java.util.{Map => JMap}
-import scala.collection.JavaConverters._
-import scala.collection.immutable.Seq
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.duration._
+
+import akka.Done
 import akka.actor.ActorSystem
+import akka.kafka.ConsumerSettings
+import akka.kafka.scaladsl.Consumer
+import akka.kafka.scaladsl.Consumer.{ClientTopicPartition, CommittableMessage, CommittableOffsetBatch, Control}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
-import akka.kafka.scaladsl.Consumer.CommittableMessage
-import akka.kafka.scaladsl.Consumer.Control
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-import org.scalatest.{FlatSpecLike, Matchers}
-import org.scalatest.BeforeAndAfterAll
-import akka.kafka.scaladsl.Consumer.ClientTopicPartition
-import org.apache.kafka.common.serialization.StringDeserializer
-import akka.kafka.ConsumerSettings
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.collection.JavaConverters._
+import scala.collection.immutable.Seq
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
 object ConsumerTest {
   type K = String
@@ -78,7 +76,7 @@ class ConsumerTest(_system: ActorSystem)
 
     probe.request(100)
 
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
     probe.expectComplete()
     mock.verifyClosed()
   }
@@ -92,7 +90,7 @@ class ConsumerTest(_system: ActorSystem)
     probe.request(100)
     mock.verifyClosed(never())
     probe.cancel()
-    Await.result(control.stopped, remainingOrDefault)
+    Await.result(control.isShutdown, remainingOrDefault)
     mock.verifyClosed()
   }
 
@@ -111,7 +109,7 @@ class ConsumerTest(_system: ActorSystem)
     msgss.foreach(chunk => mock.enqueue(chunk.map(toRecord)))
     probe.expectNextN(msgss.flatten)
 
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   val messages = (1 to 10000).map(createMessage)
@@ -165,7 +163,7 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     Await.result(done, remainingOrDefault)
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "fail future in case of commit fail" in {
@@ -194,7 +192,7 @@ class ConsumerTest(_system: ActorSystem)
     intercept[Exception] {
       Await.result(done, remainingOrDefault)
     } should be(failure)
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "call commitAsync for every commit message (no commit batching)" in {
@@ -220,7 +218,7 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     Await.result(done, remainingOrDefault)
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "support commit batching" in {
@@ -255,7 +253,7 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     Await.result(done, remainingOrDefault)
-    Await.result(control.stop(), remainingOrDefault)
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "support commit batching from more than one stage" in {
@@ -313,8 +311,72 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     Await.result(done2, remainingOrDefault)
-    Await.result(control1.stop(), remainingOrDefault)
-    Await.result(control2.stop(), remainingOrDefault)
+    Await.result(control1.shutdown(), remainingOrDefault)
+    Await.result(control2.shutdown(), remainingOrDefault)
+  }
+
+  it should "complete out and keep underlying client open when control.stop called" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = testSource(mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    mock.enqueue((1 to 10).map(createMessage).map(toRecord))
+    probe.request(1)
+    probe.expectNext()
+
+    Await.result(control.stop(), remainingOrDefault)
+    probe.expectComplete()
+
+    mock.verifyClosed(never())
+
+    Await.result(control.shutdown(), remainingOrDefault)
+    mock.verifyClosed()
+  }
+
+  it should "complete stop's Future after stage was shutdown" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = testSource(mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    probe.request(1)
+    Await.result(control.stop(), remainingOrDefault)
+    probe.expectComplete()
+
+    Await.result(control.shutdown(), remainingOrDefault)
+    Await.result(control.stop(), remainingOrDefault)
+  }
+
+  it should "return completed Future in stop after shutdown" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = testSource(mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    probe.cancel()
+    Await.result(control.isShutdown, remainingOrDefault)
+    control.stop().value.get.get shouldBe Done
+  }
+
+  it should "be ok to call control.stop multiple times" in {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = testSource(mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    mock.enqueue((1 to 10).map(createMessage).map(toRecord))
+    probe.request(1)
+    probe.expectNext()
+
+    val stops = (1 to 5).map(_ => control.stop())
+    Await.result(Future.sequence(stops), remainingOrDefault)
+
+    probe.expectComplete()
   }
 
   it should "keep stage running until all futures completed" in {
@@ -335,7 +397,7 @@ class ConsumerTest(_system: ActorSystem)
       commitLog.calls should have size (1)
     }
 
-    val stopped = control.stop()
+    val stopped = control.shutdown()
     probe.expectComplete()
     stopped.isCompleted should ===(false)
 
@@ -362,7 +424,7 @@ class ConsumerTest(_system: ActorSystem)
     probe.request(100)
     val first = probe.expectNext()
 
-    val stopped = control.stop()
+    val stopped = control.shutdown()
     probe.expectComplete()
     Await.result(stopped, remainingOrDefault)
 
@@ -392,7 +454,7 @@ class ConsumerTest(_system: ActorSystem)
 
     probe.cancel()
     probe.expectNoMsg(200.millis)
-    control.stopped.isCompleted should ===(false)
+    control.isShutdown.isCompleted should ===(false)
 
     //emulate commit
     commitLog.calls.map {
@@ -400,7 +462,7 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     Await.result(done, remainingOrDefault)
-    Await.result(control.stopped, remainingOrDefault)
+    Await.result(control.isShutdown, remainingOrDefault)
     mock.verifyClosed()
   }
 }
@@ -419,15 +481,15 @@ object ConsumerMock {
 }
 
 class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notImplementedHandler) {
-  private var actions = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
+  private var responses = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
 
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
     Mockito.when(result.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
       override def answer(invocation: InvocationOnMock) = ConsumerMock.this.synchronized {
-        val records = actions.dequeueOption.map {
+        val records = responses.dequeueOption.map {
           case (element, remains) =>
-            actions = remains
+            responses = remains
             element
               .groupBy(x => new TopicPartition(x.topic(), x.partition()))
               .map {
@@ -451,7 +513,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
 
   def enqueue(records: Seq[ConsumerRecord[K, V]]) = {
     synchronized {
-      actions :+= records
+      responses :+= records
     }
   }
 

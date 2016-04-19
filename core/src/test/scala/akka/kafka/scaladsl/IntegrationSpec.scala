@@ -6,30 +6,23 @@ package akka.kafka.scaladsl
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration._
+import java.util.concurrent.atomic.AtomicInteger
+
+import akka.Done
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerSettings
-import akka.kafka.ProducerSettings
+import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.ByteArrayDeserializer
-import org.apache.kafka.common.serialization.ByteArraySerializer
-import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.kafka.common.serialization.StringSerializer
-import org.scalactic.ConversionCheckedTripleEquals
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.scalatest.BeforeAndAfterEach
-import akka.Done
-import akka.stream.scaladsl.Keep
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.scalactic.ConversionCheckedTripleEquals
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+
 import scala.concurrent.Await
-import java.util.concurrent.atomic.AtomicInteger
-import akka.stream.ActorMaterializerSettings
+import scala.concurrent.duration._
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -126,7 +119,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .expectNextN(25).toSet should be(Set(Done))
 
       probe1.cancel()
-      Await.result(control.stopped, remainingOrDefault)
+      Await.result(control.isShutdown, remainingOrDefault)
 
       val probe2 = Consumer.committableSource(consumerSettings)
         .map(_.value)
@@ -193,7 +186,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(done2, remainingOrDefault)
 
       probe1.cancel()
-      Await.result(control.stopped, remainingOrDefault)
+      Await.result(control.isShutdown, remainingOrDefault)
     }
 
     // TODO add more tests
