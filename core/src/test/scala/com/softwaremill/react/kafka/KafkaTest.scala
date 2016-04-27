@@ -36,6 +36,10 @@ trait KafkaTest extends BeforeAndAfterAll {
     ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder())
   }
 
+  def createProducerProperties(f: FixtureParam, partitionizer: String => Option[Array[Byte]]): ProducerProperties[String] = {
+    ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder(), partitionizer)
+  }
+
   def consumerProperties(f: FixtureParam): ConsumerProperties[String] = {
     ConsumerProperties(kafkaHost, zkHost, f.topic, f.group, new StringDecoder()).commitInterval(2 seconds)
   }

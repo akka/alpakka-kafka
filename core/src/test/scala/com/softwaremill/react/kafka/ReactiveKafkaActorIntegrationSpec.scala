@@ -3,10 +3,11 @@ package com.softwaremill.react.kafka
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.ask
+import akka.stream.actor.ActorSubscriberMessage.OnNext
 import akka.stream.actor._
 import akka.stream.scaladsl.{Source, Sink}
 import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.{EventFilter, ImplicitSender, TestKit}
+import akka.testkit.{TestProbe, EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import com.typesafe.config.ConfigFactory
@@ -44,6 +45,26 @@ class ReactiveKafkaActorIntegrationSpec
     "manually commit offsets with kafka" in { implicit f =>
       shouldCommitOffsets("kafka")
     }
+
+    "correctly serialize keys" in { implicit f =>
+      // given
+      val partitionizer = (msg: String) => Some((if (msg.length < 5) "1" else "2").getBytes)
+      val prodProperties: ProducerProperties[String] = createProducerProperties(f, partitionizer)
+      val producerActor = f.kafka.producerActor(prodProperties)
+      val probe = TestProbe()
+      probe.watch(producerActor)
+
+      // when
+      producerActor ! OnNext("test")
+      producerActor ! OnNext("test-longer-message")
+      producerActor ! "close_producer"
+      producerActor ! PoisonPill
+
+      // then
+      probe.expectTerminated(producerActor, max = 3 seconds)
+      verifyQueueHas(Seq("test", "test-longer-message"))
+    }
+
 
     "correctly commit when new flush comes with a single new commit" in { implicit f =>
       // given
