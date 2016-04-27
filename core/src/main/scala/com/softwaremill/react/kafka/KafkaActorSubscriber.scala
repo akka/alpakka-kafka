@@ -24,7 +24,7 @@ private[kafka] class KafkaActorSubscriber[T](
   }
 
   private def processElement(element: T) = {
-    producer.send(props.encoder.toBytes(element), props.partitionizer(element))
+    producer.send(element, props.partitionizer(element))
   }
 
   private def handleError(ex: Throwable) = {

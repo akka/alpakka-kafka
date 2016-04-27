@@ -65,7 +65,6 @@ class ReactiveKafkaActorIntegrationSpec
       verifyQueueHas(Seq("test", "test-longer-message"))
     }
 
-
     "correctly commit when new flush comes with a single new commit" in { implicit f =>
       // given
       givenQueueWithElements(Seq("1", "2", "3"))

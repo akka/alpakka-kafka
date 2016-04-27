@@ -23,7 +23,7 @@ class KafkaGraphStageSink[T](
       override def onPush(): Unit = {
         val element = grab(in)
         try {
-          if (!closed) producer.send(props.encoder.toBytes(element), props.partitionizer(element))
+          if (!closed) producer.send(element, props.partitionizer(element))
         }
         catch {
           case ex: Exception =>
