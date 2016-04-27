@@ -33,11 +33,16 @@ trait KafkaTest extends BeforeAndAfterAll {
   }
 
   def createProducerProperties(f: FixtureParam): ProducerProperties[String] = {
-    ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder())
+    withHighTolerance(ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder()))
   }
 
+  def withHighTolerance[T](producerProperties: ProducerProperties[T]): ProducerProperties[T] =
+    producerProperties
+      .messageSendMaxRetries(100)
+      .setProperty("retry.backoff.ms", "1000")
+
   def createProducerProperties(f: FixtureParam, partitionizer: String => Option[Array[Byte]]): ProducerProperties[String] = {
-    ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder(), partitionizer)
+    withHighTolerance(ProducerProperties(kafkaHost, f.topic, f.group, new StringEncoder(), partitionizer))
   }
 
   def consumerProperties(f: FixtureParam): ConsumerProperties[String] = {
@@ -56,15 +61,9 @@ trait KafkaTest extends BeforeAndAfterAll {
     system.actorOf(Props(new ReactiveTestSubscriber))
   }
 
-  def stringSubscriber(f: FixtureParam) = {
-    val encoder = new StringEncoder()
-    f.kafka.publish(ProducerProperties(kafkaHost, f.topic, encoder))(system)
-  }
+  def stringSubscriber(f: FixtureParam) = f.kafka.publish(createProducerProperties(f))(system)
 
-  def stringSubscriberActor(f: FixtureParam) = {
-    val encoder = new StringEncoder()
-    f.kafka.producerActor(ProducerProperties(kafkaHost, f.topic, encoder))(system)
-  }
+  def stringSubscriberActor(f: FixtureParam) = f.kafka.producerActor(createProducerProperties(f))(system)
 
   def stringConsumer(f: FixtureParam) = {
     f.kafka.consume(consumerProperties(f))(system)

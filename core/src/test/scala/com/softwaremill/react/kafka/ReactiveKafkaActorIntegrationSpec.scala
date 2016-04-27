@@ -9,6 +9,7 @@ import akka.stream.scaladsl.{Source, Sink}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{TestProbe, EventFilter, ImplicitSender, TestKit}
 import akka.util.Timeout
+import scala.collection.immutable.Seq
 import com.softwaremill.react.kafka.KafkaMessages.StringKafkaMessage
 import com.typesafe.config.ConfigFactory
 import kafka.consumer.KafkaConsumer

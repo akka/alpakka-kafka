@@ -1,21 +1,26 @@
 package com.softwaremill.react.kafka.commit
 
 import akka.actor.Status.Failure
-import akka.actor.{Actor, ActorLogging, Cancellable}
-import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{Flush, TheEnd}
+import akka.actor.{ActorRef, Actor, ActorLogging, Cancellable}
+import com.softwaremill.react.kafka.commit.ConsumerCommitter.Contract.{AddFlushListener, FlushCompleted, Flush, TheEnd}
 import kafka.common.TopicAndPartition
 import kafka.consumer.KafkaConsumer
 import kafka.message.MessageAndMetadata
 
 import scala.util.Success
 
-private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, kafkaConsumer: KafkaConsumer[T])
+private[commit] class ConsumerCommitter[T](
+  committerFactory: CommitterProvider,
+  kafkaConsumer: KafkaConsumer[T]
+)
     extends Actor with ActorLogging {
 
   val commitInterval = kafkaConsumer.commitInterval
   var scheduledFlush: Option[Cancellable] = None
   var partitionOffsetMap = OffsetMap()
   var committedOffsetMap = OffsetMap()
+  var flushListeners: Seq[ActorRef] = Seq.empty
+
   val topic = kafkaConsumer.props.topic
   implicit val ec = context.dispatcher
 
@@ -48,6 +53,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
       context.stop(self)
     case msg: MessageAndMetadata[_, T] => registerCommit(msg)
     case Flush => commitGatheredOffsets()
+    case AddFlushListener(actorRef) => flushListeners = flushListeners :+ actorRef
   }
 
   def registerCommit(msg: MessageAndMetadata[_, T]): Unit = {
@@ -85,6 +91,7 @@ private[commit] class ConsumerCommitter[T](committerFactory: CommitterProvider, 
         // We got the offset of the first unfetched message, and we want the
         // offset of the last fetched message
         committedOffsetMap = OffsetMap(committedOffsetMap.map ++ resultOffsetMap.map.mapValues(_ - 1))
+        flushListeners.foreach(_ ! FlushCompleted)
       case scala.util.Failure(ex) =>
         log.error(ex, "Failed to commit offsets")
         committer.tryRestart() match {
@@ -112,5 +119,8 @@ object ConsumerCommitter {
 
     object Flush
 
+    case class AddFlushListener(listener: ActorRef)
+
+    object FlushCompleted
   }
 }
