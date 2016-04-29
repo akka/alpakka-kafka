@@ -164,7 +164,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.softwaremill.react.kafka.KafkaMessages._
 import org.apache.kafka.common.serialization.{StringSerializer, StringDeserializer}
-import com.softwaremill.react.kafka.{ConsumerProperties, ProducerProperties, ReactiveKafka}
+import com.softwaremill.react.kafka.{ProducerMessage, ConsumerProperties, ProducerProperties, ReactiveKafka}
 import org.reactivestreams.{ Publisher, Subscriber }
 
 implicit val actorSystem = ActorSystem("ReactiveKafka")
