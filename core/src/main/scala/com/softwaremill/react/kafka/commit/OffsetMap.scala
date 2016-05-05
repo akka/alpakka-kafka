@@ -11,8 +11,14 @@ case class OffsetMap(map: Offsets = Map.empty) {
   def diff(other: OffsetMap) =
     OffsetMap((map.toSet diff other.map.toSet).toMap)
 
+  def intersect(other: OffsetMap) =
+    OffsetMap((map.toSet intersect other.map.toSet).toMap)
+
   def plusOffset(topicPartition: TopicAndPartition, offset: Long) =
     copy(map = map + (topicPartition -> offset))
+
+  def updateOffset(other: OffsetMap) =
+    copy(map = map ++ other.map)
 
   def nonEmpty = map.nonEmpty
 
