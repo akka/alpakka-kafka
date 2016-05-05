@@ -117,6 +117,33 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     ensureExactlyOneFlush(1, 190L)
   }
 
+  // https://github.com/akka/reactive-kafka/issues/141
+  it should "not recommit offsets for partition taken by another consumer" in {
+    // given
+    val consumer = givenConsumer(commitInterval = 1000 millis)
+    implicit val offsetCommitter =
+      CommitterMock
+        .respond(OffsetMap(Map(TopicAndPartition(topic, 1) -> 6, TopicAndPartition(topic, 2) -> 11)))
+        .respond(OffsetMap(Map(TopicAndPartition(topic, 1) -> 31, TopicAndPartition(topic, 2) -> 41)))
+    val committerFactory = givenOffsetCommitter(consumer, offsetCommitter)
+
+    // when
+    val actor = startCommitterActor(committerFactory, consumer)
+    actor ! msg(partition = 1, offset = 5L)
+    actor ! msg(partition = 2, offset = 10L)
+    ensureLastCommitted(1, 5L)
+    ensureLastCommitted(2, 10L)
+    ensureExactlyOneFlush(1, 5L)
+    ensureExactlyOneFlush(2, 10L)
+    actor ! msg(partition = 1, offset = 30L)
+    ensureLastCommitted(1, 30L)
+    ensureExactlyOneFlush(1, 30L)
+
+    // then
+    actor ! msg(partition = 1, offset = 31L)
+    ensureExactlyOneFlush(2, 10L)
+  }
+
   it should "try to re-establish channel" in {
     // given
     val consumer = givenConsumer(commitInterval = 500 millis)
@@ -135,19 +162,16 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
     offsetCommitter.restartCount should be(1)
   }
 
-  def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: AlwaysSuccessfullTestCommitter): Unit = {
-    verifyNever(offsetCommitter.flushCount((partition, offset)) != 1)
-  }
+  def ensureExactlyOneFlush(partition: Int, offset: Long)(implicit offsetCommitter: CommiterVerifications): Unit =
+    verifyNever(!offsetCommitter.flushCount.get((partition, offset)).contains(1))
 
-  def startCommitterActor(committerFactory: CommitterProvider, consumer: KafkaConsumer[String]) = {
+  def startCommitterActor(committerFactory: CommitterProvider, consumer: KafkaConsumer[String]) =
     system.actorOf(Props(new ConsumerCommitter(committerFactory, consumer)))
-  }
 
-  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: CommiterVerifications): Unit = {
+  def ensureLastCommitted(partition: Int, offset: Long)(implicit offsetCommitter: CommiterVerifications): Unit =
     awaitCond {
       offsetCommitter.lastCommittedOffsetFor(partition).equals(Some(offset))
     }
-  }
 
   def msg(partition: Int, offset: Long) =
     MessageAndMetadata(topic, partition, null, offset, keyDecoder, valueDecoder)
@@ -169,6 +193,7 @@ class ConsumerCommitterSpec extends TestKit(ActorSystem(
 }
 
 trait CommiterVerifications {
+  def flushCount: Map[(Int, Long), Int]
   def lastCommittedOffsetFor(partition: Int): Option[Long]
 }
 
@@ -176,6 +201,7 @@ class OccasionallyFailingCommitter(failingReqNo: Int) extends OffsetCommitter wi
   val innerSuccesfullCommitter = new AlwaysSuccessfullTestCommitter
   var consumedRequests = 0
   var restartCount = 0
+  override def flushCount = Map.empty
 
   override def commit(offsets: OffsetMap): Try[OffsetMap] = {
     consumedRequests = consumedRequests + 1
@@ -192,6 +218,24 @@ class OccasionallyFailingCommitter(failingReqNo: Int) extends OffsetCommitter wi
 
   override def lastCommittedOffsetFor(partition: Int) =
     innerSuccesfullCommitter.lastCommittedOffsetFor(partition)
+}
+
+class CommitterMock(responseQueue: List[Try[OffsetMap]]) extends AlwaysSuccessfullTestCommitter {
+
+  def respond(response: OffsetMap) = new CommitterMock(responseQueue :+ Success(response))
+  var index = 0
+
+  override def commit(offsets: OffsetMap): Try[OffsetMap] = {
+    super.commit(offsets)
+    val resp = responseQueue(index)
+    if (index < responseQueue.length - 1)
+      index = index + 1
+    resp
+  }
+}
+
+object CommitterMock {
+  def respond(response: OffsetMap): CommitterMock = new CommitterMock(List(Success(response)))
 }
 
 class AlwaysSuccessfullTestCommitter extends OffsetCommitter with CommiterVerifications {

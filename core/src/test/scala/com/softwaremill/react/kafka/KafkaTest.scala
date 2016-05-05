@@ -83,7 +83,7 @@ trait KafkaTest extends BeforeAndAfterAll {
     if (start + 3000 >= now) {
       Thread.sleep(100)
       if (unexpectedCondition)
-        fail("Assertion failed before timeout passed")
+        throw new AssertionError("Assertion failed before timeout passed")
       else
         verifyNever(unexpectedCondition, start)
     }
