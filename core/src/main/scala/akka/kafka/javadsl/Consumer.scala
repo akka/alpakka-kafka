@@ -2,19 +2,25 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.kafka.scaladsl
+package akka.kafka.javadsl
 
+import akka.kafka.scaladsl
 import akka.Done
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerSettings
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
 import akka.kafka.internal.{CommittableConsumerStage, PlainConsumerStage}
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.Source
+import akka.stream.javadsl.Source
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import scala.concurrent.Future
+import java.util.concurrent.CompletionStage
+import java.util.Optional
+import akka.kafka.internal.WrappedConsumerControl
 import akka.kafka.PartitionOffset
 import akka.kafka.ClientTopicPartition
+import akka.kafka.internal.WrappedCommittableMessage
+import akka.kafka.internal.WrappedConsumerMessage
+import akka.kafka.internal.WrappedCommittableOffsetBatch
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -34,13 +40,10 @@ object Consumer {
    * Output element of [[Consumer#committableSource committableSource]].
    * The offset can be committed via the included [[CommittableOffset]].
    */
-  final case class CommittableMessage[K, V](
-      key: K,
-      value: V,
-      committableOffset: CommittableOffset
-  ) extends Message[K, V] {
-
-    override def partitionOffset: PartitionOffset = committableOffset.partitionOffset
+  trait CommittableMessage[K, V] extends Message[K, V] {
+    def key: K
+    def value: V
+    def committableOffset: CommittableOffset
   }
 
   /**
@@ -51,7 +54,7 @@ object Consumer {
    * This interface might move into `akka.stream`
    */
   trait Committable {
-    def commit(): Future[Done]
+    def commit(): CompletionStage[Done]
   }
 
   /**
@@ -73,9 +76,8 @@ object Consumer {
     def partitionOffset: PartitionOffset
   }
 
-  object CommittableOffsetBatch {
-    val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty)
-  }
+  val emptyCommittableOffsetBatch: CommittableOffsetBatch =
+    new WrappedCommittableOffsetBatch(new CommittableOffsetBatchImpl(Map.empty, Map.empty))
 
   /**
    * For improved efficiency it is good to aggregate several [[CommittableOffset]],
@@ -91,7 +93,7 @@ object Consumer {
     /**
      * Get current offset position for the given clientId, topic, partition.
      */
-    def getOffset(key: ClientTopicPartition): Option[Long]
+    def getOffset(key: ClientTopicPartition): Optional[Long]
   }
 
   /**
@@ -105,20 +107,20 @@ object Consumer {
      *
      * Call [[#shutdown]] to close consumer
      */
-    def stop(): Future[Done]
+    def stop(): CompletionStage[Done]
 
     /**
      * Shutdown the consumer `Source`. It will wait for outstanding offset
      * commit requests before shutting down.
      */
-    def shutdown(): Future[Done]
+    def shutdown(): CompletionStage[Done]
 
     /**
-     * Shutdown status. The `Future` will be completed when the stage has been shut down
+     * Shutdown status. The `CompletionStage` will be completed when the stage has been shut down
      * and the underlying `KafkaConsumer` has been closed. Shutdown can be triggered
      * from downstream cancellation, errors, or [[#shutdown]].
      */
-    def isShutdown: Future[Done]
+    def isShutdown: CompletionStage[Done]
   }
 
   /**
@@ -132,11 +134,10 @@ object Consumer {
    * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
-  def plainSource[K, V](settings: ConsumerSettings[K, V]): Source[ConsumerRecord[K, V], Control] = {
-    val src = Source.fromGraph(new PlainConsumerStage[K, V](settings, () => settings.createKafkaConsumer()))
-    if (settings.dispatcher.isEmpty) src
-    else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
-  }
+  def plainSource[K, V](settings: ConsumerSettings[K, V]): Source[ConsumerRecord[K, V], Control] =
+    scaladsl.Consumer.plainSource(settings)
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
 
   /**
    * The `committableSource` makes it possible to commit offset positions to Kafka.
@@ -151,20 +152,21 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V]): Source[CommittableMessage[K, V], Control] = {
-    val src = Source.fromGraph(new CommittableConsumerStage[K, V](settings, () => settings.createKafkaConsumer()))
-    if (settings.dispatcher.isEmpty) src
-    else src.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
-  }
+  def committableSource[K, V](settings: ConsumerSettings[K, V]): Source[CommittableMessage[K, V], Control] =
+    scaladsl.Consumer.committableSource(settings)
+      .map(new WrappedCommittableMessage(_))
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V]): Source[Message[K, V], Control] = {
-    committableSource[K, V](settings).mapAsync(1) { m =>
-      m.committableOffset.commit().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
-    }
+    scaladsl.Consumer.atMostOnceSource(settings)
+      .map(new WrappedConsumerMessage(_))
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
   }
 
 }
