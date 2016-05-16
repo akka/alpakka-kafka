@@ -4,25 +4,25 @@
  */
 package examples
 
-import scala.concurrent.duration._
 import scala.concurrent.Future
+import scala.concurrent.duration._
+
 import akka.Done
-import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.kafka.clients.producer.ProducerRecord
-import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
+import akka.actor.ActorSystem
+import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ConsumerSettings
+import akka.kafka.ProducerMessage
+import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Producer
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import akka.kafka.ConsumerSettings
-import akka.kafka.ProducerSettings
-import org.apache.kafka.common.TopicPartition
-import akka.actor.ActorSystem
-import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.kafka.common.serialization.StringSerializer
 
 trait ConsumerExample {
   val system = ActorSystem("example")
@@ -76,7 +76,7 @@ object AtLeastOnceExample extends ConsumerExample {
 
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .mapAsync(1) { msg =>
-      db.update(msg.value).flatMap(_ => msg.committableOffset.commit())
+      db.update(msg.value).flatMap(_ => msg.committableOffset.commitScaladsl())
     }
 }
 
@@ -91,14 +91,14 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
     .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
       batch.updated(elem)
     }
-    .mapAsync(1)(_.commit())
+    .mapAsync(1)(_.commitScaladsl())
 }
 
 // Connect a Consumer to Producer
 object ConsumerToProducerSinkExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .map(msg =>
-      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
     .to(Producer.commitableSink(producerSettings))
 }
 
@@ -106,33 +106,33 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
 object ConsumerToProducerFlowExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .map(msg =>
-      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
-    .mapAsync(producerSettings.parallelism) { result => result.message.passThrough.commit() }
+    .mapAsync(producerSettings.parallelism) { result => result.message.passThrough.commitScaladsl() }
 }
 
 // Connect a Consumer to Producer, and commit in batches
 object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .map(msg =>
-      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
     .map(_.message.passThrough)
     .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
       batch.updated(elem)
     }
-    .mapAsync(producerSettings.parallelism)(_.commit())
+    .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
 }
 
 // Connect a Consumer to Producer, and commit in batches
 object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .map(msg =>
-      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
     .map(_.message.passThrough)
     .groupedWithin(10, 5.seconds)
     .map(group => group.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) => batch.updated(elem) })
-    .mapAsync(producerSettings.parallelism)(_.commit())
+    .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
 }
 

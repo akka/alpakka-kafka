@@ -11,8 +11,8 @@ import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
+import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
-import akka.kafka.scaladsl.Producer
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
@@ -23,10 +23,10 @@ import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadat
 private[kafka] class ProducerStage[K, V, P](
   settings: ProducerSettings[K, V], producerProvider: () => KafkaProducer[K, V]
 )
-    extends GraphStage[FlowShape[Producer.Message[K, V, P], Future[Producer.Result[K, V, P]]]] {
+    extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 
-  private val in = Inlet[Producer.Message[K, V, P]]("messages")
-  private val out = Outlet[Future[Producer.Result[K, V, P]]]("result")
+  private val in = Inlet[Message[K, V, P]]("messages")
+  private val out = Outlet[Future[Result[K, V, P]]]("result")
   override val shape = FlowShape(in, out)
 
   override def createLogic(inheritedAttributes: Attributes) = {
@@ -62,11 +62,11 @@ private[kafka] class ProducerStage[K, V, P](
       setHandler(in, new InHandler {
         override def onPush() = {
           val msg = grab(in)
-          val r = Promise[Producer.Result[K, V, P]]
+          val r = Promise[Result[K, V, P]]
           producer.send(msg.record, new Callback {
             override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
               if (exception == null)
-                r.success(Producer.Result(metadata.offset, msg))
+                r.success(Result(metadata.offset, msg))
               else
                 r.failure(exception)
               decrementConfirmation.invoke(())

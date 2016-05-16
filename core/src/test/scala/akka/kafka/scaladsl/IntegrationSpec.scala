@@ -8,6 +8,9 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.{ConsumerSettings, ProducerSettings}
@@ -20,9 +23,6 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -106,7 +106,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val (control, probe1) = Consumer.committableSource(consumerSettings)
         .filterNot(_.value == InitialMsg)
         .mapAsync(10) { elem =>
-          elem.committableOffset.commit().map { _ =>
+          elem.committableOffset.commitScaladsl().map { _ =>
             committedElement.set(elem.value.toInt)
             Done
           }
@@ -177,12 +177,12 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // then commit, which triggers a new poll while we haven't drained
       // previous buffer
-      val done1 = committableOffset.commit()
+      val done1 = committableOffset.commitScaladsl()
 
       Await.result(done1, remainingOrDefault)
 
       probe1.request(1)
-      val done2 = probe1.expectNext().committableOffset.commit()
+      val done2 = probe1.expectNext().committableOffset.commitScaladsl()
       Await.result(done2, remainingOrDefault)
 
       probe1.cancel()
