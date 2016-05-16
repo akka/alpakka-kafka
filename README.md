@@ -29,6 +29,7 @@ Example usage
 Producer Settings:
 
 ```Scala
+import akka.kafka._
 import akka.kafka.scaladsl._
 import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
@@ -50,7 +51,7 @@ Produce messages in a flow:
 
 ```Scala
   Source(1 to 10000)
-    .map(elem => Producer.Message(new ProducerRecord[Array[Byte], String]("topic1", elem.toString), elem))
+    .map(elem => ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic1", elem.toString), elem))
     .via(Producer.flow(producerSettings))
     .map { result =>
       val record = result.message.record
@@ -62,6 +63,7 @@ Produce messages in a flow:
 Consumer Settings:
 
 ```Scala
+import akka.kafka._
 import akka.kafka.scaladsl._
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
@@ -108,7 +110,7 @@ Connect a Consumer to Producer:
 ```Scala
   Consumer.committableSource(consumerSettings.withClientId("client1"))
     .map(msg =>
-      Producer.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
     .to(Producer.commitableSink(producerSettings))
 ```
 
@@ -126,12 +128,112 @@ Consume messages at-least-once, and commit in batches:
 ```
 
 Additional examples are available in 
-[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M2/core/src/test/scala/examples/ConsumerExample.scala)
+[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/scala/examples/scaladsl/ConsumerExample.scala)
 
 
 #### Java
 
-Java API is not included in 0.11-M2. It will be added soon.
+Producer Settings:
+
+```Java
+import akka.kafka.*;
+import akka.kafka.javadsl.*;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+
+  final ProducerSettings<byte[], String> producerSettings = ProducerSettings
+      .create(system, new ByteArraySerializer(), new StringSerializer())
+      .withBootstrapServers("localhost:9092");
+```
+
+Produce messages:
+
+```Java
+    Source.range(1, 10000)
+      .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+      .to(Producer.plainSink(producerSettings));
+```
+
+Produce messages in a flow:
+
+```Java
+    Source.range(1, 10000)
+      .map(n -> new ProducerMessage.Message<byte[], String, Integer>(
+        new ProducerRecord<>("topic1", n.toString()), n))
+      .via(Producer.flow(producerSettings))
+      .map(result -> {
+        ProducerRecord record = result.message().record();
+        System.out.println(record);
+        return result;
+      });
+```
+
+Consumer Settings:
+
+```Java
+import akka.kafka.*;
+import akka.kafka.javadsl.*;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+
+final ConsumerSettings<byte[], String> consumerSettings =
+      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer(),
+          ConsumerSettings.asSet("topic1"))
+    .withBootstrapServers("localhost:9092")
+    .withGroupId("group1")
+    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+```
+
+Consume messages and store a representation, including offset, in DB:
+
+```Java
+    db.loadOffset().thenAccept(fromOffset -> {
+      ConsumerSettings<byte[], String> settings = consumerSettings
+        .withFromOffset(new TopicPartition("topic1", 1), fromOffset);
+      Consumer.plainSource(settings).mapAsync(1, record -> db.save(record));
+    });
+```
+
+Consume messages at-most-once:
+
+```Java
+    Consumer.atMostOnceSource(consumerSettings.withClientId("client1"))
+      .mapAsync(1, record -> rocket.launch(record.value()));
+```
+
+Consume messages at-least-once:
+
+```Java
+    Consumer.committableSource(consumerSettings.withClientId("client1"))
+      .mapAsync(1, msg -> db.update(msg.value())
+        .thenCompose(done -> msg.committableOffset().commitJavadsl()));
+```
+
+Connect a Consumer to Producer:
+
+```Java
+    Consumer.committableSource(consumerSettings.withClientId("client1"))
+      .map(msg ->
+        new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
+            new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+      .to(Producer.commitableSink(producerSettings));
+```
+
+Consume messages at-least-once, and commit in batches:
+
+```Java
+    Consumer.committableSource(consumerSettings.withClientId("client1"))
+      .mapAsync(1, msg ->
+        db.update(msg.value()).thenApply(done -> msg.committableOffset()))
+      .batch(10,
+        first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
+        (batch, elem) -> batch.updated(elem))
+      .mapAsync(1, c -> c.commitJavadsl());
+```
+
+Additional examples are available in 
+[ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/scala/examples/javadsl/ConsumerExample.java)
 
 
 Configuration
