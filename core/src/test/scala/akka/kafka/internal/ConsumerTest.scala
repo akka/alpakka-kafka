@@ -5,12 +5,11 @@
 package akka.kafka.internal
 
 import java.util.{Map => JMap}
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerSettings
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.Consumer.{ClientTopicPartition, CommittableMessage, CommittableOffsetBatch, Control}
+import akka.kafka.scaladsl.Consumer.{CommittableMessage, CommittableOffsetBatch, Control}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
@@ -25,11 +24,12 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import akka.kafka.ClientTopicPartition
+import akka.kafka.PartitionOffset
 
 object ConsumerTest {
   type K = String
@@ -39,7 +39,7 @@ object ConsumerTest {
   def createMessage(seed: Int): Consumer.CommittableMessage[K, V] = createMessage(seed, "topic")
 
   def createMessage(seed: Int, topic: String, clientId: String = "client1"): Consumer.CommittableMessage[K, V] = {
-    val offset = Consumer.PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
+    val offset = PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
     Consumer.CommittableMessage(seed.toString, seed.toString, ConsumerStage.CommittableOffsetImpl(offset)(null))
   }
 

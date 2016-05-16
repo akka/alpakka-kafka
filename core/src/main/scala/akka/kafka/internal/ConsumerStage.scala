@@ -7,35 +7,35 @@ package akka.kafka.internal
 import java.util
 import java.util.Collections
 import java.util.concurrent.TimeoutException
-
 import akka.{Done, NotUsed}
 import akka.kafka.ConsumerSettings
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.Consumer.{ClientTopicPartition, CommittableOffsetBatch}
+import akka.kafka.scaladsl.Consumer.CommittableOffsetBatch
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
-
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
+import akka.kafka.PartitionOffset
+import akka.kafka.ClientTopicPartition
 
 /**
  * INTERNAL API
  */
 private[kafka] object ConsumerStage {
 
-  final case class CommittableOffsetImpl(override val partitionOffset: Consumer.PartitionOffset)(val stage: Committer)
+  final case class CommittableOffsetImpl(override val partitionOffset: PartitionOffset)(val stage: Committer)
       extends Consumer.CommittableOffset {
     override def commit(): Future[Done] =
       stage.commit(partitionOffset)
   }
 
   trait Committer {
-    def commit(offset: Consumer.PartitionOffset): Future[Done]
+    def commit(offset: PartitionOffset): Future[Done]
     def commit(batch: CommittableOffsetBatchImpl): Future[Done]
   }
 
@@ -122,7 +122,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       private val commitBatchCallback = getAsyncCallback[(CommittableOffsetBatchImpl, Promise[Done])] {
         case (batch, done) => commitBatchInternal(batch, done)
       }
-      private val commitSingleCallback = getAsyncCallback[(Consumer.PartitionOffset, Promise[Done])] {
+      private val commitSingleCallback = getAsyncCallback[(PartitionOffset, Promise[Done])] {
         case (offset, done) => commitSingleInternal(offset, done)
       }
 
@@ -152,7 +152,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       }
 
       override protected def pushMsg(record: ConsumerRecord[K, V]): Unit = {
-        val offset = Consumer.PartitionOffset(
+        val offset = PartitionOffset(
           ClientTopicPartition(
             clientId = clientId,
             topic = record.topic,
@@ -167,7 +167,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
       }
 
       // impl of ConsumerStage.Committer that is called from the outside via CommittableOffsetImpl
-      override def commit(offset: Consumer.PartitionOffset): Future[Done] = {
+      override def commit(offset: PartitionOffset): Future[Done] = {
         if (shutdownPromise.isCompleted)
           Future.failed(new IllegalStateException("ConsumerStage is stopped, offset commit not performed"))
         else {
@@ -211,7 +211,7 @@ private[kafka] class CommittableConsumerStage[K, V](settings: ConsumerSettings[K
         }
       }
 
-      private def commitSingleInternal(partitionOffset: Consumer.PartitionOffset, done: Promise[Done]): Unit = {
+      private def commitSingleInternal(partitionOffset: PartitionOffset, done: Promise[Done]): Unit = {
         // committed offset should be the next message the application will consume, i.e. +1
         val offsets = Collections.singletonMap(
           new TopicPartition(partitionOffset.key.topic, partitionOffset.key.partition),
