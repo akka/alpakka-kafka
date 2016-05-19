@@ -15,6 +15,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
@@ -30,11 +31,18 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
-
+  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181)
+  val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    EmbeddedKafka.start()
+  }
 
   override def afterAll(): Unit = {
     shutdown(system, 30.seconds)
+    EmbeddedKafka.stop()
     super.afterAll()
   }
 
@@ -51,7 +59,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
-    .withBootstrapServers("localhost:9092")
+    .withBootstrapServers(bootstrapServers)
 
   def givenInitializedTopic(): Unit = {
     val producer = producerSettings.createKafkaProducer()
@@ -68,7 +76,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .runWith(Producer.plainSink(producerSettings))
 
       val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
-        .withBootstrapServers("localhost:9092")
+        .withBootstrapServers(bootstrapServers)
         .withGroupId(group1)
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
@@ -153,7 +161,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .runWith(Producer.plainSink(producerSettings))
 
       val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
-        .withBootstrapServers("localhost:9092")
+        .withBootstrapServers(bootstrapServers)
         .withGroupId(group1)
         .withClientId(client1)
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
