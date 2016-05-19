@@ -23,7 +23,8 @@ val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
-  "org.mockito" % "mockito-core" % "1.10.19" % "test"
+  "org.mockito" % "mockito-core" % "1.10.19" % "test",
+  "net.manub" %% "scalatest-embedded-kafka" % "0.5.0" % "test"
 )
 
 val commonSettings =
