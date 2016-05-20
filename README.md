@@ -9,7 +9,7 @@ If you have questions or are working on a pull request or just curious, please f
 Created and maintained by 
 [<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
-## New API: 0.11-M2
+## New API: 0.11-M3
 
 Supports Kafka 0.9.0.x
 
@@ -18,7 +18,7 @@ This version of `akka-stream-kafka` depends on Akka 2.4.3 and Scala 2.11.8.
 Available at Maven Central for Scala 2.11:
 
 ````scala
-libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M2"
+libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M3"
 ````
 
 Example usage
@@ -239,7 +239,7 @@ Additional examples are available in
 Configuration
 ----
 
-The configuration properties are defined in [reference.conf](https://github.com/akka/reactive-kafka/blob/v0.11-M2/core/src/main/resources/reference.conf)
+The configuration properties are defined in [reference.conf](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/main/resources/reference.conf)
 
 Testing
 ----
