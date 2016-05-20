@@ -4,7 +4,7 @@ Reactive Streams for Kafka
 If you have questions or are working on a pull request or just curious, please feel welcome to join the chat room: [![Join the chat at https://gitter.im/akka/reactive-kafka](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/akka/reactive-kafka?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
-[Akka Streams](http://doc.akka.io/docs/akka/2.4.3/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
+[Akka Streams](http://doc.akka.io/docs/akka/2.4.6/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
 
 Created and maintained by 
 [<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
@@ -13,7 +13,7 @@ Created and maintained by
 
 Supports Kafka 0.9.0.x
 
-This version of `akka-stream-kafka` depends on Akka 2.4.3 and Scala 2.11.8. 
+This version of `akka-stream-kafka` depends on Akka 2.4.6 and Scala 2.11.8. 
 
 Available at Maven Central for Scala 2.11:
 
