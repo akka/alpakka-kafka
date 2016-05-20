@@ -6,11 +6,16 @@ package akka.kafka.internal
 
 import java.util.{Map => JMap}
 
+import scala.collection.JavaConverters._
+import scala.collection.immutable.Seq
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+
 import akka.Done
 import akka.actor.ActorSystem
+import akka.kafka.ConsumerMessage._
 import akka.kafka.ConsumerSettings
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.Consumer.{ClientTopicPartition, CommittableMessage, CommittableOffsetBatch, Control}
+import akka.kafka.scaladsl.Consumer.Control
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
@@ -26,21 +31,16 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.collection.JavaConverters._
-import scala.collection.immutable.Seq
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-
 object ConsumerTest {
   type K = String
   type V = String
   type Record = ConsumerRecord[K, V]
 
-  def createMessage(seed: Int): Consumer.CommittableMessage[K, V] = createMessage(seed, "topic")
+  def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
-  def createMessage(seed: Int, topic: String, clientId: String = "client1"): Consumer.CommittableMessage[K, V] = {
-    val offset = Consumer.PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
-    Consumer.CommittableMessage(seed.toString, seed.toString, ConsumerStage.CommittableOffsetImpl(offset)(null))
+  def createMessage(seed: Int, topic: String, clientId: String = "client1"): CommittableMessage[K, V] = {
+    val offset = PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
+    CommittableMessage(seed.toString, seed.toString, ConsumerStage.CommittableOffsetImpl(offset)(null))
   }
 
 }
@@ -94,12 +94,12 @@ class ConsumerTest(_system: ActorSystem)
     mock.verifyClosed()
   }
 
-  def toRecord(msg: Consumer.CommittableMessage[K, V]): ConsumerRecord[K, V] = {
+  def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = {
     val offset = msg.committableOffset.partitionOffset
     new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, msg.key, msg.value)
   }
 
-  def checkMessagesReceiving(msgss: Seq[Seq[Consumer.CommittableMessage[K, V]]]): Unit = {
+  def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
     val mock = new ConsumerMock[K, V]()
     val (control, probe) = testSource(mock)
       .toMat(TestSink.probe)(Keep.both)
@@ -146,7 +146,7 @@ class ConsumerTest(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commit()
+    val done = probe.expectNext().committableOffset.commitScaladsl()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -177,7 +177,7 @@ class ConsumerTest(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commit()
+    val done = probe.expectNext().committableOffset.commitScaladsl()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -206,7 +206,7 @@ class ConsumerTest(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(100)
-    val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commit()))
+    val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commitScaladsl()))
 
     awaitAssert {
       commitLog.calls should have size (100)
@@ -237,7 +237,7 @@ class ConsumerTest(_system: ActorSystem)
     val batch = probe.expectNextN(6).map(_.committableOffset)
       .foldLeft(CommittableOffsetBatch.empty) { (b, c) => b.updated(c) }
 
-    val done = batch.commit()
+    val done = batch.commitScaladsl()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -287,7 +287,7 @@ class ConsumerTest(_system: ActorSystem)
     val batch2 = probe2.expectNextN(6).map(_.committableOffset)
       .foldLeft(batch1) { (b, c) => b.updated(c) }
 
-    val done2 = batch2.commit()
+    val done2 = batch2.commitScaladsl()
 
     awaitAssert {
       commitLog1.calls should have size (1)
@@ -390,7 +390,7 @@ class ConsumerTest(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commit()
+    val done = probe.expectNext().committableOffset.commitScaladsl()
     val rest = probe.expectNextN(9)
 
     awaitAssert {
@@ -428,7 +428,7 @@ class ConsumerTest(_system: ActorSystem)
     probe.expectComplete()
     Await.result(stopped, remainingOrDefault)
 
-    val done = first.committableOffset.commit()
+    val done = first.committableOffset.commitScaladsl()
     intercept[IllegalStateException] {
       Await.result(done, remainingOrDefault)
     }
@@ -445,7 +445,7 @@ class ConsumerTest(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(5)
-    val done = probe.expectNext().committableOffset.commit()
+    val done = probe.expectNext().committableOffset.commitScaladsl()
     val more = probe.expectNextN(4)
 
     awaitAssert {

@@ -5,31 +5,31 @@
 package akka.kafka.internal
 
 import java.util.concurrent.{CompletableFuture, TimeUnit}
+
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.duration._
+import scala.util.{Try, Failure, Success}
+
+import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Keep, Source}
-import akka.stream.testkit.scaladsl.{TestSource, TestSink}
+import akka.kafka.ProducerMessage._
+import akka.kafka.ProducerSettings
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import akka.stream.scaladsl.{Sink, Keep, Source}
+import akka.stream.scaladsl.Flow
+import akka.stream.testkit.scaladsl.{TestSource, TestSink}
 import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpecLike, Matchers}
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.language.postfixOps
-import scala.util.{Try, Failure, Success}
-import akka.kafka.scaladsl.Producer
-import akka.NotUsed
 import org.scalatest.BeforeAndAfterAll
-import akka.stream.scaladsl.Flow
-import akka.kafka.ProducerSettings
-import org.apache.kafka.common.serialization.StringSerializer
 
 class ProducerTest(_system: ActorSystem)
     extends TestKit(_system)
@@ -49,22 +49,22 @@ class ProducerTest(_system: ActorSystem)
   type K = String
   type V = String
   type Record = ProducerRecord[K, V]
-  type Msg = Producer.Message[String, String, NotUsed.type]
+  type Msg = Message[String, String, NotUsed.type]
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
       new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong)
   }
 
-  def toMessage(tuple: (Record, RecordMetadata)) = Producer.Message(tuple._1, NotUsed)
+  def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   def toResult(tuple: (Record, RecordMetadata)) = {
     val (record: Record, meta: RecordMetadata) = tuple
-    Producer.Result(meta.offset, Producer.Message(record, NotUsed))
+    Result(meta.offset, Message(record, NotUsed))
   }
 
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 
-  def testProducerFlow[P](mock: ProducerMock[K, V]): Flow[Producer.Message[K, V, P], Producer.Result[K, V, P], NotUsed] =
+  def testProducerFlow[P](mock: ProducerMock[K, V]): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
     Flow.fromGraph(new ProducerStage[K, V, P](settings, () => mock.mock))
       .mapAsync(1)(identity)
 
@@ -90,7 +90,7 @@ class ProducerTest(_system: ActorSystem)
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try { inputMap(x) }))
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
     val probe = Source(input.map(toMessage))
       .via(testProducerFlow(client))
@@ -111,7 +111,7 @@ class ProducerTest(_system: ActorSystem)
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis)(x => Try { inputMap(x) }))
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
     val (source, sink) = TestSource
       .probe[Msg]
@@ -141,7 +141,7 @@ class ProducerTest(_system: ActorSystem)
 
     val client = {
       val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100 millis) { msg =>
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { msg =>
         if (msg.value() == "2") Failure(error)
         else Success(inputMap(msg))
       })

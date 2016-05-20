@@ -14,6 +14,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.Deserializer
 import java.util.concurrent.TimeUnit
+import scala.annotation.varargs
 
 object ConsumerSettings {
 
@@ -90,6 +91,15 @@ object ConsumerSettings {
     topics: java.util.Set[String]
   ): ConsumerSettings[K, V] =
     apply(config, keyDeserializer, valueDeserializer, topics.asScala.toSet)
+
+  /**
+   * Java API: convenience to create a Set from varargs
+   */
+  @varargs def asSet(topics: String*): java.util.Set[String] = {
+    val result = new java.util.HashSet[String]
+    result.addAll(topics.asJava)
+    result
+  }
 
 }
 
