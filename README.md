@@ -233,7 +233,7 @@ Consume messages at-least-once, and commit in batches:
 ```
 
 Additional examples are available in 
-[ConsumerExamples.java](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/scala/examples/javadsl/ConsumerExample.java)
+[ConsumerExamples.java](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/java/examples/javadsl/ConsumerExample.java)
 
 
 Configuration
