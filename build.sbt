@@ -3,7 +3,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.3"
+val akkaVersion = "2.4.6"
 val kafkaVersion = "0.9.0.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
