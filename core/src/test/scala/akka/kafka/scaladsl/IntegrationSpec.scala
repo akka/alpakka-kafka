@@ -13,17 +13,19 @@ import scala.concurrent.duration._
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.kafka.{ConsumerSettings, ProducerSettings}
+import akka.kafka.{ ConsumerSettings, ProducerSettings }
+import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ProducerMessage
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.{ Keep, Source }
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{ EmbeddedKafka, EmbeddedKafkaConfig }
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{ ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer }
 import org.scalactic.ConversionCheckedTripleEquals
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike }
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -67,18 +69,27 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     producer.close(60, TimeUnit.SECONDS)
   }
 
+  def produceMessages(range: Range) = {
+    Source(range)
+      .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+      .runWith(Producer.plainSink(producerSettings))
+  }
+
+  def createConsumerSettings() = {
+    ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
+      .withBootstrapServers("localhost:9092")
+      .withGroupId(group1)
+      .withClientId(client1)
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+  }
+
   "Reactive kafka streams" must {
     "produce to plainSink and consume from plainSource" in {
       givenInitializedTopic()
 
-      Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, null: Array[Byte], n.toString))
-        .runWith(Producer.plainSink(producerSettings))
+      produceMessages(1 to 100)
 
-      val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
-        .withBootstrapServers(bootstrapServers)
-        .withGroupId(group1)
-        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      val consumerSettings = createConsumerSettings()
 
       val probe = Consumer.plainSource(consumerSettings)
         // it's not 100% sure we get the first message, see https://issues.apache.org/jira/browse/KAFKA-3334
@@ -104,13 +115,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
-      val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
-        .withBootstrapServers("localhost:9092")
-        .withGroupId(group1)
-        .withClientId(client1)
-        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-
       val committedElement = new AtomicInteger(0)
+
+      val consumerSettings = createConsumerSettings()
+
       val (control, probe1) = Consumer.committableSource(consumerSettings)
         .filterNot(_.value == InitialMsg)
         .mapAsync(10) { elem =>
@@ -156,15 +164,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // important to use more messages than the internal buffer sizes
       // to trigger the intended scenario
-      Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
-        .runWith(Producer.plainSink(producerSettings))
+      produceMessages(1 to 100)
 
-      val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
-        .withBootstrapServers(bootstrapServers)
-        .withGroupId(group1)
-        .withClientId(client1)
-        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      val consumerSettings = createConsumerSettings()
 
       val (control, probe1) = Consumer.committableSource(consumerSettings)
         .filterNot(_.value == InitialMsg)
@@ -177,9 +179,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val committableOffset = probe1.expectNext().committableOffset
 
       // enqueue some more
-      Source(101 to 110)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
-        .runWith(Producer.plainSink(producerSettings))
+      produceMessages(101 to 110)
 
       probe1.expectNoMsg(200.millis)
 
@@ -197,8 +197,62 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    // TODO add more tests
+    "consume and commit in batches" in {
+      givenInitializedTopic()
 
+      produceMessages(1 to 100)
+
+      val consumerSettings = createConsumerSettings()
+
+      def consumeAndBatchCommit() = {
+        Consumer.committableSource(consumerSettings)
+          .map { msg => msg.committableOffset }
+          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+            batch.updated(elem)
+          }
+          .mapAsync(1)(_.commitScaladsl()).toMat(TestSink.probe)(Keep.both)
+      }
+
+      consumeAndBatchCommit()
+
+      val probe = Consumer.plainSource(consumerSettings)
+        .filterNot(_.value == InitialMsg)
+        .map(_.value)
+        .runWith(TestSink.probe)
+
+      probe
+        .request(100)
+        .expectNextN((1 to 100).map(_.toString))
+
+      produceMessages(101 to 150)
+
+      consumeAndBatchCommit()
+
+      probe
+        .request(50)
+        .expectNextN((101 to 150).map(_.toString))
+
+      probe.cancel()
+    }
+
+    "connect consumer to producer and commit in batches" in {
+      givenInitializedTopic()
+
+      produceMessages(1 to 100)
+
+      val consumerSettings = createConsumerSettings()
+
+      Consumer.committableSource(consumerSettings.withClientId("client1"))
+        .map(msg =>
+          ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+        .via(Producer.flow(producerSettings))
+        .map(_.message.passThrough)
+        .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+          batch.updated(elem)
+        }
+        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+
+    }
   }
 
 }
