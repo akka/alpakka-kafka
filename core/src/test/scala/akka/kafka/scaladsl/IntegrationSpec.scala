@@ -13,19 +13,19 @@ import scala.concurrent.duration._
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.kafka.{ ConsumerSettings, ProducerSettings }
+import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Keep, Source }
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import net.manub.embeddedkafka.{ EmbeddedKafka, EmbeddedKafkaConfig }
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{ ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer }
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.ConversionCheckedTripleEquals
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike }
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -49,15 +49,22 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   def uuid = UUID.randomUUID().toString
+
   var topic1: String = _
+  var topic2: String = _
   var group1: String = _
+  var group2: String = _
   var client1: String = _
+  var client2: String = _
   val partition0 = 0
 
   override def beforeEach(): Unit = {
     topic1 = "topic1-" + uuid
+    topic2 = "topic2-" + uuid
     group1 = "group1-" + uuid
+    group2 = "group2-" + uuid
     client1 = "client1-" + uuid
+    client2 = "client2-" + uuid
   }
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
@@ -75,11 +82,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       .runWith(Producer.plainSink(producerSettings))
   }
 
-  def createConsumerSettings() = {
-    ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic1))
+  def createConsumerSettings(topic: String, group: String, client: String) = {
+    ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, Set(topic))
       .withBootstrapServers("localhost:9092")
-      .withGroupId(group1)
-      .withClientId(client1)
+      .withGroupId(group)
+      .withClientId(client)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   }
 
@@ -89,7 +96,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       produceMessages(1 to 100)
 
-      val consumerSettings = createConsumerSettings()
+      val consumerSettings = createConsumerSettings(topic1, group1, client1)
 
       val probe = Consumer.plainSource(consumerSettings)
         // it's not 100% sure we get the first message, see https://issues.apache.org/jira/browse/KAFKA-3334
@@ -117,7 +124,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val committedElement = new AtomicInteger(0)
 
-      val consumerSettings = createConsumerSettings()
+      val consumerSettings = createConsumerSettings(topic1, group1, client1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings)
         .filterNot(_.value == InitialMsg)
@@ -166,7 +173,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // to trigger the intended scenario
       produceMessages(1 to 100)
 
-      val consumerSettings = createConsumerSettings()
+      val consumerSettings = createConsumerSettings(topic1, group1, client1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings)
         .filterNot(_.value == InitialMsg)
@@ -202,7 +209,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       produceMessages(1 to 100)
 
-      val consumerSettings = createConsumerSettings()
+      val consumerSettings = createConsumerSettings(topic1, group1, client1)
 
       def consumeAndBatchCommit() = {
         Consumer.committableSource(consumerSettings)
@@ -240,20 +247,58 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       produceMessages(1 to 100)
 
-      val consumerSettings = createConsumerSettings()
+      val consumerSettings1 = createConsumerSettings(topic1, group1, client1)
+      val consumerSettings2 = createConsumerSettings(topic2, group2, client2)
 
-      Consumer.committableSource(consumerSettings.withClientId("client1"))
+      val source = Consumer.committableSource(consumerSettings1)
         .map(msg =>
-          ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+          {
+            println("message");
+            ProducerMessage.Message(
+              new ProducerRecord[Array[Byte], String](topic2, msg.value),
+              msg.committableOffset
+            )
+          })
         .via(Producer.flow(producerSettings))
-        .map(_.message.passThrough)
+        .map({ println("map"); _.message.passThrough })
         .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)
         }
-        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+        .mapAsync(producerSettings.parallelism)({ println("commit"); _.commitScaladsl() })
 
+      source.runWith(TestSink.probe)
+
+      // Consume from topic2 to verify
+
+      val probe = Consumer.plainSource(consumerSettings2)
+        .filterNot(_.value == InitialMsg)
+        .map(_.value)
+        .runWith(TestSink.probe)
+
+      probe
+        .request(100)
+        .expectNextN((1 to 100).map(_.toString))
+
+      probe.cancel()
     }
   }
 
+  /*
+   val (control, probe1) = Consumer.committableSource(consumerSettings)
+        .filterNot(_.value == InitialMsg)
+        .mapAsync(10) { elem =>
+          elem.committableOffset.commitScaladsl().map { _ =>
+            committedElement.set(elem.value.toInt)
+            Done
+          }
+        }
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      probe1
+        .request(25)
+        .expectNextN(25).toSet should be(Set(Done))
+
+   */
 }
 
