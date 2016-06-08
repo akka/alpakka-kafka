@@ -106,12 +106,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       produceMessages(topic1, 1 to 100)
 
       val consumerSettings = createConsumerSettings(topic1, group1, client1)
-
-      val probe = Consumer.plainSource(consumerSettings)
-        // it's not 100% sure we get the first message, see https://issues.apache.org/jira/browse/KAFKA-3334
-        .filterNot(_.value == InitialMsg)
-        .map(_.value)
-        .runWith(TestSink.probe)
+      val probe = createProbe(consumerSettings)
 
       probe
         .request(100)
@@ -224,7 +219,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         Consumer.committableSource(consumerSettings)
           .map { msg => { ; msg.committableOffset } }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
-            println("updating batch: ");
             batch.updated(elem)
           }
           .mapAsync(1)(_.commitScaladsl()).toMat(TestSink.probe)(Keep.both)
@@ -232,20 +226,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       consumeAndBatchCommit()
 
-      val probe = Consumer.plainSource(consumerSettings)
-        .filterNot(_.value == InitialMsg)
-        .map(_.value)
-        .runWith(TestSink.probe)
-
-      println("Probe expecting 1 to 100")
+      val probe = createProbe(consumerSettings)
 
       probe
         .request(100)
         .expectNextN((1 to 100).map(_.toString))
 
       produceMessages(topic1, 101 to 150)
-
-      println("Probe expecting 101 to 150")
 
       consumeAndBatchCommit()
 
@@ -295,7 +282,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // Fails: java.lang.AssertionError: assertion failed: timeout (10 seconds) 
       // during expectMsg while waiting for OnNext(1)
-      
+
       /*
        val probe2 = createProbe(consumerSettings2)
 
