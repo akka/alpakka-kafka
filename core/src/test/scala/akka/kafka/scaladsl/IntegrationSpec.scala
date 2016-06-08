@@ -256,8 +256,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
     }
 
-    // TODO This test does not pass.  The batch consumer prints up to message 87 consistently
-
     "connect consumer to producer and commit in batches" in {
       givenInitializedTopic()
 
@@ -293,7 +291,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe1.cancel()
 
-      
       // Consume from topic 2
 
       // Fails: java.lang.AssertionError: assertion failed: timeout (10 seconds) 
