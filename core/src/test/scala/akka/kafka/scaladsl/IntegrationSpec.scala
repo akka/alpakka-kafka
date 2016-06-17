@@ -253,7 +253,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val source = Consumer.committableSource(consumerSettings1)
         .map(msg =>
           {
-            println("connect consumer to producer: message: " + msg.value); // TODO This prints up to 63 then stops, why ?
+            // TODO This prints up to 63 then stops, why ?
+            println("connect consumer to producer: message: " + msg.value); 
 
             ProducerMessage.Message(
               // Produce to topic2
@@ -273,7 +274,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.request(100).expectNext()
 
       probe.cancel()
-
     }
   }
 }
