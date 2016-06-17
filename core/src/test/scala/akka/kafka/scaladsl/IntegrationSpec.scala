@@ -254,7 +254,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .map(msg =>
           {
             // TODO This prints up to 63 then stops, why ?
-            println("connect consumer to producer: message: " + msg.value); 
+            println("connect consumer to producer: message: " + msg.value);
 
             ProducerMessage.Message(
               // Produce to topic2
@@ -271,7 +271,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val probe = source.runWith(TestSink.probe)
 
-      probe.request(100).expectNext()
+      probe.request(1).expectNext()
 
       probe.cancel()
     }
