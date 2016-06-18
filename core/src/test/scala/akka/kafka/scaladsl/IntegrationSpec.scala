@@ -253,9 +253,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val source = Consumer.committableSource(consumerSettings1)
         .map(msg =>
           {
-            // TODO This prints up to 63 then stops, why ?
-            println("connect consumer to producer: message: " + msg.value);
-
             ProducerMessage.Message(
               // Produce to topic2
               new ProducerRecord[Array[Byte], String](topic2, msg.value),
@@ -263,11 +260,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
             )
           })
         .via(Producer.flow(producerSettings))
-        .map({ println("map"); _.message.passThrough })
+        .map(_.message.passThrough)
         .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)
         }
-        .mapAsync(producerSettings.parallelism)({ println("commit"); _.commitScaladsl() })
+        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
 
       val probe = source.runWith(TestSink.probe)
 
