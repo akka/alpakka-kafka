@@ -33,7 +33,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     super.preStart()
     consumer = {
       val extendedActorSystem = ActorMaterializer.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
-      val name = s"kafka-consumer-${KafkaConsumerActor.nextNumber()}"
+      val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }
 

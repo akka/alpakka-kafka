@@ -6,15 +6,15 @@ package examples.javadsl;
 
 
 import akka.Done;
+import akka.NotUsed;
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import akka.kafka.ConsumerMessage;
-import akka.kafka.ConsumerSettings;
-import akka.kafka.ProducerMessage;
-import akka.kafka.ProducerSettings;
-import akka.kafka.Subscriptions;
+import akka.japi.Pair;
+import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.stream.javadsl.Source;
+import akka.stream.ActorMaterializer;
+import akka.stream.javadsl.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -23,6 +23,7 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.scalatest.matchers.AMatcher;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
@@ -31,6 +32,14 @@ import java.util.concurrent.TimeUnit;
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
+
+  protected final ActorMaterializer mat = ActorMaterializer.create(system);
+
+  protected final int maxPartitions = 100;
+
+  protected <T> Flow<T, T, NotUsed> business() {
+    return Flow.create();
+  }
 
   protected final ConsumerSettings<byte[], String> consumerSettings =
       ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
@@ -181,3 +190,50 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   }
 }
 
+// Backpressure per partition with batch commit
+class ConsumerWithPerPartitionBackpressure extends ConsumerExample {
+  public void demo() {
+    RunnableGraph<Consumer.Control> s = Consumer
+        .committablePartitionedSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+        .flatMapMerge(maxPartitions, Pair::second)
+        .via(business())
+        .batch(
+            100,
+            first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first.committableOffset()),
+            (batch, elem) -> batch.updated(elem.committableOffset())
+        )
+        .mapAsync(1, x -> x.commitJavadsl())
+        .to(Sink.ignore());
+  }
+}
+
+class ExternallyControlledKafkaConsumer extends ConsumerExample {
+  public void demo() {
+    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
+
+    RunnableGraph<Consumer.Control> s1 = Consumer
+        .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+        .via(business())
+        .to(Sink.ignore());
+
+    RunnableGraph<Consumer.Control> s2 = Consumer
+        .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+        .via(business())
+        .to(Sink.ignore());
+  }
+}
+class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
+  public void demo() {
+    Consumer.Control c = Consumer
+        .committablePartitionedSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+        .map(pair -> pair
+              .second()
+              .via(business())
+              .toMat(Sink.ignore(), Keep.both())
+              .run(mat)
+        )
+        .mapAsyncUnordered(maxPartitions, (pair) -> pair.second())
+        .to(Sink.ignore())
+        .run(mat);
+  }
+}

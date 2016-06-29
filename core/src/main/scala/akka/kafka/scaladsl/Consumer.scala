@@ -108,7 +108,7 @@ object Consumer {
   }
 
   /**
-   * The same as `plainPartitionedSource` but with offset commit support
+   * The same as [[#plainPartitionedSource]] but with offset commit support
    */
   def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] = {
     val src = Source.fromGraph(ConsumerStage.committableSubSource[K, V](settings, subscription))
@@ -125,7 +125,7 @@ object Consumer {
   }
 
   /**
-   * The same as `plainExternalSource` but with offset commit support
+   * The same as [[#plainExternalSource]] but with offset commit support
    */
   def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, clientId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
     Source.fromGraph(ConsumerStage.externalCommittableSource[K, V](

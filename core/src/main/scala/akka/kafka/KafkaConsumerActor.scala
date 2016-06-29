@@ -21,28 +21,28 @@ object KafkaConsumerActor {
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
   }
 
-  object Internal {
+  private [kafka] object Internal {
     //requests
-    private[kafka] final case class Assign(tps: Set[TopicPartition])
-    private[kafka] final case class AssignWithOffset(tps: Map[TopicPartition, Long])
-    private[kafka] final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
-    private[kafka] final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
-    private[kafka] final case class RequestMessages(topics: Set[TopicPartition])
-    private[kafka] case object Stop
-    private[kafka] final case class Commit(offsets: Map[TopicPartition, Long])
+    final case class Assign(tps: Set[TopicPartition])
+    final case class AssignWithOffset(tps: Map[TopicPartition, Long])
+    final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
+    final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
+    final case class RequestMessages(topics: Set[TopicPartition])
+    case object Stop
+    final case class Commit(offsets: Map[TopicPartition, Long])
     //responses
-    private[kafka] final case class Assigned(partition: List[TopicPartition])
-    private[kafka] final case class Revoked(partition: List[TopicPartition])
-    private[kafka] final case class Messages[K, V](messages: Iterator[ConsumerRecord[K, V]])
-    private[kafka] final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+    final case class Assigned(partition: List[TopicPartition])
+    final case class Revoked(partition: List[TopicPartition])
+    final case class Messages[K, V](messages: Iterator[ConsumerRecord[K, V]])
+    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
     private[KafkaConsumerActor] case object Poll
+    private val number = new AtomicInteger()
+    def nextNumber() = {
+      number.incrementAndGet()
+    }
   }
 
-  private val number = new AtomicInteger()
-  private[kafka] def nextNumber() = {
-    number.incrementAndGet()
-  }
 
   private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
