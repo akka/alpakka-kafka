@@ -4,14 +4,15 @@
  */
 package akka.kafka
 
-import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
 import org.apache.kafka.common.serialization.Serializer
-import java.util.concurrent.TimeUnit
+
+import scala.concurrent.duration._
 
 object ProducerSettings {
 

@@ -7,11 +7,10 @@ package akka.kafka
 import java.util.Optional
 import java.util.concurrent.CompletionStage
 
-import scala.compat.java8.FutureConverters._
-import scala.concurrent.Future
-
 import akka.Done
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
+
+import scala.concurrent.Future
 
 /**
  * Classes that are used in both [[javadsl.Consumer]] and
@@ -50,7 +49,6 @@ object ConsumerMessage {
    */
   trait Committable {
     def commitScaladsl(): Future[Done]
-
     def commitJavadsl(): CompletionStage[Done]
   }
 

@@ -6,16 +6,15 @@ package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
-
-import akka.kafka.ProducerMessage._
+import akka.kafka.ProducerMessage.{Message, Result}
 import akka.kafka.ProducerSettings
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
+
+import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 /**
  * INTERNAL API

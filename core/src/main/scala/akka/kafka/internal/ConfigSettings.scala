@@ -4,9 +4,7 @@
  */
 package akka.kafka.internal
 
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigObject
-import com.typesafe.config.ConfigValue
+import com.typesafe.config.{Config, ConfigObject, ConfigValue}
 
 /**
  * INTERNAL API
