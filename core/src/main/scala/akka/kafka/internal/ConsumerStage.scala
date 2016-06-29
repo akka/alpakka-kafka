@@ -4,7 +4,7 @@
  */
 package akka.kafka.internal
 
-import java.util.Optional
+import java.util.{Map => JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
@@ -21,7 +21,7 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
 
 import scala.compat.java8.FutureConverters.FutureOps
-import scala.compat.java8.OptionConverters.RichOptionForJava8
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -179,11 +179,9 @@ private[kafka] object ConsumerStage {
       new CommittableOffsetBatchImpl(newOffsets, newStages)
     }
 
-    override def offset(key: ClientTopicPartition): Option[Long] =
-      offsets.get(key)
-
-    override def getOffset(key: ClientTopicPartition): Optional[Long] =
-      offset(key).asJava
+    override def getOffsets(): JMap[ClientTopicPartition, Long] = {
+      offsets.asJava
+    }
 
     override def toString(): String =
       s"CommittableOffsetBatch(${offsets.mkString("->")})"

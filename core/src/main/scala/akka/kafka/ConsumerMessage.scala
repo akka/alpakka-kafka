@@ -4,7 +4,7 @@
  */
 package akka.kafka
 
-import java.util.Optional
+import java.util.{Map => JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.Done
@@ -103,14 +103,14 @@ object ConsumerMessage {
     def updated(offset: CommittableOffset): CommittableOffsetBatch
 
     /**
-     * Scala API: Get current offset position for the given clientId, topic, partition.
+     * Scala API: Get current offset positions
      */
-    def offset(key: ClientTopicPartition): Option[Long]
+    def offsets(): Map[ClientTopicPartition, Long]
 
     /**
-     * Java API: Get current offset position for the given clientId, topic, partition.
+     * Java API: Get current offset positions
      */
-    def getOffset(key: ClientTopicPartition): Optional[Long]
+    def getOffsets(): JMap[ClientTopicPartition, Long]
   }
 
 }
