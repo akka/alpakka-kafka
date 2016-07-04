@@ -15,52 +15,79 @@ import org.apache.kafka.common.serialization.Deserializer
 
 import scala.annotation.varargs
 import scala.concurrent.duration._
+import scala.collection.JavaConverters._
 
 sealed trait Subscription
 sealed trait ManualSubscription extends Subscription
 sealed trait AutoSubscription extends Subscription
 
 object Subscriptions {
-  final case class TopicSubscription(tps: Set[String]) extends AutoSubscription
-  final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
-  final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
-  final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
+  private[kafka] final case class TopicSubscription(tps: Set[String]) extends AutoSubscription
+  private[kafka] final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
+  private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
+  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
 
   /**
-   * Creates subscription for given set of topics
-   */
-  def topics(topics: Set[String]): AutoSubscription = TopicSubscription(topics)
+    * Creates subscription for given set of topics
+    */
+  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts)
+
   /**
-   * Creates subscription for given set of topics
-   */
+    * Creates subscription for given set of topics
+    * JAVA API
+    */
   @varargs
-  def topics(topics: String*): AutoSubscription = TopicSubscription(topics.toSet)
+  def topics(ts: String*): AutoSubscription = topics(ts.toSet)
 
   /**
-   * Creates subscription for given topics pattern
-   */
+    * Creates subscription for given set of topics
+    * JAVA API
+    */
+  def topics(ts: java.util.Set[String]): AutoSubscription = topics(ts.asScala.toSet)
+
+  /**
+    * Creates subscription for given topics pattern
+    */
   def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern)
 
   /**
-   * Manually assign given topics and partitions
-   */
+    * Manually assign given topics and partitions
+    */
   def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)
+
   /**
-   * Manually assign given topics and partitions
-   */
+    * Manually assign given topics and partitions
+    * JAVA API
+    */
   @varargs
-  def assignment(tps: TopicPartition*): ManualSubscription = Assignment(tps.toSet)
+  def assignment(tps: TopicPartition*): ManualSubscription = assignment(tps.toSet)
+
   /**
-   * Manually assign given topics and partitions with offsets
-   */
+    * Manually assign given topics and partitions
+    * JAVA API
+    */
+  def assignment(tps: java.util.Set[TopicPartition]): ManualSubscription = assignment(tps.asScala.toSet)
+
+  /**
+    * Manually assign given topics and partitions with offsets
+    */
   def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)
+
   /**
-   * Manually assign given topics and partitions with offsets
-   */
-  @varargs
+    * Manually assign given topics and partitions with offsets
+    */
   def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)
 
-  def assignmentWithOffset(tp: TopicPartition, offset: Long): ManualSubscription = assignmentWithOffset((tp, offset))
+  /**
+    * Manually assign given topics and partitions with offsets
+    * JAVA API
+    */
+  def assignmentWithOffset(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentWithOffset(tps.asScala.toMap)
+
+  /**
+    * Manually assign given topics and partitions with offsets
+    */
+  def assignmentWithOffset(tp: TopicPartition, offset: Long): ManualSubscription = assignmentWithOffset(Map(tp -> offset))
 }
 
 object ConsumerSettings {

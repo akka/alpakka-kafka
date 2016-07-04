@@ -6,12 +6,17 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.Done
-import akka.kafka.ConsumerMessage._
+import akka.actor.ActorRef
+import akka.japi.Pair
+import akka.kafka.ConsumerMessage.{CommittableMessage, Message}
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
-import akka.kafka.{ConsumerSettings, Subscription, scaladsl}
+import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription, scaladsl}
 import akka.stream.javadsl.Source
+import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -88,5 +93,49 @@ object Consumer {
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
+  /**
+   * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
+   * When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source
+   * When topic-partition is revoked then corresponding source completes
+   */
+  def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] = {
+    scaladsl.Consumer.plainPartitionedSource(settings, subscription)
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+  }
+
+  /**
+   * The same as [[#plainPartitionedSource]] but with offset commit support
+   */
+  def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] = {
+    scaladsl.Consumer.committablePartitionedSource(settings, subscription)
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+  }
+
+  /**
+   * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
+   * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
+   */
+  def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
+    scaladsl.Consumer.plainExternalSource(consumer, subscription)
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+  }
+
+  /**
+   * The same as [[#plainExternalSource]] but with offset commit support
+   */
+  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, clientId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
+    scaladsl.Consumer.committableExternalSource(consumer, subscription, clientId, commitTimeout)
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+  }
 }
 
