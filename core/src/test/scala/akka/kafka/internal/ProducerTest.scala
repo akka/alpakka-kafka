@@ -22,6 +22,7 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.record.Record
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.Mockito._
@@ -53,7 +54,7 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, Record.NO_TIMESTAMP, -1, -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)

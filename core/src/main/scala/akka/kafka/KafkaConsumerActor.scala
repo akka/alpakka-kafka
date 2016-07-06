@@ -153,8 +153,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       //set partitions to fetch
       val partitionsToFetch = requests.keys.toSet
       consumer.assignment().asScala.foreach { tp =>
-        if (partitionsToFetch.contains(tp)) consumer.resume(tp)
-        else consumer.pause(tp)
+        if (partitionsToFetch.contains(tp)) consumer.resume(Seq(tp).asJava)
+        else consumer.pause(Seq(tp).asJava)
       }
 
       val rawResult = consumer.poll(pollTimeout().toMillis)
