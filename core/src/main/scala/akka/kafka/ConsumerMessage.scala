@@ -114,4 +114,3 @@ object ConsumerMessage {
   }
 
 }
-

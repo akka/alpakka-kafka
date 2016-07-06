@@ -203,4 +203,3 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
 }
-
