@@ -21,7 +21,7 @@ object KafkaConsumerActor {
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
   }
 
-  private [kafka] object Internal {
+  private[kafka] object Internal {
     //requests
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
@@ -42,7 +42,6 @@ object KafkaConsumerActor {
       number.incrementAndGet()
     }
   }
-
 
   private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
