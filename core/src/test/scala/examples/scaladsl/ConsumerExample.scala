@@ -6,8 +6,8 @@ package examples.scaladsl
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
-import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.kafka._
+import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.{Done, NotUsed}
@@ -147,12 +147,17 @@ object ConsumerWithPerPartitionBackpressure extends ConsumerExample {
 
 //externally controlled kafka consumer
 object ExternallyControlledKafkaConsumer extends ConsumerExample {
+  //Consumer is represented by actor
+  //Create new consumer
   val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+  //Manually assign topic partition to it
   val stream1 = Consumer
     .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
     .via(business)
     .to(Sink.ignore)
 
+  //Manually assign another topic partition
   val stream2 = Consumer
     .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
     .via(business)
@@ -161,15 +166,17 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
 
 // Flow per partition
 object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
-  val control = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
-    .map {
-      case (topicPartition, source) =>
-        source
-          .via(business)
-          .toMat(Sink.ignore)(Keep.both)
-          .run()
-    }
-    .mapAsyncUnordered(maxPartitions)(_._2)
+  //Consumer group represented as Source[(TopicPartition, Source[Messages])]
+  val consumerGroup = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  //Process each assigned partition separately
+  consumerGroup.map {
+    case (topicPartition, source) =>
+      source
+        .via(business)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+  }
+  .mapAsyncUnordered(maxPartitions)(_._2)
 }
 
 // Join flows based on automatically assigned partitions
