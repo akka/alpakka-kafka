@@ -24,8 +24,7 @@ val coreDependencies = Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   // this conflicts with slf4j-log4j12  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "org.apache.kafka" %% "kafka" % kafkaVersion % "test", // this is to force the right version of kafak in scalatest-embedded-kafka
-  "net.manub" %% "scalatest-embedded-kafka" % "0.6.1" % "test"
+  "net.manub" %% "scalatest-embedded-kafka" % "0.7.0" % "test"
 )
 
 val commonSettings =
