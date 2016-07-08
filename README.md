@@ -9,17 +9,29 @@ If you have questions or are working on a pull request or just curious, please f
 Created and maintained by 
 [<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
-## New API: 0.11-M3
+## New API: 0.11-M4
 
-Supports Kafka 0.9.0.x
+Supports Kafka 0.10.0.x
 
-This version of `akka-stream-kafka` depends on Akka 2.4.6 and Scala 2.11.8. 
+This version of `akka-stream-kafka` depends on Akka 2.4.7, Scala 2.11.8.
 
 Available at Maven Central for Scala 2.11:
 
 ````scala
-libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M3"
+libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M4"
 ````
+
+### Changes
+
+#### 0.11-M4
+
+Consumer implementation is completely rewritten. Now we support partition assignment for consumer groups.
+More details about it (here)[http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html]
+Also we may reuse one kafka connection in case of manual topic-partition assignment.
+
+Consumer API slightly changed. In 0.11-M3 you set topic-partition to subscribe in `ConsumerSettings`. Now `ConsumerSettings`
+represents a kafka connection. The connection potentially can serve multiple `Source`s and you specify topic-partition for
+every source.
 
 Example usage
 ----
@@ -69,8 +81,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.clients.consumer.ConsumerConfig
 
-val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer, 
-    Set("topic1"))
+val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
   .withBootstrapServers("localhost:9092")
   .withGroupId("group1")
   .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
@@ -80,9 +91,8 @@ Consume messages and store a representation, including offset, in DB:
 
 ```Scala
   db.loadOffset().foreach { fromOffset =>
-    val settings = consumerSettings
-      .withFromOffset(new TopicPartition("topic1", 1), fromOffset)
-    Consumer.plainSource(settings)
+    val subscription = Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 1) -> fromOffset)
+    Consumer.plainSource(consumerSettings, subscription)
       .mapAsync(1)(db.save)
   }
 ```
@@ -90,7 +100,7 @@ Consume messages and store a representation, including offset, in DB:
 Consume messages at-most-once:
 
 ```Scala
-  Consumer.atMostOnceSource(consumerSettings.withClientId("client1"))
+  Consumer.atMostOnceSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .mapAsync(1) { record =>
       rocket.launch(record.value)
     }
@@ -99,9 +109,9 @@ Consume messages at-most-once:
 Consume messages at-least-once:
 
 ```Scala
-  Consumer.committableSource(consumerSettings.withClientId("client1"))
+  Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .mapAsync(1) { msg =>
-      db.update(msg.value).flatMap(_ => msg.committableOffset.commit())
+      db.update(msg.value).flatMap(_ => msg.committableOffset.commitScaladsl())
     }
 ```
 
@@ -117,14 +127,48 @@ Connect a Consumer to Producer:
 Consume messages at-least-once, and commit in batches:
 
 ```Scala
-  Consumer.committableSource(consumerSettings.withClientId("client1"))
+  Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .mapAsync(1) { msg =>
       db.update(msg.value).map(_ => msg.committableOffset)
     }
     .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
       batch.updated(elem)
     }
-    .mapAsync(1)(_.commit())
+    .mapAsync(1)(_.commitScaladsl())
+```
+
+Reusable kafka consumer:
+```Scala
+  //Consumer is represented by actor
+  //Create new consumer
+  val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+  //Manually assign topic partition to it
+  val stream1 = Consumer
+    .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+    .via(business)
+    .to(Sink.ignore)
+
+  //Manually assign another topic partition
+  val stream2 = Consumer
+    .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+    .via(business)
+    .to(Sink.ignore)
+```
+
+Consumer group:
+```Scala
+  //Consumer group represented as Source[(TopicPartition, Source[Messages])]
+  val consumerGroup = Consumer.committablePartitionedSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  //Process each assigned partition separately
+  consumerGroup.map {
+    case (topicPartition, source) =>
+      source
+        .via(business)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+  }
+  .mapAsyncUnordered(maxPartitions)(_._2)
 ```
 
 Additional examples are available in 
@@ -141,31 +185,31 @@ import akka.kafka.javadsl.*;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
-  final ProducerSettings<byte[], String> producerSettings = ProducerSettings
-      .create(system, new ByteArraySerializer(), new StringSerializer())
-      .withBootstrapServers("localhost:9092");
+final ProducerSettings<byte[], String> producerSettings = ProducerSettings
+  .create(system, new ByteArraySerializer(), new StringSerializer())
+  .withBootstrapServers("localhost:9092");
 ```
 
 Produce messages:
 
 ```Java
-    Source.range(1, 10000)
-      .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
-      .to(Producer.plainSink(producerSettings));
+Source.range(1, 10000)
+  .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+  .to(Producer.plainSink(producerSettings));
 ```
 
 Produce messages in a flow:
 
 ```Java
-    Source.range(1, 10000)
-      .map(n -> new ProducerMessage.Message<byte[], String, Integer>(
-        new ProducerRecord<>("topic1", n.toString()), n))
-      .via(Producer.flow(producerSettings))
-      .map(result -> {
-        ProducerRecord record = result.message().record();
-        System.out.println(record);
-        return result;
-      });
+Source.range(1, 10000)
+  .map(n -> new ProducerMessage.Message<byte[], String, Integer>(
+    new ProducerRecord<>("topic1", n.toString()), n))
+  .via(Producer.flow(producerSettings))
+  .map(result -> {
+    ProducerRecord record = result.message().record();
+    System.out.println(record);
+    return result;
+  });
 ```
 
 Consumer Settings:
@@ -178,58 +222,58 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 
 final ConsumerSettings<byte[], String> consumerSettings =
-      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer(),
-          ConsumerSettings.asSet("topic1"))
-    .withBootstrapServers("localhost:9092")
-    .withGroupId("group1")
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
+  .withBootstrapServers("localhost:9092")
+  .withGroupId("group1")
+  .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 ```
 
 Consume messages and store a representation, including offset, in DB:
 
 ```Java
-    db.loadOffset().thenAccept(fromOffset -> {
-      ConsumerSettings<byte[], String> settings = consumerSettings
-        .withFromOffset(new TopicPartition("topic1", 1), fromOffset);
-      Consumer.plainSource(settings).mapAsync(1, record -> db.save(record));
-    });
+db.loadOffset().thenAccept(fromOffset -> {
+  Consumer.plainSource(
+          consumerSettings,
+          Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 1), fromOffset)
+  ).mapAsync(1, record -> db.save(record));
+});
 ```
 
 Consume messages at-most-once:
 
 ```Java
-    Consumer.atMostOnceSource(consumerSettings.withClientId("client1"))
-      .mapAsync(1, record -> rocket.launch(record.value()));
+Consumer.atMostOnceSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  .mapAsync(1, record -> rocket.launch(record.value()));
 ```
 
 Consume messages at-least-once:
 
 ```Java
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
-      .mapAsync(1, msg -> db.update(msg.value())
-        .thenCompose(done -> msg.committableOffset().commitJavadsl()));
+Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  .mapAsync(1, msg -> db.update(msg.value())
+    .thenCompose(done -> msg.committableOffset().commitJavadsl()));
 ```
 
 Connect a Consumer to Producer:
 
 ```Java
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
-      .map(msg ->
-        new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
-            new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
-      .to(Producer.commitableSink(producerSettings));
+Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  .map(msg ->
+    new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
+        new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+  .to(Producer.commitableSink(producerSettings));
 ```
 
 Consume messages at-least-once, and commit in batches:
 
 ```Java
-    Consumer.committableSource(consumerSettings.withClientId("client1"))
-      .mapAsync(1, msg ->
-        db.update(msg.value()).thenApply(done -> msg.committableOffset()))
-      .batch(10,
-        first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
-        (batch, elem) -> batch.updated(elem))
-      .mapAsync(1, c -> c.commitJavadsl());
+Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
+  .mapAsync(1, msg ->
+    db.update(msg.value()).thenApply(done -> msg.committableOffset()))
+  .batch(10,
+    first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
+    (batch, elem) -> batch.updated(elem))
+  .mapAsync(1, c -> c.commitJavadsl());
 ```
 
 Additional examples are available in 
