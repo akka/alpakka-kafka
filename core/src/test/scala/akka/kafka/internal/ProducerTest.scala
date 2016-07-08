@@ -8,19 +8,19 @@ import java.util.concurrent.{CompletableFuture, TimeUnit}
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
-import scala.util.{Try, Failure, Success}
-
+import scala.util.{Failure, Success, Try}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
-import akka.stream.scaladsl.{Sink, Keep, Source}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.scaladsl.Flow
-import akka.stream.testkit.scaladsl.{TestSource, TestSink}
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.record.Record
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito.Matchers._
 import org.mockito.Mockito
@@ -53,7 +53,7 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, Record.NO_TIMESTAMP, -1, -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
