@@ -176,7 +176,7 @@ object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
         .toMat(Sink.ignore)(Keep.both)
         .run()
   }
-  .mapAsyncUnordered(maxPartitions)(_._2)
+    .mapAsyncUnordered(maxPartitions)(_._2)
 }
 
 // Join flows based on automatically assigned partitions

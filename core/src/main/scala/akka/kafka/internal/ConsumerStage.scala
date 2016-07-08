@@ -42,7 +42,7 @@ private[kafka] object ConsumerStage {
         new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
           override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
           lazy val committer: Committer = {
-            val ec = ActorMaterializer.downcast(materializer).executionContext
+            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
@@ -69,7 +69,7 @@ private[kafka] object ConsumerStage {
         new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
           override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
           lazy val committer: Committer = {
-            val ec = ActorMaterializer.downcast(materializer).executionContext
+            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
@@ -82,7 +82,7 @@ private[kafka] object ConsumerStage {
         new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] {
           override def clientId: String = _clientId
           lazy val committer: Committer = {
-            val ec = ActorMaterializer.downcast(materializer).executionContext
+            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
           }
         }

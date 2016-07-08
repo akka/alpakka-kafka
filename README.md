@@ -13,7 +13,7 @@ Created and maintained by
 
 Supports Kafka 0.10.0.x
 
-This version of `akka-stream-kafka` depends on Akka 2.4.7, Scala 2.11.8.
+This version of `akka-stream-kafka` depends on Akka 2.4.8, Scala 2.11.8.
 
 Available at Maven Central for Scala 2.11:
 

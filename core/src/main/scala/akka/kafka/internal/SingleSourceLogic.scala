@@ -9,7 +9,7 @@ import akka.kafka.Subscriptions.{Assignment, AssignmentWithOffset, TopicSubscrip
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler}
-import akka.stream.{ActorMaterializer, SourceShape}
+import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -31,7 +31,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     super.preStart()
 
     consumer = {
-      val extendedActorSystem = ActorMaterializer.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
+      val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }

@@ -12,7 +12,7 @@ import akka.kafka.{AutoSubscription, ConsumerSettings, KafkaConsumerActor}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
-import akka.stream.{ActorMaterializer, Attributes, Outlet, SourceShape}
+import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -32,7 +32,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   override def preStart(): Unit = {
     super.preStart()
     consumer = {
-      val extendedActorSystem = ActorMaterializer.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
+      val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }
