@@ -547,13 +547,13 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
         ()
       }
     })
-    Mockito.when(result.resume(mockito.Matchers.any[Array[TopicPartition]]: _*)).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.resume(mockito.Matchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
         messagesRequested = true
         ()
       }
     })
-    Mockito.when(result.pause(mockito.Matchers.any[Array[TopicPartition]]: _*)).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.pause(mockito.Matchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
         messagesRequested = false
         ()
