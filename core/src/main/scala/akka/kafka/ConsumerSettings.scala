@@ -95,10 +95,6 @@ object ConsumerSettings {
   /**
    * Create settings from the default configuration
    * `akka.kafka.consumer`.
-   *
-   * It will subscribe to the given `topics`, use empty `Set` if you
-   * use manually assigned topics/partitions using [[ConsumerSettings#withAssignment]]
-   * and/or [[ConsumerSettings#withFromOffset]].
    */
   def apply[K, V](
     system: ActorSystem,
