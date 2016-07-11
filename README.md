@@ -26,7 +26,7 @@ libraryDependencies += "com.typesafe.akka" %% "akka-stream-kafka" % "0.11-M4"
 #### 0.11-M4
 
 Consumer implementation is completely rewritten. Now we support partition assignment for consumer groups.
-More details about it (here)[http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html]
+More details about it [here](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html).
 Also we may reuse one kafka connection in case of manual topic-partition assignment.
 
 Consumer API slightly changed. In 0.11-M3 you set topic-partition to subscribe in `ConsumerSettings`. Now `ConsumerSettings`
