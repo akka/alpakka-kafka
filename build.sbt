@@ -83,9 +83,26 @@ lazy val core = project
 
 lazy val benchmarks = project
   .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(DockerPlugin)
   .settings(commonSettings)
   .settings(Seq(
     publishArtifact := false,
     name := "akka-stream-kafka-benchmarks",
-    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq("ch.qos.logback" % "logback-classic" % "1.1.3")
-  )).dependsOn(core)
+    libraryDependencies ++= commonDependencies ++ coreDependencies,
+    dockerfile in docker := {
+      val artifact: File = assembly.value
+      val artifactTargetPath = s"/app/${artifact.name}"
+
+      new Dockerfile {
+        from("netflixoss/java:8")
+        run("wget", s"http://apache.mirrors.spacedump.net/kafka/$kafkaVersion/kafka_2.11-$kafkaVersion.tgz", "-O", "kafka.tgz")
+        run("mkdir", "-p", "kafka")
+        run("tar", "xzf", "kafka.tgz", "-C", "kafka", "--strip-components", "1")
+        add(artifact, artifactTargetPath)
+        add(baseDirectory.value / "start.sh", "/app/start.sh")
+        run("chmod", "u+x", "/app/start.sh")
+        entryPoint("/app/start.sh", artifactTargetPath)
+      }
+    }
+  )
+  ).dependsOn(core)
