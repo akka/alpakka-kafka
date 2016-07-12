@@ -135,10 +135,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val consumerSettings = createConsumerSettings(group1, client1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
-        .filterNot(_.value == InitialMsg)
+        .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
-            committedElement.set(elem.value.toInt)
+            committedElement.set(elem.record.value.toInt)
             Done
           }
         }
@@ -153,7 +153,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
 
       val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
-        .map(_.value)
+        .map(_.record.value)
         .runWith(TestSink.probe)
 
       // Note that due to buffers and mapAsync(10) the committed offset is more
@@ -184,7 +184,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val consumerSettings = createConsumerSettings(group1, client1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
-        .filterNot(_.value == InitialMsg)
+        .filterNot(_.record.value == InitialMsg)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -221,7 +221,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
-          .map { msg => { ; msg.committableOffset } }
+          .map { msg => { msg.committableOffset } }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
             batch.updated(elem)
           }
@@ -259,7 +259,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
           {
             ProducerMessage.Message(
               // Produce to topic2
-              new ProducerRecord[Array[Byte], String](topic2, msg.value),
+              new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
               msg.committableOffset
             )
           })

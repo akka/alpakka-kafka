@@ -74,7 +74,7 @@ object AtLeastOnceExample extends ConsumerExample {
 
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .mapAsync(1) { msg =>
-      db.update(msg.value).flatMap(_ => msg.committableOffset.commitScaladsl())
+      db.update(msg.record.value).flatMap(_ => msg.committableOffset.commitScaladsl())
     }
 }
 
@@ -84,7 +84,7 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .mapAsync(1) { msg =>
-      db.update(msg.value).map(_ => msg.committableOffset)
+      db.update(msg.record.value).map(_ => msg.committableOffset)
     }
     .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
       batch.updated(elem)
@@ -96,7 +96,7 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 object ConsumerToProducerSinkExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .map(msg =>
-      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
     .to(Producer.commitableSink(producerSettings))
 }
 
@@ -104,7 +104,7 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
 object ConsumerToProducerFlowExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .map(msg =>
-      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
     .mapAsync(producerSettings.parallelism) { result => result.message.passThrough.commitScaladsl() }
 }
@@ -113,7 +113,7 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
 object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .map(msg =>
-      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
     .map(_.message.passThrough)
     .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
@@ -126,7 +126,7 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
 object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
     .map(msg =>
-      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.value), msg.committableOffset))
+      ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
     .via(Producer.flow(producerSettings))
     .map(_.message.passThrough)
     .groupedWithin(10, 5.seconds)

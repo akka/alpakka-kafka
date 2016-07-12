@@ -135,7 +135,7 @@ private[kafka] object ConsumerStage {
         ),
         offset = rec.offset
       )
-      ConsumerMessage.CommittableMessage(rec.key, rec.value, CommittableOffsetImpl(offset)(committer))
+      ConsumerMessage.CommittableMessage(rec, CommittableOffsetImpl(offset)(committer))
     }
   }
 
