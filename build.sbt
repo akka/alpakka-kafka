@@ -81,6 +81,8 @@ lazy val core = project
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
 
+lazy val Benchmark = config("bench") extend Test
+
 lazy val benchmarks = project
   .enablePlugins(AutomateHeaderPlugin)
   .enablePlugins(DockerPlugin)
@@ -88,7 +90,10 @@ lazy val benchmarks = project
   .settings(Seq(
     publishArtifact := false,
     name := "akka-stream-kafka-benchmarks",
-    libraryDependencies ++= commonDependencies ++ coreDependencies,
+    parallelExecution in Benchmark := false,
+    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0" % "bench"
+    ),
     dockerfile in docker := {
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"
@@ -105,4 +110,7 @@ lazy val benchmarks = project
       }
     }
   )
-  ).dependsOn(core)
+  )
+  .configs(Benchmark)
+  .settings(inConfig(Benchmark)(Defaults.testSettings): _*)
+  .dependsOn(core)
