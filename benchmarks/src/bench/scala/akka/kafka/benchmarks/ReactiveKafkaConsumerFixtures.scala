@@ -1,6 +1,5 @@
 package akka.kafka.benchmarks
 
-import java.util.UUID
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
@@ -11,9 +10,7 @@ import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeser
 
 case class ReactiveKafkaConsumerTestFixture(topic: String, msgCount: Int, source: Source[ConsumerRecord[Array[Byte], String], Control])
 
-object ReactiveKafkaConsumerFixtures extends BenchmarkHelpers {
-
-  def randomId() = UUID.randomUUID().toString
+object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
 
   def filledTopics(kafkaHost: String, axisName: String)(from: Int, upto: Int, hop: Int)
                   (implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaConsumerTestFixture](from, upto, hop, msgCount => {

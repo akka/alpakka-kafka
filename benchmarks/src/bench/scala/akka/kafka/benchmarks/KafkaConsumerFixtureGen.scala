@@ -1,7 +1,5 @@
 package akka.kafka.benchmarks
 
-import java.util.UUID
-
 import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
@@ -11,9 +9,7 @@ case class KafkaConsumerTestFixture(topic: String, msgCount: Int, consumer: Kafk
   def close(): Unit = consumer.close()
 }
 
-object KafkaConsumerFixtures extends BenchmarkHelpers {
-
-  def randomId() = UUID.randomUUID().toString
+object KafkaConsumerFixtures extends PerfFixtureHelpers {
 
   def filledTopics(kafkaHost: String, axisName: String)(from: Int, upto: Int, hop: Int) = FixtureGen[KafkaConsumerTestFixture](
     from, upto, hop, msgCount => {
