@@ -99,7 +99,7 @@ private[kafka] object ConsumerStage {
       )
       (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
     }
-    override def commit(batch: CommittableOffsetBatchImpl): Future[Done] = {
+    override def commit(batch: CommittableOffsetBatch): Future[Done] = {
       val offsets = batch.offsets.map {
         case (ctp, offset) => new TopicPartition(ctp.topic, ctp.partition) -> (offset + 1)
       }
@@ -147,7 +147,7 @@ private[kafka] object ConsumerStage {
 
   trait Committer {
     def commit(offset: PartitionOffset): Future[Done]
-    def commit(batch: CommittableOffsetBatchImpl): Future[Done]
+    def commit(batch: CommittableOffsetBatch): Future[Done]
   }
 
   final class CommittableOffsetBatchImpl(val offsets: Map[ClientTopicPartition, Long], val stages: Map[String, Committer])
