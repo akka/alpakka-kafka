@@ -51,6 +51,17 @@ object KafkaConsumerActor {
       onRevoke(partitions.asScala)
     }
   }
+
+  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ConsumerRebalanceListener) extends ConsumerRebalanceListener {
+    override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
+      client.pause(partitions)
+      listener.onPartitionsAssigned(partitions)
+    }
+
+    override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
+      listener.onPartitionsRevoked(partitions)
+    }
+  }
 }
 
 private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
@@ -93,9 +104,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       pollExpected = true
       poll()
     case Subscribe(topics, listener) =>
-      consumer.subscribe(topics.toList.asJava, listener)
+      consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
-      consumer.subscribe(Pattern.compile(pattern), listener)
+      consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll =>
       pollExpected = true
       poll()
