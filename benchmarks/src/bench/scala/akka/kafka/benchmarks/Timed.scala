@@ -1,31 +1,36 @@
 package akka.kafka.benchmarks
 
-object Timed {
-  val singleTestRepetitions = 4
+import java.util.concurrent.TimeUnit
 
-  def runPerfTest[F](name: String, fixtureGen: FixtureGen[F], testBody: F => Unit): Unit = {
-    fixtureGen.warmupset.foreach { fixture =>
-      testBody(fixture)
-    }
-    val results = fixtureGen.dataset.map { msgCount =>
-      val times = (1 to singleTestRepetitions).map { _ =>
-        val fixture = fixtureGen.generate(msgCount)
-        val start = System.currentTimeMillis()
-        testBody(fixture)
-        System.currentTimeMillis() - start
-      }
-      val count = times.length
-      val mean = times.sum.toDouble / count
-      val dev = times.map(t => (t - mean) * (t - mean))
-      val stddev = Math.sqrt(dev.sum / count)
-      PerfTestResult(name, msgCount, mean, stddev, times.min, times.max)
-    }
-    results.foreach(println)
+import com.codahale.metrics._
+import com.typesafe.scalalogging.LazyLogging
+
+object Timed extends LazyLogging {
+
+  def reporter(metricRegistry: MetricRegistry): ScheduledReporter = {
+    Slf4jReporter
+      .forRegistry(metricRegistry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .build()
   }
-}
 
-case class PerfTestResult(name: String, msgCount: Int, meanDuration: Double, durationStDev: Double, minDuration: Long, maxDuration: Long) {
-  override def toString: String = {
-    f"$name, $msgCount msgs: mean=${meanDuration / 1000.0d}%4.2fs stdev=$durationStDev%4.2fms, min=$minDuration, max=$maxDuration, mps=${msgCount / (meanDuration / 1000.0d)}%4.2f"
+  def runPerfTest[F](name: String, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
+    val warmupRegistry = new MetricRegistry()
+    logger.info("Warming up")
+    val warmupMeter = warmupRegistry.meter(name + "_" + "-ignore-warmup")
+    fixtureGen.warmupset.foreach { fixture =>
+      testBody(fixture, warmupMeter)
+    }
+    logger.info("Warmup complete")
+    fixtureGen.dataset.foreach { msgCount =>
+      logger.info(s"Generating fixture for ${name}_$msgCount")
+      val fixture = fixtureGen.generate(msgCount)
+      val metrics = new MetricRegistry()
+      val meter = metrics.meter(name + "_" + msgCount)
+      logger.info(s"Running benchmarks for ${name}_$msgCount")
+      testBody(fixture, meter)
+      reporter(metrics).report()
+    }
   }
 }

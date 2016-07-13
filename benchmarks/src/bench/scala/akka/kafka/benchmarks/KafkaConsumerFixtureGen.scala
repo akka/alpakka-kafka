@@ -11,7 +11,7 @@ case class KafkaConsumerTestFixture(topic: String, msgCount: Int, consumer: Kafk
 
 object KafkaConsumerFixtures extends PerfFixtureHelpers {
 
-  def filledTopics(kafkaHost: String, axisName: String)(from: Int, upto: Int, hop: Int) = FixtureGen[KafkaConsumerTestFixture](
+  def filledTopics(kafkaHost: String)(from: Int, upto: Int, hop: Int) = FixtureGen[KafkaConsumerTestFixture](
     from, upto, hop, msgCount => {
       val topic = randomId()
       fillTopic(kafkaHost, topic, msgCount)

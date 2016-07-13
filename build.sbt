@@ -92,7 +92,8 @@ lazy val benchmarks = project
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0" % "bench"
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0" % "bench",
+      "io.dropwizard.metrics" % "metrics-core" % "3.1.0" % "bench"
     ),
     dockerfile in docker := {
       val artifact: File = assembly.value
