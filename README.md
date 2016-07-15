@@ -58,6 +58,7 @@ import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import com.softwaremill.react.kafka.*;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -72,8 +73,8 @@ ActorSystem system = ActorSystem.create("ReactiveKafka");
 ActorMaterializer materializer = ActorMaterializer.create(system);
 
 StringDeserializer deserializer = new StringDeserializer();
-ConsumerProperties<String> cp =
-   new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", deserializer)
+ConsumerProperties<String, String> cp =
+   new PropertiesBuilder.Consumer(brokerList, "topic", "groupId", deserializer, deserializer)
       .build();
 
 Publisher<ConsumerRecord<String, String>> publisher = kafka.consume(cp, system);
