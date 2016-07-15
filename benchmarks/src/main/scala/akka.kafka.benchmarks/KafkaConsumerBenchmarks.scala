@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package akka.kafka.benchmarks
 
 import com.codahale.metrics.Meter
@@ -12,8 +16,27 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   val pollTimeoutMs = 50L
 
   /**
-    * Reads messages from topic in a loop, then discards immediately. Does not commit.
-    */
+   * Reads messages from topic in a loop, then discards immediately. Does not commit.
+   */
+  def consumePlainNoKafka(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
+
+    @tailrec
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+      if (readSoFar >= readLimit)
+        readSoFar
+      else {
+        logger.debug(s"Polling")
+        meter.mark()
+        pollInLoop(readLimit, readSoFar + 1)
+      }
+    }
+    meter.mark()
+    pollInLoop(readLimit = fixture.msgCount)
+  }
+
+  /**
+   * Reads messages from topic in a loop, then discards immediately. Does not commit.
+   */
   def consumePlain(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
 
@@ -37,9 +60,9 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-    * Reads messages from topic in a loop and groups in batches of given size. Once a batch is completed, commits
-    * synchronously and then discards the batch.
-    */
+   * Reads messages from topic in a loop and groups in batches of given size. Once a batch is completed, commits
+   * synchronously and then discards the batch.
+   */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
 
@@ -77,8 +100,8 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-    * Reads messages from topic in a loop and commits each single message.
-    */
+   * Reads messages from topic in a loop and commits each single message.
+   */
   def consumeCommitAtMostOnce(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
 

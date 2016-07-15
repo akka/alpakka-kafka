@@ -92,8 +92,12 @@ lazy val benchmarks = project
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0" % "bench",
-      "io.dropwizard.metrics" % "metrics-core" % "3.1.0" % "bench"
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+      "io.dropwizard.metrics" % "metrics-core" % "3.1.0",
+      "ch.qos.logback" % "logback-classic" % "1.1.3",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
     ),
     dockerfile in docker := {
       val artifact: File = assembly.value
@@ -101,13 +105,9 @@ lazy val benchmarks = project
 
       new Dockerfile {
         from("netflixoss/java:8")
-        run("wget", s"http://apache.mirrors.spacedump.net/kafka/$kafkaVersion/kafka_2.11-$kafkaVersion.tgz", "-O", "kafka.tgz")
-        run("mkdir", "-p", "kafka")
-        run("tar", "xzf", "kafka.tgz", "-C", "kafka", "--strip-components", "1")
         add(artifact, artifactTargetPath)
-        add(baseDirectory.value / "start.sh", "/app/start.sh")
-        run("chmod", "u+x", "/app/start.sh")
-        entryPoint("/app/start.sh", artifactTargetPath)
+        entryPoint("java", "-jar", artifactTargetPath)
+        expose(8080)
       }
     }
   )
