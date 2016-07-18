@@ -8,6 +8,7 @@ import akka.actor.ActorSystem
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.stream.{Materializer, ActorMaterializer}
 import Timed._
+import com.typesafe.config.ConfigFactory
 import scala.concurrent.Future
 import scala.language.postfixOps
 

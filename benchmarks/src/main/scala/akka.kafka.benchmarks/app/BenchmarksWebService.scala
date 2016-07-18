@@ -13,8 +13,8 @@ trait BenchmarksWebService extends BaseService {
 
   protected val routes = pathPrefix("test") {
     get {
-      parameters('testName, 'kafkaHost ? "localhost:9092", 'from.as[Int] ? 100000, 'upto.as[Int] ? 200000, 'hop.as[Int] ? 25000) {
-        (testName, kafkaHost, from, upto, hop) =>
+      parameters('testName, 'from.as[Int] ? 100000, 'upto.as[Int] ? 200000, 'hop.as[Int] ? 25000) {
+        (testName, from, upto, hop) =>
           Benchmarks.run(RunTestCommand(testName, kafkaHost, from, upto, hop)).onComplete {
             case Success(_) => log.info(s"Test $testName finished")
             case Failure(ex) => log.error(ex, s"Test $testName failed")
