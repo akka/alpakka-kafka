@@ -23,13 +23,14 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     producerJavaProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
     val producer = new KafkaProducer[Array[Byte], String](producerJavaProps, new ByteArraySerializer, new StringSerializer)
     val lastElementStoredPromise = Promise[Unit]
-    for (i <- 0 to msgCount) {
+    val loggedStep = msgCount / 10
+    for (i <- 0L to msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
         producer.send(new ProducerRecord[Array[Byte], String](topic, i.toString), new Callback {
           override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit = {
             if (e == null) {
-              if (i % 100000 == 0)
-                logger.info(s"Written $i elements to Kafka")
+              if (i % loggedStep == 0)
+                logger.info(s"Written $i elements to Kafka (${100 * i / msgCount}%)")
               if (recordMetadata.offset() == msgCount - 1 && !lastElementStoredPromise.isCompleted)
                 lastElementStoredPromise.success(())
             }
