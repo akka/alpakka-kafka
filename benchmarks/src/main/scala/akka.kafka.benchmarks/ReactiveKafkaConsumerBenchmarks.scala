@@ -88,7 +88,6 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
     val control = fixture.source
-      .buffer(10, OverflowStrategy.backpressure)
       .mapAsync(1) { m =>
         meter.mark()
         m.committableOffset.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
