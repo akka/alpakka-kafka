@@ -1,0 +1,7 @@
+akka-streams-kafka benchmarks
+====
+
+### Running in sbt
+Adjust `akka.kafka.benchmarks.BenchmarksSpec` to define and parameterize which tests should be run.
+Execute the `benchmarks/bench:test` task
+Assumed default kafka host and port is "localhost:9092"
