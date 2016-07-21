@@ -4,9 +4,9 @@ Reactive Streams for Kafka
 If you have questions or are working on a pull request or just curious, please feel welcome to join the chat room: [![Join the chat at https://gitter.im/akka/reactive-kafka](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/akka/reactive-kafka?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
-[Akka Streams](http://doc.akka.io/docs/akka/2.4.6/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
+[Akka Streams](http://doc.akka.io/docs/akka/current/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
 
-Created and maintained by 
+Created and maintained by
 [<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
 ## New API: 0.11-M4
@@ -171,7 +171,7 @@ Consumer group:
   .mapAsyncUnordered(maxPartitions)(_._2)
 ```
 
-Additional examples are available in 
+Additional examples are available in
 [ConsumerExamples.scala](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/scala/examples/scaladsl/ConsumerExample.scala)
 
 
@@ -276,7 +276,7 @@ Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptio
   .mapAsync(1, c -> c.commitJavadsl());
 ```
 
-Additional examples are available in 
+Additional examples are available in
 [ConsumerExamples.java](https://github.com/akka/reactive-kafka/blob/v0.11-M3/core/src/test/java/examples/javadsl/ConsumerExample.java)
 
 
@@ -393,14 +393,14 @@ val consumerProperties = ConsumerProperties(
   .readFromEndOfStream()
   .consumerTimeoutMs(300)
   .commitInterval(2 seconds)
-  .setProperty("some.kafka.property", "value") 
+  .setProperty("some.kafka.property", "value")
 ```
 The `ProducerProperties` class offers a similar API.
 
 Controlling consumer start offset
 ----
 
-By default a new consumer will start reading from the beginning of a topic, fetching all uncommitted messages. 
+By default a new consumer will start reading from the beginning of a topic, fetching all uncommitted messages.
 If you want to start reading from the end, you can specify this on your `ConsumerProperties`:
 ```Scala
   val consumerProperties = ConsumerProperties(...).readFromEndOfStream()
@@ -408,12 +408,12 @@ If you want to start reading from the end, you can specify this on your `Consume
 
 Working with actors
 ----
-Since we are based upon akka-stream, the best way to handle errors is to leverage Akka's error handling and lifecycle 
-management capabilities. Producers and consumers are in fact actors. 
+Since we are based upon akka-stream, the best way to handle errors is to leverage Akka's error handling and lifecycle
+management capabilities. Producers and consumers are in fact actors.
 
 #### Obtaining actor references
-`ReactiveKafka` comes with a few methods allowing working on the actor level. You can let it create `Props` to let your 
-own supervisor create these actors as children, or you can  directly create actors at the top level of supervision. 
+`ReactiveKafka` comes with a few methods allowing working on the actor level. You can let it create `Props` to let your
+own supervisor create these actors as children, or you can  directly create actors at the top level of supervision.
 Here are some examples:  
 
 ```Scala
@@ -483,19 +483,19 @@ class Handler extends Actor {
   override def receive: Receive = {
     case Terminated(actorRef) => // your custom handling
   }
-  
+
   // Rest of the Actor's body
 }
 ```
 #### Cleaning up
 If you want to manually stop a publisher or a subscriber, you have to send an appropriate message to the underlying
 actor. `KafkaActorPublisher` must receive a `KafkaActorPublisher.Stop`, whereas `KafkaActorSubscriber` must receive a `ActorSubscriberMessage.OnComplete`.
-If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consumeWithOffsetSink()`, you must call its 
+If you're using a `PublisherWithCommitSink` returned from `ReactiveKafka.consumeWithOffsetSink()`, you must call its
 `cancel()` method in order to gracefully close all underlying resources.
 
 #### Manual Commit (version 0.8 and above)
 In order to be able to achieve "at-least-once" delivery, you can use following API to obtain an additional Sink, where
-you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed. 
+you can stream back messages that you processed. An underlying actor will periodically flush offsets of these messages as committed.
 Example:  
 
 ```Scala
@@ -516,7 +516,7 @@ val consumerProperties = ConsumerProperties(
   groupId = "groupName",
   valueDeserializer = new StringDeserializer())
 .commitInterval(5 seconds) // flush interval
-    
+
 val consumerWithOffsetSink = kafka.consumeWithOffsetSink(consumerProperties)
 Source.fromPublisher(consumerWithOffsetSink.publisher)
   .map(processMessage(_)) // your message processing
