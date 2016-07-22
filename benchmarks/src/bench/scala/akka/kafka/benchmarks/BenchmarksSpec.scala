@@ -18,17 +18,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class BenchmarksSpec extends TestKit(ActorSystem("AkkaKafkaBenchmarks")) with FlatSpecLike with BeforeAndAfterAll {
 
   val kafkaHost = "localhost:9092"
-  val timeout: FiniteDuration = 1 hour
 
   implicit val mat = ActorMaterializer()
 
   it should "work" in {
-    Await.result(
-    for {
-      _ <- Benchmarks.run(RunTestCommand("plain-consumer", kafkaHost, 10000000, 20000000, 2500000))
-      _ <- Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 10000000, 20000000, 2500000))
-    } yield ()
-    , timeout)
+    Benchmarks.run(RunTestCommand("akka-plain-producer", kafkaHost, 2000000, 2000000, 0))
   }
 
   override protected def afterAll(): Unit = {

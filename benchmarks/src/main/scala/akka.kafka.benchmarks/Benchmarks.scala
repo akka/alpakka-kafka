@@ -14,7 +14,7 @@ import scala.language.postfixOps
 
 object Benchmarks {
 
-  def run(cmd: RunTestCommand)(implicit actorSystem: ActorSystem, mat: Materializer): Future[Unit] = {
+  def run(cmd: RunTestCommand)(implicit actorSystem: ActorSystem, mat: Materializer): Unit = {
 
     cmd.testName match {
       case "plain-consumer-nokafka" =>
@@ -33,8 +33,11 @@ object Benchmarks {
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumeCommitAtMostOnce)
       case "akka-at-most-once-consumer" =>
         runPerfTest(cmd, ReactiveKafkaConsumerFixtures.commitableSources(cmd), ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
+      case "plain-producer" =>
+        runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
+      case "akka-plain-producer" =>
+        runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
       case _ => Future.failed(new IllegalArgumentException(s"Unrecognized test name: ${cmd.testName}"))
-
     }
   }
 

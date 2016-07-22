@@ -5,6 +5,7 @@
 package examples.scaladsl
 
 import akka.actor.{ActorRef, ActorSystem}
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.{Consumer, Producer}
