@@ -15,6 +15,7 @@ import scala.language.postfixOps
 private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
 
   val producerTimeout = 6 minutes
+  val logPercentStep = 1
 
   def randomId() = UUID.randomUUID().toString
 
@@ -28,7 +29,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     producerJavaProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
     val producer = new KafkaProducer[Array[Byte], String](producerJavaProps, new ByteArraySerializer, new StringSerializer)
     val lastElementStoredPromise = Promise[Unit]
-    val loggedStep = if (msgCount >= 10) msgCount / 10 else 1
+    val loggedStep = if (msgCount >= logPercentStep) msgCount / logPercentStep else 1
     for (i <- 0L to msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
         producer.send(new ProducerRecord[Array[Byte], String](topic, i.toString), new Callback {

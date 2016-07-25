@@ -74,15 +74,12 @@ object KafkaConsumerBenchmarks extends LazyLogging {
     val semaphore = new Semaphore(1)
 
     def doCommit(): Unit = {
-      logger.debug("Acquiring lock for commit")
       semaphore.acquire()
-      logger.debug("Lock acquired")
       accumulatedMsgCount = 0
       val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
       logger.debug("Committing offset " + offsetMap.head._2.offset())
       consumer.commitAsync(offsetMap, new OffsetCommitCallback {
         override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-          logger.debug("Commit completed")
           semaphore.release()
         }
       })
@@ -97,7 +94,6 @@ object KafkaConsumerBenchmarks extends LazyLogging {
       else {
         logger.debug("Polling")
         val records = consumer.poll(pollTimeoutMs)
-        logger.debug("Polled")
         for (record <- records.iterator()) {
           accumulatedMsgCount = accumulatedMsgCount + 1
           meter.mark()
