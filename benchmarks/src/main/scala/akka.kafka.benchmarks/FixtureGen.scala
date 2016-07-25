@@ -8,8 +8,6 @@ import akka.kafka.benchmarks.app.RunTestCommand
 
 case class FixtureGen[F](command: RunTestCommand, singleFixture: Int => F) {
 
-  def warmupset: Iterator[F] = Iterator.single(singleFixture(command.upto))
-
   def generate(msgCount: Int): F = singleFixture(msgCount)
 
   def dataset: Iterator[Int] =

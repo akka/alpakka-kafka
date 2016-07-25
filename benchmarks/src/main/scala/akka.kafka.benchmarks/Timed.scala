@@ -4,14 +4,13 @@
  */
 package akka.kafka.benchmarks
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.TimeUnit
 
-import akka.dispatch.ForkJoinExecutorConfigurator
 import akka.kafka.benchmarks.app.RunTestCommand
-import com.codahale.metrics.{Meter, Slf4jReporter, ScheduledReporter, MetricRegistry}
+import com.codahale.metrics.{Meter, MetricRegistry, ScheduledReporter, Slf4jReporter}
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object Timed extends LazyLogging {
 
@@ -26,14 +25,8 @@ object Timed extends LazyLogging {
   }
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
-    val warmupRegistry = new MetricRegistry()
     val name = command.testName
-    logger.info("Warming up")
-    val warmupMeter = warmupRegistry.meter(name + "_" + "-ignore-warmup")
-    fixtureGen.warmupset.foreach { fixture =>
-      testBody(fixture, warmupMeter)
-    }
-    logger.info(s"Warmup complete. Starting benchmarks for dataset: ${fixtureGen.dataset.toList}")
+    logger.info(s"Starting benchmarks for dataset: ${fixtureGen.dataset.toList}")
     fixtureGen.dataset.foreach { msgCount =>
       logger.info(s"Generating fixture for ${name}_$msgCount")
       val fixture = fixtureGen.generate(msgCount)
