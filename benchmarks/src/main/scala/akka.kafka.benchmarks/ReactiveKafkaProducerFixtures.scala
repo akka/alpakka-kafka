@@ -16,6 +16,8 @@ import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSeriali
 
 object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
 
+  val Parallelism = 15
+
   type K = Array[Byte]
   type V = String
   type In[PassThrough] = Message[K, V, PassThrough]
@@ -27,7 +29,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
   private def createProducerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem): ProducerSettings[K, V] =
     ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
       .withBootstrapServers(kafkaHost)
-      .withParallelism(4)
+      .withParallelism(Parallelism)
 
   def flowFixture(c: RunTestCommand)(implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaProducerTestFixture[Int]](c, msgCount => {
     val flow: FlowType[Int] = Producer.flow(createProducerSettings(c.kafkaHost))

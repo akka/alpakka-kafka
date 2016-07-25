@@ -6,8 +6,8 @@ package akka.kafka.benchmarks
 
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{Materializer, OverflowStrategy}
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -18,7 +18,7 @@ import scala.language.postfixOps
 import scala.util.Success
 
 object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
-  val streamingTimeout = 3 minutes
+  val streamingTimeout = 30 minutes
   type NonCommitableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
   type CommitableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
@@ -54,24 +54,26 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads elements from Kafka source and groups them in batches of given size. Once a batch is accumulated, commits.
+   * Reads elements from Kafka source and commits a batch as soon as it's possible. Bacpressures when batch max of
+   * size is accumulated.
    */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
     val control = fixture.source
-      .map(_.committableOffset)
-      .groupedWithin(batchSize, 1 second)
-      .map(group => group.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) =>
+      .map {
+        msg => msg.committableOffset
+      }
+      .batch(batchSize.toLong, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
         meter.mark()
         batch.updated(elem)
-      })
-      .mapAsync(1)({ batch =>
-        logger.debug(s"Sending commit for offset ${batch.offsets()}")
-        batch.commitScaladsl().map(_ => batch.offsets())(ExecutionContexts.sameThreadExecutionContext)
-      })
-      .toMat(Sink.foreach { msg =>
-        if (msg.head._2 >= fixture.msgCount - 1)
+
+      }
+      .mapAsync(1) { m =>
+        m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
+      }
+      .toMat(Sink.foreach { batch =>
+        if (batch.offsets().head._2 >= fixture.msgCount - 1)
           promise.complete(Success(()))
       })(Keep.left)
       .run()

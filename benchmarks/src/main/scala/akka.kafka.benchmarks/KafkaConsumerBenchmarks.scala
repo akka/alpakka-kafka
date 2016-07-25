@@ -4,9 +4,12 @@
  */
 package akka.kafka.benchmarks
 
+import java.util
+import java.util.concurrent.Semaphore
+
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.clients.consumer.{OffsetCommitCallback, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -60,33 +63,47 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads messages from topic in a loop and groups in batches of given size. Once a batch is completed, commits
-   * synchronously and then discards the batch.
+   * Reads messages from topic in a loop and groups in batches of given max size. Once a batch is completed,
+   * batches the next part.
    */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
 
     var lastProcessedOffset = 0L
     var accumulatedMsgCount = 0L
+    val semaphore = new Semaphore(1)
+
+    def doCommit(): Unit = {
+      logger.debug("Acquiring lock for commit")
+      semaphore.acquire()
+      logger.debug("Lock acquired")
+      accumulatedMsgCount = 0
+      val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
+      logger.debug("Committing offset " + offsetMap.head._2.offset())
+      consumer.commitAsync(offsetMap, new OffsetCommitCallback {
+        override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
+          logger.debug("Commit completed")
+          semaphore.release()
+        }
+      })
+    }
+
+    def noCommitInProgress: Boolean = semaphore.availablePermits() > 0
 
     @tailrec
     def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
       if (readSoFar >= readLimit)
         readSoFar
       else {
-        logger.debug(s"Polling")
+        logger.debug("Polling")
         val records = consumer.poll(pollTimeoutMs)
-
+        logger.debug("Polled")
         for (record <- records.iterator()) {
           accumulatedMsgCount = accumulatedMsgCount + 1
-          lastProcessedOffset = record.offset()
           meter.mark()
-          if (accumulatedMsgCount >= batchSize) {
-            logger.debug(s"Committing a batch of $batchSize messages")
-            val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
-            consumer.commitSync(offsetMap)
-            accumulatedMsgCount = 0
-          }
+          lastProcessedOffset = record.offset()
+          if (accumulatedMsgCount >= batchSize || noCommitInProgress)
+            doCommit()
         }
 
         val recordCount = records.count()
@@ -104,7 +121,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
    */
   def consumeCommitAtMostOnce(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
-
+    val semaphore = new Semaphore(1)
     @tailrec
     def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
       if (readSoFar >= readLimit)
@@ -116,7 +133,12 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         for (record <- records.iterator()) {
           meter.mark()
           val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(record.offset()))
-          consumer.commitSync(offsetMap)
+          semaphore.acquire()
+          consumer.commitAsync(offsetMap, new OffsetCommitCallback {
+            override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
+              semaphore.release()
+            }
+          })
         }
 
         val recordCount = records.count()

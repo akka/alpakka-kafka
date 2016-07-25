@@ -22,7 +22,7 @@ class BenchmarksSpec extends TestKit(ActorSystem("AkkaKafkaBenchmarks")) with Fl
   implicit val mat = ActorMaterializer()
 
   it should "work" in {
-    Benchmarks.run(RunTestCommand("akka-plain-producer", kafkaHost, 2000000, 2000000, 0))
+    Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 2000000, 2000000, 0))
   }
 
   override protected def afterAll(): Unit = {

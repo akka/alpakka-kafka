@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object ReactiveKafkaProducerBenchmarks extends LazyLogging {
-  val streamingTimeout = 3 minutes
+  val streamingTimeout = 30 minutes
   type Fixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
   /**
