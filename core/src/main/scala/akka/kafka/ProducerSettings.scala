@@ -165,15 +165,6 @@ final class ProducerSettings[K, V](
     val javaProps = properties.foldLeft(new java.util.Properties) {
       case (p, (k, v)) => p.put(k, v); p
     }
-    val deserializers = for {
-      keyDeserializer <- keySerializerOpt
-      valueDeserializer <- valueSerializerOpt
-    } yield {
-      keyDeserializer -> valueDeserializer
-    }
-    deserializers match {
-      case Some((keySerializer, valueSerializer)) => new KafkaProducer[K, V](javaProps, keySerializer, valueSerializer)
-      case None => new KafkaProducer[K, V](javaProps)
-    }
+    new KafkaProducer[K, V](javaProps, keySerializerOpt.orNull, valueSerializerOpt.orNull)
   }
 }

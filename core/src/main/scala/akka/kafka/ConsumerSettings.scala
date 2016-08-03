@@ -275,15 +275,6 @@ class ConsumerSettings[K, V](
     val javaProps = properties.foldLeft(new java.util.Properties) {
       case (p, (k, v)) => p.put(k, v); p
     }
-    val deserializers = for {
-      keyDeserializer <- keyDeserializerOpt
-      valueDeserializer <- valueDeserializerOpt
-    } yield {
-      keyDeserializer -> valueDeserializer
-    }
-    deserializers match {
-      case Some((keyDeserializer, valueDeserializer)) => new KafkaConsumer[K, V](javaProps, keyDeserializer, valueDeserializer)
-      case None => new KafkaConsumer[K, V](javaProps)
-    }
+    new KafkaConsumer[K, V](javaProps, keyDeserializerOpt.orNull, valueDeserializerOpt.orNull)
   }
 }
