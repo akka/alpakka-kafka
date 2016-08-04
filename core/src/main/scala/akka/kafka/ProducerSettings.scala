@@ -16,18 +16,33 @@ import scala.concurrent.duration._
 
 object ProducerSettings {
 
+  /**
+    * Create settings from the default configuration
+    * `akka.kafka.producer`.
+    * Key and value serializer will be retrieved from configuration.
+    */
   def apply[K,V](
     system: ActorSystem
   ):ProducerSettings[K,V] = {
     apply(system, None, None)
   }
 
+  /**
+    * Create settings from a configuration with the same layout as
+    * the default configuration `akka.kafka.producer`.
+    * Key and value serializer will be retrieved from passed configuration.
+    */
   def apply[K,V](
    config: Config
   ):ProducerSettings[K,V] = {
     apply(config, None, None)
   }
 
+  /**
+    * Create settings from the default configuration
+    * `akka.kafka.producer`.
+    * Key or value serializer can be passed explicitly or retrieved from configuration.
+    */
   def apply[K, V](
     system: ActorSystem,
     keySerializer: Option[Serializer[K]],
@@ -35,6 +50,11 @@ object ProducerSettings {
   ): ProducerSettings[K, V] =
     apply(system.settings.config.getConfig("akka.kafka.producer"), keySerializer, valueSerializer)
 
+  /**
+    * Create settings from a configuration with the same layout as
+    * the default configuration `akka.kafka.producer`.
+    * Key or value serializer can be passed explicitly or retrieved from configuration.
+    */
   def apply[K, V](
     config: Config,
     keySerializer: Option[Serializer[K]],
@@ -78,12 +98,22 @@ object ProducerSettings {
     apply(config, Some(keySerializer), Some(valueSerializer))
   }
 
+  /**
+    * Java API: Create settings from the default configuration
+    * `akka.kafka.producer`.
+    * Key and value serializer will be retrieved from passed configuration
+    */
   def create[K, V](
     system: ActorSystem
   ): ProducerSettings[K, V] = {
     apply(system, None, None)
   }
 
+  /**
+    * Java API: Create settings from a configuration with the same layout as
+    * the default configuration `akka.kafka.producer`.
+    * Key and value serializer will be retrieved from passed configuration
+    */
   def create[K, V](
     config: Config
   ): ProducerSettings[K, V] = {
