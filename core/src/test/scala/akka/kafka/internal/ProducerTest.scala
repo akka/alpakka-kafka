@@ -62,7 +62,7 @@ class ProducerTest(_system: ActorSystem)
     Result(meta.offset, Message(record, NotUsed))
   }
 
-  val settings = ProducerSettings(system, Some(new StringSerializer), Some(new StringSerializer))
+  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 
   def testProducerFlow[P](mock: ProducerMock[K, V]): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
     Flow.fromGraph(new ProducerStage[K, V, P](settings, () => mock.mock))

@@ -17,7 +17,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 
 trait ProducerExample {
   val system = ActorSystem("example")
-  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
 
 }

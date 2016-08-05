@@ -93,11 +93,11 @@ object Subscriptions {
 object ConsumerSettings {
 
   /**
-    * Create settings from the default configuration
-    * `akka.kafka.consumer`.
-    * Key or value deserializer can be passed explicitly or retrieved from configuration.
-    */
-  def apply[K, V](
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   */
+  private def apply[K, V](
     system: ActorSystem,
     keyDeserializer: Option[Deserializer[K]],
     valueDeserializer: Option[Deserializer[V]]
@@ -107,11 +107,11 @@ object ConsumerSettings {
   }
 
   /**
-    * Create settings from a configuration with the same layout as
-    * the default configuration `akka.kafka.consumer`.
-    * Key or value deserializer can be passed explicitly or retrieved from configuration.
-    */
-  def apply[K, V](
+   * Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   */
+  private def apply[K, V](
     config: Config,
     keyDeserializer: Option[Deserializer[K]],
     valueDeserializer: Option[Deserializer[V]]
@@ -136,10 +136,10 @@ object ConsumerSettings {
   }
 
   /**
-    * Create settings from the default configuration
-    * `akka.kafka.consumer`.
-    * Key and value deserializer will be retrieved from configuration.
-    */
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value deserializer will be retrieved from configuration.
+   */
   def apply[K, V](
     system: ActorSystem
   ): ConsumerSettings[K, V] = {
@@ -147,10 +147,10 @@ object ConsumerSettings {
   }
 
   /**
-    * Create settings from a configuration with the same layout as
-    * the default configuration `akka.kafka.consumer`.
-    * Key and value deserializer will be retrieved from passed configuration.
-    */
+   * Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key and value deserializer will be retrieved from passed configuration.
+   */
   def apply[K, V](
     config: Config
   ): ConsumerSettings[K, V] = {
@@ -182,10 +182,10 @@ object ConsumerSettings {
   }
 
   /**
-    * Java API: Create settings from the default configuration
-    * `akka.kafka.consumer`.
-    * Key and value deserializer will be retrieved from configuration.
-    */
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value deserializer will be retrieved from configuration.
+   */
   def create[K, V](
     system: ActorSystem
   ): ConsumerSettings[K, V] = {
@@ -193,13 +193,13 @@ object ConsumerSettings {
   }
 
   /**
-    * Java API: Create settings from a configuration with the same layout as
-    * the default configuration `akka.kafka.consumer`.
-    * Key and value deserializer will be retrieved from configuration.
-    */
+   * Java API: Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key and value deserializer will be retrieved from configuration.
+   */
   def create[K, V](
-     config: Config
-   ): ConsumerSettings[K, V] = {
+    config: Config
+  ): ConsumerSettings[K, V] = {
     apply(config, None, None)
   }
 

@@ -70,7 +70,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     client2 = "client2-" + uuid
   }
 
-  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
 
   def givenInitializedTopic(): Unit = {

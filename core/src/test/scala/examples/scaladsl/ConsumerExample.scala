@@ -30,7 +30,7 @@ trait ConsumerExample {
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
-  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
+  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
 
   def business[T] = Flow[T]
