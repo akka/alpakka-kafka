@@ -8,17 +8,17 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage
+import akka.kafka.ProducerMessage.Message
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.{Keep, Source, Sink}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
@@ -79,10 +79,20 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     producer.close(60, TimeUnit.SECONDS)
   }
 
-  def produceMessages(topic: String, range: Range) = {
-    Source(range)
-      .map(n => new ProducerRecord(topic, partition0, null: Array[Byte], n.toString))
-      .runWith(Producer.plainSink(producerSettings))
+  /**
+   * Produce messages to topic using specified range and return
+   * a Future so the caller can synchronize consumption.
+   */
+  def produce(topic: String, range: Range): Future[Done] = {
+    val source = Source(range)
+      .map(n => {
+        val record = new ProducerRecord(topic, partition0, null: Array[Byte], n.toString)
+
+        Message(record, NotUsed)
+      })
+      .viaMat(Producer.flow(producerSettings))(Keep.right)
+
+    source.runWith(Sink.ignore)
   }
 
   def createConsumerSettings(group: String, client: String): ConsumerSettings[Array[Byte], String] = {
@@ -107,7 +117,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "produce to plainSink and consume from plainSource" in {
       givenInitializedTopic()
 
-      produceMessages(topic1, 1 to 100)
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
       val consumerSettings = createConsumerSettings(group1, client1)
       val probe = createProbe(consumerSettings, topic1)
@@ -179,7 +189,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // important to use more messages than the internal buffer sizes
       // to trigger the intended scenario
-      produceMessages(topic1, 1 to 100)
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
       val consumerSettings = createConsumerSettings(group1, client1)
 
@@ -194,7 +204,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val committableOffset = probe1.expectNext().committableOffset
 
       // enqueue some more
-      produceMessages(topic1, 101 to 110)
+      Await.result(produce(topic1, 101 to 110), remainingOrDefault)
 
       probe1.expectNoMsg(200.millis)
 
@@ -215,7 +225,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "consume and commit in batches" in {
       givenInitializedTopic()
 
-      produceMessages(topic1, 1 to 100)
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
       val consumerSettings = createConsumerSettings(group1, client1)
 
@@ -236,7 +246,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .request(100)
         .expectNextN((1 to 100).map(_.toString))
 
-      produceMessages(topic1, 101 to 150)
+      Await.result(produce(topic1, 101 to 150), remainingOrDefault)
 
       consumeAndBatchCommit(topic1)
 
@@ -250,7 +260,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "connect consumer to producer and commit in batches" in {
       givenInitializedTopic()
 
-      produceMessages(topic1, 1 to 100)
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
       val consumerSettings1 = createConsumerSettings(group1, client1)
 
