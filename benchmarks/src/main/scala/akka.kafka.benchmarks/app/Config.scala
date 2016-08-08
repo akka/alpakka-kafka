@@ -7,10 +7,9 @@ package akka.kafka.benchmarks.app
 import com.typesafe.config.ConfigFactory
 
 trait Config {
-  protected case class HttpConfig(interface: String, port: Int)
-
   private val config = ConfigFactory.load()
-  protected val httpConfig = HttpConfig(config.getString("akka.kafka.benchmarks.app.interface"), config.getInt("akka.kafka.benchmarks.app.port"))
   protected val kafkaHost = config.getString("akka.kafka.benchmarks.bootstrap-server") + ":9092"
+  protected val testName = config.getString("akka.kafka.benchmarks.test-name")
+  protected val msgCount = config.getInt("akka.kafka.benchmarks.msg-count")
 
 }

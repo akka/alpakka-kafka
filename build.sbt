@@ -97,7 +97,7 @@ lazy val benchmarks = project
       "ch.qos.logback" % "logback-classic" % "1.1.3",
       "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http-experimental" % akkaVersion
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion
     ),
     dockerfile in docker := {
       val artifact: File = assembly.value

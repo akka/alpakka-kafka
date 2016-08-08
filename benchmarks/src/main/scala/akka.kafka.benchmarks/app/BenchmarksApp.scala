@@ -6,9 +6,8 @@ package akka.kafka.benchmarks.app
 
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
-import akka.http.scaladsl.Http
+import akka.kafka.benchmarks.Benchmarks
 import akka.stream.ActorMaterializer
-
 import scala.concurrent.ExecutionContext
 
 trait BaseComponent {
@@ -30,6 +29,6 @@ object BenchmarksApp extends App with Config with System.LoggerExecutor with Ben
 
   import System._
 
-  Http().bindAndHandle(routes, httpConfig.interface, httpConfig.port)
   log.info("App started")
+  Benchmarks.run(RunTestCommand(testName, kafkaHost, msgCount, msgCount, 0))
 }
