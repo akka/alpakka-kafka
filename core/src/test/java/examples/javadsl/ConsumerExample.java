@@ -23,7 +23,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.scalatest.matchers.AMatcher;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
@@ -102,7 +101,7 @@ class AtLeastOnceExample extends ConsumerExample {
     final DB db = new DB();
 
     Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
-      .mapAsync(1, msg -> db.update(msg.value())
+      .mapAsync(1, msg -> db.update(msg.record().value())
         .thenCompose(done -> msg.committableOffset().commitJavadsl()));
   }
 }
@@ -114,7 +113,7 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 
     Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .mapAsync(1, msg ->
-        db.update(msg.value()).thenApply(done -> msg.committableOffset()))
+        db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
       .batch(10,
         first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
         (batch, elem) -> batch.updated(elem))
@@ -128,7 +127,7 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
     Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .map(msg ->
         new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
-            new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+            new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
       .to(Producer.commitableSink(producerSettings));
   }
 }
@@ -139,7 +138,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
     Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
       .map(msg ->
         new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
-          new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+          new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
       .via(Producer.flow(producerSettings))
       .mapAsync(producerSettings.parallelism(), result ->
         result.message().passThrough().commitJavadsl());
@@ -153,7 +152,7 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
       Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
         .map(msg ->
             new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
-                new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+                new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
         .via(Producer.flow(producerSettings))
         .map(result -> result.message().passThrough());
 
@@ -171,7 +170,7 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
       Consumer.committableSource(consumerSettings.withClientId("client1"), Subscriptions.topics("topic1"))
         .map(msg ->
             new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
-                new ProducerRecord<>("topic2", msg.value()), msg.committableOffset()))
+                new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
         .via(Producer.flow(producerSettings))
         .map(result -> result.message().passThrough());
 

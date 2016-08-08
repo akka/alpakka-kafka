@@ -6,7 +6,7 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
-import akka.kafka.ConsumerMessage.{CommittableMessage, Message}
+import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.internal.ConsumerStage
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
 import akka.stream.ActorAttributes
@@ -90,9 +90,9 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[Message[K, V], Control] = {
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] = {
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
-      m.committableOffset.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
+      m.committableOffset.commitScaladsl().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
     }
   }
 

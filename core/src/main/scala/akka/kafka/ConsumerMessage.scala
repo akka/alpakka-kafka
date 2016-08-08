@@ -9,6 +9,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
+import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.concurrent.Future
 
@@ -17,28 +18,14 @@ import scala.concurrent.Future
  * [[scaladsl.Consumer]].
  */
 object ConsumerMessage {
-
-  /**
-   * Output element of `atMostOnceSource`.
-   */
-  trait Message[K, V] {
-    def key: K
-    def value: V
-    def partitionOffset: PartitionOffset
-  }
-
   /**
    * Output element of `committableSource`.
    * The offset can be committed via the included [[CommittableOffset]].
    */
   final case class CommittableMessage[K, V](
-      key: K,
-      value: V,
+      record: ConsumerRecord[K, V],
       committableOffset: CommittableOffset
-  ) extends Message[K, V] {
-
-    override def partitionOffset: PartitionOffset = committableOffset.partitionOffset
-  }
+  )
 
   /**
    * Commit an offset that is included in a [[CommittableMessage]].

@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
 import akka.japi.Pair
-import akka.kafka.ConsumerMessage.{CommittableMessage, Message}
+import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription, scaladsl}
 import akka.stream.javadsl.Source
@@ -88,7 +88,7 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[Message[K, V], Control] =
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer.atMostOnceSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava

@@ -43,13 +43,11 @@ object ConsumerTest {
 
   def createMessage(seed: Int, topic: String, clientId: String = "client1"): CommittableMessage[K, V] = {
     val offset = PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
-    CommittableMessage(seed.toString, seed.toString, ConsumerStage.CommittableOffsetImpl(offset)(null))
+    val record = new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, seed.toString, seed.toString)
+    CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset)(null))
   }
 
-  def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = {
-    val offset = msg.committableOffset.partitionOffset
-    new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, msg.key, msg.value)
-  }
+  def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = msg.record
 }
 
 class ConsumerTest(_system: ActorSystem)
@@ -167,10 +165,10 @@ class ConsumerTest(_system: ActorSystem)
       commitLog.calls should have size (1)
     }
     val (topicPartition, offsetMeta) = commitLog.calls.head._1.head
-    topicPartition.topic should ===(msg.partitionOffset.key.topic)
-    topicPartition.partition should ===(msg.partitionOffset.key.partition)
+    topicPartition.topic should ===(msg.record.topic())
+    topicPartition.partition should ===(msg.record.partition())
     // committed offset should be the next message the application will consume, i.e. +1
-    offsetMeta.offset should ===(msg.partitionOffset.offset + 1)
+    offsetMeta.offset should ===(msg.record.offset() + 1)
 
     //emulate commit
     commitLog.calls.head match {
@@ -259,8 +257,8 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     val commitMap = commitLog.calls.head._1
-    commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.partitionOffset.offset + 1)
-    commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.partitionOffset.offset + 1)
+    commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
+    commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
 
     //emulate commit
     commitLog.calls.map {
@@ -311,12 +309,12 @@ class ConsumerTest(_system: ActorSystem)
     }
 
     val commitMap1 = commitLog1.calls.head._1
-    commitMap1(new TopicPartition("topic1", 1)).offset should ===(msgs1a.last.partitionOffset.offset + 1)
-    commitMap1(new TopicPartition("topic2", 1)).offset should ===(msgs1b.last.partitionOffset.offset + 1)
+    commitMap1(new TopicPartition("topic1", 1)).offset should ===(msgs1a.last.record.offset() + 1)
+    commitMap1(new TopicPartition("topic2", 1)).offset should ===(msgs1b.last.record.offset() + 1)
 
     val commitMap2 = commitLog2.calls.head._1
-    commitMap2(new TopicPartition("topic1", 1)).offset should ===(msgs2a.last.partitionOffset.offset + 1)
-    commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.partitionOffset.offset + 1)
+    commitMap2(new TopicPartition("topic1", 1)).offset should ===(msgs2a.last.record.offset() + 1)
+    commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.record.offset() + 1)
 
     //emulate commit
     commitLog1.calls.map {

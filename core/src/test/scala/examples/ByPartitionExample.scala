@@ -32,7 +32,7 @@ object ByPartitionExample extends App {
         println(s"Starting - $tp")
         s.map { msg =>
           val tp = msg.committableOffset.partitionOffset.key
-          println(s"Got message - ${tp.topic}, ${tp.partition}, ${msg.value}")
+          println(s"Got message - ${tp.topic}, ${tp.partition}, ${msg.record.value}")
           Thread.sleep(100)
           msg
         }
