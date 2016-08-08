@@ -26,18 +26,16 @@ object Timed extends LazyLogging {
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
     val name = command.testName
-    logger.info(s"Starting benchmarks for dataset: ${fixtureGen.dataset.toList}")
-    fixtureGen.dataset.foreach { msgCount =>
-      logger.info(s"Generating fixture for ${name}_$msgCount")
-      val fixture = fixtureGen.generate(msgCount)
-      val metrics = new MetricRegistry()
-      val meter = metrics.meter(name + "_" + msgCount)
-      logger.info(s"Running benchmarks for ${name}_$msgCount")
-      val now = System.currentTimeMillis()
-      testBody(fixture, meter)
-      val after = System.currentTimeMillis()
-      logger.info(s"Test ${name}_$msgCount took ${after - now} ms")
-      reporter(metrics).report()
-    }
+    val msgCount = command.msgCount
+    logger.info(s"Generating fixture for ${name}_$msgCount")
+    val fixture = fixtureGen.generate(msgCount)
+    val metrics = new MetricRegistry()
+    val meter = metrics.meter(name + "_" + msgCount)
+    logger.info(s"Running benchmarks for ${name}_$msgCount")
+    val now = System.currentTimeMillis()
+    testBody(fixture, meter)
+    val after = System.currentTimeMillis()
+    logger.info(s"Test ${name}_$msgCount took ${after - now} ms")
+    reporter(metrics).report()
   }
 }

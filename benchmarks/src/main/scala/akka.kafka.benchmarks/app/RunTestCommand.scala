@@ -4,4 +4,4 @@
  */
 package akka.kafka.benchmarks.app
 
-case class RunTestCommand(testName: String, kafkaHost: String, from: Int, upto: Int, hop: Int)
+case class RunTestCommand(testName: String, kafkaHost: String, msgCount: Int)

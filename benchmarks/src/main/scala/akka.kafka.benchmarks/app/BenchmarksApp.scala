@@ -25,10 +25,10 @@ object System {
   }
 }
 
-object BenchmarksApp extends App with Config with System.LoggerExecutor with BenchmarksWebService {
+object BenchmarksApp extends App with Config with System.LoggerExecutor {
 
   import System._
 
   log.info("App started")
-  Benchmarks.run(RunTestCommand(testName, kafkaHost, msgCount, msgCount, 0))
+  Benchmarks.run(RunTestCommand(testName, kafkaHost, msgCount))
 }
