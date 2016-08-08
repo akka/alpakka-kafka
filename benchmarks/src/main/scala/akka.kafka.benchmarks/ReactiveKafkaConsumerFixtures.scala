@@ -10,6 +10,7 @@ import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerSettings, Subscriptions}
+import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
@@ -28,7 +29,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     val topic = randomId()
     fillTopic(c.kafkaHost, topic, msgCount)
     val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
+    val source = Consumer.plainSource(settings, Subscriptions.topics(topic)).withAttributes(ActorAttributes.dispatcher("akka.kafka.default-dispatcher"))
     ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
   })
 
@@ -36,7 +37,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     val topic = randomId()
     fillTopic(c.kafkaHost, topic, msgCount)
     val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
+    val source = Consumer.committableSource(settings, Subscriptions.topics(topic)).withAttributes(ActorAttributes.dispatcher("akka.kafka.default-dispatcher"))
     ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
   })
 
