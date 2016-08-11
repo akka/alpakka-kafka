@@ -132,8 +132,8 @@ object Consumer {
   /**
    * The same as [[#plainExternalSource]] but with offset commit support
    */
-  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, clientId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
-    scaladsl.Consumer.committableExternalSource(consumer, subscription, clientId, commitTimeout)
+  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
+    scaladsl.Consumer.committableExternalSource(consumer, subscription, groupId, commitTimeout)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
   }

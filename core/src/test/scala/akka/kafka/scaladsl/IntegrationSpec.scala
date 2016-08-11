@@ -57,8 +57,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   var topic2: String = _
   var group1: String = _
   var group2: String = _
-  var client1: String = _
-  var client2: String = _
   val partition0 = 0
 
   override def beforeEach(): Unit = {
@@ -66,8 +64,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     topic2 = "topic2-" + uuid
     group1 = "group1-" + uuid
     group2 = "group2-" + uuid
-    client1 = "client1-" + uuid
-    client2 = "client2-" + uuid
   }
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
@@ -95,11 +91,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     source.runWith(Sink.ignore)
   }
 
-  def createConsumerSettings(group: String, client: String): ConsumerSettings[Array[Byte], String] = {
+  def createConsumerSettings(group: String): ConsumerSettings[Array[Byte], String] = {
     ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
-      .withClientId(client)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   }
 
@@ -119,7 +114,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1, client1)
+      val consumerSettings = createConsumerSettings(group1)
       val probe = createProbe(consumerSettings, topic1)
 
       probe
@@ -129,7 +124,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
     }
 
-    "resume consumer from committed offset" ignore {
+    "resume consumer from committed offset" in {
       givenInitializedTopic()
 
       // NOTE: If no partition is specified but a key is present a partition will be chosen
@@ -142,7 +137,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val committedElement = new AtomicInteger(0)
 
-      val consumerSettings = createConsumerSettings(group1, client1)
+      val consumerSettings = createConsumerSettings(group1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
         .filterNot(_.record.value == InitialMsg)
@@ -176,12 +171,21 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe2
         .request(100)
-        // FIXME this sometimes fails on Travis with
-        //       "timeout (10 seconds) during expectMsg while waiting for OnNext(36)"
-        //       and therefore this test is currently ignored. Must be investigated.
         .expectNextN(((committedElement.get + 1) to 100).map(_.toString))
 
       probe2.cancel()
+
+      // another consumer should see all
+      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), TopicSubscription(Set(topic1)))
+        .filterNot(_.record.value == InitialMsg)
+        .map(_.record.value)
+        .runWith(TestSink.probe)
+
+      probe3
+        .request(100)
+        .expectNextN((1 to 100).map(_.toString))
+
+      probe3.cancel()
     }
 
     "handle commit without demand" in {
@@ -191,7 +195,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // to trigger the intended scenario
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1, client1)
+      val consumerSettings = createConsumerSettings(group1)
 
       val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
         .filterNot(_.record.value == InitialMsg)
@@ -227,7 +231,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1, client1)
+      val consumerSettings = createConsumerSettings(group1)
 
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
@@ -262,7 +266,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings1 = createConsumerSettings(group1, client1)
+      val consumerSettings1 = createConsumerSettings(group1)
 
       val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
         .map(msg =>
