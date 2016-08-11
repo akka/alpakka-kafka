@@ -40,9 +40,9 @@ private[kafka] object ConsumerStage {
     new KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
         new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
-          override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
+          override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
-            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
+            val ec = materializer.executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
@@ -67,22 +67,22 @@ private[kafka] object ConsumerStage {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
         new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
-          override def clientId: String = settings.properties(ConsumerConfig.CLIENT_ID_CONFIG)
+          override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
-            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
+            val ec = materializer.executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
     }
   }
 
-  def externalCommittableSource[K, V](consumer: ActorRef, _clientId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
+  def externalCommittableSource[K, V](consumer: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
         new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] {
-          override def clientId: String = _clientId
+          override def groupId: String = _groupId
           lazy val committer: Committer = {
-            val ec = ActorMaterializerHelper.downcast(materializer).executionContext
+            val ec = materializer.executionContext
             new KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
           }
         }
@@ -123,13 +123,13 @@ private[kafka] object ConsumerStage {
   }
 
   private trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
-    def clientId: String
+    def groupId: String
     def committer: Committer
 
     override def createMessage(rec: ConsumerRecord[K, V]) = {
       val offset = ConsumerMessage.PartitionOffset(
-        ClientTopicPartition(
-          clientId = clientId,
+        GroupTopicPartition(
+          groupId = groupId,
           topic = rec.topic,
           partition = rec.partition
         ),
@@ -150,7 +150,7 @@ private[kafka] object ConsumerStage {
     def commit(batch: CommittableOffsetBatch): Future[Done]
   }
 
-  final class CommittableOffsetBatchImpl(val offsets: Map[ClientTopicPartition, Long], val stages: Map[String, Committer])
+  final class CommittableOffsetBatchImpl(val offsets: Map[GroupTopicPartition, Long], val stages: Map[String, Committer])
       extends CommittableOffsetBatch {
 
     override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
@@ -167,19 +167,19 @@ private[kafka] object ConsumerStage {
         )
       }
 
-      val newStages = stages.get(key.clientId) match {
+      val newStages = stages.get(key.groupId) match {
         case Some(s) =>
           require(s == stage, s"CommittableOffset [$committableOffset] origin stage must be same as other " +
-            s"stage with same clientId. Expected [$s], got [$stage]")
+            s"stage with same groupId. Expected [$s], got [$stage]")
           stages
         case None =>
-          stages.updated(key.clientId, stage)
+          stages.updated(key.groupId, stage)
       }
 
       new CommittableOffsetBatchImpl(newOffsets, newStages)
     }
 
-    override def getOffsets(): JMap[ClientTopicPartition, Long] = {
+    override def getOffsets(): JMap[GroupTopicPartition, Long] = {
       offsets.asJava
     }
 

@@ -23,8 +23,8 @@ object ConsumerMessage {
    * The offset can be committed via the included [[CommittableOffset]].
    */
   final case class CommittableMessage[K, V](
-      record: ConsumerRecord[K, V],
-      committableOffset: CommittableOffset
+    record: ConsumerRecord[K, V],
+    committableOffset: CommittableOffset
   )
 
   /**
@@ -53,21 +53,21 @@ object ConsumerMessage {
   trait CommittableOffset extends Committable {
     /**
      * Information about the offset position for a
-     * clientId, topic, partition.
+     * groupId, topic, partition.
      */
     def partitionOffset: PartitionOffset
   }
 
   /**
-   * Offset position for a clientId, topic, partition.
+   * Offset position for a groupId, topic, partition.
    */
-  final case class PartitionOffset(key: ClientTopicPartition, offset: Long)
+  final case class PartitionOffset(key: GroupTopicPartition, offset: Long)
 
   /**
-   * clientId, topic, partition key for an offset position.
+   * groupId, topic, partition key for an offset position.
    */
-  final case class ClientTopicPartition(
-    clientId: String,
+  final case class GroupTopicPartition(
+    groupId: String,
     topic: String,
     partition: Int
   )
@@ -85,19 +85,19 @@ object ConsumerMessage {
    */
   trait CommittableOffsetBatch extends Committable {
     /**
-     * Add/overwrite an offset position for the given clientId, topic, partition.
+     * Add/overwrite an offset position for the given groupId, topic, partition.
      */
     def updated(offset: CommittableOffset): CommittableOffsetBatch
 
     /**
      * Scala API: Get current offset positions
      */
-    def offsets(): Map[ClientTopicPartition, Long]
+    def offsets(): Map[GroupTopicPartition, Long]
 
     /**
      * Java API: Get current offset positions
      */
-    def getOffsets(): JMap[ClientTopicPartition, Long]
+    def getOffsets(): JMap[GroupTopicPartition, Long]
   }
 
 }
