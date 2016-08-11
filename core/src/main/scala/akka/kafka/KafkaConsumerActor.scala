@@ -190,8 +190,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
             }
         }
         //check the we got only requested partitions and did not drop any messages
-        require((rawResult.partitions().asScala -- partitionsToFetch).isEmpty,
-          s"Unexpected records polled. Expected: $partitionsToFetch, result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
+        if ((rawResult.partitions().asScala -- partitionsToFetch).nonEmpty)
+          throw new IllegalArgumentException(s"Unexpected records polled. Expected: $partitionsToFetch, " +
+            s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
 
         //remove tps for which we got messages
         requests --= rawResult.partitions().asScala
