@@ -37,12 +37,14 @@ trait ProducerExample {
 
 object PlainSinkExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
-    Source(1 to 100)
+    val done = Source(1 to 100)
       .map(_.toString)
       .map { elem =>
         new ProducerRecord[Array[Byte], String]("topic1", elem)
       }
       .runWith(Producer.plainSink(producerSettings))
+
+    terminateWhenDone(done)
   }
 }
 
