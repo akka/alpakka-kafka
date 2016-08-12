@@ -67,6 +67,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    requested = false
     tps ++= newTps
     pump()
   }
