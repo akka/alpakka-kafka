@@ -4,9 +4,12 @@
  */
 package akka.kafka.scaladsl
 
+import scala.concurrent.Future
+
+import akka.Done
 import akka.NotUsed
-import akka.kafka.ProducerMessage._
 import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.kafka.ProducerMessage._
 import akka.kafka.internal.ProducerStage
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -22,10 +25,10 @@ object Producer {
    * The `record` contains a topic name to which the record is being sent, an optional
    * partition number, and an optional key and value.
    */
-  def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], NotUsed] =
+  def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]].map(record => Message(record, NotUsed))
-      .viaMat(flow(settings))(Keep.right)
-      .to(Sink.ignore)
+      .via(flow(settings))
+      .toMat(Sink.ignore)(Keep.right)
 
   /**
    * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
@@ -35,10 +38,10 @@ object Producer {
    * Note that there is always a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Message[K, V, ConsumerMessage.Committable], NotUsed] =
+  def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Message[K, V, ConsumerMessage.Committable], Future[Done]] =
     flow[K, V, ConsumerMessage.Committable](settings)
       .mapAsync(settings.parallelism)(_.message.passThrough.commitScaladsl())
-      .to(Sink.ignore)
+      .toMat(Sink.ignore)(Keep.right)
 
   /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which

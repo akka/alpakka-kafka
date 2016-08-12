@@ -8,7 +8,7 @@ import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.ProducerMessage;
 import akka.kafka.ProducerSettings;
-import akka.kafka.scaladsl.Producer;
+import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -43,10 +43,13 @@ class PlainSinkExample extends ProducerExample {
     new PlainSinkExample().demo();
   }
     
-  public void demo() {  
-    Source.range(1, 100)
-      .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
-      .runWith(Producer.plainSink(producerSettings), materializer);
+  public void demo() {
+    CompletionStage<Done> done =
+      Source.range(1, 100)
+        .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+        .runWith(Producer.plainSink(producerSettings), materializer);
+    
+    terminateWhenDone(done);
   }
 }
 
