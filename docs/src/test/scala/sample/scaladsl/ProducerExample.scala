@@ -2,7 +2,7 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
-package examples.scaladsl
+package sample.scaladsl
 
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
@@ -20,8 +20,12 @@ import akka.Done
 
 trait ProducerExample {
   val system = ActorSystem("example")
+
+  // #settings
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
+  // #settings
+
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer.create(system)
 
@@ -37,12 +41,14 @@ trait ProducerExample {
 
 object PlainSinkExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
+    // #plainSink
     val done = Source(1 to 100)
       .map(_.toString)
       .map { elem =>
         new ProducerRecord[Array[Byte], String]("topic1", elem)
       }
       .runWith(Producer.plainSink(producerSettings))
+    // #plainSink
 
     terminateWhenDone(done)
   }
@@ -50,19 +56,24 @@ object PlainSinkExample extends ProducerExample {
 
 object ProducerFlowExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
+    // #flow
     val done = Source(1 to 100)
       .map { n =>
         // val partition = math.abs(n) % 2
         val partition = 0
-        ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic1", partition, null, n.toString), n)
+        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
+          "topic1", partition, null, n.toString
+        ), n)
       }
       .via(Producer.flow(producerSettings))
       .map { result =>
         val record = result.message.record
-        println(s"${record.topic}/${record.partition} ${result.offset}: ${record.value} (${result.message.passThrough})")
+        println(s"${record.topic}/${record.partition} ${result.offset}: ${record.value}" +
+          s"(${result.message.passThrough})")
         result
       }
       .runWith(Sink.ignore)
+    // #flow
 
     terminateWhenDone(done)
   }

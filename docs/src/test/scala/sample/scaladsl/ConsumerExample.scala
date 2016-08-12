@@ -2,10 +2,9 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
-package examples.scaladsl
+package sample.scaladsl
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.{Consumer, Producer}
@@ -26,16 +25,20 @@ trait ConsumerExample {
   implicit val m = ActorMaterializer.create(system)
 
   val maxPartitions = 100
+
+  // #settings
   val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+  //#settings
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
 
   def business[T] = Flow[T]
 
+  // #db
   class DB {
 
     private val offset = new AtomicLong
@@ -54,13 +57,16 @@ trait ConsumerExample {
       Future.successful(Done)
     }
   }
+  // #db
 
+  // #rocket
   class Rocket {
     def launch(destination: String): Future[Done] = {
       println(s"Rocket launched to $destination")
       Future.successful(Done)
     }
   }
+  // #rocket
 
   def terminateWhenDone(result: Future[Done]): Unit = {
     result.onFailure {
@@ -75,14 +81,18 @@ trait ConsumerExample {
 // Consume messages and store a representation, including offset, in DB
 object ExternalOffsetStorageExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #plainSource
     val db = new DB
     db.loadOffset().foreach { fromOffset =>
       val partition = 0
-      val subscription = Subscriptions.assignmentWithOffset(new TopicPartition("topic1", partition) -> fromOffset)
+      val subscription = Subscriptions.assignmentWithOffset(
+        new TopicPartition("topic1", partition) -> fromOffset
+      )
       val done =
         Consumer.plainSource(consumerSettings, subscription)
           .mapAsync(1)(db.save)
           .runWith(Sink.ignore)
+      // #plainSource
 
       terminateWhenDone(done)
     }
@@ -92,6 +102,7 @@ object ExternalOffsetStorageExample extends ConsumerExample {
 // Consume messages at-most-once
 object AtMostOnceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #atMostOnce
     val rocket = new Rocket
 
     val done = Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
@@ -99,6 +110,7 @@ object AtMostOnceExample extends ConsumerExample {
         rocket.launch(record.value)
       }
       .runWith(Sink.ignore)
+    // #atMostOnce
 
     terminateWhenDone(done)
   }
@@ -107,6 +119,7 @@ object AtMostOnceExample extends ConsumerExample {
 // Consume messages at-least-once
 object AtLeastOnceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #atLeastOnce
     val db = new DB
 
     val done =
@@ -115,6 +128,7 @@ object AtLeastOnceExample extends ConsumerExample {
           db.update(msg.record.value).flatMap(_ => msg.committableOffset.commitScaladsl())
         }
         .runWith(Sink.ignore)
+    // #atLeastOnce
 
     terminateWhenDone(done)
   }
@@ -123,6 +137,7 @@ object AtLeastOnceExample extends ConsumerExample {
 // Consume messages at-least-once, and commit in batches
 object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #atLeastOnceBatch
     val db = new DB
 
     val done =
@@ -133,8 +148,9 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
         .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)
         }
-        .mapAsync(1)(_.commitScaladsl())
+        .mapAsync(3)(_.commitScaladsl())
         .runWith(Sink.ignore)
+    // #atLeastOnceBatch
 
     terminateWhenDone(done)
   }
@@ -143,27 +159,39 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 // Connect a Consumer to Producer
 object ConsumerToProducerSinkExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #consumerToProducerSink
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map { msg =>
         println(s"topic1 -> topic2: $msg")
-        ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset)
+        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
+          "topic2",
+          msg.record.value
+        ), msg.committableOffset)
       }
       .runWith(Producer.commitableSink(producerSettings))
+    // #consumerToProducerSink
   }
 }
 
 // Connect a Consumer to Producer
 object ConsumerToProducerFlowExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #consumerToProducerFlow
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map { msg =>
           println(s"topic1 -> topic2: $msg")
-          ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset)
+          ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
+            "topic2",
+            msg.record.value
+          ), msg.committableOffset)
         }
         .via(Producer.flow(producerSettings))
-        .mapAsync(producerSettings.parallelism) { result => result.message.passThrough.commitScaladsl() }
+        .mapAsync(producerSettings.parallelism) { result =>
+          result.message.passThrough.commitScaladsl()
+        }
         .runWith(Sink.ignore)
+    // #consumerToProducerFlow
 
     terminateWhenDone(done)
   }
@@ -172,6 +200,7 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
 // Connect a Consumer to Producer, and commit in batches
 object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #consumerToProducerFlowBatch
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map(msg =>
@@ -181,8 +210,9 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
         .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)
         }
-        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+        .mapAsync(3)(_.commitScaladsl())
         .runWith(Sink.ignore)
+    // #consumerToProducerFlowBatch
 
     terminateWhenDone(done)
   }
@@ -197,9 +227,11 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
           ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
+        // #groupedWithin
         .groupedWithin(10, 5.seconds)
         .map(group => group.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) => batch.updated(elem) })
-        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+        .mapAsync(3)(_.commitScaladsl())
+        // #groupedWithin
         .runWith(Sink.ignore)
 
     terminateWhenDone(done)
@@ -209,43 +241,25 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
 // Backpressure per partition with batch commit
 object ConsumerWithPerPartitionBackpressure extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #committablePartitionedSource
     val done = Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
       .flatMapMerge(maxPartitions, _._2)
       .via(business)
       .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first.committableOffset)) { (batch, elem) =>
         batch.updated(elem.committableOffset)
       }
-      .mapAsync(1)(_.commitScaladsl())
+      .mapAsync(3)(_.commitScaladsl())
       .runWith(Sink.ignore)
+    // #committablePartitionedSource
 
     terminateWhenDone(done)
-  }
-}
-
-//externally controlled kafka consumer
-object ExternallyControlledKafkaConsumer extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-    //Consumer is represented by actor
-    //Create new consumer
-    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-    //Manually assign topic partition to it
-    Consumer
-      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
-      .via(business)
-      .runWith(Sink.ignore)
-
-    //Manually assign another topic partition
-    Consumer
-      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
-      .via(business)
-      .runWith(Sink.ignore)
   }
 }
 
 // Flow per partition
 object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #committablePartitionedSource2
     //Consumer group represented as Source[(TopicPartition, Source[Messages])]
     val consumerGroup =
       Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
@@ -259,12 +273,14 @@ object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
     }
       .mapAsyncUnordered(maxPartitions)(_._2)
       .runWith(Sink.ignore)
+    // #committablePartitionedSource2
   }
 }
 
 // Join flows based on automatically assigned partitions
 object ConsumerWithOtherSource extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // #committablePartitionedSource3
     type Msg = CommittableMessage[Array[Byte], String]
     def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
 
@@ -295,5 +311,29 @@ object ConsumerWithOtherSource extends ConsumerExample {
       .mapAsync(1) { case (l, r) => l.commitScaladsl().map(_ => r) }
       .mapAsync(1)(_.commitScaladsl())
       .runWith(Sink.ignore)
+    // #committablePartitionedSource3
   }
 }
+
+//externally controlled kafka consumer
+object ExternallyControlledKafkaConsumer extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #consumerActor
+    //Consumer is represented by actor
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+    //Manually assign topic partition to it
+    Consumer
+      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+      .via(business)
+      .runWith(Sink.ignore)
+
+    //Manually assign another topic partition
+    Consumer
+      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+      .via(business)
+      .runWith(Sink.ignore)
+    // #consumerActor
+  }
+}
+

@@ -71,7 +71,7 @@ lazy val root =
     .settings(Seq(
     publishArtifact := false,
     publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo")))))
-    .aggregate(core, benchmarks)
+    .aggregate(core, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -80,6 +80,22 @@ lazy val core = project
     name := "akka-stream-kafka",
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
+
+lazy val docs = project.in(file("docs"))
+  .enablePlugins(ParadoxPlugin)
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-docs",
+    paradoxTheme := Some(builtinParadoxTheme("generic")),
+    paradoxNavigationDepth := 3,
+    paradoxProperties ++= Map(
+      "akka.version" -> akkaVersion,
+      "kafka.version" -> kafkaVersion,
+      "scala.binaryVersion"              -> scalaBinaryVersion.value,
+      "scala.version"                    -> scalaVersion.value
+    )
+  )
 
 lazy val Benchmark = config("bench") extend Test
 
