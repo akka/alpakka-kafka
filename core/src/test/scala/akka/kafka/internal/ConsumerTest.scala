@@ -41,8 +41,8 @@ object ConsumerTest {
 
   def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
-  def createMessage(seed: Int, topic: String, clientId: String = "client1"): CommittableMessage[K, V] = {
-    val offset = PartitionOffset(ClientTopicPartition(clientId, topic, 1), seed.toLong)
+  def createMessage(seed: Int, topic: String, groupId: String = "group1"): CommittableMessage[K, V] = {
+    val offset = PartitionOffset(GroupTopicPartition(groupId, topic, 1), seed.toLong)
     val record = new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, seed.toString, seed.toString)
     CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset)(null))
   }
@@ -81,8 +81,8 @@ class ConsumerTest(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  def testSource(mock: ConsumerMock[K, V], clientId: String = "client1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
-    val settings = new ConsumerSettings(Map("client.id" -> clientId), Some(new StringDeserializer), Some(new StringDeserializer), 1.milli, 1.milli, 1.second, 1.second, 1.second, "akka.kafka.default-dispatcher") {
+  def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
+    val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer), 1.milli, 1.milli, 1.second, 1.second, 1.second, "akka.kafka.default-dispatcher") {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }
@@ -259,26 +259,26 @@ class ConsumerTest(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  //looks like current implementation of batch committer is incorrect
+  //FIXME looks like current implementation of batch committer is incorrect
   ignore should "support commit batching from more than one stage" in {
     val commitLog1 = new ConsumerMock.LogHandler()
     val commitLog2 = new ConsumerMock.LogHandler()
     val mock1 = new ConsumerMock[K, V](commitLog1)
     val mock2 = new ConsumerMock[K, V](commitLog2)
-    val (control1, probe1) = testSource(mock1, "client1", Set("topic1", "topic2"))
+    val (control1, probe1) = testSource(mock1, "group1", Set("topic1", "topic2"))
       .toMat(TestSink.probe)(Keep.both)
       .run()
-    val (control2, probe2) = testSource(mock2, "client2", Set("topic1", "topic3"))
+    val (control2, probe2) = testSource(mock2, "group2", Set("topic1", "topic3"))
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
-    val msgs1a = (1 to 3).map(createMessage(_, "topic1", "client1"))
-    val msgs1b = (11 to 13).map(createMessage(_, "topic2", "client1"))
+    val msgs1a = (1 to 3).map(createMessage(_, "topic1", "group1"))
+    val msgs1b = (11 to 13).map(createMessage(_, "topic2", "group1"))
     mock1.enqueue(msgs1a.map(toRecord))
     mock1.enqueue(msgs1b.map(toRecord))
 
-    val msgs2a = (1 to 3).map(createMessage(_, "topic1", "client2"))
-    val msgs2b = (11 to 13).map(createMessage(_, "topic3", "client2"))
+    val msgs2a = (1 to 3).map(createMessage(_, "topic1", "group2"))
+    val msgs2b = (11 to 13).map(createMessage(_, "topic3", "group2"))
     mock2.enqueue(msgs2a.map(toRecord))
     mock2.enqueue(msgs2b.map(toRecord))
 

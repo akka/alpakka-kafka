@@ -127,9 +127,9 @@ object Consumer {
   /**
    * The same as [[#plainExternalSource]] but with offset commit support
    */
-  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, clientId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
+  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
     Source.fromGraph(ConsumerStage.externalCommittableSource[K, V](
-      consumer, clientId, commitTimeout, subscription
+      consumer, groupId, commitTimeout, subscription
     ))
   }
 }
