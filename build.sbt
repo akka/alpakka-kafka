@@ -81,11 +81,37 @@ lazy val core = project
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
 
+lazy val Benchmark = config("bench") extend Test
+
 lazy val benchmarks = project
   .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(DockerPlugin)
   .settings(commonSettings)
   .settings(Seq(
     publishArtifact := false,
     name := "akka-stream-kafka-benchmarks",
-    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq("ch.qos.logback" % "logback-classic" % "1.1.3")
-  )).dependsOn(core)
+    parallelExecution in Benchmark := false,
+    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+      "io.dropwizard.metrics" % "metrics-core" % "3.1.0",
+      "ch.qos.logback" % "logback-classic" % "1.1.3",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion
+    ),
+    dockerfile in docker := {
+      val artifact: File = assembly.value
+      val artifactTargetPath = s"/app/${artifact.name}"
+
+      new Dockerfile {
+        from("netflixoss/java:8")
+        add(artifact, artifactTargetPath)
+        entryPoint("java", "-jar", artifactTargetPath)
+        expose(8080)
+      }
+    }
+  )
+  )
+  .configs(Benchmark)
+  .settings(inConfig(Benchmark)(Defaults.testSettings): _*)
+  .dependsOn(core)
