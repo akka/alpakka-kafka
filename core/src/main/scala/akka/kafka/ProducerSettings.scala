@@ -53,8 +53,7 @@ object ProducerSettings {
     )
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
-    val dispatcher = config.getString("use-dispatcher")
-    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher)
+    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism)
   }
 
   /**
@@ -143,8 +142,7 @@ final class ProducerSettings[K, V](
     val keySerializerOpt: Option[Serializer[K]],
     val valueSerializerOpt: Option[Serializer[V]],
     val closeTimeout: FiniteDuration,
-    val parallelism: Int,
-    val dispatcher: String
+    val parallelism: Int
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ProducerSettings[K, V] =
@@ -163,18 +161,14 @@ final class ProducerSettings[K, V](
   def withParallelism(parallelism: Int): ProducerSettings[K, V] =
     copy(parallelism = parallelism)
 
-  def withDispatcher(dispatcher: String): ProducerSettings[K, V] =
-    copy(dispatcher = dispatcher)
-
   private def copy(
     properties: Map[String, String] = properties,
     keySerializer: Option[Serializer[K]] = keySerializerOpt,
     valueSerializer: Option[Serializer[V]] = valueSerializerOpt,
     closeTimeout: FiniteDuration = closeTimeout,
-    parallelism: Int = parallelism,
-    dispatcher: String = dispatcher
+    parallelism: Int = parallelism
   ): ProducerSettings[K, V] =
-    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher)
+    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism)
 
   /**
    * Create a `KafkaProducer` instance from the settings.

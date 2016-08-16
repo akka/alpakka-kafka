@@ -10,6 +10,8 @@ import akka.kafka.ProducerSettings
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
+
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -19,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * INTERNAL API
  */
 private[kafka] class ProducerStage[K, V, P](
-  settings: ProducerSettings[K, V], producerProvider: () => KafkaProducer[K, V]
+  closeTimeout: FiniteDuration, producerProvider: () => KafkaProducer[K, V]
 )
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 
@@ -93,7 +95,7 @@ private[kafka] class ProducerStage[K, V, P](
         log.debug("Stage completed")
         try {
           producer.flush()
-          producer.close(settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+          producer.close(closeTimeout.toMillis, TimeUnit.MILLISECONDS)
           log.debug("Producer closed")
         }
         catch {
