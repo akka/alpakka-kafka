@@ -5,15 +5,17 @@
 package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
-import scala.compat.java8.FutureConverters.FutureOps
 
+import scala.compat.java8.FutureConverters.FutureOps
 import akka.Done
 import akka.NotUsed
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.
@@ -31,6 +33,20 @@ object Producer {
       .asJava
 
   /**
+   * The `plainSink` can be used for publishing records to Kafka topics.
+   * The `record` contains a topic name to which the record is being sent, an optional
+   * partition number, and an optional key and value.
+   */
+  def plainSink[K, V](
+    producerProvider: () => KafkaProducer[K, V],
+    closeTimeout: FiniteDuration,
+    parallelism: Int
+  ): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
+    scaladsl.Producer.plainSink(producerProvider, closeTimeout, parallelism)
+      .mapMaterializedValue(_.toJava)
+      .asJava
+
+  /**
    * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
    * from a [[Consumer]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -42,6 +58,22 @@ object Producer {
     scaladsl.Producer.commitableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
+  /**
+   * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
+   * from a [[Consumer]]. It will commit the consumer offset when the message has
+   * been published successfully to the topic.
+   *
+   * Note that there is always a risk that something fails after publishing but before
+   * committing, so it is "at-least once delivery" semantics.
+   */
+  def commitableSink[K, V](
+    producerProvider: () => KafkaProducer[K, V],
+    closeTimeout: FiniteDuration,
+    parallelism: Int
+  ): Sink[Message[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
+    scaladsl.Producer.commitableSink(producerProvider, closeTimeout, parallelism)
+      .mapMaterializedValue(_.toJava)
+      .asJava
 
   /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
@@ -51,4 +83,15 @@ object Producer {
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings).asJava
 
+  /**
+   * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
+   * can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]] that can
+   * be committed later in the flow.
+   */
+  def flow[K, V, PassThrough](
+    producerProvider: () => KafkaProducer[K, V],
+    closeTimeout: FiniteDuration,
+    parallelism: Int
+  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer.flow(producerProvider, closeTimeout, parallelism).asJava
 }
