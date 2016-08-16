@@ -49,13 +49,10 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
-      settings,
+    Flow.fromGraph(new ProducerStage[K, V, PassThrough](
+      closeTimeout = settings.closeTimeout,
       () => settings.createKafkaProducer()
-    ))
-      .mapAsync(settings.parallelism)(identity)
-    if (settings.dispatcher.isEmpty) flow
-    else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
+    )).mapAsync(settings.parallelism)(identity)
   }
 
 }
