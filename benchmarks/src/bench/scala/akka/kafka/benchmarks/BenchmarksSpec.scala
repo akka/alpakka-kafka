@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
+import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike }
 
 import scala.language.postfixOps
 
@@ -19,7 +19,8 @@ class BenchmarksSpec extends TestKit(ActorSystem("AkkaKafkaBenchmarks")) with Fl
   implicit val mat = ActorMaterializer()
 
   it should "work" in {
-    Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
+    //Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
+    Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 2000000))
   }
 
   override protected def afterAll(): Unit = {

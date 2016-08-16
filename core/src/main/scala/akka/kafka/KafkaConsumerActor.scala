@@ -72,10 +72,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
+  val pollTask: Cancellable =
+    context.system.scheduler.schedule(pollInterval(), pollInterval(), self, Poll)(context.dispatcher)
+
   var requests = Map.empty[TopicPartition, ActorRef]
   var consumer: KafkaConsumer[K, V] = _
-  var nextScheduledPoll: Option[Cancellable] = None
-  var pollExpected = false
   var commitsInProgress = 0
   var stopInProgress = false
 
@@ -102,19 +103,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         }
       })
       //right now we can not store commits in consumer - https://issues.apache.org/jira/browse/KAFKA-3412
-      pollExpected = true
       poll()
     case Subscribe(topics, listener) =>
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll =>
-      pollExpected = true
       poll()
     case RequestMessages(topics) =>
       context.watch(sender())
       requests ++= topics.map(_ -> sender()).toMap
-      pollExpected = true
       poll()
     case Stop =>
       if (commitsInProgress == 0) {
@@ -130,7 +128,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def stopping: Receive = LoggingReceive {
     case Poll =>
-      pollExpected = true
       poll()
     case Stop =>
     case _: Terminated =>
@@ -144,30 +141,30 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     super.preStart()
     requests = Map.empty[TopicPartition, ActorRef]
     consumer = settings.createKafkaConsumer()
-    nextScheduledPoll = None
     commitsInProgress = 0
-    pollExpected = false
-    schedulePoll()
   }
 
   override def postStop(): Unit = {
-    nextScheduledPoll.foreach(_.cancel())
+    pollTask.cancel()
     consumer.close()
     super.postStop()
   }
 
   def poll() = {
-    if (pollExpected) {
-      pollExpected = false
-      nextScheduledPoll.foreach(_.cancel())
-      nextScheduledPoll = None
+    //set partitions to fetch
+    val partitionsToFetch = requests.keys.toSet
+    consumer.assignment().asScala.foreach { tp =>
+      if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
+      else consumer.pause(java.util.Collections.singleton(tp))
+    }
 
-      //set partitions to fetch
-      val partitionsToFetch = requests.keys.toSet
-      consumer.assignment().asScala.foreach { tp =>
-        if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
-        else consumer.pause(java.util.Collections.singleton(tp))
-      }
+    if (requests.isEmpty) {
+      // poll timeout of 0 doesn't work for the commits
+      val rawResult = consumer.poll(1)
+      if (rawResult.count > 0)
+        throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
+    }
+    else {
 
       val rawResult = consumer.poll(pollTimeout().toMillis)
       if (!rawResult.isEmpty) {
@@ -198,19 +195,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         //remove tps for which we got messages
         requests --= rawResult.partitions().asScala
       }
-      if (stopInProgress && commitsInProgress == 0) {
-        context.stop(self)
-      }
-      else {
-        schedulePoll()
-      }
+    }
+    if (stopInProgress && commitsInProgress == 0) {
+      context.stop(self)
     }
   }
 
-  def schedulePoll(): Unit = {
-    if (nextScheduledPoll.isEmpty) {
-      import context.dispatcher
-      nextScheduledPoll = Some(context.system.scheduler.scheduleOnce(pollInterval(), self, Poll))
-    }
-  }
 }
