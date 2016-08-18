@@ -304,8 +304,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val consumers = for (i <- 0 until numInitialConsumers) yield {
         val clientId = s"client-$testUuid-$i"
         val source = Consumer.committableSource(
-          createConsumerSettings(group1, clientId)
-          .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100"),
+          createConsumerSettings(group1)
+            .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100")
+            .withClientId(clientId),
           TopicSubscription(Set(topic1))
         )
         source.runForeach(msg => received.put(msg.record.value, ""))
@@ -314,8 +315,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val newClientId = s"client-$testUuid-${numInitialConsumers}"
       val newSource = Consumer.committableSource(
-        createConsumerSettings(group1, newClientId)
-        .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100"),
+        createConsumerSettings(group1)
+          .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100")
+          .withClientId(newClientId),
         TopicSubscription(Set(topic1))
       )
       newSource.runForeach(msg => received.put(msg.record.value, ""))
