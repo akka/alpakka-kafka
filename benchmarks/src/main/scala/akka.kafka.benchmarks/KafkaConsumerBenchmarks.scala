@@ -5,8 +5,6 @@
 package akka.kafka.benchmarks
 
 import java.util
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.{OffsetCommitCallback, OffsetAndMetadata}
@@ -71,7 +69,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
 
     var lastProcessedOffset = 0L
     var accumulatedMsgCount = 0L
-    val commitInProgress = new AtomicBoolean(false)
+    var commitInProgress = false
     val assignment = consumer.assignment()
 
     def doCommit(): Unit = {
@@ -80,7 +78,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
       logger.debug("Committing offset " + offsetMap.head._2.offset())
       consumer.commitAsync(offsetMap, new OffsetCommitCallback {
         override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-          commitInProgress.set(false)
+          commitInProgress = false
         }
       })
     }
@@ -91,7 +89,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         readSoFar
       else {
         logger.debug("Polling")
-        if (!commitInProgress.get())
+        if (!commitInProgress)
           consumer.resume(assignment)
         val records = consumer.poll(pollTimeoutMs)
         for (record <- records.iterator()) {
@@ -99,8 +97,10 @@ object KafkaConsumerBenchmarks extends LazyLogging {
           meter.mark()
           lastProcessedOffset = record.offset()
           if (accumulatedMsgCount >= batchSize) {
-            if (commitInProgress.compareAndSet(false, true))
+            if (!commitInProgress) {
+              commitInProgress = true
               doCommit()
+            }
             else // previous commit still in progress
               consumer.pause(assignment)
           }
