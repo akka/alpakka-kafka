@@ -6,15 +6,9 @@ package akka.kafka.benchmarks
 
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.TopicPartition
-
-import scala.annotation.tailrec
-import scala.collection.JavaConversions._
 
 object KafkaProducerBenchmarks extends LazyLogging {
-  val pollTimeoutMs = 50L
 
   /**
    * Streams generated numbers to a Kafka producer. Does not commit.
