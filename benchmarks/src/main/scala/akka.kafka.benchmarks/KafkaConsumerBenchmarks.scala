@@ -5,7 +5,7 @@
 package akka.kafka.benchmarks
 
 import java.util
-import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
@@ -71,23 +71,19 @@ object KafkaConsumerBenchmarks extends LazyLogging {
 
     var lastProcessedOffset = 0L
     var accumulatedMsgCount = 0L
-    // TODO this is actually running single threaded, commitAsync is called on the poll thread.
-    //      It might not be waiting as it should for the commits to be completed?
-    val semaphore = new Semaphore(1)
+    val commitInProgress = new AtomicBoolean(false)
+    val assignment = consumer.assignment()
 
     def doCommit(): Unit = {
-      semaphore.acquire()
       accumulatedMsgCount = 0
       val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
       logger.debug("Committing offset " + offsetMap.head._2.offset())
       consumer.commitAsync(offsetMap, new OffsetCommitCallback {
         override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-          semaphore.release()
+          commitInProgress.set(false)
         }
       })
     }
-
-    def noCommitInProgress: Boolean = semaphore.availablePermits() > 0
 
     @tailrec
     def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
@@ -95,15 +91,20 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         readSoFar
       else {
         logger.debug("Polling")
+        if (!commitInProgress.get())
+          consumer.resume(assignment)
         val records = consumer.poll(pollTimeoutMs)
         for (record <- records.iterator()) {
           accumulatedMsgCount = accumulatedMsgCount + 1
           meter.mark()
           lastProcessedOffset = record.offset()
-          if (accumulatedMsgCount >= batchSize || noCommitInProgress)
-            doCommit()
+          if (accumulatedMsgCount >= batchSize) {
+            if (commitInProgress.compareAndSet(false, true))
+              doCommit()
+            else // previous commit still in progress
+              consumer.pause(assignment)
+          }
         }
-
         val recordCount = records.count()
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
@@ -119,22 +120,24 @@ object KafkaConsumerBenchmarks extends LazyLogging {
    */
   def consumeCommitAtMostOnce(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
-    val semaphore = new Semaphore(1)
+    val assignment = consumer.assignment()
     @tailrec
     def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
       if (readSoFar >= readLimit)
         readSoFar
       else {
         logger.debug(s"Polling")
+        consumer.pause(assignment)
         val records = consumer.poll(pollTimeoutMs)
 
         for (record <- records.iterator()) {
           meter.mark()
           val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(record.offset()))
-          semaphore.acquire()
+          consumer.pause(assignment)
+
           consumer.commitAsync(offsetMap, new OffsetCommitCallback {
             override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-              semaphore.release()
+              consumer.resume(assignment)
             }
           })
         }
