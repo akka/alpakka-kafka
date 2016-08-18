@@ -67,11 +67,14 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    requested = false
     tps ++= newTps
     pump()
   }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps --= newTps
+  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { revokedTps =>
+    requested = false
+    consumer.tell(KafkaConsumerActor.Internal.CancelRequestMessages(revokedTps), self.ref)
+    tps --= revokedTps
     pump()
   }
 

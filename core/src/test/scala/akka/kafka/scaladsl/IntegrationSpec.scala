@@ -290,5 +290,46 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe.cancel()
     }
+
+    "handle rebalance when messages have been requested" in {
+      val numPartitions = 10
+      EmbeddedKafka.createCustomTopic(
+        topic1,
+        partitions = numPartitions,
+        replicationFactor = 1
+      )
+      val received = new java.util.concurrent.ConcurrentHashMap[String, String]()
+      val testUuid = uuid
+      val numInitialConsumers = 10
+      val consumers = for (i <- 0 until numInitialConsumers) yield {
+        val clientId = s"client-$testUuid-$i"
+        val source = Consumer.committableSource(
+          createConsumerSettings(group1)
+            .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100")
+            .withClientId(clientId),
+          TopicSubscription(Set(topic1))
+        )
+        source.runForeach(msg => received.put(msg.record.value, ""))
+      }
+      Thread.sleep(1500)
+
+      val newClientId = s"client-$testUuid-${numInitialConsumers}"
+      val newSource = Consumer.committableSource(
+        createConsumerSettings(group1)
+          .withProperty(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, "100")
+          .withClientId(newClientId),
+        TopicSubscription(Set(topic1))
+      )
+      newSource.runForeach(msg => received.put(msg.record.value, ""))
+      Thread.sleep(1500)
+      val producer = producerSettings.createKafkaProducer()
+      for (partition <- 0 until numPartitions) {
+        producer.send(new ProducerRecord(topic1, partition, null: Array[Byte], partition.toString))
+      }
+      producer.close(60, TimeUnit.SECONDS)
+      val expectedMessages = new java.util.HashMap[String, String]()
+      List.range(0, numPartitions).foreach(num => expectedMessages.put(num.toString, ""))
+      awaitCond(received == expectedMessages, 3.seconds, 125.millis)
+    }
   }
 }

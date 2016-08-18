@@ -28,11 +28,10 @@ object KafkaConsumerActor {
     final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
     final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
     final case class RequestMessages(topics: Set[TopicPartition])
+    final case class CancelRequestMessages(topics: Iterable[TopicPartition])
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
     //responses
-    final case class Assigned(partition: List[TopicPartition])
-    final case class Revoked(partition: List[TopicPartition])
     final case class Messages[K, V](messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
@@ -116,6 +115,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       requests ++= topics.map(_ -> sender()).toMap
       pollExpected = true
       poll()
+    case CancelRequestMessages(topicPartitions) =>
+      requests --= topicPartitions
     case Stop =>
       if (commitsInProgress == 0) {
         context.stop(self)
