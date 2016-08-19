@@ -35,7 +35,7 @@ object Producer {
    * from a [[Consumer]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
    *
-   * Note that there is always a risk that something fails after publishing but before
+   * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
   def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Message[K, V, ConsumerMessage.Committable], Future[Done]] =

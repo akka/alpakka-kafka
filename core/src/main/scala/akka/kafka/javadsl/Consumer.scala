@@ -55,7 +55,7 @@ object Consumer {
    * It has not support for committing offsets to Kafka. It can be used when offset is stored externally
    * or with auto-commit (note that auto-commit is by default disabled).
    *
-   * The consumer application need not use Kafka's built-in offset storage, it can store offsets in a store of its own
+   * The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
    * choosing. The primary use case for this is allowing the application to store both the offset and the results of the
    * consumption in the same system in a way that both the results and offsets are stored atomically. This is not always
    * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
