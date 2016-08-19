@@ -5,16 +5,15 @@
 package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
-
 import akka.kafka.ProducerMessage.{Message, Result}
 import akka.kafka.ProducerSettings
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
-
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * INTERNAL API
@@ -31,13 +30,15 @@ private[kafka] class ProducerStage[K, V, P](
   override def createLogic(inheritedAttributes: Attributes) = {
     val producer = producerProvider()
     val logic = new GraphStageLogic(shape) with StageLogging {
-      var awaitingConfirmation = 0L
+      val awaitingConfirmation = new AtomicInteger(0)
+      @volatile var inIsClosed = false
+
       var completionState: Option[Try[Unit]] = None
 
       override protected def logSource: Class[_] = classOf[ProducerStage[K, V, P]]
 
       def checkForCompletion() = {
-        if (isClosed(in) && awaitingConfirmation == 0) {
+        if (isClosed(in) && awaitingConfirmation.get == 0) {
           completionState match {
             case Some(Success(_)) => completeStage()
             case Some(Failure(ex)) => failStage(ex)
@@ -46,10 +47,8 @@ private[kafka] class ProducerStage[K, V, P](
         }
       }
 
-      val decrementConfirmation = getAsyncCallback[Unit] { _ =>
-        awaitingConfirmation -= 1
+      val checkForCompletionCB = getAsyncCallback[Unit] { _ =>
         checkForCompletion()
-        ()
       }
 
       setHandler(out, new OutHandler {
@@ -68,19 +67,23 @@ private[kafka] class ProducerStage[K, V, P](
                 r.success(Result(metadata.offset, msg))
               else
                 r.failure(exception)
-              decrementConfirmation.invoke(())
+
+              if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
+                checkForCompletionCB.invoke(())
             }
           })
-          awaitingConfirmation += 1
+          awaitingConfirmation.incrementAndGet()
           push(out, r.future)
         }
 
         override def onUpstreamFinish() = {
+          inIsClosed = true
           completionState = Some(Success(()))
           checkForCompletion()
         }
 
         override def onUpstreamFailure(ex: Throwable) = {
+          inIsClosed = true
           completionState = Some(Failure(ex))
           checkForCompletion()
         }
