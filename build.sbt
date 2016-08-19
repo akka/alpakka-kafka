@@ -90,6 +90,7 @@ lazy val docs = project.in(file("docs"))
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxProperties ++= Map(
+      "version" -> version.value,
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "scala.binaryVersion"              -> scalaBinaryVersion.value,
