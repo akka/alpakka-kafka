@@ -65,7 +65,7 @@ class ProducerTest(_system: ActorSystem)
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 
   def testProducerFlow[P](mock: ProducerMock[K, V]): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage[K, V, P](settings, () => mock.mock))
+    Flow.fromGraph(new ProducerStage[K, V, P](settings.closeTimeout, () => mock.mock))
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {
