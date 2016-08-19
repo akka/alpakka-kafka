@@ -29,7 +29,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     val topic = randomId()
     fillTopic(c.kafkaHost, topic, msgCount)
     val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.plainSource(settings, Subscriptions.topics(topic)).withAttributes(ActorAttributes.dispatcher("akka.kafka.default-dispatcher"))
+    val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
     ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
   })
 
@@ -37,7 +37,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     val topic = randomId()
     fillTopic(c.kafkaHost, topic, msgCount)
     val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.committableSource(settings, Subscriptions.topics(topic)).withAttributes(ActorAttributes.dispatcher("akka.kafka.default-dispatcher"))
+    val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
     ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
   })
 

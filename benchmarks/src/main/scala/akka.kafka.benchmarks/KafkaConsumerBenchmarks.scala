@@ -71,6 +71,8 @@ object KafkaConsumerBenchmarks extends LazyLogging {
 
     var lastProcessedOffset = 0L
     var accumulatedMsgCount = 0L
+    // TODO this is actually running single threaded, commitAsync is called on the poll thread.
+    //      It might not be waiting as it should for the commits to be completed?
     val semaphore = new Semaphore(1)
 
     def doCommit(): Unit = {

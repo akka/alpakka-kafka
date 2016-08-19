@@ -69,7 +69,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         batch.updated(elem)
 
       }
-      .mapAsync(1) { m =>
+      .mapAsync(3) { m =>
         m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
       .toMat(Sink.foreach { batch =>
