@@ -32,10 +32,10 @@ object Timed extends LazyLogging {
     val metrics = new MetricRegistry()
     val meter = metrics.meter(name + "_" + msgCount)
     logger.info(s"Running benchmarks for ${name}_$msgCount")
-    val now = System.currentTimeMillis()
+    val now = System.nanoTime()
     testBody(fixture, meter)
-    val after = System.currentTimeMillis()
-    logger.info(s"Test ${name}_$msgCount took ${after - now} ms")
+    val after = System.nanoTime()
+    logger.info(s"Test ${name}_$msgCount took ${(after - now) / 1000000} ms")
     reporter(metrics).report()
   }
 }
