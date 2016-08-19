@@ -8,31 +8,31 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
-import akka.{Done, NotUsed}
+import akka.{ Done, NotUsed }
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka.{ConsumerSettings, ProducerSettings}
+import akka.kafka.{ ConsumerSettings, ProducerSettings }
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage
 import akka.kafka.ProducerMessage.Message
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Source, Sink}
+import akka.stream.scaladsl.{ Keep, Source, Sink }
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
 
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{ EmbeddedKafka, EmbeddedKafkaConfig }
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{ ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer }
 import org.scalactic.ConversionCheckedTripleEquals
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike }
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-    with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
-    with ConversionCheckedTripleEquals {
+  with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
+  with ConversionCheckedTripleEquals {
 
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
@@ -100,8 +100,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   def createProbe(
     consumerSettings: ConsumerSettings[Array[Byte], String],
-    topic: String
-  ): TestSubscriber.Probe[String] = {
+    topic: String): TestSubscriber.Probe[String] = {
     Consumer.plainSource(consumerSettings, TopicSubscription(Set(topic)))
       .filterNot(_.value == InitialMsg)
       .map(_.value)
@@ -124,7 +123,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
     }
 
-    "resume consumer from committed offset" in {
+    // FIXME flaky test: https://github.com/akka/reactive-kafka/issues/203
+    "resume consumer from committed offset" ignore {
       givenInitializedTopic()
 
       // NOTE: If no partition is specified but a key is present a partition will be chosen
@@ -274,8 +274,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
             ProducerMessage.Message(
               // Produce to topic2
               new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
-              msg.committableOffset
-            )
+              msg.committableOffset)
           })
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
