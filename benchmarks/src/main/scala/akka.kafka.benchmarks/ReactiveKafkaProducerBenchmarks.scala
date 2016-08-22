@@ -8,7 +8,7 @@ import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.ProducerMessage.Message
 import akka.kafka.benchmarks.ReactiveKafkaProducerFixtures.ReactiveKafkaProducerTestFixture
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Source, Sink}
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -19,6 +19,8 @@ import scala.language.postfixOps
 
 object ReactiveKafkaProducerBenchmarks extends LazyLogging {
   val streamingTimeout = 30 minutes
+  val logStep = 100000
+
   type Fixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
   /**
@@ -26,16 +28,26 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
    */
   def plainFlow(fixture: ReactiveKafkaProducerTestFixture[Int], meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
+    var lastPartStart = System.nanoTime()
     val future = Source(Stream.from(0, 1))
       .take(fixture.msgCount.toLong)
       .map(number => Message(new ProducerRecord[Array[Byte], String](fixture.topic, number.toString), number))
       .via(fixture.flow)
       .map {
-        msg => meter.mark(); msg
+        msg =>
+          meter.mark()
+          if (msg.offset % logStep == 0) {
+            val lastPartEnd = System.nanoTime()
+            val took = (lastPartEnd - lastPartStart).nanos
+            logger.info(s"Sent ${msg.offset}, took ${took.toMillis} ms to send last $logStep")
+            lastPartStart = lastPartEnd
+          }
+          msg
+
       }
       .runWith(Sink.ignore)
     Await.result(future, atMost = streamingTimeout)
-    logger.debug("Stream finished")
+    logger.info("Stream finished")
   }
 
 }
