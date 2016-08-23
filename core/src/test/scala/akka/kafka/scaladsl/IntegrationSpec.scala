@@ -257,6 +257,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .map(_.record.value)
         .runWith(TestSink.probe)
 
+      println("Before first assertion")
       val element = probe2.request(1).expectNext()
       println("After first assertion")
       // Verify that consumption does not start from first element
