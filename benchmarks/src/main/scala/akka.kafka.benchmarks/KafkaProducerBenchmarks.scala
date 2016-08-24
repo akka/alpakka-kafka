@@ -17,7 +17,7 @@ object KafkaProducerBenchmarks extends LazyLogging {
    */
   def plainFlow(fixture: KafkaProducerTestFixture, meter: Meter): Unit = {
     val producer = fixture.producer
-    var lastPartStart = System.nanoTime()
+    @volatile var lastPartStart = System.nanoTime()
 
     for (i <- 1 to fixture.msgCount) {
       producer.send(new ProducerRecord[Array[Byte], String](fixture.topic, i.toString))
