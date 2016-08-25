@@ -241,7 +241,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
             (batch, elem) => batch.updated(elem)
           }
-          .mapAsync(1)(_.commitScaladsl())
+          .mapAsync(1)( {println("commit batch"); _.commitScaladsl()})
           .toMat(TestSink.probe)(Keep.both).run()
       }
 
