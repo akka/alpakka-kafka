@@ -248,7 +248,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val (control, probe) = consumeAndBatchCommit(topic1)
 
       // Request one batch
-      probe.request(1).expectNextN(1)
+      probe.request(5).expectNextN(1)
 
       probe.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
