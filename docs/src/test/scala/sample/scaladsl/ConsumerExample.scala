@@ -27,13 +27,13 @@ trait ConsumerExample {
   val maxPartitions = 100
 
   // #settings
-  val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
+  val consumerSettings = ConsumerSettings(system, Some(new ByteArrayDeserializer), Some(new StringDeserializer))
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   //#settings
 
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
     .withBootstrapServers("localhost:9092")
 
   def business[T] = Flow[T]

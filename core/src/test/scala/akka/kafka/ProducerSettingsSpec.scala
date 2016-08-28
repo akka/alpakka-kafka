@@ -28,11 +28,11 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
         akka.kafka.producer.kafka-clients.bootstrap.servers = "localhost:9092"
         akka.kafka.producer.kafka-clients.parallelism = 1
         """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.producer")
-      val settings = ProducerSettings(conf, new ByteArraySerializer, new StringSerializer)
+      val settings = ProducerSettings(conf, Some(new ByteArraySerializer), Some(new StringSerializer))
       settings.properties("bootstrap.servers") should ===("localhost:9092")
     }
 
-    "throw IllegalArgumentException if no value serializer defined" in {
+    "throw IllegalArgumentException if no value serializer defined in config" in {
       val conf = ConfigFactory.parseString("""
         akka.kafka.producer.kafka-clients.bootstrap.servers = "localhost:9092"
         akka.kafka.producer.kafka-clients.parallelism = 1
@@ -44,7 +44,7 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
       exception.getMessage should ===("requirement failed: Value serializer should be defined or declared in configuration")
     }
 
-    "throw IllegalArgumentException if no key serializer defined" in {
+    "throw IllegalArgumentException if no key serializer defined in config" in {
       val conf = ConfigFactory.parseString("""
         akka.kafka.producer.kafka-clients.bootstrap.servers = "localhost:9092"
         akka.kafka.producer.kafka-clients.parallelism = 1
@@ -52,6 +52,28 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
         """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.producer")
       val exception = intercept[IllegalArgumentException]{
         ProducerSettings(conf)
+      }
+      exception.getMessage should ===("requirement failed: Key serializer should be defined or declared in configuration")
+    }
+
+    "throw IllegalArgumentException if no value serializer defined as args config" in {
+      val conf = ConfigFactory.parseString("""
+        akka.kafka.producer.kafka-clients.bootstrap.servers = "localhost:9092"
+        akka.kafka.producer.kafka-clients.parallelism = 1
+        """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.producer")
+      val exception = intercept[IllegalArgumentException]{
+        ProducerSettings(conf, Some(new ByteArraySerializer), None)
+      }
+      exception.getMessage should ===("requirement failed: Value serializer should be defined or declared in configuration")
+    }
+
+    "throw IllegalArgumentException if no key serializer defined as args config" in {
+      val conf = ConfigFactory.parseString("""
+        akka.kafka.producer.kafka-clients.bootstrap.servers = "localhost:9092"
+        akka.kafka.producer.kafka-clients.parallelism = 1
+        """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.producer")
+      val exception = intercept[IllegalArgumentException]{
+        ProducerSettings(conf, None, Some(new StringSerializer))
       }
       exception.getMessage should ===("requirement failed: Key serializer should be defined or declared in configuration")
     }

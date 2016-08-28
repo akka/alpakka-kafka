@@ -14,6 +14,7 @@ import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -26,7 +27,7 @@ abstract class ProducerExample {
 
   // #settings
   protected final ProducerSettings<byte[], String> producerSettings = ProducerSettings
-    .create(system, new ByteArraySerializer(), new StringSerializer())
+    .create(system, Optional.of(new ByteArraySerializer()), Optional.of(new StringSerializer()))
     .withBootstrapServers("localhost:9092");
   // #settings
 

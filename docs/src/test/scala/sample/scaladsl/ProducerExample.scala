@@ -22,7 +22,7 @@ trait ProducerExample {
   val system = ActorSystem("example")
 
   // #settings
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
     .withBootstrapServers("localhost:9092")
   // #settings
 
