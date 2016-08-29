@@ -51,7 +51,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
     self = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        requested = false
+        requested = msg.requested != tps // might be more than one in flight when we assign/revoke tps
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
@@ -68,11 +68,13 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps ++= newTps
-    pump()
+    requested = true
+    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
   }
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps --= newTps
-    pump()
+    requested = true
+    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
   }
 
   @tailrec
