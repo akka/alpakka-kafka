@@ -11,6 +11,7 @@ import com.codahale.metrics.{Meter, MetricRegistry, ScheduledReporter, Slf4jRepo
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 object Timed extends LazyLogging {
 
@@ -35,7 +36,8 @@ object Timed extends LazyLogging {
     val now = System.nanoTime()
     testBody(fixture, meter)
     val after = System.nanoTime()
-    logger.info(s"Test ${name}_$msgCount took ${(after - now) / 1000000} ms")
+    val took = (after - now).nanos
+    logger.info(s"Test ${name}_$msgCount took ${took.toMillis} ms")
     reporter(metrics).report()
   }
 }

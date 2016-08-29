@@ -5,11 +5,7 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.app.RunTestCommand
-import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
-
-import scala.collection.JavaConversions._
 
 case class KafkaProducerTestFixture(topic: String, msgCount: Int, producer: KafkaProducer[Array[Byte], String]) {
   def close(): Unit = producer.close()
