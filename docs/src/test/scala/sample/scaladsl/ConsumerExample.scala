@@ -125,7 +125,10 @@ object AtLeastOnceExample extends ConsumerExample {
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
-          db.update(msg.record.value).flatMap(_ => msg.committableOffset.commitScaladsl())
+          db.update(msg.record.value).map(_ => msg)
+        }
+        .mapAsync(1) { msg =>
+          msg.committableOffset.commitScaladsl()
         }
         .runWith(Sink.ignore)
     // #atLeastOnce

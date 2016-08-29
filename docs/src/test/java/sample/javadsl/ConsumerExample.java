@@ -136,7 +136,8 @@ class AtLeastOnceExample extends ConsumerExample {
 
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .mapAsync(1, msg -> db.update(msg.record().value())
-        .thenCompose(done -> msg.committableOffset().commitJavadsl()))
+        .thenApply(done -> msg))
+      .mapAsync(1, msg -> msg.committableOffset().commitJavadsl())
       .runWith(Sink.ignore(), materializer);
     // #atLeastOnce
   }
