@@ -87,6 +87,7 @@ lazy val docs = project.in(file("docs"))
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
+    publishArtifact := false,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxProperties ++= Map(
