@@ -26,13 +26,13 @@ object KafkaConsumerActor {
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
     final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
-    final case class RequestMessages(topics: Set[TopicPartition])
+    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
     //responses
     final case class Assigned(partition: List[TopicPartition])
     final case class Revoked(partition: List[TopicPartition])
-    final case class Messages[K, V](requested: Set[TopicPartition], messages: Iterator[ConsumerRecord[K, V]])
+    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
     private[KafkaConsumerActor] case object Poll
@@ -74,7 +74,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   val pollTask: Cancellable =
     context.system.scheduler.schedule(pollInterval(), pollInterval(), self, Poll)(context.dispatcher)
 
-  var requests = Map.empty[ActorRef, Set[TopicPartition]]
+  var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
   var commitsInProgress = 0
   var stopInProgress = false
@@ -109,9 +109,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll =>
       poll()
-    case RequestMessages(topics) =>
+    case req: RequestMessages =>
       context.watch(sender())
-      requests = requests.updated(sender(), topics)
+      requests = requests.updated(sender(), req)
       poll()
     case Stop =>
       if (commitsInProgress == 0) {
@@ -149,7 +149,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def poll() = {
     //set partitions to fetch
-    val partitionsToFetch = requests.values.flatten.toSet
+    val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
     consumer.assignment().asScala.foreach { tp =>
       if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
       else consumer.pause(java.util.Collections.singleton(tp))
@@ -190,16 +190,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
         //send messages to actors
         requests.foreach {
-          case (ref, tps) =>
+          case (ref, req) =>
             //gather all messages for ref
-            val messages = tps.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
+            val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
               case (acc, tp) =>
                 val tpMessages = rawResult.records(tp).asScala.iterator
                 if (acc.isEmpty) tpMessages
                 else acc ++ tpMessages
             }
             if (messages.nonEmpty) {
-              ref ! Messages(tps, messages)
+              ref ! Messages(req.requestId, messages)
               requests -= ref
             }
         }

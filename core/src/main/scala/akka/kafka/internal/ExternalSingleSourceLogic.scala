@@ -23,6 +23,7 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
+  var requestId = 0
   var self: StageActor = _
 
   override def preStart(): Unit = {
@@ -38,7 +39,9 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
 
     self = getStageActor {
       case (sender, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        requested = msg.requested != tps // might be more than one in flight when we assign/revoke tps
+        // might be more than one in flight when we assign/revoke tps
+        if (msg.requestId == requestId)
+          requested = false
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
@@ -55,13 +58,11 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps ++= newTps
-    requested = true
-    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
+    requestMessages()
   }
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps --= newTps
-    requested = true
-    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
+    requestMessages()
   }
 
   @tailrec
@@ -73,10 +74,15 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         pump()
       }
       else if (!requested && tps.nonEmpty) {
-        requested = true
-        consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
+        requestMessages()
       }
     }
+  }
+
+  private def requestMessages(): Unit = {
+    requested = true
+    requestId += 1
+    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
   }
 
   setHandler(shape.out, new OutHandler {

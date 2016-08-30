@@ -123,6 +123,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
       new GraphStageLogic(shape) with PromiseControl {
         val shape = stage.shape
+        val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
         var requested = false
         var self: StageActor = _
         var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
@@ -176,7 +177,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
             }
             else if (!requested) {
               requested = true
-              consumer.tell(KafkaConsumerActor.Internal.RequestMessages(Set(tp)), self.ref)
+              consumer.tell(requestMessages, self.ref)
             }
           }
         }
