@@ -28,7 +28,8 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
    */
   def plainFlow(fixture: ReactiveKafkaProducerTestFixture[Int], meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
-    var lastPartStart = System.nanoTime()
+    @volatile var lastPartStart = System.nanoTime()
+
     val future = Source(0 to fixture.msgCount)
       .map(number => Message(new ProducerRecord[Array[Byte], String](fixture.topic, number.toString), number))
       .via(fixture.flow)
