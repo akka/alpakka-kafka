@@ -111,6 +111,17 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       poll()
     case req: RequestMessages =>
       context.watch(sender())
+
+      // check if same topics/partitions have already been requested by someone else,
+      // which is an indication that something is wrong, but it might be allright when assignments change
+      requests.foreach {
+        case (ref, r) =>
+          if (r != sender() && r.topics.exists(req.topics.apply)) {
+            log.warning("Request messages from topic/partition {} already requested by other stage {}", req.topics, req.topics)
+            ref ! Messages(req.requestId, Iterator.empty)
+            requests -= ref
+          }
+      }
       requests = requests.updated(sender(), req)
       poll()
     case Stop =>
