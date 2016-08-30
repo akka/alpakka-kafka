@@ -7,7 +7,7 @@ package akka.kafka
 import java.util
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
+import akka.actor.{ Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated }
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -64,7 +64,7 @@ object KafkaConsumerActor {
 }
 
 private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
-    extends Actor with ActorLogging {
+  extends Actor with ActorLogging {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -116,8 +116,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case Stop =>
       if (commitsInProgress == 0) {
         context.stop(self)
-      }
-      else {
+      } else {
         stopInProgress = true
         context.become(stopping)
       }
@@ -128,7 +127,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def stopping: Receive = LoggingReceive {
     case Poll =>
       poll()
-    case Stop =>
+    case Stop          =>
     case _: Terminated =>
     case msg @ (_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
@@ -143,6 +142,13 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   override def postStop(): Unit = {
     pollTask.cancel()
+
+    // reply to outstanding requests is important if the actor is restarted
+    requests.foreach {
+      case (ref, req) =>
+        ref ! Messages(req.requestId, Iterator.empty)
+    }
+
     consumer.close()
     super.postStop()
   }
@@ -177,8 +183,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         i -= 1
       }
 
-    }
-    else {
+    } else {
 
       val rawResult = consumer.poll(pollTimeout().toMillis)
       if (!rawResult.isEmpty) {
