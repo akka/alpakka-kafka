@@ -82,7 +82,8 @@ class ConsumerTest(_system: ActorSystem)
   }
 
   def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
-    val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer), 1.milli, 1.milli, 1.second, 1.second, 1.second, "akka.kafka.default-dispatcher") {
+    val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
+      1.milli, 1.milli, 1.second, 1.second, 1.second, 5.seconds, "akka.kafka.default-dispatcher") {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }

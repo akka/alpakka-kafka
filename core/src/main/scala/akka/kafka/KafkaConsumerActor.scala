@@ -13,12 +13,12 @@ import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
+import akka.actor.DeadLetterSuppression
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
-  def props[K, V](settings: ConsumerSettings[K, V]): Props = {
+  def props[K, V](settings: ConsumerSettings[K, V]): Props =
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
-  }
 
   private[kafka] object Internal {
     //requests
@@ -35,7 +35,7 @@ object KafkaConsumerActor {
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
-    private[KafkaConsumerActor] case object Poll
+    private[KafkaConsumerActor] case object Poll extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -171,6 +171,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def poll() = {
+    val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
+      consumer.wakeup()
+    }(context.system.dispatcher)
     //set partitions to fetch
     val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
     consumer.assignment().asScala.foreach { tp =>
@@ -179,31 +182,33 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }
 
     if (requests.isEmpty) {
-      // no outstanding requests so we don't expect any messages back, but we should anyway
-      // drive the KafkaConsumer by polling
+      try {
+        // no outstanding requests so we don't expect any messages back, but we should anyway
+        // drive the KafkaConsumer by polling
 
-      def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
-        if (!rawResult.isEmpty)
-          throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
+        def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
+          if (!rawResult.isEmpty)
+            throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
-      checkNoResult(consumer.poll(0))
+        checkNoResult(consumer.poll(0))
 
-      // For commits we try to avoid blocking poll because a commit normally succeeds after a few
-      // poll(0). Using poll(1) will always block for 1 ms, since there are no messages.
-      // Therefore we do 10 poll(0) with short 10 μs delay followed by 1 poll(1).
-      // If it's still not completed it will be tried again after the scheduled Poll.
-      var i = 10
-      while (i > 0 && commitsInProgress > 0) {
-        LockSupport.parkNanos(10 * 1000)
-        val pollTimeout = if (i == 1) 1L else 0L
-        checkNoResult(consumer.poll(pollTimeout))
-        i -= 1
+        // For commits we try to avoid blocking poll because a commit normally succeeds after a few
+        // poll(0). Using poll(1) will always block for 1 ms, since there are no messages.
+        // Therefore we do 10 poll(0) with short 10 μs delay followed by 1 poll(1).
+        // If it's still not completed it will be tried again after the scheduled Poll.
+        var i = 10
+        while (i > 0 && commitsInProgress > 0) {
+          LockSupport.parkNanos(10 * 1000)
+          val pollTimeout = if (i == 1) 1L else 0L
+          checkNoResult(consumer.poll(pollTimeout))
+          i -= 1
+        }
       }
+      finally wakeupTask.cancel()
 
     }
     else {
-
-      val rawResult = consumer.poll(pollTimeout().toMillis)
+      val rawResult = try consumer.poll(pollTimeout().toMillis) finally wakeupTask.cancel()
       if (!rawResult.isEmpty) {
         //check the we got only requested partitions and did not drop any messages
         val fetchedTps = rawResult.partitions().asScala

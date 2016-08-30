@@ -134,9 +134,10 @@ object ConsumerSettings {
     val stopTimeout = config.getDuration("stop-timeout", TimeUnit.MILLISECONDS).millis
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
+    val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val dispatcher = config.getString("use-dispatcher")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, dispatcher)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, dispatcher)
   }
 
   /**
@@ -229,6 +230,7 @@ class ConsumerSettings[K, V](
     val stopTimeout: FiniteDuration,
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
+    val wakeupTimeout: FiniteDuration,
     val dispatcher: String
 ) {
 
@@ -268,6 +270,9 @@ class ConsumerSettings[K, V](
   def withCommitTimeout(commitTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(commitTimeout = commitTimeout)
 
+  def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(wakeupTimeout = wakeupTimeout)
+
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
@@ -280,10 +285,11 @@ class ConsumerSettings[K, V](
     stopTimeout: FiniteDuration = stopTimeout,
     closeTimeout: FiniteDuration = closeTimeout,
     commitTimeout: FiniteDuration = commitTimeout,
+    wakeupTimeout: FiniteDuration = wakeupTimeout,
     dispatcher: String = dispatcher
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
       dispatcher)
 
   /**
