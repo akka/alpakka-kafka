@@ -110,6 +110,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   override def postStop(): Unit = {
     consumer ! KafkaConsumerActor.Internal.Stop
+    onShutdown()
     super.postStop()
   }
 
