@@ -66,7 +66,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     group2 = "group2-" + uuid
   }
 
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, Some(new ByteArraySerializer), Some(new StringSerializer))
     .withBootstrapServers(bootstrapServers)
 
   def givenInitializedTopic(): Unit = {
@@ -92,7 +92,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   def createConsumerSettings(group: String): ConsumerSettings[Array[Byte], String] = {
-    ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
+    ConsumerSettings(system, Some(new ByteArrayDeserializer), Some(new StringDeserializer))
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")

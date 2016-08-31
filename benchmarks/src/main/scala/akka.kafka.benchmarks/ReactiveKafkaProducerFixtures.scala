@@ -27,7 +27,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
   case class ReactiveKafkaProducerTestFixture[PassThrough](topic: String, msgCount: Int, flow: FlowType[PassThrough])
 
   private def createProducerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem): ProducerSettings[K, V] =
-    ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
+    ProducerSettings(actorSystem, Some(new ByteArraySerializer), Some(new StringSerializer))
       .withBootstrapServers(kafkaHost)
       .withParallelism(Parallelism)
 

@@ -19,7 +19,7 @@ case class ReactiveKafkaConsumerTestFixture[T](topic: String, msgCount: Int, sou
 object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
 
   private def createConsumerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem) =
-    ConsumerSettings(actorSystem, new ByteArrayDeserializer, new StringDeserializer)
+    ConsumerSettings(actorSystem, Some(new ByteArrayDeserializer), Some(new StringDeserializer))
       .withBootstrapServers(kafkaHost)
       .withGroupId(randomId())
       .withClientId(randomId())

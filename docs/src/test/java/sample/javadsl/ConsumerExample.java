@@ -27,6 +27,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -45,14 +46,14 @@ abstract class ConsumerExample {
 
   // #settings
   protected final ConsumerSettings<byte[], String> consumerSettings =
-      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
+      ConsumerSettings.create(system, Optional.of(new ByteArrayDeserializer()), Optional.of(new StringDeserializer()))
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   // #settings
 
   protected final ProducerSettings<byte[], String> producerSettings =
-      ProducerSettings.create(system, new ByteArraySerializer(), new StringSerializer())
+      ProducerSettings.create(system, Optional.of(new ByteArraySerializer()), Optional.of(new StringSerializer()))
     .withBootstrapServers("localhost:9092");
 
   // #db
