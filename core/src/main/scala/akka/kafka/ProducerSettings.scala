@@ -4,6 +4,7 @@
  */
 package akka.kafka
 
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
@@ -12,6 +13,7 @@ import com.typesafe.config.Config
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
 import org.apache.kafka.common.serialization.Serializer
 
+import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
 
 object ProducerSettings {
@@ -19,31 +21,9 @@ object ProducerSettings {
   /**
    * Create settings from the default configuration
    * `akka.kafka.producer`.
-   * Key and value serializer will be retrieved from configuration.
-   */
-  def apply[K, V](
-    system: ActorSystem
-  ): ProducerSettings[K, V] = {
-    apply(system, None, None)
-  }
-
-  /**
-   * Create settings from a configuration with the same layout as
-   * the default configuration `akka.kafka.producer`.
-   * Key and value serializer will be retrieved from passed configuration.
-   */
-  def apply[K, V](
-    config: Config
-  ): ProducerSettings[K, V] = {
-    apply(config, None, None)
-  }
-
-  /**
-   * Create settings from the default configuration
-   * `akka.kafka.producer`.
    * Key or value serializer can be passed explicitly or retrieved from configuration.
    */
-  private def apply[K, V](
+  def apply[K, V](
     system: ActorSystem,
     keySerializer: Option[Serializer[K]],
     valueSerializer: Option[Serializer[V]]
@@ -55,18 +35,20 @@ object ProducerSettings {
    * the default configuration `akka.kafka.producer`.
    * Key or value serializer can be passed explicitly or retrieved from configuration.
    */
-  private def apply[K, V](
+  def apply[K, V](
     config: Config,
     keySerializer: Option[Serializer[K]],
     valueSerializer: Option[Serializer[V]]
   ): ProducerSettings[K, V] = {
     val properties = ConfigSettings.parseKafkaClientsProperties(config.getConfig("kafka-clients"))
     require(
-      keySerializer.isDefined || properties.contains(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG),
+      keySerializer != null &&
+        (keySerializer.isDefined || properties.contains(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG)),
       "Key serializer should be defined or declared in configuration"
     )
     require(
-      keySerializer.isDefined || properties.contains(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG),
+      valueSerializer != null &&
+        (valueSerializer.isDefined || properties.contains(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG)),
       "Value serializer should be defined or declared in configuration"
     )
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
@@ -77,53 +59,9 @@ object ProducerSettings {
   /**
    * Create settings from the default configuration
    * `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
    */
   def apply[K, V](
-    system: ActorSystem,
-    keySerializer: Serializer[K],
-    valueSerializer: Serializer[V]
-  ): ProducerSettings[K, V] =
-    apply(system, Some(keySerializer), Some(valueSerializer))
-
-  /**
-   * Create settings from a configuration with the same layout as
-   * the default configuration `akka.kafka.producer`.
-   */
-  def apply[K, V](
-    config: Config,
-    keySerializer: Serializer[K],
-    valueSerializer: Serializer[V]
-  ): ProducerSettings[K, V] = {
-    apply(config, Some(keySerializer), Some(valueSerializer))
-  }
-
-  /**
-   * Java API: Create settings from the default configuration
-   * `akka.kafka.producer`.
-   * Key and value serializer will be retrieved from passed configuration
-   */
-  def create[K, V](
-    system: ActorSystem
-  ): ProducerSettings[K, V] = {
-    apply(system, None, None)
-  }
-
-  /**
-   * Java API: Create settings from a configuration with the same layout as
-   * the default configuration `akka.kafka.producer`.
-   * Key and value serializer will be retrieved from passed configuration
-   */
-  def create[K, V](
-    config: Config
-  ): ProducerSettings[K, V] = {
-    apply(config, None, None)
-  }
-
-  /**
-   * Java API: Create settings from the default configuration
-   * `akka.kafka.producer`.
-   */
-  def create[K, V](
     system: ActorSystem,
     keySerializer: Serializer[K],
     valueSerializer: Serializer[V]
@@ -131,15 +69,65 @@ object ProducerSettings {
     apply(system, Option(keySerializer), Option(valueSerializer))
 
   /**
+   * Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
+   */
+  def apply[K, V](
+    config: Config,
+    keySerializer: Serializer[K],
+    valueSerializer: Serializer[V]
+  ): ProducerSettings[K, V] = {
+    apply(config, Option(keySerializer), Option(valueSerializer))
+  }
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key or value serializer can be passed explicitly or retrieved from configuration.
+   */
+  def create[K, V](
+    system: ActorSystem,
+    keySerializer: Optional[Serializer[K]],
+    valueSerializer: Optional[Serializer[V]]
+  ): ProducerSettings[K, V] =
+    apply(system, keySerializer.asScala, valueSerializer.asScala)
+
+  /**
    * Java API: Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.producer`.
+   * Key or value serializer can be passed explicitly or retrieved from configuration.
+   */
+  def create[K, V](
+    config: Config,
+    keySerializer: Optional[Serializer[K]],
+    valueSerializer: Optional[Serializer[V]]
+  ): ProducerSettings[K, V] =
+    apply(config, keySerializer.asScala, valueSerializer.asScala)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
+   */
+  def create[K, V](
+    system: ActorSystem,
+    keySerializer: Serializer[K],
+    valueSerializer: Serializer[V]
+  ): ProducerSettings[K, V] =
+    apply(system, keySerializer, valueSerializer)
+
+  /**
+   * Java API: Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
    */
   def create[K, V](
     config: Config,
     keySerializer: Serializer[K],
     valueSerializer: Serializer[V]
   ): ProducerSettings[K, V] =
-    apply(config, Option(keySerializer), Option(valueSerializer))
+    apply(config, keySerializer, valueSerializer)
 
 }
 
