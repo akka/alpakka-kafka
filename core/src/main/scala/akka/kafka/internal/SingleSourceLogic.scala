@@ -25,6 +25,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
+  var requestId = 0
   var shutdownStarted = false
 
   override def preStart(): Unit = {
@@ -36,22 +37,11 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }
 
-    subscription match {
-      case TopicSubscription(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Subscribe(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-      case TopicSubscriptionPattern(topics) =>
-        consumer ! KafkaConsumerActor.Internal.SubscribePattern(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-      case Assignment(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Assign(topics)
-        tps ++= topics
-      case AssignmentWithOffset(topics) =>
-        consumer ! KafkaConsumerActor.Internal.AssignWithOffset(topics)
-        tps ++= topics.keySet
-    }
-
     self = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        requested = false
+        // might be more than one in flight when we assign/revoke tps
+        if (msg.requestId == requestId)
+          requested = false
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
@@ -64,15 +54,32 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         failStage(new Exception("Consumer actor terminated"))
     }
     self.watch(consumer)
+
+    def rebalanceListener =
+      KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+
+    subscription match {
+      case TopicSubscription(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
+      case TopicSubscriptionPattern(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
+      case Assignment(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
+        tps ++= topics
+      case AssignmentWithOffset(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        tps ++= topics.keySet
+    }
+
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps ++= newTps
-    pump()
+    requestMessages()
   }
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps --= newTps
-    pump()
+    requestMessages()
   }
 
   @tailrec
@@ -84,10 +91,15 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         pump()
       }
       else if (!requested && tps.nonEmpty) {
-        requested = true
-        consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
+        requestMessages()
       }
     }
+  }
+
+  private def requestMessages(): Unit = {
+    requested = true
+    requestId += 1
+    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
   }
 
   setHandler(shape.out, new OutHandler {
@@ -102,6 +114,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   override def postStop(): Unit = {
     consumer ! KafkaConsumerActor.Internal.Stop
+    onShutdown()
     super.postStop()
   }
 

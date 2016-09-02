@@ -26,13 +26,13 @@ object KafkaConsumerActor {
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
     final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
-    final case class RequestMessages(topics: Set[TopicPartition])
+    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
     //responses
     final case class Assigned(partition: List[TopicPartition])
     final case class Revoked(partition: List[TopicPartition])
-    final case class Messages[K, V](messages: Iterator[ConsumerRecord[K, V]])
+    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
     private[KafkaConsumerActor] case object Poll
@@ -74,16 +74,18 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   val pollTask: Cancellable =
     context.system.scheduler.schedule(pollInterval(), pollInterval(), self, Poll)(context.dispatcher)
 
-  var requests = Map.empty[TopicPartition, ActorRef]
+  var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
   var commitsInProgress = 0
   var stopInProgress = false
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
+      checkOverlappingRequests("Assign", sender(), tps)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
     case AssignWithOffset(tps) =>
+      checkOverlappingRequests("AssignWithOffset", sender(), tps.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
       tps.foreach {
@@ -109,9 +111,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll =>
       poll()
-    case RequestMessages(topics) =>
+    case req: RequestMessages =>
       context.watch(sender())
-      requests ++= topics.map(_ -> sender()).toMap
+      checkOverlappingRequests("RequestMessages", sender(), req.topics)
+      requests = requests.updated(sender(), req)
       poll()
     case Stop =>
       if (commitsInProgress == 0) {
@@ -122,7 +125,20 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         context.become(stopping)
       }
     case Terminated(ref) =>
-      requests = requests.filter(_._2 == ref)
+      requests -= ref
+  }
+
+  def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
+    // check if same topics/partitions have already been requested by someone else,
+    // which is an indication that something is wrong, but it might be allright when assignments change
+    if (requests.nonEmpty) requests.foreach {
+      case (ref, r) =>
+        if (r != fromStage && r.topics.exists(topics.apply)) {
+          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
+          ref ! Messages(r.requestId, Iterator.empty)
+          requests -= ref
+        }
+    }
   }
 
   def stopping: Receive = LoggingReceive {
@@ -138,20 +154,25 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   override def preStart(): Unit = {
     super.preStart()
-    requests = Map.empty[TopicPartition, ActorRef]
     consumer = settings.createKafkaConsumer()
-    commitsInProgress = 0
   }
 
   override def postStop(): Unit = {
     pollTask.cancel()
+
+    // reply to outstanding requests is important if the actor is restarted
+    requests.foreach {
+      case (ref, req) =>
+        ref ! Messages(req.requestId, Iterator.empty)
+    }
+
     consumer.close()
     super.postStop()
   }
 
   def poll() = {
     //set partitions to fetch
-    val partitionsToFetch = requests.keys.toSet
+    val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
     consumer.assignment().asScala.foreach { tp =>
       if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
       else consumer.pause(java.util.Collections.singleton(tp))
@@ -184,32 +205,27 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
       val rawResult = consumer.poll(pollTimeout().toMillis)
       if (!rawResult.isEmpty) {
-        // split tps by reply actor
-        val replyByTP = requests
-          .groupBy { case (tp, ref) => ref }
-          .mapValues(_.keys.toSet)
+        //check the we got only requested partitions and did not drop any messages
+        val fetchedTps = rawResult.partitions().asScala
+        if ((fetchedTps diff partitionsToFetch).nonEmpty)
+          throw new IllegalArgumentException(s"Unexpected records polled. Expected: $partitionsToFetch, " +
+            s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
 
         //send messages to actors
-        replyByTP.foreach {
-          case (ref, tps) =>
+        requests.foreach {
+          case (ref, req) =>
             //gather all messages for ref
-            val messages = tps.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
+            val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
               case (acc, tp) =>
                 val tpMessages = rawResult.records(tp).asScala.iterator
                 if (acc.isEmpty) tpMessages
                 else acc ++ tpMessages
             }
             if (messages.nonEmpty) {
-              ref ! Messages(messages)
+              ref ! Messages(req.requestId, messages)
+              requests -= ref
             }
         }
-        //check the we got only requested partitions and did not drop any messages
-        if ((rawResult.partitions().asScala -- partitionsToFetch).nonEmpty)
-          throw new IllegalArgumentException(s"Unexpected records polled. Expected: $partitionsToFetch, " +
-            s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
-
-        //remove tps for which we got messages
-        requests --= rawResult.partitions().asScala
       }
     }
     if (stopInProgress && commitsInProgress == 0) {

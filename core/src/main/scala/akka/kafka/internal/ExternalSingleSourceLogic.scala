@@ -23,22 +23,17 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
+  var requestId = 0
   var self: StageActor = _
 
   override def preStart(): Unit = {
     super.preStart()
-    subscription match {
-      case Assignment(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Assign(topics)
-        tps ++= topics
-      case AssignmentWithOffset(topics) =>
-        consumer ! KafkaConsumerActor.Internal.AssignWithOffset(topics)
-        tps ++= topics.keySet
-    }
 
     self = getStageActor {
       case (sender, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        requested = false
+        // might be more than one in flight when we assign/revoke tps
+        if (msg.requestId == requestId)
+          requested = false
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
@@ -51,15 +46,24 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         failStage(new Exception("Consumer actor terminated"))
     }
     self.watch(consumer)
+
+    subscription match {
+      case Assignment(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
+        tps ++= topics
+      case AssignmentWithOffset(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        tps ++= topics.keySet
+    }
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps ++= newTps
-    pump()
+    requestMessages()
   }
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
     tps --= newTps
-    pump()
+    requestMessages()
   }
 
   @tailrec
@@ -71,10 +75,15 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         pump()
       }
       else if (!requested && tps.nonEmpty) {
-        requested = true
-        consumer.tell(KafkaConsumerActor.Internal.RequestMessages(tps), self.ref)
+        requestMessages()
       }
     }
+  }
+
+  private def requestMessages(): Unit = {
+    requested = true
+    requestId += 1
+    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
   }
 
   setHandler(shape.out, new OutHandler {
