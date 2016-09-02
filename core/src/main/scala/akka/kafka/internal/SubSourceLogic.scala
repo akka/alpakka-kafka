@@ -37,18 +37,21 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }
 
-    subscription match {
-      case TopicSubscription(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Subscribe(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-      case TopicSubscriptionPattern(topics) =>
-        consumer ! KafkaConsumerActor.Internal.SubscribePattern(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-    }
-
     self = getStageActor {
       case (_, Terminated(ref)) if ref == consumer =>
         failStage(new Exception("Consumer actor terminated"))
     }
     self.watch(consumer)
+
+    def rebalanceListener =
+      KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+
+    subscription match {
+      case TopicSubscription(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
+      case TopicSubscriptionPattern(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
+    }
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>

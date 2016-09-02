@@ -37,19 +37,6 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
     }
 
-    subscription match {
-      case TopicSubscription(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Subscribe(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-      case TopicSubscriptionPattern(topics) =>
-        consumer ! KafkaConsumerActor.Internal.SubscribePattern(topics, KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke))
-      case Assignment(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Assign(topics)
-        tps ++= topics
-      case AssignmentWithOffset(topics) =>
-        consumer ! KafkaConsumerActor.Internal.AssignWithOffset(topics)
-        tps ++= topics.keySet
-    }
-
     self = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
         // might be more than one in flight when we assign/revoke tps
@@ -67,6 +54,23 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         failStage(new Exception("Consumer actor terminated"))
     }
     self.watch(consumer)
+
+    def rebalanceListener =
+      KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+
+    subscription match {
+      case TopicSubscription(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
+      case TopicSubscriptionPattern(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
+      case Assignment(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
+        tps ++= topics
+      case AssignmentWithOffset(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        tps ++= topics.keySet
+    }
+
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>

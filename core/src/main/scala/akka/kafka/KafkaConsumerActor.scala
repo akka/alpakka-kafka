@@ -81,9 +81,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
+      checkOverlappingRequests("Assign", sender(), tps)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
     case AssignWithOffset(tps) =>
+      checkOverlappingRequests("AssignWithOffset", sender(), tps.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
       tps.foreach {
@@ -111,17 +113,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       poll()
     case req: RequestMessages =>
       context.watch(sender())
-
-      // check if same topics/partitions have already been requested by someone else,
-      // which is an indication that something is wrong, but it might be allright when assignments change
-      requests.foreach {
-        case (ref, r) =>
-          if (r != sender() && r.topics.exists(req.topics.apply)) {
-            log.warning("Request messages from topic/partition {} already requested by other stage {}", req.topics, req.topics)
-            ref ! Messages(req.requestId, Iterator.empty)
-            requests -= ref
-          }
-      }
+      checkOverlappingRequests("RequestMessages", sender(), req.topics)
       requests = requests.updated(sender(), req)
       poll()
     case Stop =>
@@ -134,6 +126,19 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       }
     case Terminated(ref) =>
       requests -= ref
+  }
+
+  def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
+    // check if same topics/partitions have already been requested by someone else,
+    // which is an indication that something is wrong, but it might be allright when assignments change
+    if (requests.nonEmpty) requests.foreach {
+      case (ref, r) =>
+        if (r != fromStage && r.topics.exists(topics.apply)) {
+          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
+          ref ! Messages(r.requestId, Iterator.empty)
+          requests -= ref
+        }
+    }
   }
 
   def stopping: Receive = LoggingReceive {

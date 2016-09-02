@@ -28,14 +28,6 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
-    subscription match {
-      case Assignment(topics) =>
-        consumer ! KafkaConsumerActor.Internal.Assign(topics)
-        tps ++= topics
-      case AssignmentWithOffset(topics) =>
-        consumer ! KafkaConsumerActor.Internal.AssignWithOffset(topics)
-        tps ++= topics.keySet
-    }
 
     self = getStageActor {
       case (sender, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
@@ -54,6 +46,15 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         failStage(new Exception("Consumer actor terminated"))
     }
     self.watch(consumer)
+
+    subscription match {
+      case Assignment(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
+        tps ++= topics
+      case AssignmentWithOffset(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        tps ++= topics.keySet
+    }
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
