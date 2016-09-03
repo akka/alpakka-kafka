@@ -29,6 +29,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
@@ -236,30 +237,32 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
-          .map { msg => { msg.committableOffset } }
-          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
-            batch.updated(elem)
+          .map { msg => msg.committableOffset }
+          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
+            (batch, elem) => batch.updated(elem)
           }
-          .mapAsync(1)(_.commitScaladsl()).toMat(TestSink.probe)(Keep.both)
+          .mapAsync(1)( {println("commit batch"); _.commitScaladsl()})
+          .toMat(TestSink.probe)(Keep.both).run()
       }
 
-      consumeAndBatchCommit(topic1)
+      val (control, probe) = consumeAndBatchCommit(topic1)
 
-      val probe = createProbe(consumerSettings, topic1)
-
-      probe
-        .request(100)
-        .expectNextN((1 to 100).map(_.toString))
-
-      Await.result(produce(topic1, 101 to 150), remainingOrDefault)
-
-      consumeAndBatchCommit(topic1)
-
-      probe
-        .request(50)
-        .expectNextN((101 to 150).map(_.toString))
+      // Request one batch
+      probe.request(5).expectNextN(1)
 
       probe.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+
+      val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+        .map(_.record.value)
+        .runWith(TestSink.probe)
+
+      println("Before first assertion")
+      val element = probe2.request(1).expectNext()
+      println("After first assertion")
+      // Verify that consumption does not start from first element
+      Assertions.assert(element.toInt > 1)
+      probe2.cancel()
     }
 
     "connect consumer to producer and commit in batches" in {
