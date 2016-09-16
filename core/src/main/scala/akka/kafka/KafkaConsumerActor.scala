@@ -11,9 +11,12 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Te
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.WakeupException
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
 import akka.actor.DeadLetterSuppression
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
@@ -77,6 +80,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
   var commitsInProgress = 0
+  val MaxWakeups = 3
+  var wakeups = 0
   var stopInProgress = false
 
   def receive: Receive = LoggingReceive {
@@ -165,7 +170,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
-
     consumer.close()
     super.postStop()
   }
@@ -181,6 +185,34 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       else consumer.pause(java.util.Collections.singleton(tp))
     }
 
+    def tryPoll(timeout: Long, onSuccess: ConsumerRecords[K, V] => Unit): Unit = {
+      Try(consumer.poll(timeout))
+        .transform(
+          rawResult => {
+            wakeupTask.cancel()
+            wakeups = 0
+            Success(onSuccess(rawResult))
+          },
+          f => {
+            wakeupTask.cancel()
+            Failure(f)
+          }
+        )
+        .recover {
+          case w: WakeupException =>
+            wakeups = wakeups + 1
+            if (wakeups == MaxWakeups) {
+              log.error("WakeupException limit exceeded, stopping")
+              context.stop(self)
+            }
+            else
+              log.warning("Consumer interrupted with WakeupException after timeout")
+          case NonFatal(e) =>
+            log.error(e, "Exception when polling from consumer")
+            context.stop(self)
+        }
+    }
+
     if (requests.isEmpty) {
       try {
         // no outstanding requests so we don't expect any messages back, but we should anyway
@@ -190,7 +222,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
-        checkNoResult(consumer.poll(0))
+        tryPoll(0, checkNoResult)
 
         // For commits we try to avoid blocking poll because a commit normally succeeds after a few
         // poll(0). Using poll(1) will always block for 1 ms, since there are no messages.
@@ -200,42 +232,43 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         while (i > 0 && commitsInProgress > 0) {
           LockSupport.parkNanos(10 * 1000)
           val pollTimeout = if (i == 1) 1L else 0L
-          checkNoResult(consumer.poll(pollTimeout))
+          tryPoll(pollTimeout, checkNoResult)
           i -= 1
         }
       }
       finally wakeupTask.cancel()
 
     }
-    else {
-      val rawResult = try consumer.poll(pollTimeout().toMillis) finally wakeupTask.cancel()
-      if (!rawResult.isEmpty) {
-        //check the we got only requested partitions and did not drop any messages
-        val fetchedTps = rawResult.partitions().asScala
-        if ((fetchedTps diff partitionsToFetch).nonEmpty)
-          throw new IllegalArgumentException(s"Unexpected records polled. Expected: $partitionsToFetch, " +
-            s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
+    else tryPoll(pollTimeout().toMillis, onSuccess = processResult(partitionsToFetch))
 
-        //send messages to actors
-        requests.foreach {
-          case (ref, req) =>
-            //gather all messages for ref
-            val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
-              case (acc, tp) =>
-                val tpMessages = rawResult.records(tp).asScala.iterator
-                if (acc.isEmpty) tpMessages
-                else acc ++ tpMessages
-            }
-            if (messages.nonEmpty) {
-              ref ! Messages(req.requestId, messages)
-              requests -= ref
-            }
-        }
-      }
-    }
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
     }
   }
 
+  private def processResult(partitionsToFetch: Set[TopicPartition])(rawResult: ConsumerRecords[K, V]): Unit = {
+    if (!rawResult.isEmpty) {
+      //check the we got only requested partitions and did not drop any messages
+      val fetchedTps = rawResult.partitions().asScala
+      if ((fetchedTps diff partitionsToFetch).nonEmpty)
+        throw new scala.IllegalArgumentException(s"Unexpected records polled. Expected: $partitionsToFetch, " +
+          s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
+
+      //send messages to actors
+      requests.foreach {
+        case (ref, req) =>
+          //gather all messages for ref
+          val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
+            case (acc, tp) =>
+              val tpMessages = rawResult.records(tp).asScala.iterator
+              if (acc.isEmpty) tpMessages
+              else acc ++ tpMessages
+          }
+          if (messages.nonEmpty) {
+            ref ! Messages(req.requestId, messages)
+            requests -= ref
+          }
+      }
+    }
+  }
 }
