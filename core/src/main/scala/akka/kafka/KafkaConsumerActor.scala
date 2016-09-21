@@ -202,11 +202,12 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           case w: WakeupException =>
             wakeups = wakeups + 1
             if (wakeups == MaxWakeups) {
-              log.error("WakeupException limit exceeded, stopping")
+              log.error("WakeupException limit exceeded, stopping.")
               context.stop(self)
             }
             else
-              log.warning("Consumer interrupted with WakeupException after timeout")
+              log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
+                s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
           case NonFatal(e) =>
             log.error(e, "Exception when polling from consumer")
             context.stop(self)
