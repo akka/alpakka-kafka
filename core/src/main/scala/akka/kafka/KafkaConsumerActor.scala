@@ -80,7 +80,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
   var commitsInProgress = 0
-  val MaxWakeups = 3
   var wakeups = 0
   var stopInProgress = false
 
@@ -194,7 +193,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       catch {
         case w: WakeupException =>
           wakeups = wakeups + 1
-          if (wakeups == MaxWakeups) {
+          if (wakeups == settings.maxWakeups) {
             log.error("WakeupException limit exceeded, stopping.")
             context.stop(self)
           }

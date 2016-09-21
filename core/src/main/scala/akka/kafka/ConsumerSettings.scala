@@ -135,9 +135,10 @@ object ConsumerSettings {
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
+    val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, dispatcher)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher)
   }
 
   /**
@@ -231,6 +232,7 @@ class ConsumerSettings[K, V](
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
+    val maxWakeups: Int,
     val dispatcher: String
 ) {
 
@@ -286,11 +288,12 @@ class ConsumerSettings[K, V](
     closeTimeout: FiniteDuration = closeTimeout,
     commitTimeout: FiniteDuration = commitTimeout,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
+    maxWakeups: Int = maxWakeups,
     dispatcher: String = dispatcher
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
       pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      dispatcher)
+      maxWakeups, dispatcher)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
