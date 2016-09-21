@@ -185,34 +185,31 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       else consumer.pause(java.util.Collections.singleton(tp))
     }
 
-    def tryPoll(timeout: Long, onSuccess: ConsumerRecords[K, V] => Unit): Unit = {
-      Try(consumer.poll(timeout))
-        .transform(
-          rawResult => {
-            wakeupTask.cancel()
-            wakeups = 0
-            Success(onSuccess(rawResult))
-          },
-          f => {
-            wakeupTask.cancel()
-            Failure(f)
-          }
-        )
-        .recover {
-          case w: WakeupException =>
-            wakeups = wakeups + 1
-            if (wakeups == MaxWakeups) {
-              log.error("WakeupException limit exceeded, stopping.")
-              context.stop(self)
-            }
-            else
-              log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
-                s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
-          case NonFatal(e) =>
-            log.error(e, "Exception when polling from consumer")
+    def tryPoll(timeout: Long): ConsumerRecords[K, V] =
+      try {
+        val records = consumer.poll(timeout)
+        wakeups = 0
+        records
+      }
+      catch {
+        case w: WakeupException =>
+          wakeups = wakeups + 1
+          if (wakeups == MaxWakeups) {
+            log.error("WakeupException limit exceeded, stopping.")
             context.stop(self)
-        }
-    }
+          }
+          else {
+            log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
+              s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
+          }
+          null
+        case NonFatal(e) =>
+          log.error(e, "Exception when polling from consumer")
+          context.stop(self)
+          null
+      }
+      finally
+        wakeupTask.cancel()
 
     if (requests.isEmpty) {
       try {
@@ -220,10 +217,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         // drive the KafkaConsumer by polling
 
         def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
-          if (!rawResult.isEmpty)
+          if (rawResult != null && !rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
-        tryPoll(0, checkNoResult)
+        checkNoResult(tryPoll(0))
 
         // For commits we try to avoid blocking poll because a commit normally succeeds after a few
         // poll(0). Using poll(1) will always block for 1 ms, since there are no messages.
@@ -233,22 +230,23 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         while (i > 0 && commitsInProgress > 0) {
           LockSupport.parkNanos(10 * 1000)
           val pollTimeout = if (i == 1) 1L else 0L
-          tryPoll(pollTimeout, checkNoResult)
+          checkNoResult(tryPoll(pollTimeout))
           i -= 1
         }
       }
       finally wakeupTask.cancel()
 
     }
-    else tryPoll(pollTimeout().toMillis, onSuccess = processResult(partitionsToFetch))
+    else
+      processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
 
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
     }
   }
 
-  private def processResult(partitionsToFetch: Set[TopicPartition])(rawResult: ConsumerRecords[K, V]): Unit = {
-    if (!rawResult.isEmpty) {
+  private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit = {
+    if (rawResult != null & !rawResult.isEmpty) {
       //check the we got only requested partitions and did not drop any messages
       val fetchedTps = rawResult.partitions().asScala
       if ((fetchedTps diff partitionsToFetch).nonEmpty)
