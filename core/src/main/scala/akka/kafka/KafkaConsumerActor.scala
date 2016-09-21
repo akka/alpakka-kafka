@@ -207,8 +207,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           context.stop(self)
           null
       }
-      finally
-        wakeupTask.cancel()
 
     if (requests.isEmpty) {
       try {
@@ -236,8 +234,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       finally wakeupTask.cancel()
 
     }
-    else
-      processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
+    else {
+      val result = tryPoll(pollTimeout().toMillis)
+      wakeupTask.cancel()
+      processResult(partitionsToFetch, result)
+    }
 
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
