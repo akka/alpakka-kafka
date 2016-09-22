@@ -278,6 +278,9 @@ class ConsumerSettings[K, V](
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
+  def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
+    copy(maxWakeups = maxWakeups)
+
   private def copy(
     properties: Map[String, String] = properties,
     keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
