@@ -4,6 +4,7 @@
  */
 package akka.kafka.internal
 
+import java.util
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
 import akka.Done
@@ -20,6 +21,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito
 import org.mockito.Mockito
@@ -83,12 +85,60 @@ class ConsumerTest(_system: ActorSystem)
 
   def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
     val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
-      1.milli, 1.milli, 1.second, 1.second, 1.second, 5.seconds, "akka.kafka.default-dispatcher") {
+      1.milli, 1.milli, 1.second, 1.second, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher") {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }
     }
     Consumer.committableSource(settings, TopicSubscription(topics))
+  }
+
+  it should "fail stream when poll() fails with unhandled exception" in {
+    val mock = new FailingConsumerMock[K, V](new Exception("Fatal Kafka error"), failOnCallNumber = 1)
+
+    val probe = testSource(mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
+
+    probe
+      .request(1)
+      .expectError()
+  }
+
+  it should "not fail stream when poll() fails twice with WakeupException" in {
+    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2)
+
+    val probe = testSource(mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
+
+    probe
+      .request(1)
+      .expectNoMsg()
+  }
+
+  it should "not fail stream when poll() fails twice, then succeeds, then fails twice with WakeupException" in {
+    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 4, 5)
+
+    val probe = testSource(mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
+
+    probe
+      .request(1)
+      .expectNoMsg()
+  }
+
+  it should "not fail stream when poll() fail limit exceeded" in {
+    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
+
+    val probe = testSource(mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
+
+    probe
+      .request(1)
+      .expectError()
   }
 
   it should "complete stage when stream control.stop called" in {
@@ -567,4 +617,17 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) = {
     verify(mock, mode).poll(mockito.Matchers.any[Long])
   }
+}
+
+class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
+  var callNumber = 0
+
+  Mockito.when(mock.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
+    override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
+      callNumber = callNumber + 1
+      if (failOnCallNumber.contains(callNumber))
+        throw throwable
+      else new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
+    }
+  })
 }
