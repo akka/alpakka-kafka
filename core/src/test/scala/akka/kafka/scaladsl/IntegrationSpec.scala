@@ -258,11 +258,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
         .map(_.record.value)
         .runWith(TestSink.probe)
-
       val element = probe2.request(1).expectNext()
 
-      // Verify that consumption does not start from first element
-      Assertions.assert(element.toInt > 1)
+      Assertions.assert(element.toInt > 1, "Consumption should start after first element")
       probe2.cancel()
     }
 
