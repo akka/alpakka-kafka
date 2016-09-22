@@ -15,7 +15,7 @@ import org.apache.kafka.common.errors.WakeupException
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
 import akka.actor.DeadLetterSuppression
-import scala.util.control.NonFatal
+import scala.util.control.{NoStackTrace, NonFatal}
 import scala.util.{Failure, Success, Try}
 
 object KafkaConsumerActor {
@@ -43,6 +43,8 @@ object KafkaConsumerActor {
     def nextNumber() = {
       number.incrementAndGet()
     }
+
+    private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
 
   private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
@@ -201,20 +203,20 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
             log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
               s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
           }
-          null
+          throw new NoPollResult
         case NonFatal(e) =>
           log.error(e, "Exception when polling from consumer")
           context.stop(self)
-          null
+          throw new NoPollResult
       }
 
-    if (requests.isEmpty) {
-      try {
+    try {
+      if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
 
         def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
-          if (rawResult != null && !rawResult.isEmpty)
+          if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
         checkNoResult(tryPoll(0))
@@ -231,13 +233,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           i -= 1
         }
       }
-      finally wakeupTask.cancel()
-
+      else {
+        processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
+      }
     }
-    else {
-      val result = try tryPoll(pollTimeout().toMillis) finally wakeupTask.cancel()
-      processResult(partitionsToFetch, result)
+    catch {
+      case _: NoPollResult => // already handled, just proceed
     }
+    finally wakeupTask.cancel()
 
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
@@ -245,7 +248,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit = {
-    if (rawResult != null & !rawResult.isEmpty) {
+    if (!rawResult.isEmpty) {
       //check the we got only requested partitions and did not drop any messages
       val fetchedTps = rawResult.partitions().asScala
       if ((fetchedTps diff partitionsToFetch).nonEmpty)
