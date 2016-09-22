@@ -235,8 +235,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     }
     else {
-      val result = tryPoll(pollTimeout().toMillis)
-      wakeupTask.cancel()
+      val result = try tryPoll(pollTimeout().toMillis) finally wakeupTask.cancel()
       processResult(partitionsToFetch, result)
     }
 
