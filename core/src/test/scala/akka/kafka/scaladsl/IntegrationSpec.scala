@@ -230,7 +230,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
     // This test passes locally and fails consistently in Travis
     // on the check expecting that a batch was committed.
-    "consume and commit in batches" ignore {
+    "consume and commit in batches" in {
       givenInitializedTopic()
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
@@ -241,9 +241,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
           .map { msg => msg.committableOffset }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
-            (batch, elem) => batch.updated(elem)
+            (batch, elem) => { println("adding offset: " + elem); batch.updated(elem) }
           }
-          .mapAsync(1)({ println("commit batch"); _.commitScaladsl() })
+          .mapAsync(1)({ println("\n---commit batch---\n"); _.commitScaladsl() })
           .toMat(TestSink.probe)(Keep.both).run()
       }
 
