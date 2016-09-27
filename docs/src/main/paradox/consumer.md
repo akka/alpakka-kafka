@@ -2,7 +2,7 @@
 
 A consumer is used for subscribing to Kafka topics.
 
-The underlaying implementation is using the `KafkaConsumer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) for description of consumer groups, offsets, and other details.
+The underlying implementation is using the `KafkaConsumer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) for description of consumer groups, offsets, and other details.
 
 ## Example Code
 
@@ -47,8 +47,7 @@ See [KafkaConsumer Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/
 ## External Offset Storage
 
 The `Consumer.plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
-It has not support for committing offsets to Kafka. It can be used when offset is stored externally
-or with auto-commit (note that auto-commit is by default disabled).
+It does not have support for committing offsets to Kafka. When using this Source, either store an offset externally or use auto-commit (note that auto-commit is by default disabled).
 
 The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
 choosing. The primary use case for this is allowing the application to store both the offset and the results of the
