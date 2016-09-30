@@ -136,10 +136,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
     // check if same topics/partitions have already been requested by someone else,
-    // which is an indication that something is wrong, but it might be allright when assignments change
+    // which is an indication that something is wrong, but it might be alright when assignments change.
     if (requests.nonEmpty) requests.foreach {
       case (ref, r) =>
-        if (r != fromStage && r.topics.exists(topics.apply)) {
+        if (ref != fromStage && r.topics.exists(topics.apply)) {
           log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
           ref ! Messages(r.requestId, Iterator.empty)
           requests -= ref
