@@ -228,22 +228,21 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    // This test passes locally and fails consistently in Travis
-    // on the check expecting that a batch was committed.
-    "consume and commit in batches" ignore {
+    "consume and commit in batches" in {
       givenInitializedTopic()
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1)
-
       def consumeAndBatchCommit(topic: String) = {
-        Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
+        Consumer.committableSource(
+          createConsumerSettings(group1),
+          TopicSubscription(Set(topic))
+        )
           .map { msg => msg.committableOffset }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
             (batch, elem) => batch.updated(elem)
           }
-          .mapAsync(1)({ println("commit batch"); _.commitScaladsl() })
+          .mapAsync(1)(_.commitScaladsl())
           .toMat(TestSink.probe)(Keep.both).run()
       }
 
@@ -255,12 +254,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
-        .map(_.record.value)
-        .runWith(TestSink.probe)
+      // Resume consumption
+      val probe2 = createProbe(createConsumerSettings(group1), topic1)
       val element = probe2.request(1).expectNext()
 
-      Assertions.assert(element.toInt > 1, "Consumption should start after first element")
+      Assertions.assert(element.toInt > 1, "Should start after first element")
       probe2.cancel()
     }
 
