@@ -254,14 +254,20 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
-
+      
+      val probe2 = createProbe(consumerSettings, topic1)
+      val element = probe2.request(1).expectNext()
+      probe2.cancel()
+      
+      Assertions.assert(element.toInt > 1, "Consumption should start after first element")
+      /*
       val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
         .map(_.record.value)
         .runWith(TestSink.probe)
       val element = probe2.request(1).expectNext()
 
       Assertions.assert(element.toInt > 1, "Consumption should start after first element")
-      probe2.cancel()
+      probe2.cancel() */
     }
 
     "connect consumer to producer and commit in batches" in {
