@@ -76,8 +76,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
-  val pollTask: Cancellable =
-    context.system.scheduler.schedule(pollInterval(), pollInterval(), self, Poll)(context.dispatcher)
+  var currentPollTask: Cancellable = _
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
@@ -117,6 +116,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll =>
       poll()
+      currentPollTask = schedulePollTask()
     case req: RequestMessages =>
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
@@ -150,6 +150,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def stopping: Receive = LoggingReceive {
     case Poll =>
       poll()
+      currentPollTask = schedulePollTask()
     case Stop =>
     case _: Terminated =>
     case msg @ (_: Commit | _: RequestMessages) =>
@@ -160,11 +161,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   override def preStart(): Unit = {
     super.preStart()
+
     consumer = settings.createKafkaConsumer()
+    currentPollTask = schedulePollTask()
   }
 
   override def postStop(): Unit = {
-    pollTask.cancel()
+    if (currentPollTask != null)
+      currentPollTask.cancel()
 
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
@@ -174,6 +178,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     consumer.close()
     super.postStop()
   }
+
+  def schedulePollTask(): Cancellable =
+    context.system.scheduler.scheduleOnce(pollInterval(), self, Poll)(context.dispatcher)
 
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
