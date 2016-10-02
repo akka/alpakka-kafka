@@ -6,7 +6,6 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import scala.compat.java8.FutureConverters.FutureOps
 import akka.Done
 import akka.NotUsed
 import akka.kafka.{ConsumerMessage, ProducerSettings}
@@ -15,7 +14,7 @@ import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.compat.java8.FutureConverters.FutureOps
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.
@@ -38,11 +37,10 @@ object Producer {
    * partition number, and an optional key and value.
    */
   def plainSink[K, V](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
-    scaladsl.Producer.plainSink(producerProvider, closeTimeout, parallelism)
+    scaladsl.Producer.plainSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -67,11 +65,10 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   def commitableSink[K, V](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Sink[Message[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
-    scaladsl.Producer.commitableSink(producerProvider, closeTimeout, parallelism)
+    scaladsl.Producer.commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -89,9 +86,8 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow(producerProvider, closeTimeout, parallelism).asJava
+    scaladsl.Producer.flow(settings, producer).asJava
 }

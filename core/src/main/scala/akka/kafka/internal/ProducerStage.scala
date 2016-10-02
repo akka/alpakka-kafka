@@ -21,7 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * INTERNAL API
  */
 private[kafka] class ProducerStage[K, V, P](
-  closeTimeout: FiniteDuration, producerProvider: () => KafkaProducer[K, V]
+  closeTimeout: FiniteDuration,
+  producerProvider: () => KafkaProducer[K, V], closeProducerOnStop: Boolean
 )
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 
@@ -93,14 +94,18 @@ private[kafka] class ProducerStage[K, V, P](
 
       override def postStop() = {
         log.debug("Stage completed")
-        try {
-          producer.flush()
-          producer.close(closeTimeout.toMillis, TimeUnit.MILLISECONDS)
-          log.debug("Producer closed")
+
+        if (closeProducerOnStop) {
+          try {
+            producer.flush()
+            producer.close(closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+            log.debug("Producer closed")
+          }
+          catch {
+            case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
+          }
         }
-        catch {
-          case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
-        }
+
         super.postStop()
       }
     }

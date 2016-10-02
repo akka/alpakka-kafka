@@ -7,6 +7,7 @@ package akka.kafka.scaladsl
 import akka.kafka.ProducerMessage._
 import akka.kafka.internal.ProducerStage
 import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
@@ -25,7 +26,9 @@ object Producer {
    * partition number, and an optional key and value.
    */
   def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], Future[Done]] =
-    plainSink(() => settings.createKafkaProducer(), settings.closeTimeout, settings.parallelism)
+    Flow[ProducerRecord[K, V]].map(Message(_, NotUsed))
+      .via(flow(settings))
+      .toMat(Sink.ignore)(Keep.right)
 
   /**
    * The `plainSink` can be used for publishing records to Kafka topics.
@@ -33,12 +36,11 @@ object Producer {
    * partition number, and an optional key and value.
    */
   def plainSink[K, V](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
-    Flow[ProducerRecord[K, V]].map(record => Message(record, NotUsed))
-      .via(flow(producerProvider, closeTimeout, parallelism))
+    Flow[ProducerRecord[K, V]].map(Message(_, NotUsed))
+      .via(flow(settings, producer))
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -50,7 +52,9 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Message[K, V, ConsumerMessage.Committable], Future[Done]] =
-    commitableSink(() => settings.createKafkaProducer(), settings.closeTimeout, settings.parallelism)
+    flow[K, V, ConsumerMessage.Committable](settings)
+      .mapAsync(settings.parallelism)(_.message.passThrough.commitScaladsl())
+      .toMat(Sink.ignore)(Keep.right)
 
   /**
    * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
@@ -61,12 +65,11 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   def commitableSink[K, V](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Sink[Message[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flow[K, V, ConsumerMessage.Committable](producerProvider, closeTimeout, parallelism)
-      .mapAsync(parallelism)(_.message.passThrough.commitScaladsl())
+    flow[K, V, ConsumerMessage.Committable](settings, producer)
+      .mapAsync(settings.parallelism)(_.message.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -75,7 +78,14 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    flow(() => settings.createKafkaProducer(), settings.closeTimeout, settings.parallelism)
+    val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
+      settings.closeTimeout,
+      () => settings.createKafkaProducer(),
+      closeProducerOnStop = true
+    )).mapAsync(settings.parallelism)(identity)
+
+    if (settings.dispatcher.isEmpty) flow
+    else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
 
   /**
@@ -84,14 +94,17 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](
-    producerProvider: () => KafkaProducer[K, V],
-    closeTimeout: FiniteDuration,
-    parallelism: Int
+    settings: ProducerSettings[K, V],
+    producer: KafkaProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    Flow.fromGraph(new ProducerStage[K, V, PassThrough](
-      closeTimeout = closeTimeout,
-      producerProvider = producerProvider
-    )).mapAsync(parallelism)(identity)
+    val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
+      closeTimeout = settings.closeTimeout,
+      producerProvider = () => producer,
+      closeProducerOnStop = false
+    )).mapAsync(settings.parallelism)(identity)
+
+    if (settings.dispatcher.isEmpty) flow
+    else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
 
 }

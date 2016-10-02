@@ -64,8 +64,8 @@ class ProducerTest(_system: ActorSystem)
 
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 
-  def testProducerFlow[P](mock: ProducerMock[K, V]): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage[K, V, P](settings.closeTimeout, () => mock.mock))
+  def testProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
+    Flow.fromGraph(new ProducerStage[K, V, P](settings.closeTimeout, () => mock.mock, closeOnStop))
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {
@@ -182,6 +182,26 @@ class ProducerTest(_system: ActorSystem)
     source.expectCancellation()
 
     client.verifyClosed()
+  }
+
+  it should "not close the producer if closeProducerOnStop is false" in {
+    val input = 1 to 3 map recordAndMetadata
+
+    val client = {
+      val inputMap = input.toMap
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+    }
+    val probe = Source(input.map(toMessage))
+      .via(testProducerFlow(client, closeOnStop = false))
+      .runWith(TestSink.probe)
+
+    probe
+      .request(10)
+      .expectNextN(input.map(toResult))
+      .expectComplete()
+
+    client.verifySend(atLeastOnce())
+    client.verifyNoMoreInteractions()
   }
 }
 
