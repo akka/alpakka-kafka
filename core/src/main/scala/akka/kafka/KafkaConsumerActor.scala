@@ -38,7 +38,7 @@ object KafkaConsumerActor {
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
-    private[KafkaConsumerActor] case object Poll extends DeadLetterSuppression
+    private[KafkaConsumerActor] case class Poll(target: ActorRef) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -114,9 +114,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
-    case Poll =>
-      poll()
-      currentPollTask = schedulePollTask()
+    case Poll(target) =>
+      if (target == this) {
+        poll()
+        currentPollTask = schedulePollTask()
+      }
+      else {
+        // Message was enqueued before a restart - can be ignored
+        log.debug("Ignoring Poll message with stale target ref")
+      }
+
     case req: RequestMessages =>
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
@@ -148,9 +155,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def stopping: Receive = LoggingReceive {
-    case Poll =>
-      poll()
-      currentPollTask = schedulePollTask()
+    case Poll(target) =>
+      if (target == this) {
+        poll()
+        currentPollTask = schedulePollTask()
+      }
+      else {
+        // Message was enqueued before a restart - can be ignored
+        log.debug("Ignoring Poll message with stale target ref")
+      }
+
     case Stop =>
     case _: Terminated =>
     case msg @ (_: Commit | _: RequestMessages) =>
@@ -180,7 +194,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def schedulePollTask(): Cancellable =
-    context.system.scheduler.scheduleOnce(pollInterval(), self, Poll)(context.dispatcher)
+    context.system.scheduler.scheduleOnce(pollInterval(), self, Poll(self))(context.dispatcher)
 
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
