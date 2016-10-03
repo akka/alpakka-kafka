@@ -38,7 +38,7 @@ object KafkaConsumerActor {
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
-    private[KafkaConsumerActor] case class Poll(target: ActorRef) extends DeadLetterSuppression
+    private[KafkaConsumerActor] final case class Poll[K, V](target: KafkaConsumerActor[K, V]) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -73,6 +73,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
+  val pollMsg = Poll(this)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
@@ -194,7 +195,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def schedulePollTask(): Cancellable =
-    context.system.scheduler.scheduleOnce(pollInterval(), self, Poll(self))(context.dispatcher)
+    context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
 
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
