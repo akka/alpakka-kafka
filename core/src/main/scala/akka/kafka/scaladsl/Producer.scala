@@ -80,8 +80,8 @@ object Producer {
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
       settings.closeTimeout,
-      () => settings.createKafkaProducer(),
-      closeProducerOnStop = true
+      closeProducerOnStop = true,
+      () => settings.createKafkaProducer()
     )).mapAsync(settings.parallelism)(identity)
 
     if (settings.dispatcher.isEmpty) flow
@@ -99,8 +99,8 @@ object Producer {
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
       closeTimeout = settings.closeTimeout,
-      producerProvider = () => producer,
-      closeProducerOnStop = false
+      closeProducerOnStop = false,
+      producerProvider = () => producer
     )).mapAsync(settings.parallelism)(identity)
 
     if (settings.dispatcher.isEmpty) flow
