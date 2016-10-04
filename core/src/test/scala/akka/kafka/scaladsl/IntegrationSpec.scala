@@ -232,10 +232,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       givenInitializedTopic()
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-
+      val consumerSettings = createConsumerSettings(group1)
+      
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(
-          createConsumerSettings(group1),
+          consumerSettings,
           TopicSubscription(Set(topic))
         )
           .map { msg => msg.committableOffset }
@@ -255,7 +256,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
 
       // Resume consumption
-      val probe2 = createProbe(createConsumerSettings(group1), topic1)
+      val probe2 = createProbe(consumerSettings, topic1)
       val element = probe2.request(1).expectNext()
 
       Assertions.assert(element.toInt > 1, "Should start after first element")
