@@ -256,7 +256,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
 
       // Resume consumption
-      val probe2 = createProbe(consumerSettings, topic1)
+      val consumerSettings2 = createConsumerSettings(group1)
+      val probe2 = createProbe(consumerSettings2, topic1)
       val element = probe2.request(1).expectNext()
 
       Assertions.assert(element.toInt > 1, "Should start after first element")
