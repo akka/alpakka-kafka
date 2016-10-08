@@ -110,7 +110,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   "Reactive kafka streams" must {
-    "produce to plainSink and consume from plainSource" in {
+    "produce to plainSink and consume from plainSource" ignore {
       givenInitializedTopic()
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
@@ -190,7 +190,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe3.cancel()
     }
 
-    "handle commit without demand" in {
+    "handle commit without demand" ignore {
       givenInitializedTopic()
 
       // important to use more messages than the internal buffer sizes
@@ -233,7 +233,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
       val consumerSettings = createConsumerSettings(group1)
-      
+
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(
           consumerSettings,
@@ -264,7 +264,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe2.cancel()
     }
 
-    "connect consumer to producer and commit in batches" in {
+    "connect consumer to producer and commit in batches" ignore {
       givenInitializedTopic()
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
