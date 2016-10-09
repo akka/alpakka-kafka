@@ -114,7 +114,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   "Reactive kafka streams" must {
-    "produce to plainSink and consume from plainSource" ignore {
+    "produce to plainSink and consume from plainSource" in {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
       givenInitializedTopic(topic1)
@@ -301,6 +301,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
               new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
               msg.committableOffset
             )
+            
           })
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
