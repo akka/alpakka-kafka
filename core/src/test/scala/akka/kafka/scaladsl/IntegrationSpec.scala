@@ -117,7 +117,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "produce to plainSink and consume from plainSource" in {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
-      givenInitializedTopic(topic1)
+      // givenInitializedTopic(topic1)
 /*
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
