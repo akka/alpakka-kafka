@@ -58,7 +58,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   var topic2: String = _
   var group1: String = _
   var group2: String = _ */
-  
+
   val partition0 = 0
 
   /*override def beforeEach(): Unit = {
@@ -67,9 +67,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     group1 = "group1-" + uuid
     group2 = "group2-" + uuid
   }*/
-  
-  def createTopic(number: Int) = s"topic$number-" + uuid 
-  def createGroup(number: Int) = s"group$number-" + uuid 
+
+  def createTopic(number: Int) = s"topic$number-" + uuid
+  def createGroup(number: Int) = s"group$number-" + uuid
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
@@ -135,6 +135,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "resume consumer from committed offset" ignore {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
+      val group2 = createGroup(2)
 
       givenInitializedTopic(topic1)
 
