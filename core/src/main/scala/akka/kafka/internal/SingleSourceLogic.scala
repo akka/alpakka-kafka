@@ -113,7 +113,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   })
 
   override def postStop(): Unit = {
-    println("postStop: stopping consumer")
+    println("SingleSourceLogic.postStop: stopping consumer")
     consumer ! KafkaConsumerActor.Internal.Stop
     onShutdown()
     super.postStop()
@@ -129,7 +129,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         onShutdown()
         completeStage()
     }
-    println("performShutdown: stopping consumer")
+    println("SingleSourceLogic.performShutdown: stopping consumer")
     consumer ! KafkaConsumerActor.Internal.Stop
   }
 }

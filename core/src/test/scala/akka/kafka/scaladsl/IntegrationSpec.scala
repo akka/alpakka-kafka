@@ -145,7 +145,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      println("probe1 isShutdown")
+      println("TEST: after Await control.isShutdown")
 
       // Resume consumption
       val consumerSettings2 = createConsumerSettings(group1)
