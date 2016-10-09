@@ -54,25 +54,29 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   def uuid = UUID.randomUUID().toString
 
-  var topic1: String = _
+  /*var topic1: String = _
   var topic2: String = _
   var group1: String = _
-  var group2: String = _
+  var group2: String = _ */
+  
   val partition0 = 0
 
-  override def beforeEach(): Unit = {
+  /*override def beforeEach(): Unit = {
     topic1 = "topic1-" + uuid
     topic2 = "topic2-" + uuid
     group1 = "group1-" + uuid
     group2 = "group2-" + uuid
-  }
+  }*/
+  
+  def createTopic(number: Int) = s"topic$number-" + uuid 
+  def createGroup(number: Int) = s"group$number-" + uuid 
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
 
-  def givenInitializedTopic(): Unit = {
+  def givenInitializedTopic(topic: String): Unit = {
     val producer = producerSettings.createKafkaProducer()
-    producer.send(new ProducerRecord(topic1, partition0, null: Array[Byte], InitialMsg))
+    producer.send(new ProducerRecord(topic, partition0, null: Array[Byte], InitialMsg))
     producer.close(60, TimeUnit.SECONDS)
   }
 
@@ -110,8 +114,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   "Reactive kafka streams" must {
-    "produce to plainSink and consume from plainSource" ignore {
-      givenInitializedTopic()
+    "produce to plainSink and consume from plainSource" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
@@ -127,7 +133,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
     // FIXME flaky test: https://github.com/akka/reactive-kafka/issues/203
     "resume consumer from committed offset" ignore {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       // NOTE: If no partition is specified but a key is present a partition will be chosen
       // using a hash of the key. If neither key nor partition is present a partition
@@ -191,7 +200,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     }
 
     "handle commit without demand" ignore {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       // important to use more messages than the internal buffer sizes
       // to trigger the intended scenario
@@ -229,7 +241,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     }
 
     "consume and commit in batches" in {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
       val consumerSettings = createConsumerSettings(group1)
@@ -264,12 +279,18 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe2.cancel()
     }
 
-    "connect consumer to producer and commit in batches" ignore {
-      givenInitializedTopic()
+    "connect consumer to producer and commit in batches" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
       val consumerSettings1 = createConsumerSettings(group1)
+
+      val topic2 = createTopic(2)
+      val group2 = createGroup(2)
 
       val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
         .map(msg =>
