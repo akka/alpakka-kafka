@@ -280,7 +280,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe2.cancel()
     }
 
-    "connect consumer to producer and commit in batches" in {
+    "connect consumer to producer and commit in batches" ignore {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
