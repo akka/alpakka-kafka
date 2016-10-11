@@ -101,6 +101,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      .withWakeupTimeout(FiniteDuration(2, SECONDS))
   }
 
   def createProbe(
