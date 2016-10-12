@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions.TopicSubscription
@@ -101,7 +102,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-      .withWakeupTimeout(FiniteDuration(2, SECONDS))
+      .withWakeupTimeout(4 seconds)
   }
 
   def createProbe(
