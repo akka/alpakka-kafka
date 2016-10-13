@@ -4,7 +4,7 @@
  */
 package akka.kafka
 
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 /**
  * Classes that are used in both [[javadsl.Producer]] and
@@ -35,8 +35,11 @@ object ProducerMessage {
    * `offset` of the produced message.
    */
   final case class Result[K, V, PassThrough](
-    offset: Long,
-    message: Message[K, V, PassThrough]
-  )
+      metadata: RecordMetadata,
+      //    offset: Long,
+      message: Message[K, V, PassThrough]
+  ) {
+    def offset = metadata.offset()
+  }
 
 }
