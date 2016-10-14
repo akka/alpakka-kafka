@@ -36,7 +36,6 @@ object ProducerMessage {
    */
   final case class Result[K, V, PassThrough](
       metadata: RecordMetadata,
-      //    offset: Long,
       message: Message[K, V, PassThrough]
   ) {
     def offset = metadata.offset()
