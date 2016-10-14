@@ -31,12 +31,12 @@ object ProducerMessage {
 
   /**
    * Output element of `Consumer#flow`. Emitted when the message has been
-   * successfully published. Includes the original message and the
+   * successfully published. Includes the original message, metadata returned from KafkaProducer and the
    * `offset` of the produced message.
    */
   final case class Result[K, V, PassThrough](
-      metadata: RecordMetadata,
-      message: Message[K, V, PassThrough]
+    metadata: RecordMetadata,
+    message: Message[K, V, PassThrough]
   ) {
     def offset = metadata.offset()
   }
