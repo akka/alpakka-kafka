@@ -155,7 +155,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val probe2 = createProbe(consumerSettings2, topic1)
 
       println("probe2 created")
-      val element = probe2.request(1).expectNext()
+      val element = probe2.request(1).expectNext(60 seconds)
 
       Assertions.assert(element.toInt > 1, "Should start after first element")
       probe2.cancel()
