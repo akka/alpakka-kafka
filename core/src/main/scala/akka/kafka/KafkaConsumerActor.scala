@@ -38,7 +38,7 @@ object KafkaConsumerActor {
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
-    private[KafkaConsumerActor] case object Poll extends DeadLetterSuppression
+    private[KafkaConsumerActor] final case class Poll[K, V](target: KafkaConsumerActor[K, V]) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -73,11 +73,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
+  val pollMsg = Poll(this)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
-  val pollTask: Cancellable =
-    context.system.scheduler.schedule(pollInterval(), pollInterval(), self, Poll)(context.dispatcher)
+  var currentPollTask: Cancellable = _
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var consumer: KafkaConsumer[K, V] = _
@@ -115,8 +115,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
-    case Poll =>
-      poll()
+    case Poll(target) =>
+      if (target == this) {
+        poll()
+        currentPollTask = schedulePollTask()
+      }
+      else {
+        // Message was enqueued before a restart - can be ignored
+        log.debug("Ignoring Poll message with stale target ref")
+      }
+
     case req: RequestMessages =>
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
@@ -148,8 +156,16 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def stopping: Receive = LoggingReceive {
-    case Poll =>
-      poll()
+    case Poll(target) =>
+      if (target == this) {
+        poll()
+        currentPollTask = schedulePollTask()
+      }
+      else {
+        // Message was enqueued before a restart - can be ignored
+        log.debug("Ignoring Poll message with stale target ref")
+      }
+
     case Stop =>
     case _: Terminated =>
     case msg @ (_: Commit | _: RequestMessages) =>
@@ -160,11 +176,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   override def preStart(): Unit = {
     super.preStart()
+
     consumer = settings.createKafkaConsumer()
+    currentPollTask = schedulePollTask()
   }
 
   override def postStop(): Unit = {
-    pollTask.cancel()
+    if (currentPollTask != null)
+      currentPollTask.cancel()
 
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
@@ -174,6 +193,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     consumer.close()
     super.postStop()
   }
+
+  def schedulePollTask(): Cancellable =
+    context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
 
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
