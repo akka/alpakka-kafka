@@ -35,8 +35,8 @@ object ProducerMessage {
    * `offset` of the produced message.
    */
   final case class Result[K, V, PassThrough](
-    metadata: RecordMetadata,
-    message: Message[K, V, PassThrough]
+      metadata: RecordMetadata,
+      message: Message[K, V, PassThrough]
   ) {
     def offset = metadata.offset()
   }
