@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions.TopicSubscription
@@ -54,25 +56,17 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   def uuid = UUID.randomUUID().toString
 
-  var topic1: String = _
-  var topic2: String = _
-  var group1: String = _
-  var group2: String = _
-  val partition0 = 0
+  def createTopic(number: Int) = s"topic$number-" + uuid
+  def createGroup(number: Int) = s"group$number-" + uuid
 
-  override def beforeEach(): Unit = {
-    topic1 = "topic1-" + uuid
-    topic2 = "topic2-" + uuid
-    group1 = "group1-" + uuid
-    group2 = "group2-" + uuid
-  }
+  val partition0 = 0
 
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
 
-  def givenInitializedTopic(): Unit = {
+  def givenInitializedTopic(topic: String): Unit = {
     val producer = producerSettings.createKafkaProducer()
-    producer.send(new ProducerRecord(topic1, partition0, null: Array[Byte], InitialMsg))
+    producer.send(new ProducerRecord(topic, partition0, null: Array[Byte], InitialMsg))
     producer.close(60, TimeUnit.SECONDS)
   }
 
@@ -97,6 +91,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      .withWakeupTimeout(10 seconds)
+      .withMaxWakeups(10)
   }
 
   def createProbe(
@@ -111,7 +107,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   "Reactive kafka streams" must {
     "produce to plainSink and consume from plainSource" in {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
@@ -127,7 +126,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
     // FIXME flaky test: https://github.com/akka/reactive-kafka/issues/203
     "resume consumer from committed offset" ignore {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+      val group2 = createGroup(2)
+
+      givenInitializedTopic(topic1)
 
       // NOTE: If no partition is specified but a key is present a partition will be chosen
       // using a hash of the key. If neither key nor partition is present a partition
@@ -191,7 +194,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     }
 
     "handle commit without demand" in {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       // important to use more messages than the internal buffer sizes
       // to trigger the intended scenario
@@ -228,22 +234,25 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    // This test passes locally and fails consistently in Travis
-    // on the check expecting that a batch was committed.
-    "consume and commit in batches" ignore {
-      givenInitializedTopic()
+    "consume and commit in batches" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-
       val consumerSettings = createConsumerSettings(group1)
 
       def consumeAndBatchCommit(topic: String) = {
-        Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic)))
+        Consumer.committableSource(
+          consumerSettings,
+          TopicSubscription(Set(topic))
+        )
           .map { msg => msg.committableOffset }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
             (batch, elem) => batch.updated(elem)
           }
-          .mapAsync(1)({ println("commit batch"); _.commitScaladsl() })
+          .mapAsync(1)(_.commitScaladsl())
           .toMat(TestSink.probe)(Keep.both).run()
       }
 
@@ -255,17 +264,23 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
-        .map(_.record.value)
-        .runWith(TestSink.probe)
-      val element = probe2.request(1).expectNext()
+      // Resume consumption
+      val consumerSettings2 = createConsumerSettings(group1)
+      val probe2 = createProbe(consumerSettings2, topic1)
 
-      Assertions.assert(element.toInt > 1, "Consumption should start after first element")
+      val element = probe2.request(1).expectNext(60 seconds)
+
+      Assertions.assert(element.toInt > 1, "Should start after first element")
       probe2.cancel()
     }
 
     "connect consumer to producer and commit in batches" in {
-      givenInitializedTopic()
+      val topic1 = createTopic(1)
+      val topic2 = createTopic(2)
+      val group1 = createGroup(1)
+      val group2 = createGroup(2)
+
+      givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
