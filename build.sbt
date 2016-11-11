@@ -3,7 +3,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.11"
+val akkaVersion = "2.4.12"
 val kafkaVersion = "0.10.0.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -15,7 +15,7 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
@@ -36,6 +36,7 @@ val commonSettings =
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   scalaVersion := "2.11.8",
   crossVersion := CrossVersion.binary,
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.0"),
   scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",       // yes, this is 2 args
