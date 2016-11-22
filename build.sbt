@@ -25,6 +25,7 @@ val coreDependencies = Seq(
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
   "net.manub" %% "scalatest-embedded-kafka" % "0.7.1" % "test"
+    exclude("log4j", "log4j")
 )
 
 val commonSettings =
