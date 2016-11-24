@@ -29,13 +29,13 @@ import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
-import org.scalactic.ConversionCheckedTripleEquals
+import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
-    with ConversionCheckedTripleEquals {
+    with TypeCheckedTripleEquals {
 
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher

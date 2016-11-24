@@ -1,12 +1,12 @@
 language: scala
 sudo: false
 scala:
-  - "2.11.8"
+  - "2.12.0"
 jdk:
   - oraclejdk8
 env:
   matrix:
-    - SCRIPT="sbt -jvm-opts .travis-jvmopts test"
+    - SCRIPT="sbt -jvm-opts .travis-jvmopts +test"
 # important to use eval, otherwise "&&" is passed as an argument to sbt rather than being processed by bash
 script: eval $SCRIPT
 cache:
