@@ -6,7 +6,6 @@ package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
 import akka.kafka.ProducerMessage.{Message, Result}
-import akka.kafka.ProducerSettings
 import akka.stream._
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
