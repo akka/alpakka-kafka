@@ -21,10 +21,13 @@ import akka.Done
 trait ProducerExample {
   val system = ActorSystem("example")
 
+  // #producer
   // #settings
   val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
   // #settings
+  val kafkaProducer = producerSettings.createKafkaProducer()
+  // #producer
 
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer.create(system)
@@ -49,6 +52,21 @@ object PlainSinkExample extends ProducerExample {
       }
       .runWith(Producer.plainSink(producerSettings))
     // #plainSink
+
+    terminateWhenDone(done)
+  }
+}
+
+object PlainSinkWithProducerExample extends ProducerExample {
+  def main(args: Array[String]): Unit = {
+    // #plainSinkWithProducer
+    val done = Source(1 to 100)
+      .map(_.toString)
+      .map { elem =>
+        new ProducerRecord[Array[Byte], String]("topic1", elem)
+      }
+      .runWith(Producer.plainSink(producerSettings, kafkaProducer))
+    // #plainSinkWithProducer
 
     terminateWhenDone(done)
   }

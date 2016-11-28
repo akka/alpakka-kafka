@@ -15,6 +15,8 @@ import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
 import java.util.concurrent.CompletionStage;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -24,11 +26,14 @@ abstract class ProducerExample {
 
   protected final Materializer materializer = ActorMaterializer.create(system);
 
+  // #producer
   // #settings
   protected final ProducerSettings<byte[], String> producerSettings = ProducerSettings
     .create(system, new ByteArraySerializer(), new StringSerializer())
     .withBootstrapServers("localhost:9092");
   // #settings
+  protected final KafkaProducer<byte[], String> kafkaProducer = producerSettings.createKafkaProducer();
+  // #producer
 
   protected void terminateWhenDone(CompletionStage<Done> result) {
     result
@@ -55,6 +60,23 @@ class PlainSinkExample extends ProducerExample {
 
     terminateWhenDone(done);
   }
+}
+
+class PlainSinkWithProducerExample extends ProducerExample {
+    public static void main(String[] args) {
+        new PlainSinkExample().demo();
+    }
+
+    public void demo() {
+        // #plainSinkWithProducer
+        CompletionStage<Done> done =
+                Source.range(1, 100)
+                        .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+                        .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
+        // #plainSinkWithProducer
+
+        terminateWhenDone(done);
+    }
 }
 
 class ProducerFlowExample extends ProducerExample {

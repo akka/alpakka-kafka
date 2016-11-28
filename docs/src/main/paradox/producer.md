@@ -68,6 +68,20 @@ Java
 
 ## Sharing KafkaProducer
 
-If you have many streams it can be more efficient to share the underlying `KafkaProducer`. You can create a `KafkaProducer` instance from `ProducerSettings`. The `KafkaProducer` is passed as a parameter to the `Producer` factory methods.
+If you have many streams it can be more efficient to share the underlying `KafkaProducer`.
 
-TODO: code example
+You can create a `KafkaProducer` instance from `ProducerSettings`.
+
+Scala
+: @@ snip [producer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #producer }
+
+Java
+: @@ snip [producer](../../test/java/sample/javadsl/ProducerExample.java) { #producer }
+
+The `KafkaProducer` is passed as a parameter to the `Producer` factory methods.
+
+Scala
+: @@ snip [plainSinkWithProducer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
+
+Java
+: @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #plainSinkWithProducer }
