@@ -29,16 +29,16 @@ object Consumer {
   trait Control {
 
     /**
-     * Stop producing messages from the `Source`. This does not stop underlying kafka consumer
+     * Stop producing messages from the `Source`. This does not stop the underlying kafka consumer
      * and does not unsubscribe from any topics/partitions.
      *
-     * Call [[#shutdown]] to close consumer
+     * Call [[#shutdown]] to close consumer.
      */
     def stop(): Future[Done]
 
     /**
      * Shutdown the consumer `Source`. It will wait for outstanding offset
-     * commit requests before shutting down.
+     * commit requests to finish before shutting down.
      */
     def shutdown(): Future[Done]
 
@@ -52,13 +52,13 @@ object Consumer {
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
-   * It has not support for committing offsets to Kafka. It can be used when offset is stored externally
+   * It has no support for committing offsets to Kafka. It can be used when the offset is stored externally
    * or with auto-commit (note that auto-commit is by default disabled).
    *
-   * The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
+   * The consumer application doesn't need to use Kafka's built-in offset storage and can store offsets in a store of its own
    * choosing. The primary use case for this is allowing the application to store both the offset and the results of the
    * consumption in the same system in a way that both the results and offsets are stored atomically. This is not always
-   * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
+   * possible, but when it is, it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
   def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
@@ -72,7 +72,7 @@ object Consumer {
    * If you commit the offset before processing the message you get "at-most once delivery" semantics,
    * and for that there is a [[#atMostOnceSource]].
    *
-   * Compared to auto-commit this gives exact control of when a message is considered consumed.
+   * Compared to auto-commit, this gives exact control over when a message is considered consumed.
    *
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
@@ -82,7 +82,7 @@ object Consumer {
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
-   * before emitted downstreams.
+   * before it is emitted downstream.
    */
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] = {
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
@@ -92,8 +92,8 @@ object Consumer {
 
   /**
    * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
-   * When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source
-   * When topic-partition is revoked then corresponding source completes
+   * When a topic-partition is assigned to a consumer, this source will emit tuples with the assigned topic-partition and a corresponding source of [[ConsumerRecord]]s.
+   * When a topic-partition is revoked, the corresponding source completes.
    */
   def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
     Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription))
@@ -105,15 +105,15 @@ object Consumer {
     Source.fromGraph(ConsumerStage.committableSubSource[K, V](settings, subscription))
 
   /**
-   * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
-   * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
+   * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
+   * a lot of manually assigned topic-partitions and want to keep only one kafka consumer.
    */
   def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
     Source.fromGraph(ConsumerStage.externalPlainSource[K, V](consumer, subscription))
   }
 
   /**
-   * The same as [[#plainExternalSource]] but with offset commit support
+   * The same as [[#plainExternalSource]] but with offset commit support.
    */
   def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
     Source.fromGraph(ConsumerStage.externalCommittableSource[K, V](
