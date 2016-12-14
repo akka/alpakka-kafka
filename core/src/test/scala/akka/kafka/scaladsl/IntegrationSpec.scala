@@ -125,7 +125,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     }
 
     // FIXME flaky test: https://github.com/akka/reactive-kafka/issues/203
-    "resume consumer from committed offset" ignore {
+    "resume consumer from committed offset" in {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
       val group2 = createGroup(2)
