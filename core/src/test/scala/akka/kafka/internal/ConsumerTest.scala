@@ -4,7 +4,6 @@
  */
 package akka.kafka.internal
 
-import java.util
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
 import akka.Done
@@ -571,10 +570,9 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
     })
     Mockito.when(result.commitAsync(mockito.Matchers.any[JMap[TopicPartition, OffsetAndMetadata]], mockito.Matchers.any[OffsetCommitCallback])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
-        import scala.collection.JavaConversions._
         val offsets = invocation.getArgumentAt(0, classOf[JMap[TopicPartition, OffsetAndMetadata]])
         val callback = invocation.getArgumentAt(1, classOf[OffsetCommitCallback])
-        handler(mapAsScalaMap(offsets).toMap, callback)
+        handler(offsets.asScala.toMap, callback)
         ()
       }
     })

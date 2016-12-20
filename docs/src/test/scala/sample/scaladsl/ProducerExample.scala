@@ -7,7 +7,6 @@ package sample.scaladsl
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
 import akka.kafka.ProducerSettings
-import akka.kafka.scaladsl._
 import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -17,6 +16,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import scala.concurrent.Future
 import akka.Done
+import scala.util.{Failure, Success}
 
 trait ProducerExample {
   val system = ActorSystem("example")
@@ -33,12 +33,12 @@ trait ProducerExample {
   implicit val materializer = ActorMaterializer.create(system)
 
   def terminateWhenDone(result: Future[Done]): Unit = {
-    result.onFailure {
-      case e: Throwable =>
+    result.onComplete {
+      case Failure(e) =>
         system.log.error(e, e.getMessage)
         system.terminate()
+      case Success(_) => system.terminate()
     }
-    result.onSuccess { case _ => system.terminate() }
   }
 }
 

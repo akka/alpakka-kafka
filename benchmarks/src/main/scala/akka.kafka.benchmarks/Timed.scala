@@ -4,7 +4,7 @@
  */
 package akka.kafka.benchmarks
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
 import akka.kafka.benchmarks.app.RunTestCommand
 import com.codahale.metrics.{Meter, MetricRegistry, ScheduledReporter, Slf4jReporter}
@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 
 object Timed extends LazyLogging {
 
-  implicit val ec = ExecutionContext.fromExecutor(new scala.concurrent.forkjoin.ForkJoinPool)
+  implicit val ec = ExecutionContext.fromExecutor(new ForkJoinPool)
 
   def reporter(metricRegistry: MetricRegistry): ScheduledReporter = {
     Slf4jReporter

@@ -11,7 +11,7 @@ import org.apache.kafka.clients.consumer.{OffsetCommitCallback, OffsetAndMetadat
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object KafkaConsumerBenchmarks extends LazyLogging {
   val pollTimeoutMs = 50L
@@ -49,7 +49,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         logger.debug(s"Polling")
         val records = consumer.poll(pollTimeoutMs)
         val recordCount = records.count()
-        records.iterator().toList // ensure records are processed
+        records.iterator().asScala.toList // ensure records are processed
         meter.mark(recordCount.toLong)
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
@@ -76,7 +76,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
       accumulatedMsgCount = 0
       val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
       logger.debug("Committing offset " + offsetMap.head._2.offset())
-      consumer.commitAsync(offsetMap, new OffsetCommitCallback {
+      consumer.commitAsync(offsetMap.asJava, new OffsetCommitCallback {
         override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
           commitInProgress = false
         }
@@ -92,7 +92,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         if (!commitInProgress)
           consumer.resume(assignment)
         val records = consumer.poll(pollTimeoutMs)
-        for (record <- records.iterator()) {
+        for (record <- records.iterator().asScala) {
           accumulatedMsgCount = accumulatedMsgCount + 1
           meter.mark()
           lastProcessedOffset = record.offset()
@@ -130,12 +130,12 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         consumer.pause(assignment)
         val records = consumer.poll(pollTimeoutMs)
 
-        for (record <- records.iterator()) {
+        for (record <- records.iterator().asScala) {
           meter.mark()
           val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(record.offset()))
           consumer.pause(assignment)
 
-          consumer.commitAsync(offsetMap, new OffsetCommitCallback {
+          consumer.commitAsync(offsetMap.asJava, new OffsetCommitCallback {
             override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
               consumer.resume(assignment)
             }

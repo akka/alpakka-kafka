@@ -9,7 +9,7 @@ import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import akka.stream.ActorMaterializer
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -17,6 +17,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
 
 trait ConsumerExample {
@@ -69,12 +70,12 @@ trait ConsumerExample {
   // #rocket
 
   def terminateWhenDone(result: Future[Done]): Unit = {
-    result.onFailure {
-      case e: Throwable =>
+    result.onComplete {
+      case Failure(e) =>
         system.log.error(e, e.getMessage)
         system.terminate()
+      case Success(_) => system.terminate()
     }
-    result.onSuccess { case _ => system.terminate() }
   }
 }
 
