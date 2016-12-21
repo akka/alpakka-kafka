@@ -8,7 +8,7 @@ import akka.kafka.benchmarks.app.RunTestCommand
 import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 case class KafkaConsumerTestFixture(topic: String, msgCount: Int, consumer: KafkaConsumer[Array[Byte], String]) {
   def close(): Unit = consumer.close()
@@ -33,7 +33,7 @@ object KafkaConsumerFixtures extends PerfFixtureHelpers {
     consumerJavaProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
     val consumer = new KafkaConsumer[Array[Byte], String](consumerJavaProps, new ByteArrayDeserializer, new StringDeserializer)
-    consumer.subscribe(Set(topic))
+    consumer.subscribe(Set(topic).asJava)
     KafkaConsumerTestFixture(topic, msgCount, consumer)
   }
   )

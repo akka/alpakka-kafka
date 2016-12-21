@@ -4,7 +4,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 name := "akka-stream-kafka"
 
 val akkaVersion = "2.4.14"
-val kafkaVersion = "0.10.0.1"
+val kafkaVersion = "0.10.1.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -15,7 +15,7 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "junit" % "junit" % "4.12" % "test",
@@ -24,7 +24,7 @@ val coreDependencies = Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "net.manub" %% "scalatest-embedded-kafka" % "0.7.1" % "test"
+  "net.manub" %% "scalatest-embedded-kafka" % "0.11.0" % "test"
     exclude("log4j", "log4j")
 )
 
@@ -36,6 +36,7 @@ val commonSettings =
   test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   scalaVersion := "2.11.8",
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.1"),
   crossVersion := CrossVersion.binary,
   scalacOptions ++= Seq(
   "-deprecation",
@@ -65,6 +66,9 @@ headers := headers.value ++ Map(
        |""".stripMargin
   )
 ))
+
+resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"),
+  "Apache Staging" at "https://repository.apache.org/content/groups/staging")
 
 lazy val root =
   project.in( file(".") )
@@ -111,7 +115,7 @@ lazy val benchmarks = project
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
       "io.dropwizard.metrics" % "metrics-core" % "3.1.0",
       "ch.qos.logback" % "logback-classic" % "1.1.3",
       "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
