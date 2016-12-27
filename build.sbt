@@ -67,8 +67,7 @@ headers := headers.value ++ Map(
   )
 ))
 
-resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"),
-  "Apache Staging" at "https://repository.apache.org/content/groups/staging")
+resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
 lazy val root =
   project.in( file(".") )
