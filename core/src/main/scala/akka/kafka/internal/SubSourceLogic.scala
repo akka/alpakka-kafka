@@ -17,13 +17,29 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
     subscription: AutoSubscription
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
+  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
+    buffer = buffer.enqueue(tps.toList)
+    pump()
+  }
+  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { r =>
+    r.map(subSources.get).foreach(_.foreach(_.shutdown()))
+    subSources --= r
+  }
+  val subsourceCancelledCB = getAsyncCallback[TopicPartition] { tp =>
+    subSources -= tp
+    buffer :+= tp
+    pump()
+  }
+  val subsourceStartedCB = getAsyncCallback[(TopicPartition, Control)] {
+    case (tp, control) => subSources += (tp -> control)
+  }
   var consumer: ActorRef = _
   var self: StageActor = _
   var buffer: immutable.Queue[TopicPartition] = immutable.Queue.empty
@@ -54,29 +70,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
-    buffer = buffer.enqueue(tps.toList)
-    pump()
-  }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { r =>
-    r.map(subSources.get).foreach(_.foreach(_.shutdown()))
-    subSources --= r
-  }
-
-  val subsourceCancelledCB = getAsyncCallback[TopicPartition] { tp =>
-    subSources -= tp
-    buffer :+= tp
-    pump()
-  }
-
-  val subsourceStartedCB = getAsyncCallback[(TopicPartition, Control)] {
-    case (tp, control) => subSources += (tp -> control)
-  }
-
   setHandler(shape.out, new OutHandler {
     override def onPull(): Unit = {
       pump()
     }
+
     override def onDownstreamFinish(): Unit = {
       performShutdown()
     }
@@ -84,16 +82,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   def createSource(tp: TopicPartition): Source[Msg, NotUsed] = {
     Source.fromGraph(new SubSourceStage(tp, consumer))
-  }
-
-  @tailrec
-  private def pump(): Unit = {
-    if (buffer.nonEmpty && isAvailable(shape.out)) {
-      val (tp, remains) = buffer.dequeue
-      buffer = remains
-      push(shape.out, (tp, createSource(tp)))
-      pump()
-    }
   }
 
   override def postStop(): Unit = {
@@ -120,7 +108,18 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     consumer ! KafkaConsumerActor.Internal.Stop
   }
 
-  class SubSourceStage(tp: TopicPartition, consumer: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
+  @tailrec
+  private def pump(): Unit = {
+    if (buffer.nonEmpty && isAvailable(shape.out)) {
+      val (tp, remains) = buffer.dequeue
+      buffer = remains
+      push(shape.out, (tp, createSource(tp)))
+      pump()
+    }
+  }
+
+  class SubSourceStage(tp: TopicPartition, consumer: ActorRef) extends GraphStage[SourceShape[Msg]] {
+    stage =>
     val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
 
@@ -128,26 +127,40 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       new GraphStageLogic(shape) with PromiseControl {
         val shape = stage.shape
         val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
-        var requested = false
+        val pauseMessages = KafkaConsumerActor.Internal.PauseMessages(0, Set(tp))
+        val unpauseMessages = KafkaConsumerActor.Internal.UnpauseMessages(0, Set(tp))
+
+        var paused = false
         var self: StageActor = _
-        var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
+        var buffer: mutable.Queue[ConsumerRecord[K, V]] = mutable.Queue()
+
+        val bufferSize = settings.sourceBufferSize
+
+        def checkBufferAndPause(): Unit =
+          if (!paused && buffer.size >= bufferSize) {
+            consumer.tell(pauseMessages, self.ref)
+            paused = true
+          }
+
+        def checkBufferAndUnpause(): Unit =
+          if (paused && buffer.size < bufferSize) {
+            consumer.tell(unpauseMessages, self.ref)
+            paused = false
+          }
 
         override def preStart(): Unit = {
           subsourceStartedCB.invoke((tp, this))
           self = getStageActor {
             case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-              requested = false
-              // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-              if (buffer.hasNext) {
-                buffer = buffer ++ msg.messages
-              }
-              else {
-                buffer = msg.messages
-              }
+              //              requested = false
+
+              buffer.enqueue(msg.messages.toSeq: _*)
+              checkBufferAndPause()
               pump()
             case (_, Terminated(ref)) if ref == consumer =>
               failStage(new Exception("Consumer actor terminated"))
           }
+          consumer.tell(requestMessages, self.ref)
           self.watch(consumer)
         }
 
@@ -173,16 +186,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
         @tailrec
         private def pump(): Unit = {
-          if (isAvailable(out)) {
-            if (buffer.hasNext) {
-              val msg = buffer.next()
-              push(out, createMessage(msg))
-              pump()
-            }
-            else if (!requested) {
-              requested = true
-              consumer.tell(requestMessages, self.ref)
-            }
+          if (isAvailable(out) && buffer.nonEmpty) {
+            val msg = buffer.dequeue()
+            push(out, createMessage(msg))
+            checkBufferAndUnpause()
+            pump()
           }
         }
       }

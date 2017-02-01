@@ -12,7 +12,7 @@ import akka.stream.stage.{GraphStageLogic, OutHandler}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
-
+import scala.collection.mutable
 import scala.annotation.tailrec
 
 private[kafka] abstract class SingleSourceLogic[K, V, Msg](
@@ -20,13 +20,37 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     settings: ConsumerSettings[K, V],
     subscription: Subscription
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
+  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    tps ++= newTps
+    requestMessage()
+  }
+  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    tps --= newTps
+    requestMessage()
+  }
   var consumer: ActorRef = _
   var self: StageActor = _
   var tps = Set.empty[TopicPartition]
-  var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
-  var requested = false
   var requestId = 0
   var shutdownStarted = false
+
+  val bufferSize = settings.sourceBufferSize
+  val buffer: mutable.Queue[ConsumerRecord[K, V]] = mutable.Queue()
+  var paused = false
+  val pauseMessage = KafkaConsumerActor.Internal.PauseMessages(0, tps)
+  val unpauseMessage = KafkaConsumerActor.Internal.UnpauseMessages(0, tps)
+
+  def checkBufferAndPause(): Unit =
+    if (!paused && buffer.size >= bufferSize) {
+      consumer.tell(pauseMessage, self.ref)
+      paused = true
+    }
+
+  def checkBufferAndUnpause(): Unit =
+    if (paused && buffer.size < (bufferSize * 0.5)) {
+      consumer.tell(unpauseMessage, self.ref)
+      paused = false
+    }
 
   override def preStart(): Unit = {
     super.preStart()
@@ -39,16 +63,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
     self = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        // might be more than one in flight when we assign/revoke tps
-        if (msg.requestId == requestId)
-          requested = false
-        // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-        if (buffer.hasNext) {
-          buffer = buffer ++ msg.messages
-        }
-        else {
-          buffer = msg.messages
-        }
+        buffer.enqueue(msg.messages.toSeq: _*)
+        checkBufferAndPause()
         pump()
       case (_, Terminated(ref)) if ref == consumer =>
         failStage(new Exception("Consumer actor terminated"))
@@ -73,44 +89,9 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   }
 
-  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps ++= newTps
-    requestMessages()
-  }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps --= newTps
-    requestMessages()
-  }
-
-  @tailrec
-  private def pump(): Unit = {
-    if (isAvailable(shape.out)) {
-      if (buffer.hasNext) {
-        val msg = buffer.next()
-        push(shape.out, createMessage(msg))
-        pump()
-      }
-      else if (!requested && tps.nonEmpty) {
-        requestMessages()
-      }
-    }
-  }
-
-  private def requestMessages(): Unit = {
-    requested = true
-    requestId += 1
+  private def requestMessage(): Unit = {
     consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
   }
-
-  setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit = {
-      pump()
-    }
-
-    override def onDownstreamFinish(): Unit = {
-      performShutdown()
-    }
-  })
 
   override def postStop(): Unit = {
     consumer ! KafkaConsumerActor.Internal.Stop
@@ -129,5 +110,27 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         completeStage()
     }
     consumer ! KafkaConsumerActor.Internal.Stop
+  }
+
+  setHandler(shape.out, new OutHandler {
+    override def onPull(): Unit = {
+      pump()
+    }
+
+    override def onDownstreamFinish(): Unit = {
+      performShutdown()
+    }
+  })
+
+  @tailrec
+  private def pump(): Unit = {
+    if (isAvailable(shape.out)) {
+      if (buffer.nonEmpty) {
+        val msg = buffer.dequeue()
+        push(shape.out, createMessage(msg))
+        checkBufferAndUnpause()
+        pump()
+      }
+    }
   }
 }

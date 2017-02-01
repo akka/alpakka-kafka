@@ -135,10 +135,12 @@ object ConsumerSettings {
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
+    val sourceBufferSize = config.getInt("source-buffer-size")
     val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, sourceBufferSize,
+      maxWakeups, dispatcher)
   }
 
   /**
@@ -232,6 +234,7 @@ class ConsumerSettings[K, V](
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
+    val sourceBufferSize: Int,
     val maxWakeups: Int,
     val dispatcher: String
 ) {
@@ -291,11 +294,12 @@ class ConsumerSettings[K, V](
     closeTimeout: FiniteDuration = closeTimeout,
     commitTimeout: FiniteDuration = commitTimeout,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
+    sourceBufferSize: Int = sourceBufferSize,
     maxWakeups: Int = maxWakeups,
     dispatcher: String = dispatcher
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, sourceBufferSize,
       maxWakeups, dispatcher)
 
   /**
