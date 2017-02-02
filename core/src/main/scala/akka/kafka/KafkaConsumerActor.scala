@@ -216,11 +216,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     currentPollTask = schedulePollTask()
   }
 
-  def schedulePollTask(): Cancellable = {
-    self ! pollMsg
-    //    context.system.scheduler.scheduleOnce(pollInterval(), self, "eee")(context.dispatcher)
-    null
-  }
+  def schedulePollTask(): Cancellable =
+    context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
 
   override def postStop(): Unit = {
     if (currentPollTask != null) currentPollTask.cancel()

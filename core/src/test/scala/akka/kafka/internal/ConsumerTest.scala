@@ -77,7 +77,7 @@ class ConsumerTest(_system: ActorSystem)
       .run()
 
     probe.request(msgss.map(_.size).sum.toLong)
-    msgss.foreach(chunk => mock.enqueue(chunk.map(toRecord)))
+    mock.enqueue(msgss.flatMap { r => r.map(toRecord) })
     probe.expectNextN(msgss.flatten)
 
     Await.result(control.shutdown(), remainingOrDefault)
