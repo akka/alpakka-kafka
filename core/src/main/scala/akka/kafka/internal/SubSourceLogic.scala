@@ -126,9 +126,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
       new GraphStageLogic(shape) with PromiseControl {
         val shape = stage.shape
-        val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
-        val pauseMessages = KafkaConsumerActor.Internal.PauseMessages(0, Set(tp))
-        val unpauseMessages = KafkaConsumerActor.Internal.UnpauseMessages(0, Set(tp))
+        val subscriptionMessage = KafkaConsumerActor.Internal.SubscriptionMessage(0, Set(tp))
+        val pauseMessage = KafkaConsumerActor.Internal.PauseMessage(0, Set(tp))
+        val unpauseMessage = KafkaConsumerActor.Internal.UnpauseMessage(0, Set(tp))
 
         var paused = false
         var self: StageActor = _
@@ -138,13 +138,13 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
         def checkBufferAndPause(): Unit =
           if (!paused && buffer.size >= bufferSize) {
-            consumer.tell(pauseMessages, self.ref)
+            consumer.tell(pauseMessage, self.ref)
             paused = true
           }
 
         def checkBufferAndUnpause(): Unit =
           if (paused && buffer.size < bufferSize) {
-            consumer.tell(unpauseMessages, self.ref)
+            consumer.tell(unpauseMessage, self.ref)
             paused = false
           }
 
@@ -160,7 +160,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
             case (_, Terminated(ref)) if ref == consumer =>
               failStage(new Exception("Consumer actor terminated"))
           }
-          consumer.tell(requestMessages, self.ref)
+          consumer.tell(subscriptionMessage, self.ref)
           self.watch(consumer)
         }
 

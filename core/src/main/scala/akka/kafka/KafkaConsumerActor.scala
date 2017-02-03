@@ -58,11 +58,11 @@ object KafkaConsumerActor {
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
     final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
-    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
+    final case class SubscriptionMessage(requestId: Int, topics: Set[TopicPartition])
 
-    final case class PauseMessages(requestId: Int, topics: Set[TopicPartition])
+    final case class PauseMessage(requestId: Int, topics: Set[TopicPartition])
 
-    final case class UnpauseMessages(requestId: Int, topics: Set[TopicPartition])
+    final case class UnpauseMessage(requestId: Int, topics: Set[TopicPartition])
 
     final case class Commit(offsets: Map[TopicPartition, Long])
 
@@ -88,7 +88,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   import KafkaConsumerActor._
 
   val pollMsg = Poll(this)
-  var requests = Map.empty[ActorRef, RequestMessages]
+  var subscriptions = Map.empty[ActorRef, SubscriptionMessage]
   var consumer: KafkaConsumer[K, V] = _
 
   var currentPollTask: Cancellable = _
@@ -141,19 +141,19 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       }
       schedulePollTask()
 
-    case req: RequestMessages =>
+    case sub: SubscriptionMessage =>
       context.watch(sender())
-      checkOverlappingRequests("RequestMessages", sender(), req.topics)
-      requests += (sender() -> req)
+      checkOverlappingRequests("RequestMessages", sender(), sub.topics)
+      subscriptions += (sender() -> sub)
 
-      consumer.resume(req.topics.asJava)
+      consumer.resume(sub.topics.asJava)
 
     case Stop =>
       stopInProgress = true
       context.become(stopping)
 
     case Terminated(ref) =>
-      requests.get(ref).foreach{ r =>
+      subscriptions.get(ref).foreach{ r =>
         consumer.pause(r.topics.asJava)
 
         r.topics.foreach { tp =>
@@ -161,30 +161,30 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           consumer.seek(tp, committed.offset())
         }
       }
-      requests -= ref
+      subscriptions -= ref
 
-    case PauseMessages(requestId: Int, topics: Set[TopicPartition]) if topics.isEmpty =>
+    case PauseMessage(requestId: Int, topics: Set[TopicPartition]) if topics.isEmpty =>
       consumer.pause(consumer.assignment())
 
-    case PauseMessages(requestId: Int, topics: Set[TopicPartition]) =>
+    case PauseMessage(requestId: Int, topics: Set[TopicPartition]) =>
       consumer.pause(topics.asJava)
 
-    case UnpauseMessages(requestId: Int, topics: Set[TopicPartition]) if topics.isEmpty =>
+    case UnpauseMessage(requestId: Int, topics: Set[TopicPartition]) if topics.isEmpty =>
       consumer.resume(consumer.assignment())
 
-    case UnpauseMessages(requestId: Int, topics: Set[TopicPartition]) =>
+    case UnpauseMessage(requestId: Int, topics: Set[TopicPartition]) =>
       consumer.resume(topics.asJava)
   }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
     // check if same topics/partitions have already been requested by someone else,
     // which is an indication that something is wrong, but it might be alright when assignments change.
-    if (requests.nonEmpty) requests.foreach {
+    if (subscriptions.nonEmpty) subscriptions.foreach {
       case (ref, r) =>
         if (ref != fromStage && r.topics.exists(topics.apply)) {
           log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
           ref ! Messages(r.requestId, Iterator.empty)
-          requests -= ref
+          subscriptions -= ref
         }
     }
   }
@@ -202,7 +202,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     case Stop =>
     case _: Terminated =>
-    case msg @ (_: Commit | _: RequestMessages) =>
+    case msg @ (_: Commit | _: SubscriptionMessage) =>
       sender() ! Status.Failure(StoppingException())
     case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
       log.warning("Got unexpected message {} when KafkaConsumerActor is in stopping state", msg)
@@ -223,7 +223,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     if (currentPollTask != null) currentPollTask.cancel()
 
     // reply to outstanding requests is important if the actor is restarted
-    requests.foreach {
+    subscriptions.foreach {
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
@@ -236,7 +236,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.wakeup()
     }(context.system.dispatcher)
     //set partitions to fetch
-    val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
+    val partitionsToFetch: Set[TopicPartition] = subscriptions.values.flatMap(_.topics)(collection.breakOut)
 
     def tryPoll(timeout: Long): ConsumerRecords[K, V] =
       try {
@@ -263,7 +263,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       }
 
     try {
-      if (requests.isEmpty) {
+      if (subscriptions.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
 
@@ -308,7 +308,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}")
 
       //send messages to actors
-      requests.foreach {
+      subscriptions.foreach {
         case (ref, req) =>
           //gather all messages for ref
           val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {

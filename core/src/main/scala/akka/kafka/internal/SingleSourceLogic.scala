@@ -37,8 +37,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   val bufferSize = settings.sourceBufferSize
   val buffer: mutable.Queue[ConsumerRecord[K, V]] = mutable.Queue()
   var paused = false
-  val pauseMessage = KafkaConsumerActor.Internal.PauseMessages(0, tps)
-  val unpauseMessage = KafkaConsumerActor.Internal.UnpauseMessages(0, tps)
+  val pauseMessage = KafkaConsumerActor.Internal.PauseMessage(0, tps)
+  val unpauseMessage = KafkaConsumerActor.Internal.UnpauseMessage(0, tps)
 
   def checkBufferAndPause(): Unit =
     if (!paused && buffer.size >= bufferSize) {
@@ -90,7 +90,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   }
 
   private def requestMessage(): Unit = {
-    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
+    consumer.tell(KafkaConsumerActor.Internal.SubscriptionMessage(requestId, tps), self.ref)
   }
 
   override def postStop(): Unit = {

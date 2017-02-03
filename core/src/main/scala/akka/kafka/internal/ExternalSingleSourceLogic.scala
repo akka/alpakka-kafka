@@ -83,7 +83,7 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   private def requestMessages(): Unit = {
     requested = true
     requestId += 1
-    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
+    consumer.tell(KafkaConsumerActor.Internal.SubscriptionMessage(requestId, tps), self.ref)
   }
 
   setHandler(shape.out, new OutHandler {
