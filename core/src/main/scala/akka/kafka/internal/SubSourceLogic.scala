@@ -152,7 +152,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
           subsourceStartedCB.invoke((tp, this))
           self = getStageActor {
             case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-              //              requested = false
 
               buffer.enqueue(msg.messages.toSeq: _*)
               checkBufferAndPause()
