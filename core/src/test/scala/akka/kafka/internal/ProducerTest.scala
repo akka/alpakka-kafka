@@ -30,27 +30,28 @@ import org.apache.kafka.clients.producer.{
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.Record
 import org.apache.kafka.common.serialization.StringSerializer
+
 import org.mockito.Matchers._
 import org.mockito.Mockito, Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
+
 import org.scalatest.{FlatSpecLike, Matchers}
 import org.scalatest.BeforeAndAfterAll
 
 class ProducerTest(_system: ActorSystem)
-    extends TestKit(_system)
-    with FlatSpecLike
-    with Matchers
-    with BeforeAndAfterAll {
+    extends TestKit(_system) with FlatSpecLike
+    with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem())
 
-  override def afterAll(): Unit = {
-    shutdown(system)
-  }
+  override def afterAll(): Unit = shutdown(system)
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
+  implicit val m = ActorMaterializer(
+    ActorMaterializerSettings(_system).withFuzzing(true)
+  )
+
   implicit val ec = _system.dispatcher
 
   type K = String
@@ -64,10 +65,8 @@ class ProducerTest(_system: ActorSystem)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
-  def toResult(tuple: (Record, RecordMetadata)) = {
-    val (record: Record, meta: RecordMetadata) = tuple
-    Result(meta, Message(record, NotUsed))
-  }
+  def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
+  val toResult = (result _).tupled
 
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 

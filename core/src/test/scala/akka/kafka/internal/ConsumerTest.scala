@@ -28,6 +28,7 @@ import org.mockito, mockito.Mockito, Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
+
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -223,6 +224,7 @@ class ConsumerTest(_system: ActorSystem)
       awaitAssert {
         commitLog.calls should have size (1)
       }
+
       val (topicPartition, offsetMeta) = commitLog.calls.head._1.head
       topicPartition.topic should ===(msg.record.topic())
       topicPartition.partition should ===(msg.record.partition())
