@@ -9,6 +9,7 @@ import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
@@ -18,13 +19,19 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
-import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
+import akka.stream.contrib.TestKit.assertAllStagesStopped
+
+import org.apache.kafka.clients.producer.{
+  Callback,
+  KafkaProducer,
+  ProducerRecord,
+  RecordMetadata
+}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.Record
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito.Matchers._
-import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.Mockito, Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -69,44 +76,48 @@ class ProducerTest(_system: ActorSystem)
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {
-    val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+    assertAllStagesStopped {
+      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
 
-    val probe = Source
-      .empty[Msg]
-      .via(testProducerFlow(client))
-      .runWith(TestSink.probe)
+      val probe = Source
+        .empty[Msg]
+        .via(testProducerFlow(client))
+        .runWith(TestSink.probe)
 
-    probe
-      .request(1)
-      .expectComplete()
+      probe
+        .request(1)
+        .expectComplete()
 
-    client.verifySend(never())
-    client.verifyClosed()
-    client.verifyNoMoreInteractions()
+      client.verifySend(never())
+      client.verifyClosed()
+      client.verifyNoMoreInteractions()
+    }
   }
 
   it should "emit confirmation in same order as inputs" in {
-    val input = 1 to 3 map recordAndMetadata
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
 
-    val client = {
-      val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+      val probe = Source(input.map(toMessage))
+        .via(testProducerFlow(client))
+        .runWith(TestSink.probe)
+
+      probe
+        .request(10)
+        .expectNextN(input.map(toResult))
+        .expectComplete()
+
+      client.verifyClosed()
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
     }
-    val probe = Source(input.map(toMessage))
-      .via(testProducerFlow(client))
-      .runWith(TestSink.probe)
-
-    probe
-      .request(10)
-      .expectNextN(input.map(toResult))
-      .expectComplete()
-
-    client.verifyClosed()
-    client.verifySend(atLeastOnce())
-    client.verifyNoMoreInteractions()
   }
 
-  it should "in case of source error complete emitted messages and push error" in {
+  it should "in case of source error complete emitted messages and push error" in assertAllStagesStopped {
     val input = 1 to 10 map recordAndMetadata
 
     val client = {
@@ -136,72 +147,78 @@ class ProducerTest(_system: ActorSystem)
   }
 
   it should "fail stream in case of fail to send message" in {
-    val input = 1 to 3 map recordAndMetadata
-    val error = new Exception("Something wrong in kafka")
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
+      val error = new Exception("Something wrong in kafka")
 
-    val client = {
-      val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { msg =>
-        if (msg.value() == "2") Failure(error)
-        else Success(inputMap(msg))
-      })
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { msg =>
+          if (msg.value() == "2") Failure(error)
+          else Success(inputMap(msg))
+        })
+      }
+      val (source, sink) = TestSource
+        .probe[Msg]
+        .via(testProducerFlow(client))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      sink.request(100)
+      input.map(toMessage).foreach(source.sendNext)
+
+      source.expectCancellation()
+
+      client.verifyClosed()
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
     }
-    val (source, sink) = TestSource
-      .probe[Msg]
-      .via(testProducerFlow(client))
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    sink.request(100)
-    input.map(toMessage).foreach(source.sendNext)
-
-    source.expectCancellation()
-
-    client.verifyClosed()
-    client.verifySend(atLeastOnce())
-    client.verifyNoMoreInteractions()
   }
 
   it should "close client and complete in case of cancellation of outlet" in {
-    val input = 1 to 3 map recordAndMetadata
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
 
-    val client = {
-      val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(5.seconds)(x => Try { inputMap(x) }))
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(5.seconds)(x => Try { inputMap(x) }))
+      }
+      val (source, sink) = TestSource
+        .probe[Msg]
+        .via(testProducerFlow(client))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      sink.request(10)
+      input.map(toMessage).foreach(source.sendNext)
+
+      sink.cancel()
+      source.expectCancellation()
+
+      client.verifyClosed()
     }
-    val (source, sink) = TestSource
-      .probe[Msg]
-      .via(testProducerFlow(client))
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    sink.request(10)
-    input.map(toMessage).foreach(source.sendNext)
-
-    sink.cancel()
-    source.expectCancellation()
-
-    client.verifyClosed()
   }
 
   it should "not close the producer if closeProducerOnStop is false" in {
-    val input = 1 to 3 map recordAndMetadata
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
 
-    val client = {
-      val inputMap = input.toMap
-      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+      val probe = Source(input.map(toMessage))
+        .via(testProducerFlow(client, closeOnStop = false))
+        .runWith(TestSink.probe)
+
+      probe
+        .request(10)
+        .expectNextN(input.map(toResult))
+        .expectComplete()
+
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
     }
-    val probe = Source(input.map(toMessage))
-      .via(testProducerFlow(client, closeOnStop = false))
-      .runWith(TestSink.probe)
-
-    probe
-      .request(10)
-      .expectNextN(input.map(toResult))
-      .expectComplete()
-
-    client.verifySend(atLeastOnce())
-    client.verifyNoMoreInteractions()
   }
 }
 
