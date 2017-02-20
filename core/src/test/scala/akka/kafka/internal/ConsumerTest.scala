@@ -118,6 +118,7 @@ class ConsumerTest(_system: ActorSystem)
       probe
         .request(1)
         .expectNoMsg()
+        .cancel()
     }
   }
 
@@ -131,6 +132,7 @@ class ConsumerTest(_system: ActorSystem)
     probe
       .request(1)
       .expectNoMsg()
+      .cancel()
   }
 
   it should "not fail stream when poll() fail limit exceeded" in {
@@ -468,6 +470,7 @@ class ConsumerTest(_system: ActorSystem)
       Await.result(Future.sequence(stops), remainingOrDefault)
 
       probe.expectComplete()
+      Await.result(control.shutdown(), remainingOrDefault)
     }
   }
 
