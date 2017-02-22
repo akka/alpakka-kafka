@@ -24,18 +24,29 @@ import akka.stream.scaladsl.{Keep, Source, Sink}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
+import akka.stream.contrib.TestKit.assertAllStagesStopped
 
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{
+  ByteArrayDeserializer,
+  ByteArraySerializer,
+  StringDeserializer,
+  StringSerializer
+}
 import org.scalactic.TypeCheckedTripleEquals
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import org.scalatest.{
+  BeforeAndAfterAll,
+  BeforeAndAfterEach,
+  Matchers,
+  WordSpecLike
+}
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-    with WordSpecLike with Matchers with BeforeAndAfterAll with BeforeAndAfterEach
-    with TypeCheckedTripleEquals {
+    with WordSpecLike with Matchers with BeforeAndAfterAll
+    with BeforeAndAfterEach with TypeCheckedTripleEquals {
 
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
@@ -107,24 +118,26 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   "Reactive kafka streams" must {
     "produce to plainSink and consume from plainSource" in {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      assertAllStagesStopped {
+        val topic1 = createTopic(1)
+        val group1 = createGroup(1)
 
-      givenInitializedTopic(topic1)
+        givenInitializedTopic(topic1)
 
-      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+        Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1)
-      val probe = createProbe(consumerSettings, topic1)
+        val consumerSettings = createConsumerSettings(group1)
+        val probe = createProbe(consumerSettings, topic1)
 
-      probe
-        .request(100)
-        .expectNextN((1 to 100).map(_.toString))
+        probe
+          .request(100)
+          .expectNextN((1 to 100).map(_.toString))
 
-      probe.cancel()
+        probe.cancel()
+      }
     }
 
-    "resume consumer from committed offset" in {
+    "resume consumer from committed offset" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
       val group2 = createGroup(2)
@@ -192,7 +205,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe3.cancel()
     }
 
-    "handle commit without demand" in {
+    "handle commit without demand" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
@@ -233,7 +246,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    "consume and commit in batches" in {
+    "consume and commit in batches" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
@@ -274,37 +287,39 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     }
 
     "connect consumer to producer and commit in batches" in {
-      val topic1 = createTopic(1)
-      val topic2 = createTopic(2)
-      val group1 = createGroup(1)
+      assertAllStagesStopped {
+        val topic1 = createTopic(1)
+        val topic2 = createTopic(2)
+        val group1 = createGroup(1)
 
-      givenInitializedTopic(topic1)
+        givenInitializedTopic(topic1)
 
-      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+        Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings1 = createConsumerSettings(group1)
+        val consumerSettings1 = createConsumerSettings(group1)
 
-      val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
-        .map(msg =>
-          {
-            ProducerMessage.Message(
-              // Produce to topic2
-              new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
-              msg.committableOffset
-            )
-          })
-        .via(Producer.flow(producerSettings))
-        .map(_.message.passThrough)
-        .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
-          batch.updated(elem)
-        }
-        .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+        val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
+          .map(msg =>
+            {
+              ProducerMessage.Message(
+                // Produce to topic2
+                new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
+                msg.committableOffset
+              )
+            })
+          .via(Producer.flow(producerSettings))
+          .map(_.message.passThrough)
+          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+            batch.updated(elem)
+          }
+          .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
 
-      val probe = source.runWith(TestSink.probe)
+        val probe = source.runWith(TestSink.probe)
 
-      probe.request(1).expectNext()
+        probe.request(1).expectNext()
 
-      probe.cancel()
+        probe.cancel()
+      }
     }
   }
 }

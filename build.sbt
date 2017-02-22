@@ -3,13 +3,14 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.14"
+val akkaVersion = "2.4.17"
 val kafkaVersion = "0.10.1.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
 val commonDependencies = Seq(
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+  "com.typesafe.akka" %% "akka-stream-contrib" % "0.6" % Test
 )
 
 val coreDependencies = Seq(
