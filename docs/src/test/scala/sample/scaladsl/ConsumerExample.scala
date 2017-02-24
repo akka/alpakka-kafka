@@ -324,7 +324,11 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #consumerActor
     //Consumer is represented by actor
-    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+    val consumer: ActorRef = system.actorOf(
+      KafkaConsumerActor.propsWithCommitResult(
+        consumerSettings
+      )
+    )
 
     //Manually assign topic partition to it
     Consumer

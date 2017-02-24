@@ -90,6 +90,13 @@ object ConsumerMessage {
     def updated(offset: CommittableOffset): CommittableOffsetBatch
 
     /**
+     * Add/overwite an offset position for the given groupId, topic, partition.
+     * @param offsets Sequence of offsets to add/overwrite offset position for the given groupId, topic, partition.
+     * @return
+     */
+    def updated(offsets: Seq[CommittableOffset]): CommittableOffsetBatch
+
+    /**
      * Scala API: Get current offset positions
      */
     def offsets(): Map[GroupTopicPartition, Long]

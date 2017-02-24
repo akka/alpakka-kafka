@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
 import akka.kafka.ConsumerMessage._
-import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed}
+import akka.kafka.KafkaConsumerActor.Internal
 import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
 import akka.stream._
@@ -97,13 +97,13 @@ private[kafka] object ConsumerStage {
       val offsets = Map(
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
       )
-      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+      (ref ? Internal.Commit(offsets)).mapTo[Internal.CompletedCommit.type].map(_ => Done)
     }
     override def commit(batch: CommittableOffsetBatch): Future[Done] = {
       val offsets = batch.offsets.map {
         case (ctp, offset) => new TopicPartition(ctp.topic, ctp.partition) -> (offset + 1)
       }
-      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+      (ref ? Internal.Commit(offsets)).mapTo[Internal.CompletedCommit.type].map(_ => Done)
     }
   }
 
@@ -153,12 +153,11 @@ private[kafka] object ConsumerStage {
   final class CommittableOffsetBatchImpl(val offsets: Map[GroupTopicPartition, Long], val stages: Map[String, Committer])
       extends CommittableOffsetBatch {
 
-    override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
-      val partitionOffset = committableOffset.partitionOffset
-      val key = partitionOffset.key
-
-      val newOffsets = offsets.updated(key, committableOffset.partitionOffset.offset)
-
+    private def updatedStages(
+      existing: Map[String, Committer],
+      key: GroupTopicPartition,
+      committableOffset: CommittableOffset
+    ): Map[String, Committer] = {
       val stage = committableOffset match {
         case c: CommittableOffsetImpl => c.committer
         case _ => throw new IllegalArgumentException(
@@ -167,13 +166,36 @@ private[kafka] object ConsumerStage {
         )
       }
 
-      val newStages = stages.get(key.groupId) match {
+      stages.get(key.groupId) match {
         case Some(s) =>
           require(s == stage, s"CommittableOffset [$committableOffset] origin stage must be same as other " +
             s"stage with same groupId. Expected [$s], got [$stage]")
           stages
         case None =>
           stages.updated(key.groupId, stage)
+      }
+    }
+
+    override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
+      val partitionOffset = committableOffset.partitionOffset
+      val key = partitionOffset.key
+
+      val newOffsets = offsets.updated(key, committableOffset.partitionOffset.offset)
+
+      new CommittableOffsetBatchImpl(newOffsets, updatedStages(stages, key, committableOffset))
+    }
+
+    override def updated(committableOffsets: Seq[CommittableOffset]): CommittableOffsetBatch = {
+      val (newStages, newOffsets) = committableOffsets.groupBy(_.partitionOffset.key).foldLeft((stages, offsets)) {
+        case ((aggStages, aggOffsets), (key, committableOffsetsForKey)) =>
+          val commitToUse = committableOffsetsForKey.sortBy(_.partitionOffset.offset).head
+          val partitionOffset = commitToUse.partitionOffset
+          val key = partitionOffset.key
+          val offset = commitToUse.partitionOffset.offset
+
+          val offsetToUpdateTo = Math.max(aggOffsets.getOrElse(key, offset), offset)
+
+          updatedStages(stages, key, commitToUse) -> aggOffsets.updated(key, offsetToUpdateTo)
       }
 
       new CommittableOffsetBatchImpl(newOffsets, newStages)
