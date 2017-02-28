@@ -336,10 +336,12 @@ class RestartKafkaConsumeExample extends ConsumerExample {
     // #restartConsumer
     RunnableGraph<Consumer.Control> runnableGraph = Consumer
         .committableSource(consumerSettings, Subscriptions.topics("topic1"))
-        .map(message -> {
-          System.out.println(message);
-          return message;
-        }).toMat(Sink.ignore(), Keep.left());
+        .map(msg -> {
+          System.out.println(msg);
+          return msg.committableOffset();
+        })
+        .map(x -> x.commitJavadsl()) 
+        .toMat(Sink.ignore(), Keep.left());
 
     Consumer.Control control1 = runnableGraph.run(materializer);
     CompletionStage<Done> completionStage = control1.shutdown();

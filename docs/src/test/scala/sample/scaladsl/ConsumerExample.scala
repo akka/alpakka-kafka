@@ -347,7 +347,8 @@ object RestartKafkaConsumeExample extends ConsumerExample {
     // #restartConsumer
     val runnableGraph: RunnableGraph[Consumer.Control] =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-        .map { message => { println(message.record.value()); message } }
+        .map(msg => { println(msg.record.value()); msg.committableOffset })
+        .map(_.commitScaladsl())
         .toMat(Sink.ignore)(Keep.left)
     val control1: Consumer.Control = runnableGraph.run()
     val shutdownFuture = control1.shutdown()
