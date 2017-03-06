@@ -92,7 +92,8 @@ object Consumer {
 
   /**
    * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
-   * When a topic-partition is assigned to a consumer, this source will emit tuples with the assigned topic-partition and a corresponding source of [[ConsumerRecord]]s.
+   * When a topic-partition is assigned to a consumer, this source will emit tuples with the assigned topic-partition and a corresponding 
+   * source of `ConsumerRecord`s.
    * When a topic-partition is revoked, the corresponding source completes.
    */
   def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
