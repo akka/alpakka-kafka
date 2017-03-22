@@ -4,7 +4,7 @@ Akka Streams Kafka, also known as Reactive Kafka, is an Akka Streams connector f
 
 The examples in this documentation use
 
-* Akka Streams Kakfka $version$
+* Akka Streams Kakfka $version$ ([Github](https://github.com/akka/reactive-kafka))
 * Scala $scalaBinaryVersion$
 * @extref[Akka Streams](akka-docs:scala/stream/index.html) $akkaVersion$ ([Github](https://github.com/akka/akka))
 * @extref[Apache Kafka](kafka-docs:index.html) $kafkaVersion$ ([Apache Git](https://git-wip-us.apache.org/repos/asf?p=kafka.git))
