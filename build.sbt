@@ -96,11 +96,14 @@ lazy val docs = project.in(file("docs"))
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxProperties ++= Map(
-      "version" -> version.value,
-      "akka.version" -> akkaVersion,
-      "kafka.version" -> kafkaVersion,
-      "scala.binaryVersion"              -> scalaBinaryVersion.value,
-      "scala.version"                    -> scalaVersion.value
+      "version"                          -> version.value,
+      "akkaVersion"                      -> akkaVersion,
+      "kafkaVersion"                     -> kafkaVersion,
+      "scalaVersion"                     -> scalaVersion.value,
+      "scalaBinaryVersion"               -> scalaBinaryVersion.value,
+      "extref.akka-docs.base_url"        -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
+      "extref.kafka-docs.base_url"       -> s"https://kafka.apache.org/documentation/%s",
+      "scaladoc.akka.base_url"           -> s"http://doc.akka.io/api/akka/$akkaVersion"
     )
   )
 
