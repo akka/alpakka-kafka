@@ -341,7 +341,7 @@ class ConsumerTest(_system: ActorSystem)
   }
 
   //FIXME looks like current implementation of batch committer is incorrect
-  ignore should "support commit batching from more than one stage" in {
+  it should "support commit batching from more than one stage" in {
     assertAllStagesStopped {
       val commitLog1 = new ConsumerMock.LogHandler()
       val commitLog2 = new ConsumerMock.LogHandler()
