@@ -166,36 +166,60 @@ private[kafka] object ConsumerStage {
         )
       }
 
-      stages.get(key.groupId) match {
+      existing.get(key.groupId) match {
         case Some(s) =>
           require(s == stage, s"CommittableOffset [$committableOffset] origin stage must be same as other " +
             s"stage with same groupId. Expected [$s], got [$stage]")
-          stages
+          existing
         case None =>
-          stages.updated(key.groupId, stage)
+          existing.updated(key.groupId, stage)
       }
     }
 
+    private def updatedOffsets(
+      existing: Map[GroupTopicPartition, Long],
+      key: GroupTopicPartition,
+      offset: Long
+    ): Map[GroupTopicPartition, Long] = {
+      val offsetToUpdateTo = existing.get(key)
+        .map(Math.max(_, offset))
+        .getOrElse(offset)
+      existing.updated(key, offsetToUpdateTo)
+    }
+
+    /**
+      * Update this batch with a single committable offset. A new CommittableOffsetBatch will be returned that has
+      * the in memory map of offsets and commiters updated based on this offset. The offsets map will now contain the
+      * largest offset between this committable offset and the existing offsets specified for commit. The commiters
+      * map will include the committer for this committable offset
+      * @param committableOffset CommittableOffset to be used to update offsets and committers when creating the new
+      *                          CommittableOffsetBatch
+      * @return
+      */
     override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
       val partitionOffset = committableOffset.partitionOffset
       val key = partitionOffset.key
 
-      val newOffsets = offsets.updated(key, committableOffset.partitionOffset.offset)
-
-      new CommittableOffsetBatchImpl(newOffsets, updatedStages(stages, key, committableOffset))
+      new CommittableOffsetBatchImpl(updatedOffsets(offsets, key, partitionOffset.offset), updatedStages(stages, key, committableOffset))
     }
 
+    /**
+      * Update this batch with multiple committable offsets. A new CommittableOffsetBatch will be returned that has
+      * the in memory map of offsets and commiters updated based on these offsets. The offsets map will now contain the
+      * largest offset between these committable offsets and the existing offsets specified for commit. The commiters
+      * map will include the committers for these committable offsets
+      * @param committableOffsets Sequence of CommitableOffset to be used to update offsets and committers when creating
+      *                           the new CommittableOffsetBatch
+      * @return
+      */
     override def updated(committableOffsets: Seq[CommittableOffset]): CommittableOffsetBatch = {
       val (newStages, newOffsets) = committableOffsets.groupBy(_.partitionOffset.key).foldLeft((stages, offsets)) {
         case ((aggStages, aggOffsets), (key, committableOffsetsForKey)) =>
-          val commitToUse = committableOffsetsForKey.sortBy(_.partitionOffset.offset).head
+          val commitToUse = committableOffsetsForKey.maxBy(_.partitionOffset.offset)
           val partitionOffset = commitToUse.partitionOffset
           val key = partitionOffset.key
-          val offset = commitToUse.partitionOffset.offset
 
-          val offsetToUpdateTo = Math.max(aggOffsets.getOrElse(key, offset), offset)
-
-          updatedStages(stages, key, commitToUse) -> aggOffsets.updated(key, offsetToUpdateTo)
+          updatedStages(aggStages, key, commitToUse) -> updatedOffsets(aggOffsets, key, partitionOffset.offset)
       }
 
       new CommittableOffsetBatchImpl(newOffsets, newStages)

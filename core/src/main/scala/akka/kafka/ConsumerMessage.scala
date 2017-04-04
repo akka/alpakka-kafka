@@ -11,6 +11,7 @@ import akka.Done
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
 /**
@@ -81,7 +82,7 @@ object ConsumerMessage {
   /**
    * For improved efficiency it is good to aggregate several [[CommittableOffset]],
    * using this class, before [[Committable#commitScaladsl committing]] them. Start with
-   * the [[CommittableOffsetBatch$#empty empty] batch.
+   * the [[CommittableOffsetBatch#empty empty]] batch.
    */
   trait CommittableOffsetBatch extends Committable {
     /**
