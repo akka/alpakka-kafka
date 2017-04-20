@@ -17,7 +17,7 @@ import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import akka.stream.contrib.TestKit.assertAllStagesStopped
+import akka.kafka.test.Utils._
 
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -67,6 +67,7 @@ class ConsumerTest(_system: ActorSystem)
   }
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
+  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
   val messages = (1 to 10000).map(createMessage)
 

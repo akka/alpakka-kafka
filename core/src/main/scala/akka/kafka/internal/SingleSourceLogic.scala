@@ -55,6 +55,16 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
     self.watch(consumer)
 
+    val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+      tps ++= newTps
+      requestMessages()
+    }
+
+    val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+      tps --= newTps
+      requestMessages()
+    }
+
     def rebalanceListener =
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
 
@@ -71,15 +81,6 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         tps ++= topics.keySet
     }
 
-  }
-
-  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps ++= newTps
-    requestMessages()
-  }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps --= newTps
-    requestMessages()
   }
 
   @tailrec

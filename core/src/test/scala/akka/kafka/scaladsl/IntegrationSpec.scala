@@ -7,11 +7,10 @@ package akka.kafka.scaladsl
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-
+import akka.kafka.test.Utils._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
-
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions.TopicSubscription
@@ -20,34 +19,23 @@ import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage
 import akka.kafka.ProducerMessage.Message
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Source, Sink}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
-import akka.stream.contrib.TestKit.assertAllStagesStopped
-
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{
-  ByteArrayDeserializer,
-  ByteArraySerializer,
-  StringDeserializer,
-  StringSerializer
-}
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
-import org.scalatest.{
-  BeforeAndAfterAll,
-  BeforeAndAfterEach,
-  Matchers,
-  WordSpecLike
-}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll
     with BeforeAndAfterEach with TypeCheckedTripleEquals {
 
+  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
   implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181)
