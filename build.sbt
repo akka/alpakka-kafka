@@ -9,8 +9,7 @@ val kafkaVersion = "0.10.2.0"
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
 val commonDependencies = Seq(
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
-  "com.typesafe.akka" %% "akka-stream-contrib" % "0.6" % Test
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test
 )
 
 val coreDependencies = Seq(

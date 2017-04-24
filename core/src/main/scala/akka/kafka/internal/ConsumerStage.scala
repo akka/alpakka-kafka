@@ -14,7 +14,7 @@ import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
 import akka.stream._
 import akka.stream.scaladsl.Source
-import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
+import akka.stream.stage.{CallbackWrapper, GraphStageLogic, GraphStageWithMaterializedValue}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -211,8 +211,13 @@ private[kafka] trait MessageBuilder[K, V, Msg] {
   def createMessage(rec: ConsumerRecord[K, V]): Msg
 }
 
-private[kafka] trait PromiseControl extends Control {
-  this: GraphStageLogic =>
+private[kafka] sealed trait ControlOperation
+
+private[kafka] case object ControlStop extends ControlOperation
+
+private[kafka] case object ControlShutdown extends ControlOperation
+
+private[kafka] trait PromiseControl extends GraphStageLogic with Control with CallbackWrapper[ControlOperation] {
 
   def shape: SourceShape[_]
   def performShutdown(): Unit
@@ -234,15 +239,21 @@ private[kafka] trait PromiseControl extends Control {
     shutdownPromise.trySuccess(Done)
   }
 
-  val performStopCallback = getAsyncCallback[Unit]({ _ => performStop() })
-  val performShutdownCallback = getAsyncCallback[Unit](_ => performShutdown())
+  override def preStart(): Unit = {
+    super.preStart()
+    val controlCallback = getAsyncCallback[ControlOperation]({
+      case ControlStop => performStop()
+      case ControlShutdown => performShutdown()
+    })
+    initCallback(controlCallback.invoke)
+  }
 
   override def stop(): Future[Done] = {
-    performStopCallback.invoke(())
+    invoke(ControlStop)
     stopPromise.future
   }
   override def shutdown(): Future[Done] = {
-    performShutdownCallback.invoke(())
+    invoke(ControlShutdown)
     shutdownPromise.future
   }
   override def isShutdown: Future[Done] = shutdownPromise.future

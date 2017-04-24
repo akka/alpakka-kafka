@@ -19,7 +19,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
-import akka.stream.contrib.TestKit.assertAllStagesStopped
+import akka.kafka.test.Utils._
 
 import org.apache.kafka.clients.producer.{
   Callback,
@@ -51,7 +51,7 @@ class ProducerTest(_system: ActorSystem)
   implicit val m = ActorMaterializer(
     ActorMaterializerSettings(_system).withFuzzing(true)
   )
-
+  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
 
   type K = String
