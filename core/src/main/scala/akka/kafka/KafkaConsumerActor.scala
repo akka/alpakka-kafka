@@ -87,10 +87,12 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
+      scheduleFirstPollTask()
       checkOverlappingRequests("Assign", sender(), tps)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
     case AssignWithOffset(tps) =>
+      scheduleFirstPollTask()
       checkOverlappingRequests("AssignWithOffset", sender(), tps.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
@@ -112,8 +114,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       //right now we can not store commits in consumer - https://issues.apache.org/jira/browse/KAFKA-3412
       poll()
     case Subscribe(topics, listener) =>
+      scheduleFirstPollTask()
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
+      scheduleFirstPollTask()
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
     case Poll(target) =>
       if (target == this) {
@@ -178,7 +182,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     super.preStart()
 
     consumer = settings.createKafkaConsumer()
-    currentPollTask = schedulePollTask()
   }
 
   override def postStop(): Unit = {
@@ -193,6 +196,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     consumer.close()
     super.postStop()
   }
+
+  def scheduleFirstPollTask(): Unit =
+    if (currentPollTask == null) currentPollTask = schedulePollTask()
 
   def schedulePollTask(): Cancellable =
     context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
