@@ -38,7 +38,9 @@ object KafkaConsumerActor {
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
-    private[KafkaConsumerActor] final case class Poll[K, V](target: KafkaConsumerActor[K, V]) extends DeadLetterSuppression
+    private[KafkaConsumerActor] final case class Poll[K, V](
+      target: KafkaConsumerActor[K, V], periodic: Boolean
+    ) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -73,17 +75,20 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
-  val pollMsg = Poll(this)
+  val pollMsg = Poll(this, periodic = true)
+  val delayedPollMsg = Poll(this, periodic = false)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
   var currentPollTask: Cancellable = _
 
   var requests = Map.empty[ActorRef, RequestMessages]
+  var requestors = Set.empty[ActorRef]
   var consumer: KafkaConsumer[K, V] = _
   var commitsInProgress = 0
   var wakeups = 0
   var stopInProgress = false
+  var delayedPollInFlight = false
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
@@ -99,6 +104,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       tps.foreach {
         case (tp, offset) => consumer.seek(tp, offset)
       }
+
     case Commit(offsets) =>
       val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
       val reply = sender()
@@ -111,29 +117,41 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           else reply ! Committed(offsets.asScala.toMap)
         }
       })
-      //right now we can not store commits in consumer - https://issues.apache.org/jira/browse/KAFKA-3412
-      poll()
+      // When many requestors, e.g. many partitions with committablePartitionedSource the
+      // performance is much by collecting more requests/commits before performing the poll.
+      // That is done by sending a message to self, and thereby collect pending messages in mailbox.
+      if (requestors.size == 1)
+        poll()
+      else if (!delayedPollInFlight) {
+        delayedPollInFlight = true
+        self ! delayedPollMsg
+      }
+
     case Subscribe(topics, listener) =>
       scheduleFirstPollTask()
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
     case SubscribePattern(pattern, listener) =>
       scheduleFirstPollTask()
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
-    case Poll(target) =>
-      if (target == this) {
-        poll()
-        currentPollTask = schedulePollTask()
-      }
-      else {
-        // Message was enqueued before a restart - can be ignored
-        log.debug("Ignoring Poll message with stale target ref")
-      }
+
+    case p: Poll[_, _] =>
+      receivePoll(p)
 
     case req: RequestMessages =>
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
       requests = requests.updated(sender(), req)
-      poll()
+      requestors += sender()
+      // When many requestors, e.g. many partitions with committablePartitionedSource the
+      // performance is much by collecting more requests/commits before performing the poll.
+      // That is done by sending a message to self, and thereby collect pending messages in mailbox.
+      if (requestors.size == 1)
+        poll()
+      else if (!delayedPollInFlight) {
+        delayedPollInFlight = true
+        self ! delayedPollMsg
+      }
+
     case Stop =>
       if (commitsInProgress == 0) {
         context.stop(self)
@@ -144,6 +162,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       }
     case Terminated(ref) =>
       requests -= ref
+      requestors -= ref
   }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
@@ -160,16 +179,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   }
 
   def stopping: Receive = LoggingReceive {
-    case Poll(target) =>
-      if (target == this) {
-        poll()
-        currentPollTask = schedulePollTask()
-      }
-      else {
-        // Message was enqueued before a restart - can be ignored
-        log.debug("Ignoring Poll message with stale target ref")
-      }
-
+    case p: Poll[_, _] =>
+      receivePoll(p)
     case Stop =>
     case _: Terminated =>
     case msg @ (_: Commit | _: RequestMessages) =>
@@ -202,6 +213,20 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def schedulePollTask(): Cancellable =
     context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
+
+  private def receivePoll(p: Poll[_, _]): Unit = {
+    if (p.target == this) {
+      poll()
+      if (p.periodic)
+        currentPollTask = schedulePollTask()
+      else
+        delayedPollInFlight = false
+    }
+    else {
+      // Message was enqueued before a restart - can be ignored
+      log.debug("Ignoring Poll message with stale target ref")
+    }
+  }
 
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
