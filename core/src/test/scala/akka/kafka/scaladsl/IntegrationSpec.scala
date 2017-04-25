@@ -31,6 +31,8 @@ import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import org.scalatest.Assertions
 
+import scala.concurrent.duration._
+
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     with WordSpecLike with Matchers with BeforeAndAfterAll
     with BeforeAndAfterEach with TypeCheckedTripleEquals {
@@ -268,9 +270,139 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val consumerSettings2 = createConsumerSettings(group1)
       val probe2 = createProbe(consumerSettings2, topic1)
 
+      val element = probe2.request(1).expectNext(60.seconds)
+
+      Assertions.assert(element.toInt > 10, "Should start after last element of first batch")
+      probe2.cancel()
+    }
+
+    "consume and commit in unordered batches" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
+
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+      val consumerSettings = createConsumerSettings(group1)
+
+      def consumeAndBatchCommit(topic: String) = {
+        Consumer.committableSource(
+          consumerSettings,
+          TopicSubscription(Set(topic))
+        )
+          .mapAsync(10) { msg =>
+            akka.pattern.after( (scala.util.Random.nextInt(50) + 50).milliseconds, using = system.scheduler ) {
+              Future.successful(msg.committableOffset)
+            }
+          }
+          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
+            (batch, elem) => batch.updated(elem)
+          }
+          .mapAsync(1)(_.commitScaladsl())
+          .toMat(TestSink.probe)(Keep.both).run()
+      }
+
+      val (control, probe) = consumeAndBatchCommit(topic1)
+
+      //give it time to aggregate the first batch
+      probe.ensureSubscription()
+      probe.expectNoMsg(1.seconds)
+
+      // Request one batch
+      probe.request(1).expectNextN(1)
+
+      probe.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+
+      // Resume consumption
+      val consumerSettings2 = createConsumerSettings(group1)
+      val probe2 = createProbe(consumerSettings2, topic1)
+
       val element = probe2.request(1).expectNext(60 seconds)
 
-      Assertions.assert(element.toInt > 1, "Should start after first element")
+      Assertions.assert(element.toInt > 10, "Should start after last element of first batch")
+      probe2.cancel()
+    }
+
+    "consume and commit in grouped batches" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
+
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+      val consumerSettings = createConsumerSettings(group1)
+
+      def consumeAndBatchCommit(topic: String) = {
+        Consumer.committableSource(
+          consumerSettings,
+          TopicSubscription(Set(topic))
+        )
+          .map { msg => msg.committableOffset }
+          .groupedWithin(10, 1.seconds)
+          .map { elems =>
+            CommittableOffsetBatch.empty.updated(elems)
+          }
+          .mapAsync(1)(_.commitScaladsl())
+          .toMat(TestSink.probe)(Keep.both).run()
+      }
+
+      val (control, probe) = consumeAndBatchCommit(topic1)
+
+      // Request one batch
+      probe.request(1).expectNextN(1)
+
+      probe.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+
+      // Resume consumption
+      val consumerSettings2 = createConsumerSettings(group1)
+      val probe2 = createProbe(consumerSettings2, topic1)
+
+      val element = probe2.request(1).expectNext(60 seconds)
+
+      Assertions.assert(element.toInt > 10, "Should start after last element of first batch")
+      probe2.cancel()
+    }
+
+    "consume and commit in unordered grouped batches" in {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
+
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+      val consumerSettings = createConsumerSettings(group1)
+
+      def consumeAndBatchCommit(topic: String) = {
+        Consumer.committableSource(
+          consumerSettings,
+          TopicSubscription(Set(topic))
+        )
+          .map { msg => msg.committableOffset }
+          .groupedWithin(10, 1.seconds)
+          .map { elems =>
+            CommittableOffsetBatch.empty.updated(scala.util.Random.shuffle(elems))
+          }
+          .mapAsync(1)(_.commitScaladsl())
+          .toMat(TestSink.probe)(Keep.both).run()
+      }
+
+      val (control, probe) = consumeAndBatchCommit(topic1)
+
+      // Request one batch
+      probe.request(1).expectNextN(1)
+
+      probe.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+
+      // Resume consumption
+      val consumerSettings2 = createConsumerSettings(group1)
+      val probe2 = createProbe(consumerSettings2, topic1)
+
+      val element = probe2.request(1).expectNext(60 seconds)
+
+      Assertions.assert(element.toInt > 10, "Should start after last element of first batch")
       probe2.cancel()
     }
 

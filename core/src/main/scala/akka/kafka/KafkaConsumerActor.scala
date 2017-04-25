@@ -7,21 +7,36 @@ package akka.kafka
 import java.util
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
+
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
+
+import akka.Done
 import akka.actor.DeadLetterSuppression
+
 import scala.util.control.{NoStackTrace, NonFatal}
 import scala.util.{Failure, Success, Try}
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
-  def props[K, V](settings: ConsumerSettings[K, V]): Props =
-    Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
+
+  def propsWithCommitResult[K, V](
+    settings: ConsumerSettings[K, V]
+  ): Props = {
+    Props(new KafkaConsumerActor(settings, m => Internal.OffsetCommitResult(m.asScala.toMap))).withDispatcher(settings.dispatcher)
+  }
+
+  def props[K, V](
+    settings: ConsumerSettings[K, V]
+  ): Props = {
+    Props(new KafkaConsumerActor(settings, m => Internal.CompletedCommit)).withDispatcher(settings.dispatcher)
+  }
 
   private[kafka] object Internal {
     //requests
@@ -36,9 +51,12 @@ object KafkaConsumerActor {
     final case class Assigned(partition: List[TopicPartition])
     final case class Revoked(partition: List[TopicPartition])
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
-    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+
+    sealed trait CommitResult
+    final case class OffsetCommitResult(result: Map[TopicPartition, OffsetAndMetadata]) extends CommitResult
+    final case object CompletedCommit extends CommitResult
     //internal
-    private[KafkaConsumerActor] final case class Poll[K, V](target: KafkaConsumerActor[K, V]) extends DeadLetterSuppression
+    private[KafkaConsumerActor] final case class Poll[K, V, R](target: KafkaConsumerActor[K, V, R]) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -68,7 +86,10 @@ object KafkaConsumerActor {
   }
 }
 
-private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
+private[kafka] class KafkaConsumerActor[K, V, R](
+  settings: ConsumerSettings[K, V],
+  mapCommittedOffsets: util.Map[TopicPartition, OffsetAndMetadata] => R
+)
     extends Actor with ActorLogging {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
@@ -104,11 +125,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       val reply = sender()
       commitsInProgress += 1
       consumer.commitAsync(commitMap.asJava, new OffsetCommitCallback {
-        override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
+        override def onComplete(committedOffsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           commitsInProgress -= 1
           if (exception != null) reply ! Status.Failure(exception)
-          else reply ! Committed(offsets.asScala.toMap)
+          else reply ! mapCommittedOffsets(committedOffsets)
         }
       })
       //right now we can not store commits in consumer - https://issues.apache.org/jira/browse/KAFKA-3412
