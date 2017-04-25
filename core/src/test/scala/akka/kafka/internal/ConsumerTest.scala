@@ -136,7 +136,7 @@ class ConsumerTest(_system: ActorSystem)
       .cancel()
   }
 
-  it should "not fail stream when poll() fail limit exceeded" in {
+  it should "fail stream when poll() fail limit exceeded" in {
     assertAllStagesStopped {
       val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
 
