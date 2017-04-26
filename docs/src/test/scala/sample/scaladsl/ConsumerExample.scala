@@ -7,6 +7,7 @@ package sample.scaladsl
 import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
+import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.ActorMaterializer
@@ -341,3 +342,51 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 }
 
+class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
+
+  def receive = {
+    case _ =>
+  }
+
+  def processMsg(g: ConsumerRecord[Array[Byte], String]): Future[String] = Future.successful("")
+
+  def createStream(): Unit = {
+    //#errorHandlingStop
+    val done =
+      Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
+        .mapAsync(1)(processMsg)
+        .runWith(Sink.ignore)
+
+    done.onComplete {
+      case Failure(ex) =>
+        log.error(ex, "Stream failed, stopping the actor.")
+        context.stop(self)
+      case Success(ex) => // gracceful stream shutdown handling
+    }
+    //#errorHandlingStop
+  }
+
+}
+
+object StreamWrapperActor {
+
+  def create(implicit system: ActorSystem): ActorRef = {
+    //#errorHandlingSupervisor
+    import akka.pattern.{Backoff, BackoffSupervisor}
+
+    val childProps = Props(classOf[StreamWrapperActor])
+
+    val supervisorProps = BackoffSupervisor.props(
+      Backoff.onStop(
+        childProps,
+        childName = "streamActor",
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      )
+    )
+    val supervisor = system.actorOf(supervisorProps, name = "streamActorSupervisor")
+    //#errorHandlingSupervisor
+    supervisor
+  }
+}
