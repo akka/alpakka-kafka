@@ -22,6 +22,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -94,7 +95,7 @@ private[kafka] object ConsumerStage {
     import scala.collection.breakOut
     import akka.pattern.ask
     implicit val to = Timeout(timeout)
-    override def commit(offsets: Seq[PartitionOffset]): Future[Done] = {
+    override def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done] = {
       val offsetsMap: Map[TopicPartition, Long] = offsets.map { offset =>
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
       }(breakOut)
@@ -108,7 +109,7 @@ private[kafka] object ConsumerStage {
               groupId,
               throw new IllegalStateException(s"Unknown committer, got [$groupId]")
             )
-            val offsets: Seq[PartitionOffset] = offsetsMap.map {
+            val offsets: immutable.Seq[PartitionOffset] = offsetsMap.map {
               case (ctp, offset) => PartitionOffset(ctp, offset)
             }(breakOut)
             committer.commit(offsets)
@@ -156,13 +157,13 @@ private[kafka] object ConsumerStage {
 
   final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(val committer: Committer)
       extends CommittableOffset {
-    override def commitScaladsl(): Future[Done] = committer.commit(Seq(partitionOffset))
+    override def commitScaladsl(): Future[Done] = committer.commit(immutable.Seq(partitionOffset))
     override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   }
 
   trait Committer {
     // Commit all offsets (of different topics) belonging to the same stage
-    def commit(offsets: Seq[PartitionOffset]): Future[Done]
+    def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done]
     def commit(batch: CommittableOffsetBatch): Future[Done]
   }
 
