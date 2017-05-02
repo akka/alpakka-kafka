@@ -9,7 +9,6 @@ import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.internal.ConsumerStage
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
-import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
