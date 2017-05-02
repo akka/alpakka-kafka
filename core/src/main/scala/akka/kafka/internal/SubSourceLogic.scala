@@ -133,6 +133,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
         override def preStart(): Unit = {
+          super.preStart()
           subsourceStartedCB.invoke((tp, this))
           self = getStageActor {
             case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
