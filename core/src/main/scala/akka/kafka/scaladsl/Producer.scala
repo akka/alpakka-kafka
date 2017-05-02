@@ -13,7 +13,6 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.

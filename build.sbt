@@ -3,7 +3,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.17"
+val akkaVersion = "2.4.18"
 val kafkaVersion = "0.10.2.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -35,15 +35,14 @@ val commonSettings =
   startYear := Some(2014),
   test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq(scalaVersion.value, "2.12.1"),
+  scalaVersion := "2.11.11",
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.2"),
   crossVersion := CrossVersion.binary,
   scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",       // yes, this is 2 args
   "-feature",
   "-unchecked",
-  "-Xfatal-warnings",
   "-Xlint",
   "-Yno-adapted-args",
   "-Ywarn-dead-code",

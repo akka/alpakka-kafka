@@ -16,7 +16,6 @@ import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
 import akka.actor.DeadLetterSuppression
 import scala.util.control.{NoStackTrace, NonFatal}
-import scala.util.{Failure, Success, Try}
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
