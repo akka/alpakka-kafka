@@ -22,6 +22,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -91,19 +92,34 @@ private[kafka] object ConsumerStage {
 
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
   case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, timeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
+    import scala.collection.breakOut
     import akka.pattern.ask
     implicit val to = Timeout(timeout)
-    override def commit(offset: PartitionOffset): Future[Done] = {
-      val offsets = Map(
+    override def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done] = {
+      val offsetsMap: Map[TopicPartition, Long] = offsets.map { offset =>
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
-      )
-      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+      }(breakOut)
+      (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done)
     }
-    override def commit(batch: CommittableOffsetBatch): Future[Done] = {
-      val offsets = batch.offsets.map {
-        case (ctp, offset) => new TopicPartition(ctp.topic, ctp.partition) -> (offset + 1)
-      }
-      (ref ? Commit(offsets)).mapTo[Committed].map(_ => Done)
+    override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
+      case b: CommittableOffsetBatchImpl =>
+        val futures = b.offsets.groupBy(_._1.groupId).map {
+          case (groupId, offsetsMap) =>
+            val committer = b.stages.getOrElse(
+              groupId,
+              throw new IllegalStateException(s"Unknown committer, got [$groupId]")
+            )
+            val offsets: immutable.Seq[PartitionOffset] = offsetsMap.map {
+              case (ctp, offset) => PartitionOffset(ctp, offset)
+            }(breakOut)
+            committer.commit(offsets)
+        }
+        Future.sequence(futures).map(_ => Done)
+
+      case _ => throw new IllegalArgumentException(
+        s"Unknow CommittableOffsetBatch, got [${batch.getClass.getName}], " +
+          s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+      )
     }
   }
 
@@ -141,12 +157,13 @@ private[kafka] object ConsumerStage {
 
   final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(val committer: Committer)
       extends CommittableOffset {
-    override def commitScaladsl(): Future[Done] = committer.commit(partitionOffset)
+    override def commitScaladsl(): Future[Done] = committer.commit(immutable.Seq(partitionOffset))
     override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   }
 
   trait Committer {
-    def commit(offset: PartitionOffset): Future[Done]
+    // Commit all offsets (of different topics) belonging to the same stage
+    def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done]
     def commit(batch: CommittableOffsetBatch): Future[Done]
   }
 

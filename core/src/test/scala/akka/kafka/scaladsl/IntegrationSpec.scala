@@ -5,11 +5,11 @@
 package akka.kafka.scaladsl
 
 import java.util.UUID
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 import akka.kafka.test.Utils._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
@@ -140,7 +140,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
-      val committedElement = new AtomicInteger(0)
+      val committedElements = new ConcurrentLinkedQueue[Int]()
 
       val consumerSettings = createConsumerSettings(group1)
 
@@ -148,7 +148,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
-            committedElement.set(elem.record.value.toInt)
+            committedElements.add(elem.record.value.toInt)
             Done
           }
         }
@@ -176,7 +176,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe2
         .request(100)
-        .expectNextN(((committedElement.get + 1) to 100).map(_.toString))
+        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
 
       probe2.cancel()
 
