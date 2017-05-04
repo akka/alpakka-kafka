@@ -27,7 +27,7 @@ public class StreamWrapperActor extends UntypedActor {
 
     final ActorSystem system = getContext().system();
         
-    protected final Materializer materializer = ActorMaterializer.create(system);
+    protected final Materializer materializer = ActorMaterializer.create(getContext());
 
     protected final ConsumerSettings<byte[], String> consumerSettings =
             ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
