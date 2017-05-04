@@ -5,7 +5,7 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.kafka.Subscriptions.{Assignment, AssignmentWithOffset, TopicSubscription, TopicSubscriptionPattern}
+import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler}
@@ -78,6 +78,9 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         tps ++= topics
       case AssignmentWithOffset(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        tps ++= topics.keySet
+      case AssignementOffsetsForTimes(topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
         tps ++= topics.keySet
     }
 

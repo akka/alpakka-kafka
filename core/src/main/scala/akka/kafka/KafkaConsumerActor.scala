@@ -6,56 +6,34 @@ package akka.kafka
 
 import java.util
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
+
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
+
 import scala.collection.JavaConverters._
-import java.util.concurrent.locks.LockSupport
-import akka.actor.DeadLetterSuppression
 import scala.util.control.{NoStackTrace, NonFatal}
 
 object KafkaConsumerActor {
-  case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
+
   def props[K, V](settings: ConsumerSettings[K, V]): Props =
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
-
-  private[kafka] object Internal {
-    //requests
-    final case class Assign(tps: Set[TopicPartition])
-    final case class AssignWithOffset(tps: Map[TopicPartition, Long])
-    final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
-    final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
-    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
-    case object Stop
-    final case class Commit(offsets: Map[TopicPartition, Long])
-    //responses
-    final case class Assigned(partition: List[TopicPartition])
-    final case class Revoked(partition: List[TopicPartition])
-    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
-    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
-    //internal
-    private[KafkaConsumerActor] final case class Poll[K, V](
-      target: KafkaConsumerActor[K, V], periodic: Boolean
-    ) extends DeadLetterSuppression
-    private val number = new AtomicInteger()
-    def nextNumber() = {
-      number.incrementAndGet()
-    }
-
-    private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
-  }
 
   private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       onAssign(partitions.asScala)
     }
+
     override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
       onRevoke(partitions.asScala)
     }
   }
+
+  case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
 
   private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ConsumerRebalanceListener) extends ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
@@ -67,20 +45,61 @@ object KafkaConsumerActor {
       listener.onPartitionsRevoked(partitions)
     }
   }
+
+  private[kafka] object Internal {
+
+    private val number = new AtomicInteger()
+
+    def nextNumber() = {
+      number.incrementAndGet()
+    }
+
+    //requests
+    final case class Assign(tps: Set[TopicPartition])
+
+    final case class AssignWithOffset(tps: Map[TopicPartition, Long])
+
+    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
+
+    final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
+
+    final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
+
+    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
+
+    final case class Commit(offsets: Map[TopicPartition, Long])
+
+    //responses
+    final case class Assigned(partition: List[TopicPartition])
+
+    final case class Revoked(partition: List[TopicPartition])
+
+    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
+
+    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+
+    //internal
+    private[KafkaConsumerActor] final case class Poll[K, V](
+      target: KafkaConsumerActor[K, V], periodic: Boolean
+    ) extends DeadLetterSuppression
+
+    private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
+
+    case object Stop
+
+  }
+
 }
 
 private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     extends Actor with ActorLogging {
+
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
   val pollMsg = Poll(this, periodic = true)
   val delayedPollMsg = Poll(this, periodic = false)
-  def pollTimeout() = settings.pollTimeout
-  def pollInterval() = settings.pollInterval
-
   var currentPollTask: Cancellable = _
-
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
   var consumer: KafkaConsumer[K, V] = _
@@ -88,6 +107,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   var wakeups = 0
   var stopInProgress = false
   var delayedPollInFlight = false
+
+  def pollTimeout() = settings.pollTimeout
+
+  def pollInterval() = settings.pollInterval
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
@@ -102,6 +125,19 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
       tps.foreach {
         case (tp, offset) => consumer.seek(tp, offset)
+      }
+    case AssignOffsetsForTimes(timestampsToSearch) =>
+      scheduleFirstPollTask()
+      checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
+      val previousAssigned = consumer.assignment()
+      consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
+      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long(_)).asJava)
+      topicPartitionToOffsetAndTimestamp.asScala.foreach {
+        case (tp, oat: OffsetAndTimestamp) =>
+          val offset = oat.offset()
+          val ts = oat.timestamp()
+          log.debug("Get offset {} from topic {} with timestamp {}", offset, tp, ts)
+          consumer.seek(tp, offset)
       }
 
     case Commit(offsets) =>
@@ -213,20 +249,6 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def schedulePollTask(): Cancellable =
     context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
 
-  private def receivePoll(p: Poll[_, _]): Unit = {
-    if (p.target == this) {
-      poll()
-      if (p.periodic)
-        currentPollTask = schedulePollTask()
-      else
-        delayedPollInFlight = false
-    }
-    else {
-      // Message was enqueued before a restart - can be ignored
-      log.debug("Ignoring Poll message with stale target ref")
-    }
-  }
-
   def poll() = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
       consumer.wakeup()
@@ -296,6 +318,20 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
+    }
+  }
+
+  private def receivePoll(p: Poll[_, _]): Unit = {
+    if (p.target == this) {
+      poll()
+      if (p.periodic)
+        currentPollTask = schedulePollTask()
+      else
+        delayedPollInFlight = false
+    }
+    else {
+      // Message was enqueued before a restart - can be ignored
+      log.debug("Ignoring Poll message with stale target ref")
     }
   }
 

@@ -100,6 +100,27 @@ object ExternalOffsetStorageExample extends ConsumerExample {
   }
 }
 
+// Consume messages and store a representation, including offset, in DB
+object ExternalOffsetStorageExampleWithTimes extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #plainSource
+    val db = new DB
+    db.loadOffset().foreach { fromLongTime =>
+      val partition = 0
+      val subscription = Subscriptions.assignementOffsetsForTimes(
+        new TopicPartition("topic1", partition) -> fromLongTime
+      )
+      val done =
+        Consumer.plainSource(consumerSettings, subscription)
+          .mapAsync(1)(db.save)
+          .runWith(Sink.ignore)
+      // #plainSource
+
+      terminateWhenDone(done)
+    }
+  }
+}
+
 // Consume messages at-most-once
 object AtMostOnceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
