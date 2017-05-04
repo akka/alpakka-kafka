@@ -95,12 +95,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = assignementOffsetsForTimes(tps)
+  def assignementOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignementOffsetsForTimes(tps)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = assignementOffsetsForTimes(tps.toMap)
+  def assignementOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignementOffsetsForTimes(tps.toMap)
 
   /**
    * Manually assign given topics and partitions with offsets
