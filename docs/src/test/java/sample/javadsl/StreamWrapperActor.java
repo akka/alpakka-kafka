@@ -25,8 +25,8 @@ import java.util.concurrent.TimeUnit;
 
 public class StreamWrapperActor extends UntypedActor {
 
-    final ActorSystem system = ActorSystem.create("example");
-
+    final ActorSystem system = getContext().system();
+        
     protected final Materializer materializer = ActorMaterializer.create(system);
 
     protected final ConsumerSettings<byte[], String> consumerSettings =
