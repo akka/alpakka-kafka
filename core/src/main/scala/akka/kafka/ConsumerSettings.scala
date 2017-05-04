@@ -111,7 +111,7 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tp: TopicPartition, offset: Long): ManualSubscription = assignementOffsetsForTimes(Map(tp -> offset))
+  def assignementOffsetsForTimes(tp: TopicPartition, timestamp: Long): ManualSubscription = assignementOffsetsForTimes(Map(tp -> timestamp))
 
 }
 
