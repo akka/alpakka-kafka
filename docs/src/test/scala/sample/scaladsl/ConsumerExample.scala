@@ -7,7 +7,7 @@ package sample.scaladsl
 import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
-import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging}
+import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.ActorMaterializer
@@ -360,7 +360,7 @@ class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
     done.onComplete {
       case Failure(ex) =>
         log.error(ex, "Stream failed, stopping the actor.")
-        context.stop(self)
+        self ! PoisonPill
       case Success(ex) => // gracceful stream shutdown handling
     }
     //#errorHandlingStop
