@@ -4,7 +4,7 @@
  */
 package sample.scaladsl
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.pattern.ask
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
@@ -344,17 +344,23 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
 
 class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
 
+  implicit val timeout = akka.util.Timeout(5.seconds)
+
+  case class ProcessMsg(msg: ConsumerRecord[Array[Byte], String])
+
   def receive = {
-    case _ =>
+    case ProcessMsg(msg) =>
+      // message processing
+      sender() ! msg
   }
 
-  def processMsg(g: ConsumerRecord[Array[Byte], String]): Future[String] = Future.successful("")
-
   def createStream(): Unit = {
+
+    val processingActor = self
     //#errorHandlingStop
     val done =
       Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
-        .mapAsync(1)(processMsg)
+        .mapAsync(1)(msg => processingActor ? ProcessMsg(msg))
         .runWith(Sink.ignore)
 
     done.onComplete {

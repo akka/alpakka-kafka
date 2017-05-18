@@ -1,16 +1,15 @@
 package sample.javadsl;
 
 import akka.Done;
-import akka.actor.ActorSystem;
-import akka.actor.UntypedActor;
-import akka.actor.Props;
-import akka.actor.PoisonPill;
+import akka.actor.*;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
+import static akka.pattern.PatternsCS.ask;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
+import akka.util.Timeout;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import akka.pattern.Backoff;
@@ -18,7 +17,6 @@ import akka.pattern.BackoffSupervisor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import scala.concurrent.duration.Duration;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -35,8 +33,16 @@ public class StreamWrapperActor extends UntypedActor {
                     .withGroupId("group1")
                     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-    public void onReceive(Object message) throws Exception {
-        unhandled(message);
+    public void onReceive(Object messageObj) {
+        if (messageObj instanceof ConsumerRecord) {
+            ConsumerRecord<byte[], String> record = (ConsumerRecord<byte[], String>) messageObj;
+            // ... process record
+            ConsumerRecord<byte[], String> reply = record;
+            // reply to the ask
+            getSender().tell(reply, getSelf());
+        } else {
+            unhandled(messageObj);
+        }
     }
 
     CompletionStage<String> process(ConsumerRecord<byte[], String> msg) {
@@ -45,11 +51,15 @@ public class StreamWrapperActor extends UntypedActor {
 
     public void createStream() {
 
+        ActorRef processingActor = self();
+        Timeout timeout = new Timeout(3, TimeUnit.SECONDS);
+
         //#errorHandlingStop
         CompletionStage<Done> done = Consumer.plainSource(
                 consumerSettings,
                 Subscriptions.topics("topic1"))
-                .mapAsync(1, this::process)
+                .mapAsync(1, msg -> ask(processingActor, msg, timeout)) // akka.pattern.PatternsCS.ask
+                .map(elem -> (ConsumerRecord<byte[], String>) elem)
                 .runWith(Sink.ignore(), materializer);
 
         done.exceptionally(e -> {
