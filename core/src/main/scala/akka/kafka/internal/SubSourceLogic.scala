@@ -6,7 +6,7 @@ package akka.kafka.internal
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
+import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern, TopicSubscriptionWithStartTimestamp}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerSettings, KafkaConsumerActor}
 import akka.stream.scaladsl.Source
@@ -47,6 +47,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
 
     subscription match {
+      case TopicSubscriptionWithStartTimestamp(timestamp, topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribeWithStartTimestamp(timestamp, topics, rebalanceListener), self.ref)
       case TopicSubscription(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
       case TopicSubscriptionPattern(topics) =>

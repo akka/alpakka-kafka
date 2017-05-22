@@ -5,7 +5,7 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.kafka.Subscriptions.{Assignment, AssignmentWithOffset, TopicSubscription, TopicSubscriptionPattern}
+import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler}
@@ -69,6 +69,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
 
     subscription match {
+      case TopicSubscriptionWithStartTimestamp(timestamp, topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribeWithStartTimestamp(timestamp, topics, rebalanceListener), self.ref)
       case TopicSubscription(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
       case TopicSubscriptionPattern(topics) =>
