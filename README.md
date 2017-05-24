@@ -7,7 +7,7 @@ If you have questions or are working on a pull request or just curious, please f
 [Akka Streams](http://doc.akka.io/docs/akka/current/scala/stream/index.html) connector for [Apache Kafka](https://kafka.apache.org/).
 
 Created and maintained by
-[<img src="https://softwaremill.com/img/logo2x.png" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
+[<img src="https://softwaremill.com/images/header-main-logo.3449d6a3.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com)
 
 ## Documentation for version 0.11 or later
 
