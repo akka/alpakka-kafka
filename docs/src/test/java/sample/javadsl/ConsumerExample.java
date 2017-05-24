@@ -327,3 +327,30 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
 }
 
 
+// Restart Kafka consumer
+class RestartKafkaConsumeExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new RestartKafkaConsumeExample().demo();
+  }
+
+  public void demo() {
+    // #restartConsumer
+    RunnableGraph<Consumer.Control> runnableGraph = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .map(message -> System.out.println(message))
+        .toMat(Sink.ignore(), Keep.left());
+
+    Consumer.Control control1 = runnableGraph.run(materializer);
+    CompletionStage<Done> completionStage = control1.shutdown();
+
+    // Bind action when shutdown completes
+    completionStage.thenAccept(done -> {
+      System.out.println("Stream was shutdown.");
+
+      // Start the stream again
+      Consumer.Control control2 = runnableGraph.run(materializer);
+    });
+
+    // #restartConsumer
+  }
+}
