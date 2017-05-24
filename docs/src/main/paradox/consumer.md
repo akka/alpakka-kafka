@@ -168,5 +168,14 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerActor }
 
+## Restarting Consumer
+
+Shutdown and restart the stream.
+
+Scala
+: @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #restartConsumer }
+
+Java
+: @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #restartConsumer }
 
 

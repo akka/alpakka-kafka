@@ -8,7 +8,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source, RunnableGraph}
 import akka.stream.ActorMaterializer
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -338,6 +338,32 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
       .via(business)
       .runWith(Sink.ignore)
     // #consumerActor
+  }
+}
+
+//Restart Kafka consumer
+object RestartKafkaConsumeExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #restartConsumer
+    val runnableGraph: RunnableGraph[Consumer.Control] =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .map(msg => { println(msg.record.value()); msg.committableOffset })
+        .map(_.commitScaladsl())
+        .toMat(Sink.ignore)(Keep.left)
+    val control1: Consumer.Control = runnableGraph.run()
+    val shutdownFuture = control1.shutdown()
+
+    shutdownFuture onComplete {
+      case Success(Done) =>
+        println("Stream was shutdown")
+
+        // Start the stream again
+        val control2: Consumer.Control = runnableGraph.run()
+
+      case Failure(_) => println("Error shutting down stream")
+    }
+
+    // #restartConsumer
   }
 }
 
