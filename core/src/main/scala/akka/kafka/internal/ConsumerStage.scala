@@ -179,7 +179,7 @@ private[kafka] object ConsumerStage {
       val stage = committableOffset match {
         case c: CommittableOffsetImpl => c.committer
         case _ => throw new IllegalArgumentException(
-          s"Unknow CommittableOffset, got [${committableOffset.getClass.getName}], " +
+          s"Unknown CommittableOffset, got [${committableOffset.getClass.getName}], " +
             s"expected [${classOf[CommittableOffsetImpl].getName}]"
         )
       }
