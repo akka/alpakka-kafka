@@ -8,6 +8,7 @@ import java.util
 
 import com.typesafe.config.{Config, ConfigObject}
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters.asScalaSetConverter
 
 /**
@@ -16,6 +17,7 @@ import scala.collection.JavaConverters.asScalaSetConverter
 private[kafka] object ConfigSettings {
 
   def parseKafkaClientsProperties(config: Config): Map[String, String] = {
+    @tailrec
     def collectKeys(c: ConfigObject, processedKeys: Set[String], unprocessedKeys: List[String]): Set[String] = {
       if (unprocessedKeys.isEmpty) processedKeys
       else {
@@ -23,7 +25,7 @@ private[kafka] object ConfigSettings {
           case o: util.Map[_, _] =>
             collectKeys(c, processedKeys, unprocessedKeys.tail ::: o.keySet().asScala.toList.map(unprocessedKeys.head + "." + _))
           case _ =>
-            collectKeys(c, processedKeys union Set(unprocessedKeys.head), unprocessedKeys.tail)
+            collectKeys(c, processedKeys + unprocessedKeys.head, unprocessedKeys.tail)
         }
       }
     }
