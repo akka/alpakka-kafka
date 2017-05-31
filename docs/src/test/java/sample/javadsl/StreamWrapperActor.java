@@ -1,30 +1,36 @@
 package sample.javadsl;
 
 import akka.Done;
-import akka.actor.*;
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.PoisonPill;
+import akka.actor.Props;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
-import static akka.pattern.PatternsCS.ask;
+import akka.pattern.Backoff;
+import akka.pattern.BackoffSupervisor;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.util.Timeout;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import akka.pattern.Backoff;
-import akka.pattern.BackoffSupervisor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import scala.concurrent.duration.Duration;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
-public class StreamWrapperActor extends UntypedActor {
+import static akka.pattern.PatternsCS.ask;
+
+public class StreamWrapperActor extends AbstractActor {
 
     final ActorSystem system = getContext().system();
-        
+
     protected final Materializer materializer = ActorMaterializer.create(getContext());
 
     protected final ConsumerSettings<byte[], String> consumerSettings =
@@ -33,16 +39,17 @@ public class StreamWrapperActor extends UntypedActor {
                     .withGroupId("group1")
                     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-    public void onReceive(Object messageObj) {
-        if (messageObj instanceof ConsumerRecord) {
-            ConsumerRecord<byte[], String> record = (ConsumerRecord<byte[], String>) messageObj;
-            // ... process record
-            ConsumerRecord<byte[], String> reply = record;
-            // reply to the ask
-            getSender().tell(reply, getSelf());
-        } else {
-            unhandled(messageObj);
-        }
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(ConsumerRecord.class, messageObj -> {
+                    ConsumerRecord<byte[], String> record = (ConsumerRecord<byte[], String>) messageObj;
+                    // ... process record
+                    ConsumerRecord<byte[], String> reply = record;
+                    // reply to the ask
+                    getSender().tell(reply, getSelf());
+                })
+                .build();
     }
 
     CompletionStage<String> process(ConsumerRecord<byte[], String> msg) {
