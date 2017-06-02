@@ -28,6 +28,7 @@ object Subscriptions {
   private[kafka] final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
   private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
   private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
+  private[kafka] final case class AssignementOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
 
   /**
    * Creates subscription for given set of topics
@@ -90,6 +91,11 @@ object Subscriptions {
    * Manually assign given topics and partitions with offsets
    */
   def assignmentWithOffset(tp: TopicPartition, offset: Long): ManualSubscription = assignmentWithOffset(Map(tp -> offset))
+
+  /**
+   * Manually assign given topics and partitions with offsetsForTimes
+   */
+  def assignementOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignementOffsetsForTimes(tps.toMap)
 }
 
 object ConsumerSettings {
