@@ -4,13 +4,19 @@ scala:
   - "2.11.11"
 jdk:
   - oraclejdk8
-env:
-  matrix:
-    - SCRIPT="sbt -jvm-opts .travis-jvmopts +test"
-# important to use eval, otherwise "&&" is passed as an argument to sbt rather than being processed by bash
-script: eval $SCRIPT
+script:
+  # make 'git branch' work again
+  - git branch -f "$TRAVIS_BRANCH" && git checkout "$TRAVIS_BRANCH"
+  - sbt -jvm-opts .travis-jvmopts +test
+  # check policies, if on master also upload
+  - if [[ "$TRAVIS_BRANCH" == "master" && "$TRAVIS_EVENT_TYPE" == "push" ]]; then sbt 'set credentials += Credentials("whitesource", "whitesourcesoftware.com", "", System.getenv("WHITESOURCE_KEY"))' whitesourceCheckPolicies whitesourceUpdate; else sbt 'set credentials += Credentials("whitesource", "whitesourcesoftware.com", "", System.getenv("WHITESOURCE_KEY"))' whitesourceCheckPolicies; fi
+
 cache:
   directories:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
 
+env:
+  global:
+    # encrypt with: travis encrypt WHITESOURCE_KEY=...
+    - secure: "WrsJARX85hk+6YojUDLZpQEdHn9PkqIJuxSr5KIbDVUHUQo6H+P4QA5jNPTJjmEh3T+smvkP0doV+ouyZtEkPU0Yzc0f63/5COgROS2mSjDVVAUJlRDgcGfYTAzC5nB7UQEqoQmG2Z7MhkLt3fNSgOxQ3csHLFtkQEVGO+/EQHk="
