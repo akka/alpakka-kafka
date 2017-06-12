@@ -13,14 +13,13 @@ object Whitesource extends AutoPlugin {
     // do not change the value of whitesourceProduct
     whitesourceProduct := "Lightbend Reactive Platform",
     whitesourceAggregateProjectName := {
-       "akka-stream-kafka-" + (
-         if (isSnapshot.value)
-           if (gitCurrentBranch.value == "master") "master"
-           else "adhoc"
-         else majorMinor(version.value).map(_ + "-current").getOrElse("snapshot"))
-     }
-   )
-
-   def majorMinor(version: String): Option[String] =
-     """\d+\.\d+""".r.findFirstIn(version)
+      val projectName = (moduleName in LocalRootProject).value.replace("-root", "")
+      projectName + "-" + (
+        if (isSnapshot.value)
+          if (gitCurrentBranch.value == "master") "master"
+          else "adhoc"
+        else "stable"
+      )
+    }
+  )
 }

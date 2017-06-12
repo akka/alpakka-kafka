@@ -14,6 +14,6 @@ addSbtPlugin("se.marcuslonnberg" % "sbt-docker" % "1.4.0")
 
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox" % "0.2.9")
 
-addSbtPlugin("com.lightbend" % "sbt-whitesource"  % "0.1.1")
+addSbtPlugin("com.lightbend" % "sbt-whitesource"  % "0.1.2")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3")
