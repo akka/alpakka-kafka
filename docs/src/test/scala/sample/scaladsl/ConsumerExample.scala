@@ -108,7 +108,7 @@ object ExternalOffsetStorageExampleWithTimes extends ConsumerExample {
     val db = new DB
     db.loadOffset().foreach { fromLongTime =>
       val partition = 0
-      val subscription = Subscriptions.assignementOffsetsForTimes(
+      val subscription = Subscriptions.assignmentOffsetsForTimes(
         new TopicPartition("topic1", partition) -> fromLongTime
       )
       val done =
