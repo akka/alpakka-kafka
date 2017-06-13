@@ -28,7 +28,7 @@ object Subscriptions {
   private[kafka] final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
   private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
   private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
-  private[kafka] final case class AssignementOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
+  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
 
   /**
    * Creates subscription for given set of topics
@@ -95,23 +95,23 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignementOffsetsForTimes(tps)
+  def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignementOffsetsForTimes(tps.toMap)
+  def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap)
 
   /**
    * Manually assign given topics and partitions with offsets
    * JAVA API
    */
-  def assignementOffsetsForTimes(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignementOffsetsForTimes(tps.asScala.toMap)
+  def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignementOffsetsForTimes(tp: TopicPartition, timestamp: Long): ManualSubscription = assignementOffsetsForTimes(Map(tp -> timestamp))
+  def assignmentOffsetsForTimes(tp: TopicPartition, timestamp: Long): ManualSubscription = assignmentOffsetsForTimes(Map(tp -> timestamp))
 
 }
 

@@ -79,7 +79,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       case AssignmentWithOffset(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
         tps ++= topics.keySet
-      case AssignementOffsetsForTimes(topics) =>
+      case AssignmentOffsetsForTimes(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
         tps ++= topics.keySet
     }
