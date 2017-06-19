@@ -25,15 +25,15 @@ import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-  with WordSpecLike with Matchers with BeforeAndAfterAll
-  with BeforeAndAfterEach with TypeCheckedTripleEquals {
+    with WordSpecLike with Matchers with BeforeAndAfterAll
+    with BeforeAndAfterEach with TypeCheckedTripleEquals {
 
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
@@ -71,17 +71,17 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   /**
-    * Produce messages to topic using specified range and return
-    * a Future so the caller can synchronize consumption.
-    */
-  def produce(topic: String, range: Range): Future[Done] = {
+   * Produce messages to topic using specified range and return
+   * a Future so the caller can synchronize consumption.
+   */
+  def produce(topic: String, range: Range, settings: ProducerSettings[Array[Byte], String] = producerSettings): Future[Done] = {
     val source = Source(range)
       .map(n => {
         val record = new ProducerRecord(topic, partition0, null: Array[Byte], n.toString)
 
         Message(record, NotUsed)
       })
-      .viaMat(Producer.flow(producerSettings))(Keep.right)
+      .viaMat(Producer.flow(settings))(Keep.right)
 
     source.runWith(Sink.ignore)
   }
@@ -96,9 +96,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   def createProbe(
-                   consumerSettings: ConsumerSettings[Array[Byte], String],
-                   topic: String
-                 ): TestSubscriber.Probe[String] = {
+    consumerSettings: ConsumerSettings[Array[Byte], String],
+    topic: String
+  ): TestSubscriber.Probe[String] = {
     Consumer.plainSource(consumerSettings, TopicSubscription(Set(topic)))
       .filterNot(_.value == InitialMsg)
       .map(_.value)
@@ -305,6 +305,30 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val probe = source.runWith(TestSink.probe)
 
         probe.request(1).expectNext()
+
+        probe.cancel()
+      }
+    }
+
+    "not produce any records after send-failure if stage is stopped" in {
+      assertAllStagesStopped {
+        val topic1 = createTopic(1)
+        val group1 = createGroup(1)
+        // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
+        // effectively failing the production of the first messages
+        val failFirstMessagesProducerSettings = producerSettings.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
+
+        givenInitializedTopic(topic1)
+
+        Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group1)
+
+        val probe = createProbe(consumerSettings, topic1)
+
+        probe
+          .request(100)
+          .expectNoMsg(1.second)
 
         probe.cancel()
       }
