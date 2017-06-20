@@ -396,3 +396,54 @@ object StreamWrapperActor {
     supervisor
   }
 }
+
+// #restartConsumer
+class WorkerActor() extends Actor with ConsumerExample {
+  trait Message {}
+
+  case class Start() extends Message {}
+  case class Stop() extends Message {}
+
+  /**
+   * Start stream and return Control
+   */
+  def startStream(): Consumer.Control = {
+    val runnable: RunnableGraph[(Consumer.Control, Future[Done])] =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .map(msg => { println(msg.record.value()); msg.committableOffset })
+        .map(_.commitScaladsl())
+        .toMat(Sink.ignore)(Keep.both)
+
+    val (control, streamFuture) = runnable.run()
+
+    streamFuture onComplete {
+      case Failure(_) => self ! Start
+    }
+
+    control
+  }
+
+  def receive = {
+    case Start => context.become(processing(startStream()))
+  }
+
+  /**
+   * In the processing state, accept Stop and Start (for resuming from stream failure)
+   */
+  def processing(control: Consumer.Control): Receive = {
+    case Stop =>
+      control.shutdown()
+      context.become(notProcessing())
+
+    case Start => context.become(processing(startStream()))
+  }
+
+  /**
+   * In the not processing state, accept Start
+   */
+  def notProcessing(): Receive = {
+    case Start => context.become(processing(startStream()))
+  }
+
+}
+// #restartConsumer

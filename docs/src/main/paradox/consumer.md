@@ -109,8 +109,6 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
-Maintaining at-least-once delivery semantics requires care, so many risks and solutions
-are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 ## Connecting Producer and Consumer
 
@@ -168,5 +166,15 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerActor }
 
+## Restarting Consumer
+
+Shutting down and restarting the stream via an Actor that responds to Start and 
+Stop messages (to start and stop stream processing).  
+
+Scala
+: @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #restartConsumer }
+
+Java
+: @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #restartConsumer }
 
 

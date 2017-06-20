@@ -326,4 +326,18 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 }
 
+// Restart Kafka consumer
+class RestartKafkaConsumeExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new RestartKafkaConsumeExample().demo();
+  }
+
+  public void demo() {
+    // #restartConsumer
+
+      // TODO
+      
+    // #restartConsumer
+  }
+}
 
