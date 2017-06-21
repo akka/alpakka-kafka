@@ -9,7 +9,7 @@ import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, RunnableGraph, Sink, Source}
 import akka.stream.ActorMaterializer
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -417,6 +417,7 @@ class WorkerActor() extends Actor with ConsumerExample {
     val (control, streamFuture) = runnable.run()
 
     streamFuture onComplete {
+      case Success(_) => println("Stream succfully completed")
       case Failure(_) => self ! Start
     }
 
