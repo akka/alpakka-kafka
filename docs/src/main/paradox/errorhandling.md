@@ -28,6 +28,11 @@ Scala
 Java
 : @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingSupervisor }
 
+In order to handle **Consumer fails due to WakeupExceptions** while using the ClosedGraph.
+
+Java
+: @@ snip [stopping](../../test/java/sample/javadsl/RunnableGraphStreamWrapperActor.java) { ##errorHandlingConsumerFailsWakeupExceptions }
+
 When a stream fails, library internals will handle all underlying resources.
 
 @@@note { title=(de)serialization }
