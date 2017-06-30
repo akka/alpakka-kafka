@@ -20,6 +20,11 @@ Scala
 Java
 : @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingStop }
 
+Stopping the actor on stream failure in the [Stream-ClosedGraph](http://doc.akka.io/docs/akka/snapshot/scala/stream/stream-graphs.html) scenario?
+
+Java
+: @@ snip [restart-closed-graph-stream-example](../../test/java/sample/javadsl/RunnableGraphStreamWrapperActor.java) { #errorHandlingClosedRunnableGraph }
+
 In order to ensure that stopped actor gets re-created, it can be wrapped with a [BackoffSupervisor](http://doc.akka.io/docs/akka/current/general/supervision.html#Delayed_restarts_with_the_BackoffSupervisor_pattern)
 
 Scala
@@ -27,11 +32,6 @@ Scala
 
 Java
 : @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingSupervisor }
-
-In order to handle **Consumer fails due to WakeupExceptions** while using the ClosedGraph.
-
-Java
-: @@ snip [stopping](../../test/java/sample/javadsl/RunnableGraphStreamWrapperActor.java) { ##errorHandlingConsumerFailsWakeupExceptions }
 
 When a stream fails, library internals will handle all underlying resources.
 

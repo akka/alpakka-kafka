@@ -42,8 +42,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * This is reference example to re start the stream on Kafka consumer fails. This is specific stream example using {@link RunnableGraph}.
- * The trick is in the below example is using two parameter GraphDSL.create by passing source, as it is materialized value and on it we can implement whenComplete this is where we kill our stream wrapper actor and start the pipeline again!!
- * Though it is closed graph, as we materialized source so we can get back Consumer.Control on running the graph. Consumer.Control is from reactive kafka library and on which we can implement callback when the underlying KafkaConsumer has been closed. That is what we do, we listen for isStutdown event and we kill our actor to restart the stream.
+ * The trick is in the below example is using two parameter GraphDSL.create by passing source, as it is materialized value and on it we can implement 'whenComplete', this is where we kill our stream wrapper actor and start the pipeline again!!
+ * Though it is closed graph, as we materialized source so we can get back Consumer.Control on running the graph.
+ * Consumer.Control is from reactive kafka library and on which we can implement callback when the underlying KafkaConsumer has been closed. That is what we do, we listen for isShutdown event and we kill our actor to restart the stream.
  */
 public class RunnableGraphStreamWrapperActor extends UntypedActor {
 
@@ -142,15 +143,15 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
             return ClosedShape.getInstance();
         });
 
-        //#errorHandlingConsumerFailsWakeupExceptions
-        // Run it and supervise on underlying `KafkaConsumer` close event, then trigger self kill so that pipeline/stream starts again!
+        //#errorHandlingClosedRunnableGraph
+        // Self kill this actor so that BackoffSupervisor starts this actor(pipeline/stream) again!
         RunnableGraph.fromGraph(completionStageGraph)
                 .run(materializer)
                 .isShutdown()
                 .whenComplete((done, throwable) -> {
                     getSelf().tell(PoisonPill.getInstance(), getSelf());
                 });
-
+        //#errorHandlingClosedRunnableGraph
 
     }
 
@@ -178,7 +179,6 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
 
     // Call it from application bootstrap when you want to kick off the pipeline
     public static final void createSupervisor(ActorSystem system) {
-        //#errorHandlingSupervisor
         Props childProps = Props.create(RunnableGraphStreamWrapperActor.class);
 
         final Props supervisorProps = BackoffSupervisor.props(
@@ -190,6 +190,5 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
                         0.2));
 
         system.actorOf(supervisorProps, "streamActorSupervisor");
-        //#errorHandlingSupervisor
     }
 }
