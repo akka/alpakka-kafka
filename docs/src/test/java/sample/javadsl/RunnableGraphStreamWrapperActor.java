@@ -78,9 +78,15 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
                 .withProperty("acks", "all");
     }
 
-    public void onReceive(Object messageObj) {
+    @Override
+    public void preStart() {
         // Trigger the pipeline on receive a message
         pipeline();
+    }
+
+    @Override
+    public void onReceive(Object message) {
+        // Handle message
     }
 
     /**
@@ -97,8 +103,7 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
                 .map(committableMessage -> new EventMessage(committableMessage, committableMessage.record().value()));
 
         // Flow to process the message
-        Flow<EventMessage, EventMessage, NotUsed> firstPartitionFlow = Flow.of(EventMessage.class).map(this::processMessage); // Save and Transform
-        Flow<EventMessage, EventMessage, NotUsed> secondPartitionFlow = Flow.of(EventMessage.class).map(this::processMessage); // Delete and Transform
+        Flow<EventMessage, EventMessage, NotUsed> firstPartitionFlow = Flow.of(EventMessage.class).map(this::processMessage);
 
         // Flow to create Kafka ProducerMessage
         Flow<EventMessage, ProducerMessage.Message<String, String, ConsumerMessage.Committable>, NotUsed> produceMessageFlow = Flow.of(EventMessage.class)
@@ -109,12 +114,10 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
         // Simple commit the offset!
         Sink<EventMessage, CompletionStage<Done>> commitOnlySink = Sink.foreach(eventTuple -> eventTuple.committableMessage.committableOffset().commitJavadsl());
 
-        Graph<UniformFanOutShape<EventMessage, EventMessage>, NotUsed> eventTypePartition = Partition.create(3, (Function<EventMessage, Object>) tuple -> {
+        Graph<UniformFanOutShape<EventMessage, EventMessage>, NotUsed> eventTypePartition = Partition.create(2, (Function<EventMessage, Object>) tuple -> {
             switch (tuple.message) {
                 case "EVENT_TYPE_1":
                     return 1;
-                case "EVENT_TYPE_2":
-                    return 2;
                 default:
                     return 0;
             }
@@ -122,11 +125,9 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
 
         // Build the Partition Graph
         Graph<ClosedShape, Consumer.Control> completionStageGraph = GraphDSL.create(sourceStream, (builder, sourceShape) -> {
-
             UniformFanOutShape<EventMessage, EventMessage> eventTypeFanOut = builder.add(eventTypePartition);
             Outlet<EventMessage> unknownEventOutlet = eventTypeFanOut.out(0);
             Outlet<EventMessage> firstPartitionOutlet = eventTypeFanOut.out(1);
-            Outlet<EventMessage> secondPartitionOutlet = eventTypeFanOut.out(2);
 
             builder.from(sourceShape)
                     .toFanOut(eventTypeFanOut)
@@ -135,10 +136,7 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
                         .from(firstPartitionOutlet)
                             .via(builder.add(firstPartitionFlow))
                             .via(builder.add(produceMessageFlow))
-                            .to(builder.add((producerCommitSink)))
-                        .from(secondPartitionOutlet)
-                            .via(builder.add(secondPartitionFlow))
-                            .to(builder.add(commitOnlySink));
+                            .to(builder.add((producerCommitSink)));
 
             return ClosedShape.getInstance();
         });
@@ -170,15 +168,15 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
     private Function<Throwable, Supervision.Directive> stopOnSpecificExceptionDecider(ActorRef actorRef) {
         return exception -> {
 
-            if (exception instanceof IllegalStateException) { // Any specific exception
-                return Supervision.stop(); // BackoffSupervisor will start again!
+            if (exception instanceof IllegalStateException) { // Any application specific exception
+                return Supervision.stop();
             }
             return Supervision.resume();
         };
     }
 
     // Call it from application bootstrap when you want to kick off the pipeline
-    public static final void createSupervisor(ActorSystem system) {
+    public static final Props createSupervisor(ActorSystem system) {
         Props childProps = Props.create(RunnableGraphStreamWrapperActor.class);
 
         final Props supervisorProps = BackoffSupervisor.props(
@@ -189,6 +187,6 @@ public class RunnableGraphStreamWrapperActor extends UntypedActor {
                         Duration.create(30, TimeUnit.SECONDS),
                         0.2));
 
-        system.actorOf(supervisorProps, "streamActorSupervisor");
+        return supervisorProps;
     }
 }

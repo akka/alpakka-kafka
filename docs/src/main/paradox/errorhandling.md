@@ -20,7 +20,7 @@ Scala
 Java
 : @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingStop }
 
-Stopping the actor on stream failure in the [Stream-ClosedGraph](http://doc.akka.io/docs/akka/snapshot/scala/stream/stream-graphs.html) scenario?
+Stopping the actor on stream failure in the [Stream-ClosedGraph](http://doc.akka.io/docs/akka/snapshot/scala/stream/stream-graphs.html) scenario
 
 Java
 : @@ snip [restart-closed-graph-stream-example](../../test/java/sample/javadsl/RunnableGraphStreamWrapperActor.java) { #errorHandlingClosedRunnableGraph }
