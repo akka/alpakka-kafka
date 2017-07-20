@@ -4,12 +4,12 @@
  */
 package akka.kafka.internal
 
+import java.util.Date
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
@@ -20,23 +20,15 @@ import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
-
-import org.apache.kafka.clients.producer.{
-  Callback,
-  KafkaProducer,
-  ProducerRecord,
-  RecordMetadata
-}
+import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.record.Record
 import org.apache.kafka.common.serialization.StringSerializer
-
 import org.mockito.Matchers._
-import org.mockito.Mockito, Mockito._
+import org.mockito.Mockito
+import Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-
 import org.scalatest.{FlatSpecLike, Matchers}
 import org.scalatest.BeforeAndAfterAll
 
@@ -61,7 +53,7 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, Record.NO_TIMESTAMP, -1, -1, -1)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, new Date().getTime, java.lang.Long.valueOf(-1), -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
