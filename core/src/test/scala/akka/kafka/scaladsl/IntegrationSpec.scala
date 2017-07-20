@@ -32,13 +32,13 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecL
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-    with WordSpecLike with Matchers with BeforeAndAfterAll
-    with BeforeAndAfterEach with TypeCheckedTripleEquals {
+  with WordSpecLike with Matchers with BeforeAndAfterAll
+  with BeforeAndAfterEach with TypeCheckedTripleEquals {
 
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
-  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181)
+  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map("offsets.topic.replication.factor" -> "1"))
   val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
@@ -56,6 +56,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   def uuid = UUID.randomUUID().toString
 
   def createTopic(number: Int) = s"topic$number-" + uuid
+
   def createGroup(number: Int) = s"group$number-" + uuid
 
   val partition0 = 0
@@ -70,9 +71,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   /**
-   * Produce messages to topic using specified range and return
-   * a Future so the caller can synchronize consumption.
-   */
+    * Produce messages to topic using specified range and return
+    * a Future so the caller can synchronize consumption.
+    */
   def produce(topic: String, range: Range): Future[Done] = {
     val source = Source(range)
       .map(n => {
@@ -95,9 +96,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   def createProbe(
-    consumerSettings: ConsumerSettings[Array[Byte], String],
-    topic: String
-  ): TestSubscriber.Probe[String] = {
+                   consumerSettings: ConsumerSettings[Array[Byte], String],
+                   topic: String
+                 ): TestSubscriber.Probe[String] = {
     Consumer.plainSource(consumerSettings, TopicSubscription(Set(topic)))
       .filterNot(_.value == InitialMsg)
       .map(_.value)
@@ -287,14 +288,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val consumerSettings1 = createConsumerSettings(group1)
 
         val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
-          .map(msg =>
-            {
-              ProducerMessage.Message(
-                // Produce to topic2
-                new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
-                msg.committableOffset
-              )
-            })
+          .map(msg => {
+            ProducerMessage.Message(
+              // Produce to topic2
+              new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
+              msg.committableOffset
+            )
+          })
           .via(Producer.flow(producerSettings))
           .map(_.message.passThrough)
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
