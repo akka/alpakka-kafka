@@ -4,7 +4,6 @@
  */
 package akka.kafka.internal
 
-import java.util.Date
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -26,6 +25,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import Mockito._
+import org.apache.kafka.common.record.RecordBatch
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -46,6 +46,8 @@ class ProducerTest(_system: ActorSystem)
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
 
+  val checksum = new java.lang.Long(-1)
+
   type K = String
   type V = String
   type Record = ProducerRecord[K, V]
@@ -53,7 +55,7 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, new Date().getTime, java.lang.Long.valueOf(-1), -1, -1)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, RecordBatch.NO_TIMESTAMP, checksum, -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
