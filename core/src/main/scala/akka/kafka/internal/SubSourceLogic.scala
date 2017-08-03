@@ -26,7 +26,10 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
   var self: StageActor = _
-  var buffer: immutable.Queue[TopicPartition] = immutable.Queue.empty
+  // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
+  var pendingPartitions: immutable.Set[TopicPartition] = immutable.Set.empty
+  // We have created a source for these partitions, but it has not started up and is not in subSources yet.
+  var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
   var subSources: Map[TopicPartition, Control] = immutable.Map.empty
 
   override def preStart(): Unit = {
@@ -55,22 +58,35 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
-    buffer = buffer.enqueue(tps.toList)
+    pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
     pump()
   }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { r =>
-    r.map(subSources.get).foreach(_.foreach(_.shutdown()))
-    subSources --= r
+
+  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
+    pendingPartitions --= tps
+    partitionsInStartup --= tps
+    tps.flatMap(subSources.get).foreach(_.shutdown())
+    subSources --= tps
   }
 
   val subsourceCancelledCB = getAsyncCallback[TopicPartition] { tp =>
     subSources -= tp
-    buffer :+= tp
+    partitionsInStartup -= tp
+    pendingPartitions += tp
     pump()
   }
 
   val subsourceStartedCB = getAsyncCallback[(TopicPartition, Control)] {
-    case (tp, control) => subSources += (tp -> control)
+    case (tp, control) =>
+      if (!partitionsInStartup.contains(tp)) {
+        // Partition was revoked while
+        // starting up.  Kill!
+        control.shutdown()
+      }
+      else {
+        subSources += (tp -> control)
+        partitionsInStartup -= tp
+      }
   }
 
   setHandler(shape.out, new OutHandler {
@@ -88,9 +104,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   @tailrec
   private def pump(): Unit = {
-    if (buffer.nonEmpty && isAvailable(shape.out)) {
-      val (tp, remains) = buffer.dequeue
-      buffer = remains
+    if (pendingPartitions.nonEmpty && isAvailable(shape.out)) {
+      val tp = pendingPartitions.head
+
+      pendingPartitions = pendingPartitions.tail
+      partitionsInStartup += tp
       push(shape.out, (tp, createSource(tp)))
       pump()
     }
