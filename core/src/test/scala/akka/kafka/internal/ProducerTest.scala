@@ -25,7 +25,6 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import Mockito._
-import org.apache.kafka.common.record.RecordBatch
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -55,7 +54,7 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, RecordBatch.NO_TIMESTAMP, checksum, -1, -1)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, System.currentTimeMillis(), checksum, -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
