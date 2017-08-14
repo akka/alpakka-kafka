@@ -23,7 +23,7 @@ Supports Kafka 0.9.0.x
 
 ## Akka versions compatibility
 
-Please note that while the library depends on Akka 2.4.x is is fully compatible to be used with Akka 2.5.x.
+Please note that while the library depends on Akka 2.4.x is fully compatible to be used with Akka 2.5.x.
 This is because of Akka's strict [backwards compatibility guarantees](http://doc.akka.io/docs/akka/2.5.3/scala/common/binary-compatibility-rules.html). If you want to use reactive-kafka with Akka 2.5 simply include Akka **and** Akka Streams dependencies using the latest 2.5 version, for example like this:
 
 ```
