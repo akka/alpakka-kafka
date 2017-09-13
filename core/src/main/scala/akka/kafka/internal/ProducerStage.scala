@@ -7,6 +7,7 @@ package akka.kafka.internal
 import java.util.concurrent.TimeUnit
 import akka.kafka.ProducerMessage.{Message, Result}
 import akka.stream._
+import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.stage._
 import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
 
@@ -32,6 +33,7 @@ private[kafka] class ProducerStage[K, V, P](
   override def createLogic(inheritedAttributes: Attributes) = {
     val producer = producerProvider()
     val logic = new GraphStageLogic(shape) with StageLogging {
+      lazy val decider = inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
       val awaitingConfirmation = new AtomicInteger(0)
       @volatile var inIsClosed = false
 
@@ -53,6 +55,10 @@ private[kafka] class ProducerStage[K, V, P](
         checkForCompletion()
       }
 
+      val failStageCb = getAsyncCallback[Throwable] { ex =>
+        failStage(ex)
+      }
+
       setHandler(out, new OutHandler {
         override def onPull() = {
           tryPull(in)
@@ -65,10 +71,20 @@ private[kafka] class ProducerStage[K, V, P](
           val r = Promise[Result[K, V, P]]
           producer.send(msg.record, new Callback {
             override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
-              if (exception == null)
+              if (exception == null) {
                 r.success(Result(metadata, msg))
-              else
-                r.failure(exception)
+              }
+              else {
+                decider(exception) match {
+                  case Supervision.Stop =>
+                    if (closeProducerOnStop) {
+                      producer.close(0, TimeUnit.MILLISECONDS)
+                    }
+                    failStageCb.invoke(exception)
+                  case _ =>
+                    r.failure(exception)
+                }
+              }
 
               if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
                 checkForCompletionCB.invoke(())
@@ -96,6 +112,7 @@ private[kafka] class ProducerStage[K, V, P](
 
         if (closeProducerOnStop) {
           try {
+            // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
             producer.flush()
             producer.close(closeTimeout.toMillis, TimeUnit.MILLISECONDS)
             log.debug("Producer closed")

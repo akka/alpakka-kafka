@@ -27,6 +27,7 @@ object KafkaConsumerActor {
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class SubscribeWithStartTimestamp(timestamp: Long, topics: Set[String], listener: ConsumerRebalanceListener)
+    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
     final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
@@ -103,6 +104,19 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
       tps.foreach {
         case (tp, offset) => consumer.seek(tp, offset)
+      }
+    case AssignOffsetsForTimes(timestampsToSearch) =>
+      scheduleFirstPollTask()
+      checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
+      val previousAssigned = consumer.assignment()
+      consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
+      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long(_)).asJava)
+      topicPartitionToOffsetAndTimestamp.asScala.foreach {
+        case (tp, oat: OffsetAndTimestamp) =>
+          val offset = oat.offset()
+          val ts = oat.timestamp()
+          log.debug("Get offset {} from topic {} with timestamp {}", offset, tp, ts)
+          consumer.seek(tp, offset)
       }
 
     case Commit(offsets) =>

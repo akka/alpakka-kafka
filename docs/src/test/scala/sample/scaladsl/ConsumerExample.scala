@@ -4,9 +4,10 @@
  */
 package sample.scaladsl
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.pattern.ask
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
+import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.ActorMaterializer
@@ -88,6 +89,27 @@ object ExternalOffsetStorageExample extends ConsumerExample {
       val partition = 0
       val subscription = Subscriptions.assignmentWithOffset(
         new TopicPartition("topic1", partition) -> fromOffset
+      )
+      val done =
+        Consumer.plainSource(consumerSettings, subscription)
+          .mapAsync(1)(db.save)
+          .runWith(Sink.ignore)
+      // #plainSource
+
+      terminateWhenDone(done)
+    }
+  }
+}
+
+// Consume messages and store a representation, including offset extract from timestamp, in DB
+object ExternalOffsetStorageExampleWithTimes extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #plainSource
+    val db = new DB
+    db.loadOffset().foreach { fromLongTime =>
+      val partition = 0
+      val subscription = Subscriptions.assignmentOffsetsForTimes(
+        new TopicPartition("topic1", partition) -> fromLongTime
       )
       val done =
         Consumer.plainSource(consumerSettings, subscription)
@@ -341,3 +363,57 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 }
 
+class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
+
+  implicit val timeout = akka.util.Timeout(5.seconds)
+
+  case class ProcessMsg(msg: ConsumerRecord[Array[Byte], String])
+
+  def receive = {
+    case ProcessMsg(msg) =>
+      // message processing
+      sender() ! msg
+  }
+
+  def createStream(): Unit = {
+
+    val processingActor = self
+    //#errorHandlingStop
+    val done =
+      Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
+        .mapAsync(1)(msg => processingActor ? ProcessMsg(msg))
+        .runWith(Sink.ignore)
+
+    done.onComplete {
+      case Failure(ex) =>
+        log.error(ex, "Stream failed, stopping the actor.")
+        self ! PoisonPill
+      case Success(ex) => // gracceful stream shutdown handling
+    }
+    //#errorHandlingStop
+  }
+
+}
+
+object StreamWrapperActor {
+
+  def create(implicit system: ActorSystem): ActorRef = {
+    //#errorHandlingSupervisor
+    import akka.pattern.{Backoff, BackoffSupervisor}
+
+    val childProps = Props(classOf[StreamWrapperActor])
+
+    val supervisorProps = BackoffSupervisor.props(
+      Backoff.onStop(
+        childProps,
+        childName = "streamActor",
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      )
+    )
+    val supervisor = system.actorOf(supervisorProps, name = "streamActorSupervisor")
+    //#errorHandlingSupervisor
+    supervisor
+  }
+}

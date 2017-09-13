@@ -25,7 +25,7 @@ import akka.stream.testkit.TestSubscriber
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
@@ -38,7 +38,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
-  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181)
+  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map("offsets.topic.replication.factor" -> "1"))
   val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
@@ -56,6 +56,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   def uuid = UUID.randomUUID().toString
 
   def createTopic(number: Int) = s"topic$number-" + uuid
+
   def createGroup(number: Int) = s"group$number-" + uuid
 
   val partition0 = 0
@@ -73,14 +74,14 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
    * Produce messages to topic using specified range and return
    * a Future so the caller can synchronize consumption.
    */
-  def produce(topic: String, range: Range): Future[Done] = {
+  def produce(topic: String, range: Range, settings: ProducerSettings[Array[Byte], String] = producerSettings): Future[Done] = {
     val source = Source(range)
       .map(n => {
         val record = new ProducerRecord(topic, partition0, null: Array[Byte], n.toString)
 
         Message(record, NotUsed)
       })
-      .viaMat(Producer.flow(producerSettings))(Keep.right)
+      .viaMat(Producer.flow(settings))(Keep.right)
 
     source.runWith(Sink.ignore)
   }
@@ -287,14 +288,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val consumerSettings1 = createConsumerSettings(group1)
 
         val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
-          .map(msg =>
-            {
-              ProducerMessage.Message(
-                // Produce to topic2
-                new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
-                msg.committableOffset
-              )
-            })
+          .map(msg => {
+            ProducerMessage.Message(
+              // Produce to topic2
+              new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
+              msg.committableOffset
+            )
+          })
           .via(Producer.flow(producerSettings))
           .map(_.message.passThrough)
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
@@ -305,6 +305,30 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val probe = source.runWith(TestSink.probe)
 
         probe.request(1).expectNext()
+
+        probe.cancel()
+      }
+    }
+
+    "not produce any records after send-failure if stage is stopped" in {
+      assertAllStagesStopped {
+        val topic1 = createTopic(1)
+        val group1 = createGroup(1)
+        // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
+        // effectively failing the production of the first messages
+        val failFirstMessagesProducerSettings = producerSettings.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
+
+        givenInitializedTopic(topic1)
+
+        Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group1)
+
+        val probe = createProbe(consumerSettings, topic1)
+
+        probe
+          .request(100)
+          .expectNoMsg(1.second)
 
         probe.cancel()
       }

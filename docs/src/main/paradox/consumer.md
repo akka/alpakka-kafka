@@ -110,7 +110,7 @@ Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
 Maintaining at-least-once delivery semantics requires care, so many risks and solutions
-are covered in [At-Least-Once Delivery](atleastonce.md).
+are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 ## Connecting Producer and Consumer
 

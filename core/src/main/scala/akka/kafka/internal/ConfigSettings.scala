@@ -4,7 +4,12 @@
  */
 package akka.kafka.internal
 
-import com.typesafe.config.{Config, ConfigObject, ConfigValue}
+import java.util
+
+import com.typesafe.config.{Config, ConfigObject}
+
+import scala.annotation.tailrec
+import scala.collection.JavaConverters.asScalaSetConverter
 
 /**
  * INTERNAL API
@@ -12,24 +17,20 @@ import com.typesafe.config.{Config, ConfigObject, ConfigValue}
 private[kafka] object ConfigSettings {
 
   def parseKafkaClientsProperties(config: Config): Map[String, String] = {
-    def collectKeys(c: ConfigObject, prefix: String, keys: Set[String]): Set[String] = {
-      var result = keys
-      val iter = c.entrySet.iterator
-      while (iter.hasNext()) {
-        val entry = iter.next()
-        entry.getValue match {
-          case o: ConfigObject =>
-            result ++= collectKeys(o, prefix + entry.getKey + ".", Set.empty)
-          case s: ConfigValue =>
-            result += prefix + entry.getKey
+    @tailrec
+    def collectKeys(c: ConfigObject, processedKeys: Set[String], unprocessedKeys: List[String]): Set[String] = {
+      if (unprocessedKeys.isEmpty) processedKeys
+      else {
+        c.toConfig.getAnyRef(unprocessedKeys.head) match {
+          case o: util.Map[_, _] =>
+            collectKeys(c, processedKeys, unprocessedKeys.tail ::: o.keySet().asScala.toList.map(unprocessedKeys.head + "." + _))
           case _ =>
-          // in case there would be something else
+            collectKeys(c, processedKeys + unprocessedKeys.head, unprocessedKeys.tail)
         }
       }
-      result
     }
 
-    val keys = collectKeys(config.root, "", Set.empty)
+    val keys = collectKeys(config.root, Set.empty[String], config.root().keySet().asScala.toList)
     keys.map(key => key -> config.getString(key)).toMap
   }
 

@@ -9,34 +9,26 @@ import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
-
-import org.apache.kafka.clients.producer.{
-  Callback,
-  KafkaProducer,
-  ProducerRecord,
-  RecordMetadata
-}
+import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.record.Record
 import org.apache.kafka.common.serialization.StringSerializer
-
+import org.mockito
 import org.mockito.Matchers._
-import org.mockito.Mockito, Mockito._
+import org.mockito.Mockito
+import Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-
 import org.scalatest.{FlatSpecLike, Matchers}
 import org.scalatest.BeforeAndAfterAll
 
@@ -54,6 +46,8 @@ class ProducerTest(_system: ActorSystem)
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
 
+  val checksum = new java.lang.Long(-1)
+
   type K = String
   type V = String
   type Record = ProducerRecord[K, V]
@@ -61,12 +55,17 @@ class ProducerTest(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, Record.NO_TIMESTAMP, -1, -1, -1)
+      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, System.currentTimeMillis(), checksum, -1, -1)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
   val toResult = (result _).tupled
+
+  def recordValues(values: V*): ((ProducerRecord[String, String], RecordMetadata)) => Boolean = {
+    case (r, _) =>
+      values.contains(r.value())
+  }
 
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
 
@@ -145,7 +144,7 @@ class ProducerTest(_system: ActorSystem)
     client.verifyNoMoreInteractions()
   }
 
-  it should "fail stream in case of fail to send message" in {
+  it should "fail stream and force-close producer in callback on send failure" in {
     assertAllStagesStopped {
       val input = 1 to 3 map recordAndMetadata
       val error = new Exception("Something wrong in kafka")
@@ -167,6 +166,87 @@ class ProducerTest(_system: ActorSystem)
       input.map(toMessage).foreach(source.sendNext)
 
       source.expectCancellation()
+
+      client.verifyForceClosedInCallback()
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
+    }
+  }
+
+  it should "stop emitting messages after encountering a send failure" in {
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
+      val error = new Exception("Something wrong in kafka")
+
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { msg =>
+          if (msg.value() == "2") Failure(error)
+          else Success(inputMap(msg))
+        })
+      }
+      val (source, sink) = TestSource
+        .probe[Msg]
+        .via(testProducerFlow(client))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      input.map(toMessage).foreach(source.sendNext)
+
+      sink.request(100)
+        .expectNextN(input.filter(recordValues("1")).map(toResult))
+        .expectError(error)
+
+      source.expectCancellation()
+
+      client.verifyForceClosedInCallback()
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
+    }
+  }
+
+  it should "resume stream and gracefully close producer on send failure if specified by supervision-strategy" in {
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
+      val error = new Exception("Something wrong in kafka")
+
+      val client = {
+        val inputMap = input.toMap
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { msg =>
+          if (msg.value() == "2") Failure(error)
+          else Success(inputMap(msg))
+        })
+      }
+      val (source, sink) = TestSource
+        .probe[Msg]
+        .via(testProducerFlow(client).withAttributes(ActorAttributes.withSupervisionStrategy(Supervision.resumingDecider)))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      input.map(toMessage).foreach(source.sendNext)
+      source.sendComplete()
+
+      sink.request(100)
+        .expectNextN(input.filter(recordValues("1", "3")).map(toResult))
+        .expectComplete()
+
+      client.verifyClosed()
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
+    }
+  }
+
+  it should "fail stream on exception of producer send" in {
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
+
+      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+      val probe = Source(input.map(toMessage))
+        .via(testProducerFlow(client))
+        .runWith(TestSink.probe)
+
+      probe.request(10)
+        .expectError()
 
       client.verifyClosed()
       client.verifySend(atLeastOnce())
@@ -272,6 +352,13 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   def verifyClosed() = {
     Mockito.verify(mock).flush()
     Mockito.verify(mock).close(any[Long], any[TimeUnit])
+  }
+
+  def verifyForceClosedInCallback() = {
+    val inOrder = Mockito.inOrder(mock)
+    inOrder.verify(mock, atLeastOnce()).close(mockito.Matchers.eq(0L), any[TimeUnit])
+    inOrder.verify(mock).flush()
+    inOrder.verify(mock).close(any[Long], any[TimeUnit])
   }
 
   def verifyNoMoreInteractions() = {
