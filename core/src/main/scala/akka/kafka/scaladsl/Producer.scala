@@ -10,7 +10,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.{Done, NotUsed}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{Producer => KafkaProducer, ProducerRecord}
 
 import scala.concurrent.Future
 

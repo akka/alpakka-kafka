@@ -12,7 +12,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{Producer => KafkaProducer, ProducerRecord}
 
 import scala.compat.java8.FutureConverters.FutureOps
 

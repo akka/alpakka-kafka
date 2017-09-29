@@ -9,7 +9,7 @@ import akka.kafka.ProducerMessage.{Message, Result}
 import akka.stream._
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.stage._
-import org.apache.kafka.clients.producer.{Callback, KafkaProducer, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, Producer => KafkaProducer, RecordMetadata}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
