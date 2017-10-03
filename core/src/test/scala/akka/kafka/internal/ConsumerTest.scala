@@ -4,6 +4,7 @@
  */
 package akka.kafka.internal
 
+import java.util.concurrent.TimeUnit
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
 import akka.Done
@@ -11,24 +12,24 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
 import akka.kafka.ConsumerSettings
 import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka.scaladsl.Consumer, Consumer.Control
+import akka.kafka.scaladsl.Consumer
+import Consumer.Control
 import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
-
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.serialization.StringDeserializer
-
-import org.mockito, mockito.Mockito, Mockito._
+import org.mockito
+import mockito.Mockito
+import Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -40,6 +41,8 @@ object ConsumerTest {
   type K = String
   type V = String
   type Record = ConsumerRecord[K, V]
+
+  val closeTimeout = 500.millis
 
   def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
@@ -86,7 +89,7 @@ class ConsumerTest(_system: ActorSystem)
 
   def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
     val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
-      1.milli, 1.milli, 1.second, 1.second, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher") {
+      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher") {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }
@@ -553,7 +556,7 @@ class ConsumerTest(_system: ActorSystem)
       val more = probe.expectNextN(4)
 
       awaitAssert {
-        commitLog.calls should have size (1)
+        commitLog.calls should have size 1
       }
 
       probe.cancel()
@@ -657,7 +660,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)) = {
-    verify(mock, mode).close()
+    verify(mock, mode).close(ConsumerTest.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
   }
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) = {
