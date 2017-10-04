@@ -12,6 +12,7 @@ import akka.kafka.ConsumerMessage._
 import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed}
 import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
+import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl.Source
 import akka.stream.stage.{CallbackWrapper, GraphStageLogic, GraphStageWithMaterializedValue}
@@ -44,7 +45,7 @@ private[kafka] object ConsumerStage {
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
     }
@@ -71,7 +72,7 @@ private[kafka] object ConsumerStage {
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            new KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
           }
         }
     }
@@ -84,23 +85,28 @@ private[kafka] object ConsumerStage {
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            new KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
           }
         }
     }
   }
 
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
-  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, timeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
+  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
     import scala.collection.breakOut
     import akka.pattern.ask
-    implicit val to = Timeout(timeout)
+    implicit val to = Timeout(commitTimeout)
     override def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done] = {
       val offsetsMap: Map[TopicPartition, Long] = offsets.map { offset =>
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
       }(breakOut)
-      (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done)
+
+      (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done).recoverWith {
+        case _: AskTimeoutException => Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
+        case other => Future.failed(other)
+      }
     }
+
     override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
       case b: CommittableOffsetBatchImpl =>
         val futures = b.offsets.groupBy(_._1.groupId).map {
@@ -117,7 +123,7 @@ private[kafka] object ConsumerStage {
         Future.sequence(futures).map(_ => Done)
 
       case _ => throw new IllegalArgumentException(
-        s"Unknow CommittableOffsetBatch, got [${batch.getClass.getName}], " +
+        s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
           s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
       )
     }
