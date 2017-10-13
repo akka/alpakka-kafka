@@ -15,17 +15,17 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
-  "com.novocode" % "junit-interface" % "0.11" % "test",
-  "junit" % "junit" % "4.12" % "test",
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
-  "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "net.manub" %% "scalatest-embedded-kafka" % "0.14.0" % "test" exclude("log4j", "log4j"),
-  "org.apache.kafka" %% "kafka" % kafkaVersion % "test" exclude("org.slf4j", "slf4j-log4j12")
+  "org.scalatest" %% "scalatest" % "3.0.1" % Test,
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % Test,
+  "com.novocode" % "junit-interface" % "0.11" % Test,
+  "junit" % "junit" % "4.12" % Test,
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % Test,
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % Test,
+  "org.mockito" % "mockito-core" % "1.10.19" % Test,
+  "net.manub" %% "scalatest-embedded-kafka" % "0.14.0" % Test exclude("log4j", "log4j"),
+  "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
 val commonSettings =
