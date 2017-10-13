@@ -15,16 +15,16 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "3.0.1" % Test,
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % Test,
+  "org.scalatest" %% "scalatest" % "3.0.4" % Test,
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % Test,
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % Test,
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
   "org.mockito" % "mockito-core" % "1.10.19" % Test,
-  "net.manub" %% "scalatest-embedded-kafka" % "0.14.0" % Test exclude("log4j", "log4j"),
+  "net.manub" %% "scalatest-embedded-kafka" % "0.16.0" % Test exclude("log4j", "log4j"),
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
@@ -116,10 +116,10 @@ lazy val benchmarks = project
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
-      "io.dropwizard.metrics" % "metrics-core" % "3.1.0",
-      "ch.qos.logback" % "logback-classic" % "1.1.3",
-      "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+      "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-stream" % akkaVersion
     ),
