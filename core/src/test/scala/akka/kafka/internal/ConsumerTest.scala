@@ -491,7 +491,7 @@ class ConsumerTest(_system: ActorSystem)
 
       probe.request(100)
       val done = probe.expectNext().committableOffset.commitScaladsl()
-      val rest = probe.expectNextN(9)
+      probe.expectNextN(9)
 
       awaitAssert {
         commitLog.calls should have size (1)
@@ -553,7 +553,7 @@ class ConsumerTest(_system: ActorSystem)
 
       probe.request(5)
       val done = probe.expectNext().committableOffset.commitScaladsl()
-      val more = probe.expectNextN(4)
+      probe.expectNextN(4)
 
       awaitAssert {
         commitLog.calls should have size 1
