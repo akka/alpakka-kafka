@@ -297,7 +297,7 @@ class ConsumerTest(_system: ActorSystem)
       }
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -334,7 +334,7 @@ class ConsumerTest(_system: ActorSystem)
       commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -392,10 +392,10 @@ class ConsumerTest(_system: ActorSystem)
       commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.record.offset() + 1)
 
       //emulate commit
-      commitLog1.calls.map {
+      commitLog1.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
-      commitLog2.calls.map {
+      commitLog2.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -504,7 +504,7 @@ class ConsumerTest(_system: ActorSystem)
       stopped.isCompleted should ===(false)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -564,7 +564,7 @@ class ConsumerTest(_system: ActorSystem)
       control.isShutdown.isCompleted should ===(false)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
