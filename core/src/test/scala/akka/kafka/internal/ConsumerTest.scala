@@ -297,7 +297,7 @@ class ConsumerTest(_system: ActorSystem)
       }
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -334,7 +334,7 @@ class ConsumerTest(_system: ActorSystem)
       commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -392,10 +392,10 @@ class ConsumerTest(_system: ActorSystem)
       commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.record.offset() + 1)
 
       //emulate commit
-      commitLog1.calls.map {
+      commitLog1.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
-      commitLog2.calls.map {
+      commitLog2.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -491,7 +491,7 @@ class ConsumerTest(_system: ActorSystem)
 
       probe.request(100)
       val done = probe.expectNext().committableOffset.commitScaladsl()
-      val rest = probe.expectNextN(9)
+      probe.expectNextN(9)
 
       awaitAssert {
         commitLog.calls should have size (1)
@@ -504,7 +504,7 @@ class ConsumerTest(_system: ActorSystem)
       stopped.isCompleted should ===(false)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -553,7 +553,7 @@ class ConsumerTest(_system: ActorSystem)
 
       probe.request(5)
       val done = probe.expectNext().committableOffset.commitScaladsl()
-      val more = probe.expectNextN(4)
+      probe.expectNextN(4)
 
       awaitAssert {
         commitLog.calls should have size 1
@@ -564,7 +564,7 @@ class ConsumerTest(_system: ActorSystem)
       control.isShutdown.isCompleted should ===(false)
 
       //emulate commit
-      commitLog.calls.map {
+      commitLog.calls.foreach {
         case (offsets, callback) => callback.onComplete(offsets.asJava, null)
       }
 
@@ -595,7 +595,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   private var messagesRequested = false
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
-    Mockito.when(result.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
+    Mockito.when(result.poll(mockito.ArgumentMatchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
       override def answer(invocation: InvocationOnMock) = ConsumerMock.this.synchronized {
         pendingSubscriptions.foreach {
           case (topics, callback) =>
@@ -619,29 +619,29 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
         new ConsumerRecords[K, V](records.asJava)
       }
     })
-    Mockito.when(result.commitAsync(mockito.Matchers.any[JMap[TopicPartition, OffsetAndMetadata]], mockito.Matchers.any[OffsetCommitCallback])).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.commitAsync(mockito.ArgumentMatchers.any[JMap[TopicPartition, OffsetAndMetadata]], mockito.ArgumentMatchers.any[OffsetCommitCallback])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
-        val offsets = invocation.getArgumentAt(0, classOf[JMap[TopicPartition, OffsetAndMetadata]])
-        val callback = invocation.getArgumentAt(1, classOf[OffsetCommitCallback])
+        val offsets = invocation.getArgument[JMap[TopicPartition, OffsetAndMetadata]](0)
+        val callback = invocation.getArgument[OffsetCommitCallback](1)
         handler(offsets.asScala.toMap, callback)
         ()
       }
     })
-    Mockito.when(result.subscribe(mockito.Matchers.any[JList[String]], mockito.Matchers.any[ConsumerRebalanceListener])).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.subscribe(mockito.ArgumentMatchers.any[JList[String]], mockito.ArgumentMatchers.any[ConsumerRebalanceListener])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
-        val topics = invocation.getArgumentAt(0, classOf[JList[String]])
-        val callback = invocation.getArgumentAt(1, classOf[ConsumerRebalanceListener])
+        val topics = invocation.getArgument[JList[String]](0)
+        val callback = invocation.getArgument[ConsumerRebalanceListener](1)
         pendingSubscriptions :+= (topics.asScala.toList -> callback)
         ()
       }
     })
-    Mockito.when(result.resume(mockito.Matchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.resume(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
         messagesRequested = true
         ()
       }
     })
-    Mockito.when(result.pause(mockito.Matchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.pause(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
         messagesRequested = false
         ()
@@ -664,14 +664,14 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   }
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) = {
-    verify(mock, mode).poll(mockito.Matchers.any[Long])
+    verify(mock, mode).poll(mockito.ArgumentMatchers.any[Long])
   }
 }
 
 class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
   var callNumber = 0
 
-  Mockito.when(mock.poll(mockito.Matchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
+  Mockito.when(mock.poll(mockito.ArgumentMatchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
     override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
       callNumber = callNumber + 1
       if (failOnCallNumber.contains(callNumber))
