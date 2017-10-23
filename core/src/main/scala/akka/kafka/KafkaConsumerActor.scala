@@ -5,16 +5,21 @@
 package akka.kafka
 
 import java.util
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
+
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
+
 import akka.actor.DeadLetterSuppression
+
 import scala.util.control.{NoStackTrace, NonFatal}
 
 object KafkaConsumerActor {
@@ -109,7 +114,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
-      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long(_)).asJava)
+      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava)
       topicPartitionToOffsetAndTimestamp.asScala.foreach {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
@@ -217,7 +222,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
-    consumer.close()
+    consumer.close(settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
     super.postStop()
   }
 
@@ -241,7 +246,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }
   }
 
-  def poll() = {
+  def poll(): Unit = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
       consumer.wakeup()
     }(context.system.dispatcher)
