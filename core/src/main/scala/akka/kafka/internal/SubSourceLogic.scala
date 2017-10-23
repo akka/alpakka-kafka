@@ -22,7 +22,9 @@ import scala.collection.immutable
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
-    subscription: AutoSubscription
+    subscription: AutoSubscription,
+    loadOffsetOnAssign: Option[TopicPartition => Long] = None,
+    storeOffsetOnRevoke: TopicPartition => Unit = _ => ()
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
   var self: StageActor = _
@@ -59,10 +61,14 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
     pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
+    loadOffsetOnAssign.foreach { loadOffset =>
+      consumer.tell(KafkaConsumerActor.Internal.Seek(tps.map(tp => (tp, loadOffset(tp))).toMap), self.ref)
+    }
     pump()
   }
 
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
+    tps.foreach(storeOffsetOnRevoke)
     pendingPartitions --= tps
     partitionsInStartup --= tps
     tps.flatMap(subSources.get).foreach(_.shutdown())

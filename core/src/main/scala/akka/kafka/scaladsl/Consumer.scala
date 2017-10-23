@@ -99,6 +99,14 @@ object Consumer {
     Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription))
 
   /**
+   * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition.
+   */
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetOnAssign: TopicPartition => Long, storeOffsetOnRevoke: TopicPartition => Unit = _ => ()): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
+    Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription, Some(loadOffsetOnAssign), storeOffsetOnRevoke))
+
+  /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
    */
   def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
