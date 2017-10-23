@@ -24,7 +24,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     settings: ConsumerSettings[K, V],
     subscription: AutoSubscription,
     loadOffsetOnAssign: Option[TopicPartition => Long] = None,
-    storeOffsetOnRevoke: TopicPartition => Unit = _ => ()
+    onRevoke: TopicPartition => Unit = _ => ()
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
   var self: StageActor = _
@@ -53,9 +53,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
     subscription match {
       case TopicSubscription(topics) =>
-        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
+        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener, loadOffsetOnAssign.isEmpty), self.ref)
       case TopicSubscriptionPattern(topics) =>
-        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
+        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener, loadOffsetOnAssign.isEmpty), self.ref)
     }
   }
 
@@ -68,7 +68,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
-    tps.foreach(storeOffsetOnRevoke)
+    tps.foreach(onRevoke)
     pendingPartitions --= tps
     partitionsInStartup --= tps
     tps.flatMap(subSources.get).foreach(_.shutdown())
