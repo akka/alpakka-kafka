@@ -6,7 +6,7 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions._
-import akka.kafka.{ConsumerSettings, KafkaConsumerActor, Subscription}
+import akka.kafka.{ConsumerActorTerminatedException, ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
@@ -51,7 +51,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         }
         pump()
       case (_, Terminated(ref)) if ref == consumer =>
-        failStage(new Exception("Consumer actor terminated"))
+        failStage(new ConsumerActorTerminatedException)
     }
     self.watch(consumer)
 
