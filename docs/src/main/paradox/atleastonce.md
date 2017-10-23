@@ -68,9 +68,9 @@ However if a committable message leads to the production of no messages, then we
 
 ### Excluding Messages
 
-Failure to deserialize a message is a particular case of conditional message processing. It is also likely that we would have no message to produce to Kafka when we encounter messages that fail to deserialize. As described above, the producer flow will not less us pass through the corresponding committable offset without producing a message. 
+Failure to deserialize a message is a particular case of conditional message processing. It is also likely that we would have no message to produce to Kafka when we encounter messages that fail to deserialize. As described above, the producer flow will not let us pass through the corresponding committable offset without producing a message. 
 
-Why can't we commit the offsets of bad messages as soon as we encounter them, instead of try passing them on, downstream? Because the previous offsets, for messages that have deserialized successfully, may not have been committed yet. That's possible if the downstream flow includes a buffer, an aynchronous boundary or performs batching. It is then likely that some previous messages would concurrently be making their way downstream to a final committing stage.
+Why can't we commit the offsets of bad messages as soon as we encounter them, instead of passing them downstream? Because the previous offsets, for messages that have deserialized successfully, may not have been committed yet. That's possible if the downstream flow includes a buffer, an aynchronous boundary or performs batching. It is then likely that some previous messages would concurrently be making their way downstream to a final committing stage.
 
 Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the commitable source. We can instead create a `ConsumerSettings` parametrized by byte arrays. A subsequent `collect` can deserialize and skip bad messages. Alternatively a `map` stage can be used should we wish to propagate downstream some information about the bad messages, such as their committable offsets.
 
