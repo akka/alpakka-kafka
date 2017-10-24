@@ -55,6 +55,7 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(CompactControlReadability, true)
   .setPreference(DanglingCloseParenthesis, Preserve)
+  .setPreference(NewlineAtEndOfFile, true)
   .setPreference(SpacesAroundMultiImports, false),
 headers := headers.value ++ Map(
   "scala" -> (
