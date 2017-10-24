@@ -4,4 +4,4 @@
  */
 package akka.kafka
 
-class ConsumerActorTerminatedException extends Exception("Consumer actor terminated")
+class ConsumerFailed extends RuntimeException("Consumer actor terminated")

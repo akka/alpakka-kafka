@@ -8,7 +8,7 @@ import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{AutoSubscription, ConsumerActorTerminatedException, ConsumerSettings, KafkaConsumerActor}
+import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
@@ -42,7 +42,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
     self = getStageActor {
       case (_, Terminated(ref)) if ref == consumer =>
-        failStage(new ConsumerActorTerminatedException)
+        failStage(new ConsumerFailed)
     }
     self.watch(consumer)
 
@@ -165,7 +165,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
               }
               pump()
             case (_, Terminated(ref)) if ref == consumer =>
-              failStage(new ConsumerActorTerminatedException)
+              failStage(new ConsumerFailed)
           }
           self.watch(consumer)
         }
