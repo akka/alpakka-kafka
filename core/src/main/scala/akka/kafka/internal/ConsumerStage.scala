@@ -124,7 +124,7 @@ private[kafka] object ConsumerStage {
   }
 
   abstract class KafkaSourceStage[K, V, Msg]()
-      extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
+    extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
     protected val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
     protected def logic(shape: SourceShape[Msg]): GraphStageLogic with Control
@@ -156,7 +156,7 @@ private[kafka] object ConsumerStage {
   }
 
   final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(val committer: Committer)
-      extends CommittableOffset {
+    extends CommittableOffset {
     override def commitScaladsl(): Future[Done] = committer.commit(immutable.Seq(partitionOffset))
     override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   }
@@ -168,7 +168,7 @@ private[kafka] object ConsumerStage {
   }
 
   final class CommittableOffsetBatchImpl(val offsets: Map[GroupTopicPartition, Long], val stages: Map[String, Committer])
-      extends CommittableOffsetBatch {
+    extends CommittableOffsetBatch {
 
     override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
       val partitionOffset = committableOffset.partitionOffset

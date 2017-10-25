@@ -56,10 +56,10 @@ object ConsumerTest {
 }
 
 class ConsumerTest(_system: ActorSystem)
-    extends TestKit(_system)
-    with FlatSpecLike
-    with Matchers
-    with BeforeAndAfterAll {
+  extends TestKit(_system)
+  with FlatSpecLike
+  with Matchers
+  with BeforeAndAfterAll {
 
   import ConsumerTest._
 
@@ -205,10 +205,10 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       checkMessagesReceiving(
         messages
-        .grouped(97)
-        .map(x => Seq(Seq.empty, x))
-        .flatten
-        .to[Seq]
+          .grouped(97)
+          .map(x => Seq(Seq.empty, x))
+          .flatten
+          .to[Seq]
       )
     }
   }

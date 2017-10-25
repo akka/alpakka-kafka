@@ -1,4 +1,4 @@
-import scalariform.formatter.preferences.{CompactControlReadability, DoubleIndentClassDeclaration, PreserveSpaceBeforeArguments, SpacesAroundMultiImports}
+import scalariform.formatter.preferences._
 import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
@@ -28,8 +28,7 @@ val coreDependencies = Seq(
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
-val commonSettings =
-  scalariformSettings ++ Seq(
+val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend",
   startYear := Some(2014),
@@ -38,6 +37,7 @@ val commonSettings =
   scalaVersion := "2.11.11",
   crossScalaVersions := Seq(scalaVersion.value, "2.12.3"),
   crossVersion := CrossVersion.binary,
+  scalariformAutoformat := true,
   scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",       // yes, this is 2 args
@@ -50,10 +50,12 @@ val commonSettings =
   "-Xfuture"
 ),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-  .setPreference(DoubleIndentClassDeclaration, true)
+  scalariformPreferences := scalariformPreferences.value
+  .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(CompactControlReadability, true)
+  .setPreference(DanglingCloseParenthesis, Preserve)
+  .setPreference(NewlineAtEndOfFile, true)
   .setPreference(SpacesAroundMultiImports, false),
 headers := headers.value ++ Map(
   "scala" -> (
