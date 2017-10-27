@@ -4,27 +4,32 @@
  */
 package akka.kafka.internal
 
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerActorTerminatedException, ConsumerSettings, KafkaConsumerActor}
+import akka.pattern.{ask, pipe}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
 import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
+import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import scala.concurrent.Future
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
     subscription: AutoSubscription,
-    loadOffsetOnAssign: Option[TopicPartition => Long] = None,
-    onRevoke: TopicPartition => Unit = _ => ()
+    loadOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
+    onRevoke: Set[TopicPartition] => Unit = _ => ()
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
   var self: StageActor = _
@@ -53,22 +58,25 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
     subscription match {
       case TopicSubscription(topics) =>
-        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener, loadOffsetOnAssign.isEmpty), self.ref)
+        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener, loadOffsetsOnAssign.isEmpty), self.ref)
       case TopicSubscriptionPattern(topics) =>
-        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener, loadOffsetOnAssign.isEmpty), self.ref)
+        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener, loadOffsetsOnAssign.isEmpty), self.ref)
     }
   }
 
+  implicit val seekTimeout = Timeout(5000, TimeUnit.MILLISECONDS) // TODO: configurable? retry?
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
     pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
-    loadOffsetOnAssign.foreach { loadOffset =>
-      consumer.tell(KafkaConsumerActor.Internal.Seek(tps.map(tp => (tp, loadOffset(tp))).toMap), self.ref)
+    loadOffsetsOnAssign.foreach { loadOffsets =>
+      implicit val ec = materializer.executionContext
+      loadOffsets(tps.toSet)
+        .flatMap { offsets => consumer.ask(KafkaConsumerActor.Internal.Seek(offsets)) }
+        .foreach(_ => pump())
     }
-    pump()
   }
 
   val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
-    tps.foreach(onRevoke)
+    onRevoke(tps.toSet)
     pendingPartitions --= tps
     partitionsInStartup --= tps
     tps.flatMap(subSources.get).foreach(_.shutdown())

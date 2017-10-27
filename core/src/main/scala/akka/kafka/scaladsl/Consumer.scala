@@ -14,6 +14,7 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
+import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
@@ -100,11 +101,11 @@ object Consumer {
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
-   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
-   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `storeOffsetOnRevoke`
-   * function gives the consumer to chance to store
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetsOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
+   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required.
    */
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetOnAssign: TopicPartition => Long, onRevoke: TopicPartition => Unit = _ => ()): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]], onRevoke: Set[TopicPartition] => Unit = _ => ()): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
     Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription, Some(loadOffsetOnAssign), onRevoke))
 
   /**

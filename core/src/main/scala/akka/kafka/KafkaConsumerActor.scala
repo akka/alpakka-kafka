@@ -156,6 +156,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case Seek(tps) =>
       scheduleFirstPollTask()
       tps.foreach { case (topicPartition, offset) => consumer.seek(topicPartition, offset) }
+      sender() ! akka.Done
 
     case p: Poll[_, _] =>
       receivePoll(p)
