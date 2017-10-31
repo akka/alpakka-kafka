@@ -65,13 +65,14 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   implicit val seekTimeout = Timeout(5000, TimeUnit.MILLISECONDS) // TODO: configurable? retry?
+  private val pumpCB = getAsyncCallback[Unit](_ => pump())
   val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
     pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
-    loadOffsetsOnAssign.foreach { loadOffsets =>
+    loadOffsetsOnAssign.fold(pump()) { loadOffsets =>
       implicit val ec = materializer.executionContext
       loadOffsets(tps.toSet)
         .flatMap { offsets => consumer.ask(KafkaConsumerActor.Internal.Seek(offsets)) }
-        .foreach(_ => pump())
+        .foreach(_ => pumpCB.invoke(()))
     }
   }
 
