@@ -127,9 +127,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
       val reply = sender()
       commitsInProgress += 1
+      val startTime = System.nanoTime()
       consumer.commitAsync(commitMap.asJava, new OffsetCommitCallback {
         override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
+          val duration = System.nanoTime() - startTime
+          if (duration > settings.commitTimeWarning.toNanos) {
+            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration)
+          }
           commitsInProgress -= 1
           if (exception != null) reply ! Status.Failure(exception)
           else reply ! Committed(offsets.asScala.toMap)

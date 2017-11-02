@@ -10,11 +10,10 @@ import java.util.{List => JList, Map => JMap, Set => JSet}
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.ConsumerSettings
+import akka.kafka.{CommitTimeoutException, ConsumerSettings}
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.scaladsl.Consumer
 import Consumer.Control
-import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.TestSink
@@ -533,7 +532,7 @@ class ConsumerTest(_system: ActorSystem)
       Await.result(stopped, remainingOrDefault)
 
       val done = first.committableOffset.commitScaladsl()
-      intercept[AskTimeoutException] {
+      intercept[CommitTimeoutException] {
         Await.result(done, remainingOrDefault)
       }
     }
