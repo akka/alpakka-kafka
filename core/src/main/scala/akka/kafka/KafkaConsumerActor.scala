@@ -32,9 +32,8 @@ object KafkaConsumerActor {
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
-    final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener, autoOffsets: Boolean = true)
-    final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener, autoOffsets: Boolean = true)
-    final case class Seek(tps: Map[TopicPartition, Long])
+    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks)
+    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks)
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
@@ -55,23 +54,18 @@ object KafkaConsumerActor {
     private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
 
-  private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
-    override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
-      onAssign(partitions.asScala)
-    }
-    override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      onRevoke(partitions.asScala)
-    }
-  }
+  private[kafka] case class ListenerCallbacks(onAssign: (KafkaConsumer[_, _], Iterable[TopicPartition]) => Unit, onRevoke: Iterable[TopicPartition] => Unit)
+  private[kafka] def rebalanceListener(onAssign: (KafkaConsumer[_, _], Iterable[TopicPartition]) => Unit, onRevoke: Iterable[TopicPartition] => Unit) =
+    ListenerCallbacks(onAssign, onRevoke)
 
-  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ConsumerRebalanceListener) extends ConsumerRebalanceListener {
+  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
-      listener.onPartitionsAssigned(partitions)
+      listener.onAssign(client, partitions.asScala)
     }
 
     override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      listener.onPartitionsRevoked(partitions)
+      listener.onRevoke(partitions.asScala)
     }
   }
 }
@@ -146,17 +140,12 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         self ! delayedPollMsg
       }
 
-    case Subscribe(topics, listener, autoOffsets) =>
-      if (autoOffsets) scheduleFirstPollTask()
-      consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
-    case SubscribePattern(pattern, listener, autoOffsets) =>
-      if (autoOffsets) scheduleFirstPollTask()
-      consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
-
-    case Seek(tps) =>
+    case Subscribe(topics, listener) =>
       scheduleFirstPollTask()
-      tps.foreach { case (topicPartition, offset) => consumer.seek(topicPartition, offset) }
-      sender() ! akka.Done
+      consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
+    case SubscribePattern(pattern, listener) =>
+      scheduleFirstPollTask()
+      consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
 
     case p: Poll[_, _] =>
       receivePoll(p)

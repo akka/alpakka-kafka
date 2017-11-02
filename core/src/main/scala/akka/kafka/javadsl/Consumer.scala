@@ -7,7 +7,6 @@ package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
-import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
@@ -18,7 +17,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
-import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -116,12 +114,12 @@ object Consumer {
    * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
    * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required.
    */
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], java.util.Map[TopicPartition, Long]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
     scaladsl.Consumer
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(loadOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => loadOffsetsOnAssign(tps.asJava).asScala.toMap,
         _ => ()
       )
       .map {
@@ -130,12 +128,12 @@ object Consumer {
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]], onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], java.util.Map[TopicPartition, Long]], onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
     scaladsl.Consumer
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(loadOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => loadOffsetsOnAssign(tps.asJava).asScala.toMap,
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {
