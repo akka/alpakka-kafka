@@ -25,8 +25,8 @@ object ProducerMessage {
    * that can be committed later in the flow.
    */
   final case class Message[K, V, +PassThrough](
-    record: ProducerRecord[K, V],
-    passThrough: PassThrough
+      record: ProducerRecord[K, V],
+      passThrough: PassThrough
   )
 
   /**

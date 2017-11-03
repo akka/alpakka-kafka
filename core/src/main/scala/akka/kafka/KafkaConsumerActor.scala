@@ -44,7 +44,7 @@ object KafkaConsumerActor {
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
     private[KafkaConsumerActor] final case class Poll[K, V](
-      target: KafkaConsumerActor[K, V], periodic: Boolean
+        target: KafkaConsumerActor[K, V], periodic: Boolean
     ) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
@@ -71,7 +71,7 @@ object KafkaConsumerActor {
 }
 
 private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
-    extends Actor with ActorLogging {
+  extends Actor with ActorLogging {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -122,9 +122,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
       val reply = sender()
       commitsInProgress += 1
+      val startTime = System.nanoTime()
       consumer.commitAsync(commitMap.asJava, new OffsetCommitCallback {
         override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
+          val duration = System.nanoTime() - startTime
+          if (duration > settings.commitTimeWarning.toNanos) {
+            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration)
+          }
           commitsInProgress -= 1
           if (exception != null) reply ! Status.Failure(exception)
           else reply ! Committed(offsets.asScala.toMap)
