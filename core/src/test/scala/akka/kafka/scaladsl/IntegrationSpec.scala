@@ -32,8 +32,8 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecL
 import org.scalatest.Assertions
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-    with WordSpecLike with Matchers with BeforeAndAfterAll
-    with BeforeAndAfterEach with TypeCheckedTripleEquals {
+  with WordSpecLike with Matchers with BeforeAndAfterAll
+  with BeforeAndAfterEach with TypeCheckedTripleEquals {
 
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)

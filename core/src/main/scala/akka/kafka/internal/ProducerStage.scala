@@ -21,10 +21,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * INTERNAL API
  */
 private[kafka] class ProducerStage[K, V, P](
-  closeTimeout: FiniteDuration, closeProducerOnStop: Boolean,
-  producerProvider: () => KafkaProducer[K, V]
+    closeTimeout: FiniteDuration, closeProducerOnStop: Boolean,
+    producerProvider: () => KafkaProducer[K, V]
 )
-    extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
+  extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 
   private val in = Inlet[Message[K, V, P]]("messages")
   private val out = Outlet[Future[Result[K, V, P]]]("result")
