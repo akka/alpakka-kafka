@@ -1,10 +1,13 @@
-import scalariform.formatter.preferences.{CompactControlReadability, DoubleIndentClassDeclaration, PreserveSpaceBeforeArguments, SpacesAroundMultiImports}
+import scalariform.formatter.preferences._
 import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.4.20"
-val kafkaVersion = "0.11.0.0"
+val akkaVersion = sys.env.get("AKKA_SERIES") match {
+  case Some("2.5") => "2.5.6"
+  case _ => "2.4.20"
+}
+val kafkaVersion = "0.11.0.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -15,29 +18,29 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.0" % "test",
-  "com.novocode" % "junit-interface" % "0.11" % "test",
-  "junit" % "junit" % "4.12" % "test",
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.12" % "test",
-  "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "net.manub" %% "scalatest-embedded-kafka" % "0.14.0" % "test" exclude("log4j", "log4j"),
-  "org.apache.kafka" %% "kafka" % kafkaVersion % "test" exclude("org.slf4j", "slf4j-log4j12")
+  "org.scalatest" %% "scalatest" % "3.0.4" % Test,
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
+  "com.novocode" % "junit-interface" % "0.11" % Test,
+  "junit" % "junit" % "4.12" % Test,
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
+  "org.mockito" % "mockito-core" % "2.10.0" % Test,
+  "net.manub" %% "scalatest-embedded-kafka" % "0.16.0" % Test exclude("log4j", "log4j"),
+  "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
-val commonSettings =
-  scalariformSettings ++ Seq(
+val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend",
   startYear := Some(2014),
   test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   scalaVersion := "2.11.11",
-  crossScalaVersions := Seq(scalaVersion.value, "2.12.2"),
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.3"),
   crossVersion := CrossVersion.binary,
+  scalariformAutoformat := true,
   scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",       // yes, this is 2 args
@@ -50,10 +53,12 @@ val commonSettings =
   "-Xfuture"
 ),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-  .setPreference(DoubleIndentClassDeclaration, true)
+  scalariformPreferences := scalariformPreferences.value
+  .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(CompactControlReadability, true)
+  .setPreference(DanglingCloseParenthesis, Preserve)
+  .setPreference(NewlineAtEndOfFile, true)
   .setPreference(SpacesAroundMultiImports, false),
 headers := headers.value ++ Map(
   "scala" -> (
@@ -116,10 +121,10 @@ lazy val benchmarks = project
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
-      "io.dropwizard.metrics" % "metrics-core" % "3.1.0",
-      "ch.qos.logback" % "logback-classic" % "1.1.3",
-      "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+      "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-stream" % akkaVersion
     ),

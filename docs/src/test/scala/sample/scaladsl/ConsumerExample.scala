@@ -388,7 +388,7 @@ class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
       case Failure(ex) =>
         log.error(ex, "Stream failed, stopping the actor.")
         self ! PoisonPill
-      case Success(ex) => // gracceful stream shutdown handling
+      case Success(ex) => // graceful stream shutdown handling
     }
     //#errorHandlingStop
   }
