@@ -94,7 +94,7 @@ class ProducerTest(_system: ActorSystem)
   }
   it should "work with a provided Producer" in {
     assertAllStagesStopped {
-      val input = 1 to 10 map{recordAndMetadata(_)._1}
+      val input = 1 to 10 map { recordAndMetadata(_)._1 }
 
       val mockProducer = new MockProducer[String, String]()
 
