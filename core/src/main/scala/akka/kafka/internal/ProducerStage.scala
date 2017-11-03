@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * INTERNAL API
  */
 private[kafka] class ProducerStage[K, V, P](
-  closeTimeout: FiniteDuration, closeProducerOnStop: Boolean,
-  producerProvider: () => Producer[K, V]
+    closeTimeout: FiniteDuration, closeProducerOnStop: Boolean,
+    producerProvider: () => Producer[K, V]
 )
   extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 
