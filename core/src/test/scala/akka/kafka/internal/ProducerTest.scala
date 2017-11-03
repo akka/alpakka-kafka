@@ -91,6 +91,7 @@ class ProducerTest(_system: ActorSystem)
       client.verifyNoMoreInteractions()
     }
   }
+
   it should "work with a provided Producer" in {
     assertAllStagesStopped {
       val input = 1 to 10 map { recordAndMetadata(_)._1 }
@@ -100,6 +101,7 @@ class ProducerTest(_system: ActorSystem)
       val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings, mockProducer))
 
       Thread.sleep(1000)
+      // seems we have to sleep and wait before flushing to get the stream to close
       mockProducer.flush()
       Await.result(fut, Duration.apply("2 seconds"))
       mockProducer.close()
