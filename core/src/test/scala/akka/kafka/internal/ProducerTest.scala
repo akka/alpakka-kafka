@@ -23,7 +23,6 @@ import org.apache.kafka.clients.producer.{Callback, KafkaProducer, MockProducer,
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito
-import org.mockito.Matchers._
 import org.mockito.Mockito
 import Mockito._
 import akka.kafka.scaladsl.Producer
@@ -34,8 +33,8 @@ import org.scalatest.{FlatSpecLike, Matchers}
 import org.scalatest.BeforeAndAfterAll
 
 class ProducerTest(_system: ActorSystem)
-    extends TestKit(_system) with FlatSpecLike
-    with Matchers with BeforeAndAfterAll {
+  extends TestKit(_system) with FlatSpecLike
+  with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem())
 
@@ -339,7 +338,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   var closed = false
   val mock = {
     val result = Mockito.mock(classOf[KafkaProducer[K, V]])
-    Mockito.when(result.send(any[ProducerRecord[K, V]], any[Callback])).thenAnswer(new Answer[java.util.concurrent.Future[RecordMetadata]] {
+    Mockito.when(result.send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback])).thenAnswer(new Answer[java.util.concurrent.Future[RecordMetadata]] {
       override def answer(invocation: InvocationOnMock) = {
         val record = invocation.getArguments()(0).asInstanceOf[ProducerRecord[K, V]]
         val callback = invocation.getArguments()(1).asInstanceOf[Callback]
@@ -354,7 +353,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
         result
       }
     })
-    Mockito.when(result.close(any[Long], any[TimeUnit])).thenAnswer(new Answer[Unit] {
+    Mockito.when(result.close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock) = {
         closed = true
       }
@@ -363,19 +362,19 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   }
 
   def verifySend(mode: VerificationMode) = {
-    Mockito.verify(mock, mode).send(any[ProducerRecord[K, V]], any[Callback])
+    Mockito.verify(mock, mode).send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback])
   }
 
   def verifyClosed() = {
     Mockito.verify(mock).flush()
-    Mockito.verify(mock).close(any[Long], any[TimeUnit])
+    Mockito.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
   }
 
   def verifyForceClosedInCallback() = {
     val inOrder = Mockito.inOrder(mock)
-    inOrder.verify(mock, atLeastOnce()).close(mockito.Matchers.eq(0L), any[TimeUnit])
+    inOrder.verify(mock, atLeastOnce()).close(mockito.ArgumentMatchers.eq(0L), mockito.ArgumentMatchers.any[TimeUnit])
     inOrder.verify(mock).flush()
-    inOrder.verify(mock).close(any[Long], any[TimeUnit])
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
   }
 
   def verifyNoMoreInteractions() = {

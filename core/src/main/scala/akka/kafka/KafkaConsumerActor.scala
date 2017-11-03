@@ -5,16 +5,21 @@
 package akka.kafka
 
 import java.util
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
+
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
+
 import akka.actor.DeadLetterSuppression
+
 import scala.util.control.{NoStackTrace, NonFatal}
 
 object KafkaConsumerActor {
@@ -39,7 +44,7 @@ object KafkaConsumerActor {
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
     //internal
     private[KafkaConsumerActor] final case class Poll[K, V](
-      target: KafkaConsumerActor[K, V], periodic: Boolean
+        target: KafkaConsumerActor[K, V], periodic: Boolean
     ) extends DeadLetterSuppression
     private val number = new AtomicInteger()
     def nextNumber() = {
@@ -71,7 +76,7 @@ object KafkaConsumerActor {
 }
 
 private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
-    extends Actor with ActorLogging {
+  extends Actor with ActorLogging {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -109,7 +114,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
-      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long(_)).asJava)
+      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava)
       topicPartitionToOffsetAndTimestamp.asScala.foreach {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
@@ -122,9 +127,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
       val reply = sender()
       commitsInProgress += 1
+      val startTime = System.nanoTime()
       consumer.commitAsync(commitMap.asJava, new OffsetCommitCallback {
         override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
+          val duration = System.nanoTime() - startTime
+          if (duration > settings.commitTimeWarning.toNanos) {
+            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration)
+          }
           commitsInProgress -= 1
           if (exception != null) reply ! Status.Failure(exception)
           else reply ! Committed(offsets.asScala.toMap)
@@ -217,7 +227,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
-    consumer.close()
+    consumer.close(settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
     super.postStop()
   }
 
@@ -241,7 +251,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }
   }
 
-  def poll() = {
+  def poll(): Unit = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
       consumer.wakeup()
     }(context.system.dispatcher)

@@ -10,7 +10,6 @@ import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerSettings, Subscriptions}
-import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
