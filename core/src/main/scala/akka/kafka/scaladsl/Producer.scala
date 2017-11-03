@@ -10,7 +10,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.{Done, NotUsed}
-import org.apache.kafka.clients.producer.{Producer => KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
 
 import scala.concurrent.Future
 
@@ -36,7 +36,7 @@ object Producer {
    */
   def plainSink[K, V](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]].map(Message(_, NotUsed))
       .via(flow(settings, producer))
@@ -65,7 +65,7 @@ object Producer {
    */
   def commitableSink[K, V](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Sink[Message[K, V, ConsumerMessage.Committable], Future[Done]] =
     flow[K, V, ConsumerMessage.Committable](settings, producer)
       .mapAsync(settings.parallelism)(_.message.passThrough.commitScaladsl())
@@ -94,7 +94,7 @@ object Producer {
    */
   def flow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
       closeTimeout = settings.closeTimeout,

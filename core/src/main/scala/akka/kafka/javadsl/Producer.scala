@@ -12,7 +12,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{Producer => KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -38,7 +38,7 @@ object Producer {
    */
   def plainSink[K, V](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
     scaladsl.Producer.plainSink(settings, producer)
       .mapMaterializedValue(_.toJava)
@@ -66,7 +66,7 @@ object Producer {
    */
   def commitableSink[K, V](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Sink[Message[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
     scaladsl.Producer.commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
@@ -87,7 +87,7 @@ object Producer {
    */
   def flow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
-    producer: KafkaProducer[K, V]
+    producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings, producer).asJava
 }

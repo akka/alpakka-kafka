@@ -9,7 +9,7 @@ import akka.kafka.ProducerMessage.{Message, Result}
 import akka.stream._
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.stage._
-import org.apache.kafka.clients.producer.{Callback, Producer => KafkaProducer, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 private[kafka] class ProducerStage[K, V, P](
   closeTimeout: FiniteDuration, closeProducerOnStop: Boolean,
-  producerProvider: () => KafkaProducer[K, V]
+  producerProvider: () => Producer[K, V]
 )
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] {
 

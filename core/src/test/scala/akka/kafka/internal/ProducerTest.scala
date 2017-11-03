@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
-import akka.NotUsed
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
@@ -19,13 +19,14 @@ import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
-import org.apache.kafka.clients.producer.{Callback, KafkaProducer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, KafkaProducer, MockProducer, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import Mockito._
+import akka.kafka.scaladsl.Producer
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -89,6 +90,22 @@ class ProducerTest(_system: ActorSystem)
       client.verifySend(never())
       client.verifyClosed()
       client.verifyNoMoreInteractions()
+    }
+  }
+  it should "work with a provided Producer" in {
+    assertAllStagesStopped {
+      val input = 1 to 10 map{recordAndMetadata(_)._1}
+
+      val mockProducer = new MockProducer[String, String]()
+
+      val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings, mockProducer))
+
+      Thread.sleep(1000)
+      mockProducer.flush()
+      Await.result(fut, Duration.apply("2 seconds"))
+      mockProducer.close()
+      import collection.JavaConverters._
+      mockProducer.history().asScala.toVector shouldEqual input
     }
   }
 
