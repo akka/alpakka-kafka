@@ -100,7 +100,7 @@ class ProducerTest(_system: ActorSystem)
 
       val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings, mockProducer))
 
-      Await.result(fut, Duration.apply("2 seconds"))
+      Await.result(fut, Duration.apply("1 second"))
       mockProducer.close()
       import collection.JavaConverters._
       mockProducer.history().asScala.toVector shouldEqual input
