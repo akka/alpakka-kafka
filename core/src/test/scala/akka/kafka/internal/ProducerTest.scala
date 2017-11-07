@@ -96,13 +96,10 @@ class ProducerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val input = 1 to 10 map { recordAndMetadata(_)._1 }
 
-      val mockProducer = new MockProducer[String, String]()
+      val mockProducer = new MockProducer[String, String](true, null, null)
 
       val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings, mockProducer))
 
-      Thread.sleep(1000)
-      // seems we have to sleep and wait before flushing to get the stream to close
-      mockProducer.flush()
       Await.result(fut, Duration.apply("2 seconds"))
       mockProducer.close()
       import collection.JavaConverters._
