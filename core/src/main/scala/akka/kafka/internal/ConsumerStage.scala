@@ -31,10 +31,10 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
  * INTERNAL API
  */
 private[kafka] object ConsumerStage {
-  def plainSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, loadOffsetOnAssign: Option[Set[TopicPartition] => Map[TopicPartition, Long]] = None, onRevoke: Set[TopicPartition] => Unit = _ => ()) = {
+  def plainSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None, onRevoke: Set[TopicPartition] => Unit = _ => ()) = {
     new KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, loadOffsetOnAssign, onRevoke) with PlainMessageBuilder[K, V]
+        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke) with PlainMessageBuilder[K, V]
     }
   }
 

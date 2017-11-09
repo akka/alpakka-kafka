@@ -6,6 +6,7 @@ package akka.kafka.internal
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.dispatch.ExecutionContexts
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
@@ -18,12 +19,13 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import scala.concurrent.Future
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
     subscription: AutoSubscription,
-    loadOffsetsOnAssign: Option[Set[TopicPartition] => Map[TopicPartition, Long]] = None,
+    getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => ()
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
@@ -59,19 +61,22 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  def partitionAssignedCB(kafkaConsumer: KafkaConsumer[_, _], tps: Iterable[TopicPartition]) = {
-    loadOffsetsOnAssign.foreach { loadOffsets =>
-      loadOffsets(tps.toSet).foreach { case (tp, offset) => kafkaConsumer.seek(tp, offset) }
-    }
-    getAsyncCallback[Unit] { _ =>
-      pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
-      pump()
-    }.invoke(())
+  private def pumpCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
+    pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
+    pump()
   }
 
+  def partitionAssignedCB(kafkaConsumer: KafkaConsumer[_, _], tps: Iterable[TopicPartition]) =
+    getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
+      getOffsets(tps.toSet).foreach { offsets =>
+        offsets.foreach { case (tp, offset) => kafkaConsumer.seek(tp, offset) }
+        pumpCB.invoke(tps)
+      }(ExecutionContexts.sameThreadExecutionContext)
+    }
+
   def partitionRevokedCB(tps: Iterable[TopicPartition]) = {
-    onRevoke(tps.toSet)
     getAsyncCallback[Unit] { _ =>
+      onRevoke(tps.toSet)
       pendingPartitions --= tps
       partitionsInStartup --= tps
       tps.flatMap(subSources.get).foreach(_.shutdown())
