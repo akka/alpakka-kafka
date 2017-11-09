@@ -29,12 +29,14 @@ object KafkaConsumerActor {
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
 
   private[kafka] object Internal {
+    sealed trait SubscriptionRequest
+
     //requests
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
-    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks)
-    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks)
+    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest
+    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest
     final case class Seek(tps: Map[TopicPartition, Long])
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
     case object Stop
@@ -87,6 +89,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
   var consumer: KafkaConsumer[K, V] = _
+  var subscriptions = Set.empty[SubscriptionRequest]
   var commitsInProgress = 0
   var wakeups = 0
   var stopInProgress = false
@@ -147,12 +150,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         self ! delayedPollMsg
       }
 
-    case Subscribe(topics, listener) =>
-      scheduleFirstPollTask()
-      consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
-    case SubscribePattern(pattern, listener) =>
-      scheduleFirstPollTask()
-      consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
+    case s: SubscriptionRequest =>
+      subscriptions = subscriptions + s
+      handleSubscription(s)
 
     case Seek(offsets) =>
       offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
@@ -187,6 +187,17 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case Terminated(ref) =>
       requests -= ref
       requestors -= ref
+  }
+
+  def handleSubscription(subscription: SubscriptionRequest): Unit = {
+    scheduleFirstPollTask()
+
+    subscription match {
+      case Subscribe(topics, listener) =>
+        consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
+      case SubscribePattern(pattern, listener) =>
+        consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
+    }
   }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
@@ -258,7 +269,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }(context.system.dispatcher)
     //set partitions to fetch
     val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
-    consumer.assignment().asScala.foreach { tp =>
+    val currentAssignments = consumer.assignment().asScala
+    currentAssignments.foreach { tp =>
       if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
       else consumer.pause(java.util.Collections.singleton(tp))
     }
@@ -279,6 +291,18 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           else {
             log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
               s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
+
+            // If the current consumer is using group assignment (i.e. subscriptions is non empty) the wakeup might
+            // have prevented the re-balance callbacks to be called leaving the Source in an inconsistent state w.r.t
+            // assigned TopicPartitions. In order to reconcile the state we manually call callbacks for all added/remove
+            // TopicPartition assignments aligning the Source's state the consumer's.
+            // We are safe to perform the operation here since the poll() thread has been aborted by the wakeup call
+            // and there are no other threads are using the consumer.
+            // Note: in case of manual partition assignment this is not needed since rebalance doesn't take place.
+            if (subscriptions.nonEmpty) {
+              val newAssignments = consumer.assignment().asScala
+              reconcileAssignments(currentAssignments.toSet, newAssignments.toSet)
+            }
           }
           throw new NoPollResult
         case NonFatal(e) =>
@@ -321,6 +345,47 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     if (stopInProgress && commitsInProgress == 0) {
       context.stop(self)
+    }
+  }
+
+  private def reconcileAssignments(currentAssignments: Set[TopicPartition], newAssignments: Set[TopicPartition]): Unit = {
+    def groupByTopic(assignments: Set[TopicPartition]): Map[String, Set[TopicPartition]] = {
+      assignments.map { tp =>
+        tp.topic() -> tp
+      }.groupBy(_._1).map {
+        case (topic, tps) =>
+          topic -> tps.map(_._2)
+      }
+    }
+
+    val revokedAssignmentsByTopic: Map[String, Set[TopicPartition]] = groupByTopic(currentAssignments -- newAssignments)
+    val addedAssignmentsByTopic = groupByTopic(newAssignments -- currentAssignments)
+
+    subscriptions.foreach {
+      case Subscribe(topics, listener) =>
+        topics.foreach { topic =>
+          val removedTopicAssignments: Set[TopicPartition] = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
+          if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
+
+          val addedTopicAssignments: Set[TopicPartition] = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
+          if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
+        }
+
+      case SubscribePattern(pattern: String, listener) =>
+        val ptr = Pattern.compile(pattern)
+
+        def filterByPattern(tpm: Map[String, Set[TopicPartition]]): Set[TopicPartition] = {
+          tpm.flatMap {
+            case (topic, tps) if ptr.matcher(topic).matches() => tps
+            case _ => Set.empty[TopicPartition]
+          }.toSet
+        }
+
+        val revokedAssignments = filterByPattern(revokedAssignmentsByTopic)
+        if (revokedAssignments.nonEmpty) listener.onRevoke(revokedAssignments)
+
+        val addedAssignments = filterByPattern(addedAssignmentsByTopic)
+        if (addedAssignments.nonEmpty) listener.onAssign(addedAssignments)
     }
   }
 
