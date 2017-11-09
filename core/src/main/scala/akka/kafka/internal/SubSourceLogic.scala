@@ -61,12 +61,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  private def pumpCB = getAsyncCallback[Iterable[TopicPartition]] { tps =>
+  private def pumpCB = getAsyncCallback[Set[TopicPartition]] { tps =>
     pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
     pump()
   }
 
-  def partitionAssignedCB(kafkaConsumer: KafkaConsumer[_, _], tps: Iterable[TopicPartition]) =
+  def partitionAssignedCB(kafkaConsumer: KafkaConsumer[_, _], tps: Set[TopicPartition]) =
     getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
       getOffsets(tps.toSet).foreach { offsets =>
         offsets.foreach { case (tp, offset) => kafkaConsumer.seek(tp, offset) }
@@ -74,7 +74,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       }(ExecutionContexts.sameThreadExecutionContext)
     }
 
-  def partitionRevokedCB(tps: Iterable[TopicPartition]) = {
+  def partitionRevokedCB(tps: Set[TopicPartition]) = {
     getAsyncCallback[Unit] { _ =>
       onRevoke(tps.toSet)
       pendingPartitions --= tps

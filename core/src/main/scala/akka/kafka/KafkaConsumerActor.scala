@@ -54,18 +54,18 @@ object KafkaConsumerActor {
     private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
 
-  private[kafka] case class ListenerCallbacks(onAssign: (KafkaConsumer[_, _], Iterable[TopicPartition]) => Unit, onRevoke: Iterable[TopicPartition] => Unit)
-  private[kafka] def rebalanceListener(onAssign: (KafkaConsumer[_, _], Iterable[TopicPartition]) => Unit, onRevoke: Iterable[TopicPartition] => Unit) =
+  private[kafka] case class ListenerCallbacks(onAssign: (KafkaConsumer[_, _], Set[TopicPartition]) => Unit, onRevoke: Set[TopicPartition] => Unit)
+  private[kafka] def rebalanceListener(onAssign: (KafkaConsumer[_, _], Set[TopicPartition]) => Unit, onRevoke: Set[TopicPartition] => Unit) =
     ListenerCallbacks(onAssign, onRevoke)
 
   private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
-      listener.onAssign(client, partitions.asScala)
+      listener.onAssign(client, partitions.asScala.toSet)
     }
 
     override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      listener.onRevoke(partitions.asScala)
+      listener.onRevoke(partitions.asScala.toSet)
     }
   }
 }
