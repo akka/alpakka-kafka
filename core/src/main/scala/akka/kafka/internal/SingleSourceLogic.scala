@@ -66,7 +66,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
 
     def rebalanceListener =
-      KafkaConsumerActor.rebalanceListener((_, tps) => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
+      KafkaConsumerActor.rebalanceListener(tps => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
 
     subscription match {
       case TopicSubscription(topics) =>

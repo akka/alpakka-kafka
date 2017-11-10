@@ -4,17 +4,20 @@
  */
 package akka.kafka.internal
 
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.dispatch.ExecutionContexts
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
+import akka.pattern.ask
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
 import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
-import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
+import akka.util.Timeout
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -66,17 +69,19 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     pump()
   }
 
-  def partitionAssignedCB(kafkaConsumer: KafkaConsumer[_, _], tps: Set[TopicPartition]) =
+  private implicit val askTimeout = Timeout(5000, TimeUnit.MILLISECONDS)
+  def partitionAssignedCB(tps: Set[TopicPartition]) = {
+    implicit val ec = materializer.executionContext
     getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
-      getOffsets(tps.toSet).foreach { offsets =>
-        offsets.foreach { case (tp, offset) => kafkaConsumer.seek(tp, offset) }
-        pumpCB.invoke(tps)
-      }(ExecutionContexts.sameThreadExecutionContext)
+      getOffsets(tps).flatMap { offsets =>
+        consumer.ask(KafkaConsumerActor.Internal.Seek(offsets)).map(_ => pumpCB.invoke(tps))
+      }
     }
+  }
 
   def partitionRevokedCB(tps: Set[TopicPartition]) = {
     getAsyncCallback[Unit] { _ =>
-      onRevoke(tps.toSet)
+      onRevoke(tps)
       pendingPartitions --= tps
       partitionsInStartup --= tps
       tps.flatMap(subSources.get).foreach(_.shutdown())
