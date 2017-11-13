@@ -4,4 +4,6 @@
  */
 package akka.kafka
 
-class ConsumerFailed extends RuntimeException("Consumer actor terminated")
+class ConsumerFailed(msg: String) extends RuntimeException(msg) {
+  def this() = this("Consumer actor terminated") // for backwards compatibility
+}

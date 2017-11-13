@@ -11,7 +11,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
-import akka.pattern.ask
+import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
@@ -69,12 +69,16 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     pump()
   }
 
-  private implicit val askTimeout = Timeout(5000, TimeUnit.MILLISECONDS)
+  private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
   def partitionAssignedCB(tps: Set[TopicPartition]) = {
     implicit val ec = materializer.executionContext
     getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
       getOffsets(tps).flatMap { offsets =>
-        consumer.ask(KafkaConsumerActor.Internal.Seek(offsets)).map(_ => pumpCB.invoke(tps))
+        consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
+          .map(_ => pumpCB.invoke(tps))
+          .recover {
+            case _: AskTimeoutException => failStage(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+          }
       }
     }
   }
