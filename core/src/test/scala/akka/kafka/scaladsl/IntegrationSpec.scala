@@ -6,34 +6,35 @@ package akka.kafka.scaladsl
 
 import java.util.UUID
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
-import akka.kafka.test.Utils._
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-import scala.collection.JavaConverters._
-import scala.language.postfixOps
-import akka.{Done, NotUsed}
+
 import akka.actor.ActorSystem
-import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
-import akka.kafka.ProducerMessage
 import akka.kafka.ProducerMessage.Message
+import akka.kafka.Subscriptions.TopicSubscription
+import akka.kafka.test.Utils._
+import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.TestSubscriber
+import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
-import org.scalatest.Assertions
+import org.scalatest._
+import org.scalatest.concurrent.Eventually
+
+import scala.collection.JavaConverters._
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   with WordSpecLike with Matchers with BeforeAndAfterAll
-  with BeforeAndAfterEach with TypeCheckedTripleEquals {
+  with BeforeAndAfterEach with TypeCheckedTripleEquals with Eventually {
 
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
@@ -331,6 +332,89 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
           .expectNoMsg(1.second)
 
         probe.cancel()
+      }
+    }
+
+    "begin consuming from the beginning of the topic" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group)
+
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), _ => Future.successful(Map.empty))
+          .flatMapMerge(1, _._2)
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+          .runWith(TestSink.probe)
+
+        probe
+          .request(100)
+          .expectNextN((1 to 100).map(_.toString))
+
+        probe.cancel()
+      }
+    }
+
+    "begin consuming from the middle of the topic" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group)
+
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), tp => Future.successful(tp.map(_ -> 51L).toMap))
+          .flatMapMerge(1, _._2)
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+          .runWith(TestSink.probe)
+
+        probe
+          .request(50)
+          .expectNextN((51 to 100).map(_.toString))
+
+        probe.cancel()
+      }
+    }
+
+    "call the onRevoked hook" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group)
+
+        var revoked = false
+
+        val source = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), _ => Future.successful(Map.empty), _ => revoked = true)
+          .flatMapMerge(1, _._2)
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+
+        val probe1 = source.runWith(TestSink.probe)
+
+        probe1
+          .request(50)
+
+        val probe2 = source.runWith(TestSink.probe)
+
+        eventually(assert(revoked))
+
+        probe1.cancel()
+        probe2.cancel()
+
       }
     }
   }
