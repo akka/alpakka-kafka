@@ -64,9 +64,13 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  private def pumpCB = getAsyncCallback[Set[TopicPartition]] { tps =>
+  private val pumpCB = getAsyncCallback[Set[TopicPartition]] { tps =>
     pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
     pump()
+  }
+
+  private val seekFailCB = getAsyncCallback[Set[TopicPartition]] { tps =>
+    failStage(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
   }
 
   private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
@@ -77,7 +81,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
           .map(_ => pumpCB.invoke(tps))
           .recover {
-            case _: AskTimeoutException => failStage(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+            case _: AskTimeoutException => seekFailCB.invoke(tps)
           }
       }
     }
