@@ -131,13 +131,13 @@ object Consumer {
       .asJava
 
   /**
-    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
-    * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
-    * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
-    * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
-    * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
-    *
-    */
+   * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
+   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
+   * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
+   *
+   */
   def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]], onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
     scaladsl.Consumer
       .plainPartitionedManualOffsetSource(

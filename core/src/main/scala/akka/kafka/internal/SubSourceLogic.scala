@@ -11,7 +11,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
-import akka.pattern.{ask, AskTimeoutException}
+import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
@@ -23,6 +23,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
@@ -69,21 +70,24 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     pump()
   }
 
-  private val seekFailCB = getAsyncCallback[Set[TopicPartition]] { tps =>
-    failStage(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+  private val stageFailCB = getAsyncCallback[ConsumerFailed] { ex =>
+    failStage(ex)
   }
 
   private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
   def partitionAssignedCB(tps: Set[TopicPartition]) = {
     implicit val ec = materializer.executionContext
     getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
-      getOffsets(tps).flatMap { offsets =>
-        consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
-          .map(_ => pumpCB.invoke(tps))
-          .recover {
-            case _: AskTimeoutException => seekFailCB.invoke(tps)
-          }
-      }
+      getOffsets(tps)
+        .onComplete {
+          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $tps.", ex))
+          case Success(offsets) =>
+            consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
+              .map(_ => pumpCB.invoke(tps))
+              .recover {
+                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+              }
+        }
     }
   }
 
