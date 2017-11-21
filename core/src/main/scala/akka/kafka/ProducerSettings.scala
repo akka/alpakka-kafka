@@ -13,8 +13,10 @@ import com.typesafe.config.Config
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
 import org.apache.kafka.common.serialization.Serializer
 
+import scala.collection.JavaConverters._
 import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
+
 
 object ProducerSettings {
 
@@ -149,6 +151,27 @@ final class ProducerSettings[K, V](
 
   def withBootstrapServers(bootstrapServers: String): ProducerSettings[K, V] =
     withProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+
+  /**
+    * The raw properties of the kafka-clients driver, see constants in
+    * `org.apache.kafka.clients.producer.ProducerConfig`.
+    */
+  def withProperties(properties: Map[String, String]): ProducerSettings[K, V] =
+    copy(properties = this.properties ++ properties)
+
+  /**
+    * The raw properties of the kafka-clients driver, see constants in
+    * `org.apache.kafka.clients.producer.ProducerConfig`.
+    */
+  def withProperties(properties: (String, String)*): ProducerSettings[K, V] =
+    copy(properties = this.properties ++ properties.toMap)
+
+  /**
+    * The raw properties of the kafka-clients driver, see constants in
+    * `org.apache.kafka.clients.producer.ProducerConfig`.
+    */
+  def withProperties(properties: java.util.Map[String, String]): ProducerSettings[K, V] =
+    copy(properties = this.properties ++ properties.asScala)
 
   /**
    * The raw properties of the kafka-clients driver, see constants in
