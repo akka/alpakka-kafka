@@ -15,7 +15,7 @@ import akka.kafka.{javadsl, scaladsl, _}
 import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl.Source
-import akka.stream.stage.{CallbackWrapper, GraphStageLogic, GraphStageWithMaterializedValue}
+import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -240,7 +240,7 @@ private[kafka] case object ControlStop extends ControlOperation
 
 private[kafka] case object ControlShutdown extends ControlOperation
 
-private[kafka] trait PromiseControl extends GraphStageLogic with Control with CallbackWrapper[ControlOperation] {
+private[kafka] trait PromiseControl extends GraphStageLogic with Control {
 
   def shape: SourceShape[_]
   def performShutdown(): Unit
@@ -253,6 +253,11 @@ private[kafka] trait PromiseControl extends GraphStageLogic with Control with Ca
   private val shutdownPromise: Promise[Done] = Promise()
   private val stopPromise: Promise[Done] = Promise()
 
+  private val controlCallback = getAsyncCallback[ControlOperation]({
+    case ControlStop => performStop()
+    case ControlShutdown => performShutdown()
+  })
+
   def onStop() = {
     stopPromise.trySuccess(Done)
   }
@@ -262,21 +267,12 @@ private[kafka] trait PromiseControl extends GraphStageLogic with Control with Ca
     shutdownPromise.trySuccess(Done)
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    val controlCallback = getAsyncCallback[ControlOperation]({
-      case ControlStop => performStop()
-      case ControlShutdown => performShutdown()
-    })
-    initCallback(controlCallback.invoke)
-  }
-
   override def stop(): Future[Done] = {
-    invoke(ControlStop)
+    controlCallback.invoke(ControlStop)
     stopPromise.future
   }
   override def shutdown(): Future[Done] = {
-    invoke(ControlShutdown)
+    controlCallback.invoke(ControlShutdown)
     shutdownPromise.future
   }
   override def isShutdown: Future[Done] = shutdownPromise.future

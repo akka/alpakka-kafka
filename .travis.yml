@@ -20,6 +20,3 @@ env:
   global:
     # encrypt with: travis encrypt WHITESOURCE_KEY=...
     - secure: "WrsJARX85hk+6YojUDLZpQEdHn9PkqIJuxSr5KIbDVUHUQo6H+P4QA5jNPTJjmEh3T+smvkP0doV+ouyZtEkPU0Yzc0f63/5COgROS2mSjDVVAUJlRDgcGfYTAzC5nB7UQEqoQmG2Z7MhkLt3fNSgOxQ3csHLFtkQEVGO+/EQHk="
-  matrix:
-    - AKKA_SERIES=2.4
-    - AKKA_SERIES=2.5

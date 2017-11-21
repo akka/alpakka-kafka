@@ -271,23 +271,23 @@ class ConsumerSettings[K, V](
     withProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId)
 
   /**
-    * The raw properties of the kafka-clients driver, see constants in
-    * `org.apache.kafka.clients.consumer.ConsumerConfig`.
-    */
+   * The raw properties of the kafka-clients driver, see constants in
+   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   */
   def withProperties(properties: Map[String, String]): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties)
 
   /**
-    * The raw properties of the kafka-clients driver, see constants in
-    * `org.apache.kafka.clients.consumer.ConsumerConfig`.
-    */
+   * The raw properties of the kafka-clients driver, see constants in
+   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   */
   def withProperties(properties: (String, String)*): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties.toMap)
 
   /**
-    * The raw properties of the kafka-clients driver, see constants in
-    * `org.apache.kafka.clients.consumer.ConsumerConfig`.
-    */
+   * The raw properties of the kafka-clients driver, see constants in
+   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   */
   def withProperties(properties: java.util.Map[String, String]): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties.asScala)
 
