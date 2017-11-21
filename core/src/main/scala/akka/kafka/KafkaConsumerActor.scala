@@ -18,6 +18,7 @@ import org.apache.kafka.common.errors.WakeupException
 import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
 
+import akka.Done
 import akka.actor.DeadLetterSuppression
 
 import scala.util.control.{NoStackTrace, NonFatal}
@@ -32,8 +33,9 @@ object KafkaConsumerActor {
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
-    final case class Subscribe(topics: Set[String], listener: ConsumerRebalanceListener)
-    final case class SubscribePattern(pattern: String, listener: ConsumerRebalanceListener)
+    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks)
+    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks)
+    final case class Seek(tps: Map[TopicPartition, Long])
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
@@ -54,23 +56,18 @@ object KafkaConsumerActor {
     private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
 
-  private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
-    override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
-      onAssign(partitions.asScala)
-    }
-    override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      onRevoke(partitions.asScala)
-    }
-  }
+  private[kafka] case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
+  private[kafka] def rebalanceListener(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) =
+    ListenerCallbacks(onAssign, onRevoke)
 
-  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ConsumerRebalanceListener) extends ConsumerRebalanceListener {
+  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
-      listener.onPartitionsAssigned(partitions)
+      listener.onAssign(partitions.asScala.toSet)
     }
 
     override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      listener.onPartitionsRevoked(partitions)
+      listener.onRevoke(partitions.asScala.toSet)
     }
   }
 }
@@ -156,6 +153,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case SubscribePattern(pattern, listener) =>
       scheduleFirstPollTask()
       consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
+
+    case Seek(offsets) =>
+      offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
+      sender() ! Done
 
     case p: Poll[_, _] =>
       receivePoll(p)

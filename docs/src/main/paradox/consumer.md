@@ -46,8 +46,9 @@ See [KafkaConsumer Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/
 
 ## External Offset Storage
 
-The `Consumer.plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
-It does not have support for committing offsets to Kafka. When using this Source, either store an offset externally or use auto-commit (note that auto-commit is by default disabled).
+`Consumer.plainSource` and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` elements
+(as received from the underlying `KafkaConsumer`). They do not have support for committing offsets to Kafka. When using
+these Sources, either store an offset externally or use auto-commit (note that auto-commit is by default disabled).
 
 The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
 choosing. The primary use case for this is allowing the application to store both the offset and the results of the
@@ -61,8 +62,15 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #plainSource }
 
-Note how the starting point (offset) is assigned for a given consumer group id,
+Note how with `Consumer.plainSource`, the starting point (offset) is assigned for a given consumer group id,
 topic and partition. The group id is defined in the `ConsumerSettings`.
+
+With `Consumer.plainPartitionedManualOffsetSource`, only the consumer group id and the topic is required on creation.
+The starting point is fetched by calling the `getOffsetsOnAssign` function passed in by the user. This function should return
+a `Map` of `TopicPartition` to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
+that is not included in the `Map` that results from `getOffsetsOnAssign`, the default starting position will be used,
+according to the consumer configuration value `auto.offset.reset`. Also note that `Consumer.plainPartitionedManualOffsetSource`
+emits tuples of assigned topic-partition and a corresponding source, as in [Source per partition](#source-per-partition).
 
 ## Offset Storage in Kafka
 

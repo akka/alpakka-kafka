@@ -55,18 +55,18 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
     self.watch(consumer)
 
-    val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps ++= newTps
       requestMessages()
     }
 
-    val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
+    val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
       requestMessages()
     }
 
     def rebalanceListener =
-      KafkaConsumerActor.rebalanceListener(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+      KafkaConsumerActor.rebalanceListener(tps => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
 
     subscription match {
       case TopicSubscription(topics) =>

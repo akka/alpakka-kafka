@@ -7,6 +7,7 @@ package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
+import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
@@ -16,7 +17,9 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.compat.java8.FutureConverters
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -106,6 +109,48 @@ object Consumer {
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
   }
+
+  /**
+   * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
+   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required.
+   */
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .plainPartitionedManualOffsetSource(
+        settings,
+        subscription,
+        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        _ => ()
+      )
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+
+  /**
+   * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
+   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
+   * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
+   *
+   */
+  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]], onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .plainPartitionedManualOffsetSource(
+        settings,
+        subscription,
+        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
+      )
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
 
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
