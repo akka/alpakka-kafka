@@ -46,6 +46,9 @@ val commonSettings = Seq(
   crossScalaVersions := Seq(scalaVersion.value, "2.12.6"),
   crossVersion := CrossVersion.binary,
   scalariformAutoformat := true,
+  javacOptions ++= Seq(
+    "-Xlint:deprecation"
+  ),
   scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",       // yes, this is 2 args
