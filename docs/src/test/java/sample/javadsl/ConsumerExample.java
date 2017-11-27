@@ -337,13 +337,13 @@ class RestartingConsumer extends ConsumerExample {
         Duration.create(30, TimeUnit.SECONDS),
         0.2,
             () ->
-                 Source.fromSourceCompletionStage(
+                 Source.fromCompletionStage(
                       Consumer
                         .plainSource(consumerSettings, Subscriptions.topics("topic1"))
                         .via(business())
                         .watchTermination(
                                  (control, completionStage) ->
-                                     completionStage.handle((_, _) -> control.shutdown()).thenCompose(Function.identity())
+                                     completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
                          )
                         .runWith(Sink.ignore(), materializer)
                  )
