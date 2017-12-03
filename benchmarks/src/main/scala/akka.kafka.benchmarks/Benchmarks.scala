@@ -23,6 +23,10 @@ object Benchmarks {
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
       case "akka-plain-consumer" =>
         runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
+      case "akka-plain-source-consumer" =>
+        runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSourceSimple(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
+      case "akka-committing-stage-consumer" =>
+        runPerfTest(cmd, ReactiveKafkaConsumerFixtures.committingStage(cmd, 1000), ReactiveKafkaConsumerBenchmarks.consumePlain)
       case "batched-consumer" =>
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
       case "akka-batched-consumer" =>
