@@ -23,7 +23,13 @@ class BenchmarksSpec extends TestKit(ActorSystem("AkkaKafkaBenchmarks")) with Fl
     //    Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
     //    Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 2000000))
     //    Benchmarks.run(RunTestCommand("at-most-once-consumer", kafkaHost, 1000))
-    Benchmarks.run(RunTestCommand("akka-at-most-once-consumer", kafkaHost, 50000))
+//    Benchmarks.run(RunTestCommand("akka-at-most-once-consumer", kafkaHost, 500000))
+    Benchmarks.run(RunTestCommand("plain-consumer", kafkaHost, 2000000))
+    Benchmarks.run(RunTestCommand("plain-consumer", kafkaHost, 5000000))
+    Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 5000000))
+    Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 5000000))
+    Benchmarks.run(RunTestCommand("akka-plain-source-consumer", kafkaHost, 5000000))
+    Benchmarks.run(RunTestCommand("akka-committing-stage-consumer", kafkaHost, 5000000))
 
   }
 

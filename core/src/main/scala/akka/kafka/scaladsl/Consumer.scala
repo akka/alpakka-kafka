@@ -7,9 +7,9 @@ package akka.kafka.scaladsl
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.CommittableMessage
-import akka.kafka.internal.ConsumerStage
+import akka.kafka.internal.{CommittingStage, ConsumerStage, PlainSource}
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Source}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
@@ -62,6 +62,48 @@ object Consumer {
    */
   def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     Source.fromGraph(ConsumerStage.plainSource[K, V](settings, subscription))
+
+  /**
+   * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
+   * It has no support for committing offsets to Kafka. It can be used when the offset is stored externally
+   * or with auto-commit (note that auto-commit is by default disabled).
+   *
+   * The consumer application doesn't need to use Kafka's built-in offset storage and can store offsets in a store of its own
+   * choosing. The primary use case for this is allowing the application to store both the offset and the results of the
+   * consumption in the same system in a way that both the results and offsets are stored atomically. This is not always
+   * possible, but when it is, it will make the consumption fully atomic and give "exactly once" semantics that are
+   * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
+   */
+  def plainSourceStage[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] = {
+    PlainSource(settings, subscription).mapMaterializedValue(_ => new Control {
+      override def stop(): Future[Done] = Future.successful(Done)
+      override def shutdown(): Future[Done] = Future.successful(Done)
+      override def isShutdown: Future[Done] = Future.successful(Done)
+    })
+  }
+
+  /**
+   * The `committingSource` takes a flow which all records are routed through and commits all records that have successfully been
+   * processed by the flow.
+   * This is useful when "at-least once delivery" is desired, as each message will likely be
+   * delivered one time but in failure cases could be duplicated.
+   *
+   * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
+   * instead of this API.
+   */
+  def committingSource[K, V](
+    settings: ConsumerSettings[K, V],
+    subscription: Subscription,
+    flow: Flow[ConsumerRecord[K, V], ConsumerRecord[K, V], NotUsed],
+    commitInterval: Int = 1
+  ): Source[ConsumerRecord[K, V], Control] = {
+
+    CommittingStage(settings, subscription, flow, commitInterval).mapMaterializedValue(_ => new Control {
+      override def stop(): Future[Done] = Future.successful(Done)
+      override def shutdown(): Future[Done] = Future.successful(Done)
+      override def isShutdown: Future[Done] = Future.successful(Done)
+    })
+  }
 
   /**
    * The `committableSource` makes it possible to commit offset positions to Kafka.
