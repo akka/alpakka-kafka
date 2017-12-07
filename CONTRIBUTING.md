@@ -114,6 +114,11 @@ Which licenses are compatible with Apache 2 are defined in [this doc](http://www
 
 Each project must also create and maintain a list of all dependencies and their licenses, including all their transitive dependencies. This can be done in either in the documentation or in the build file next to each dependency.
 
+Dependency licenses will be automatically checked and reported on after merging to master.
+When releasing, manually rename the 'stable' project name to reflect the new version number
+through the WhiteSource web UI, and run `sbt whitesourceUpdate` to update the report. Make
+sure to verify the project is correctly updated.
+
 ## Work In Progress
 
 It is ok to work on a public feature branch in the GitHub repository. Something that can sometimes be useful for early feedback etc. If so then it is preferable to name the branch accordingly. This can be done by either prefix the name with ``wip-`` as in ‘Work In Progress’, or use hierarchical names like ``wip/..``, ``feature/..`` or ``topic/..``. Either way is fine as long as it is clear that it is work in progress and not ready for merge. This work can temporarily have a lower standard. However, to be merged into master it will have to go through the regular process outlined above, with Pull Request, review etc..
