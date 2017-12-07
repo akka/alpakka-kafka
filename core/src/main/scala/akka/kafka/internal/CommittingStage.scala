@@ -30,12 +30,6 @@ final case class BidiSourceShape[-FO, +FI, -O](flowOut: Outlet[FO @uncheckedVari
   override val outlets: immutable.Seq[Outlet[_]] = flowOut :: out :: Nil
 
   override def deepCopy(): BidiSourceShape[FO, FI, O] = BidiSourceShape(flowOut.carbonCopy(), flowIn.carbonCopy(), out.carbonCopy())
-
-  override def copyFromPorts(inlets: immutable.Seq[Inlet[_]], outlets: immutable.Seq[Outlet[_]]): Shape = {
-    require(inlets.size == 1, s"proposed inlets [${inlets.mkString(", ")}] do not fit BidiSourceShape")
-    require(outlets.size == 2, s"proposed outlets [${outlets.mkString(", ")}] do not fit BidiSourceShape")
-    BidiSourceShape(outlets(0), inlets(0), outlets(1))
-  }
 }
 
 object CommittingStage {
