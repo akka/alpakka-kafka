@@ -120,7 +120,7 @@ class ConsumerTest(_system: ActorSystem)
 
       probe
         .request(1)
-        .expectNoMsg()
+        .expectNoMessage(200.millis)
         .cancel()
     }
   }
@@ -134,7 +134,7 @@ class ConsumerTest(_system: ActorSystem)
 
     probe
       .request(1)
-      .expectNoMsg()
+      .expectNoMessage(200.millis)
       .cancel()
   }
 
@@ -559,7 +559,7 @@ class ConsumerTest(_system: ActorSystem)
       }
 
       probe.cancel()
-      probe.expectNoMsg(200.millis)
+      probe.expectNoMessage(200.millis)
       control.isShutdown.isCompleted should ===(false)
 
       //emulate commit
