@@ -220,7 +220,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // enqueue some more
       Await.result(produce(topic1, 101 to 110), remainingOrDefault)
 
-      probe1.expectNoMsg(200.millis)
+      probe1.expectNoMessage(200.millis)
 
       // then commit, which triggers a new poll while we haven't drained
       // previous buffer
@@ -329,7 +329,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         probe
           .request(100)
-          .expectNoMsg(1.second)
+          .expectNoMessage(1.second)
 
         probe.cancel()
       }
