@@ -2,7 +2,7 @@
 
 A producer publishes messages to Kafka topics. The message itself contains information about what topic and partition to publish to so you can publish to different topics with the same producer.
 
-The underlaying implementation is using the `KafkaProducer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) for details.
+The underlying implementation is using the `KafkaProducer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) for details.
 
 ## Settings
 
