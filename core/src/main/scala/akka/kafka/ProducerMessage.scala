@@ -11,9 +11,8 @@ import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
  * [[scaladsl.Producer]].
  */
 object ProducerMessage {
-
   /**
-   * Input element of `Consumer#commitableSink` and `Consumer#flow`.
+   * Input element of `Producer#commitableSink` and `Producer#flow`.
    *
    * The `record` contains a topic name to which the record is being sent, an optional
    * partition number, and an optional key and value.
@@ -30,7 +29,7 @@ object ProducerMessage {
   )
 
   /**
-   * Output element of `Consumer#flow`. Emitted when the message has been
+   * Output element of `Producer#flow`. Emitted when the message has been
    * successfully published. Includes the original message, metadata returned from KafkaProducer and the
    * `offset` of the produced message.
    */
