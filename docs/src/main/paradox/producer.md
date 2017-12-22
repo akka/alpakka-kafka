@@ -6,7 +6,7 @@ The underlaying implementation is using the `KafkaProducer`, see [Javadoc](http:
 
 ## Settings
 
-When creating a consumer stream you need to pass in `ProducerSettings`  that define things like:
+When creating a producer stream you need to pass in `ProducerSettings` that define things like:
 
 * bootstrap servers of the Kafka cluster
 * serializers for the keys and values
