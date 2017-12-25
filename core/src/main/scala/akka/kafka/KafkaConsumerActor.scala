@@ -60,7 +60,7 @@ object KafkaConsumerActor {
   private[kafka] def rebalanceListener(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) =
     ListenerCallbacks(onAssign, onRevoke)
 
-  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
+  private class WrappedAutoPausedListener(client: Consumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
       listener.onAssign(partitions.asScala.toSet)
@@ -86,7 +86,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
-  var consumer: KafkaConsumer[K, V] = _
+  var consumer: Consumer[K, V] = _
   var commitsInProgress = 0
   var wakeups = 0
   var stopInProgress = false
