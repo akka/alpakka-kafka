@@ -24,11 +24,30 @@ sealed trait ManualSubscription extends Subscription
 sealed trait AutoSubscription extends Subscription
 
 object Subscriptions {
+  private[kafka] final case class TopicSubscriptionWithStartTimestamp(timestamp: Long, tps: Set[String]) extends AutoSubscription
   private[kafka] final case class TopicSubscription(tps: Set[String]) extends AutoSubscription
   private[kafka] final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
   private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
   private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
   private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
+
+  /**
+   * Creates subscription for given set of topics
+   */
+  def topicsWithTimestamp(timestamp: Long, ts: Set[String]): AutoSubscription = TopicSubscriptionWithStartTimestamp(timestamp, ts)
+
+  /**
+   * Creates subscription for given set of topics
+   * JAVA API
+   */
+  @varargs
+  def topics(timestamp: Long, ts: String*): AutoSubscription = topicsWithTimestamp(timestamp, ts.toSet)
+
+  /**
+   * Creates subscription for given set of topics
+   * JAVA API
+   */
+  def topics(timestamp: Long, ts: java.util.Set[String]): AutoSubscription = topicsWithTimestamp(timestamp, ts.asScala.toSet)
 
   /**
    * Creates subscription for given set of topics

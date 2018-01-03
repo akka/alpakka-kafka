@@ -32,6 +32,7 @@ object KafkaConsumerActor {
     //requests
     final case class Assign(tps: Set[TopicPartition])
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
+    final case class SubscribeWithStartTimestamp(timestamp: Long, topics: Set[String], listener: ConsumerRebalanceListener)
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ListenerCallbacks)
     final case class SubscribePattern(pattern: String, listener: ListenerCallbacks)
@@ -147,6 +148,32 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         self ! delayedPollMsg
       }
 
+    case SubscribeWithStartTimestamp(timestamp, topics, listener) =>
+      scheduleFirstPollTask()
+      consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
+      // -- Seek offset
+      consumer.poll(0)
+      val assignedTopicPartitions = consumer.assignment()
+
+      // Get offset for a given timestamp for each topic/partition couple
+      val timestampsToSearch = assignedTopicPartitions.asScala.map(
+        partition =>
+          (new TopicPartition(partition.topic(), partition.partition()), timestamp)
+      ).toMap
+
+      assignedTopicPartitions.asScala.map(
+        element => {
+          val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long(_)).asJava)
+          val topicPartitionWithOffset = topicPartitionToOffsetAndTimestamp.asScala.map(
+            element =>
+              (element._1, element._2.offset())
+          )
+          topicPartitionWithOffset.foreach(
+            element =>
+              consumer.seek(element._1, element._2)
+          )
+        }
+      )
     case Subscribe(topics, listener) =>
       scheduleFirstPollTask()
       consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))

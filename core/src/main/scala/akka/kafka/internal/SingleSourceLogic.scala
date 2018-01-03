@@ -69,6 +69,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       KafkaConsumerActor.rebalanceListener(tps => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
 
     subscription match {
+      case TopicSubscriptionWithStartTimestamp(timestamp, topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribeWithStartTimestamp(timestamp, topics, rebalanceListener), self.ref)
       case TopicSubscription(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
       case TopicSubscriptionPattern(topics) =>
