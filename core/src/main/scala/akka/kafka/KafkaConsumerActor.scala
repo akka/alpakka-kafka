@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Status, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -20,7 +20,6 @@ import org.apache.kafka.common.errors.WakeupException
 import java.util.concurrent.locks.LockSupport
 
 import akka.Done
-import akka.actor.DeadLetterSuppression
 
 import scala.util.control.{NoStackTrace, NonFatal}
 import scala.collection.JavaConverters._
@@ -46,14 +45,14 @@ object KafkaConsumerActor {
     case object Stop
     final case class Commit(offsets: Map[TopicPartition, Long])
     //responses
-    final case class Assigned(partition: List[TopicPartition])
-    final case class Revoked(partition: List[TopicPartition])
-    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
-    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+    final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
+    final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
+    final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]]) extends NoSerializationVerificationNeeded
+    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
     //internal
     private[KafkaConsumerActor] final case class Poll[K, V](
         target: KafkaConsumerActor[K, V], periodic: Boolean
-    ) extends DeadLetterSuppression
+    ) extends DeadLetterSuppression with NoSerializationVerificationNeeded
     private val number = new AtomicInteger()
     def nextNumber() = {
       number.incrementAndGet()
@@ -62,11 +61,11 @@ object KafkaConsumerActor {
     private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
 
-  private[kafka] case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
+  private[kafka] case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) extends NoSerializationVerificationNeeded
   private[kafka] def rebalanceListener(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) =
     ListenerCallbacks(onAssign, onRevoke)
 
-  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener {
+  private class WrappedAutoPausedListener(client: KafkaConsumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener with NoSerializationVerificationNeeded {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
       listener.onAssign(partitions.asScala.toSet)
