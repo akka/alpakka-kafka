@@ -179,6 +179,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         val shape = stage.shape
         val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
         var requested = false
+        var shuttingDown = false
         var self: StageActor = _
         var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
@@ -209,7 +210,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
         setHandler(out, new OutHandler {
           override def onPull(): Unit = {
-            pump()
+            if (!shuttingDown) pump()
           }
 
           override def onDownstreamFinish(): Unit = {
@@ -219,7 +220,16 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         })
 
         def performShutdown() = {
-          completeStage()
+          getAsyncCallback[Unit] { _ =>
+            if (!requested) {
+              if (buffer.hasNext) pump()
+              completeStage()
+            }
+            else {
+              shuttingDown = true
+              performShutdown()
+            }
+          }
         }
 
         @tailrec
