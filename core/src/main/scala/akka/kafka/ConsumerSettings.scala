@@ -85,7 +85,7 @@ object Subscriptions {
    * Manually assign given topics and partitions with offsets
    * JAVA API
    */
-  def assignmentWithOffset(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentWithOffset(tps.asScala.toMap)
+  def assignmentWithOffset(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription = assignmentWithOffset(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
 
   /**
    * Manually assign given topics and partitions with offsets
@@ -106,7 +106,7 @@ object Subscriptions {
    * Manually assign given topics and partitions with offsets
    * JAVA API
    */
-  def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap)
+  def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
 
   /**
    * Manually assign given topics and partitions with offsets
