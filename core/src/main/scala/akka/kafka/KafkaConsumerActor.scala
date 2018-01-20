@@ -223,7 +223,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
               log.debug("Seeking to offset {} from topic {} for timestamp {}", offset, tp, ts)
               consumer.seek(tp, offset)
           }
-      }
+        }
+    }
   }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit = {
@@ -246,7 +247,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case _: Terminated =>
     case _@ (_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
-    case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
+    case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern | _: SubscribeWithStartTimestamp) =>
       log.warning("Got unexpected message {} when KafkaConsumerActor is in stopping state", msg)
   }
 
@@ -389,6 +390,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     val revokedAssignmentsByTopic = (currentAssignments -- newAssignments).groupBy(_.topic())
     val addedAssignmentsByTopic = (newAssignments -- currentAssignments).groupBy(_.topic())
 
+    def notifyTopicListenersOfReassignment(topic: String, listener: ListenerCallbacks): Unit = {
+      val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
+      if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
+
+      val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
+      if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
+    }
+
     if (settings.wakeupDebug) {
       log.info(
         "Reconciliation has found revoked assignments: {} added assignments: {}. Current subscriptions: {}",
@@ -397,13 +406,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     subscriptions.foreach {
       case Subscribe(topics, listener) =>
-        topics.foreach { topic =>
-          val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
-
-          val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
-        }
+        topics.foreach(notifyTopicListenersOfReassignment(_, listener))
 
       case SubscribePattern(pattern: String, listener) =>
         val ptr = Pattern.compile(pattern)
@@ -419,7 +422,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
         val addedAssignments = filterByPattern(addedAssignmentsByTopic)
         if (addedAssignments.nonEmpty) listener.onAssign(addedAssignments)
+
+      case SubscribeWithStartTimestamp(_, topics, listener) =>
+        topics.foreach(notifyTopicListenersOfReassignment(_, listener))
     }
+
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit = {

@@ -33,22 +33,22 @@ object Subscriptions {
   private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
 
   /**
-   * Creates subscription for given set of topics
+   * Creates subscription starting from `timestamp` for given set of topics
    */
-  def topicsWithTimestamp(timestamp: Long, ts: Set[String]): AutoSubscription = TopicSubscriptionWithStartTimestamp(timestamp, ts)
+  def topicsWithStartTimestamp(timestamp: Long, ts: Set[String]): AutoSubscription = TopicSubscriptionWithStartTimestamp(timestamp, ts)
 
   /**
-   * Creates subscription for given set of topics
+   * Creates subscription starting from `timestamp` for given set of topics
    * JAVA API
    */
   @varargs
-  def topics(timestamp: Long, ts: String*): AutoSubscription = topicsWithTimestamp(timestamp, ts.toSet)
+  def topics(timestamp: Long, ts: String*): AutoSubscription = topicsWithStartTimestamp(timestamp, ts.toSet)
 
   /**
-   * Creates subscription for given set of topics
+   * Creates subscription starting from `timestamp` for given set of topics
    * JAVA API
    */
-  def topics(timestamp: Long, ts: java.util.Set[String]): AutoSubscription = topicsWithTimestamp(timestamp, ts.asScala.toSet)
+  def topics(timestamp: Long, ts: java.util.Set[String]): AutoSubscription = topicsWithStartTimestamp(timestamp, ts.asScala.toSet)
 
   /**
    * Creates subscription for given set of topics
