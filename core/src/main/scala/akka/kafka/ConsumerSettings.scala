@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
-import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
+import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.Deserializer
 
@@ -351,7 +351,7 @@ class ConsumerSettings[K, V](
   /**
    * Create a `KafkaConsumer` instance from the settings.
    */
-  def createKafkaConsumer(): KafkaConsumer[K, V] = {
+  def createKafkaConsumer(): Consumer[K, V] = {
     val javaProps = properties.foldLeft(new java.util.Properties) {
       case (p, (k, v)) => p.put(k, v); p
     }
