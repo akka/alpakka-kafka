@@ -3,7 +3,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.5.7"
+val akkaVersion = "2.5.9"
 val kafkaVersion = "0.11.0.1"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -27,6 +27,12 @@ val coreDependencies = Seq(
   "net.manub" %% "scalatest-embedded-kafka" % "0.16.0" % Test exclude("log4j", "log4j"),
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
+
+val docDependencies = Seq(
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25"
+).map(_ % Test)
 
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
@@ -104,7 +110,8 @@ lazy val docs = project.in(file("docs"))
       "extref.akka-docs.base_url"        -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url"       -> s"https://kafka.apache.org/documentation/%s",
       "scaladoc.akka.base_url"           -> s"http://doc.akka.io/api/akka/$akkaVersion"
-    )
+    ),
+    libraryDependencies ++= docDependencies
   )
 
 lazy val Benchmark = config("bench") extend Test

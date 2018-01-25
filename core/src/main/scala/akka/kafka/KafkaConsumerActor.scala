@@ -4,6 +4,7 @@
  */
 package akka.kafka
 
+import java.io.{PrintWriter, StringWriter}
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,13 +16,13 @@ import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.WakeupException
 
-import scala.collection.JavaConverters._
 import java.util.concurrent.locks.LockSupport
 
 import akka.Done
 import akka.actor.DeadLetterSuppression
 
 import scala.util.control.{NoStackTrace, NonFatal}
+import scala.collection.JavaConverters._
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
@@ -36,6 +37,7 @@ object KafkaConsumerActor {
     final case class AssignWithOffset(tps: Map[TopicPartition, Long])
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
     final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest
+    // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest
     final case class Seek(tps: Map[TopicPartition, Long])
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
@@ -218,7 +220,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       receivePoll(p)
     case Stop =>
     case _: Terminated =>
-    case msg @ (_: Commit | _: RequestMessages) =>
+    case _@ (_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
     case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
       log.warning("Got unexpected message {} when KafkaConsumerActor is in stopping state", msg)
@@ -265,6 +267,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def poll(): Unit = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
+      log.warning("KafkaConsumer poll is taking significantly longer ({}ms) to return from poll then the configured poll interval ({}ms). Waking up consumer to avoid thread starvation.", settings.wakeupTimeout.toMillis, pollTimeout().toMillis)
+      if (settings.wakeupDebug) {
+        val stacks = Thread.getAllStackTraces.asScala.map { case (k, v) => s"$k\n ${v.mkString("\n")}" }.mkString("\n\n")
+        log.warning("Wake up has been triggered. Dumping stacks: {}", stacks)
+      }
       consumer.wakeup()
     }(context.system.dispatcher)
     //set partitions to fetch
@@ -289,8 +296,12 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
             context.stop(self)
           }
           else {
-            log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
-              s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}")
+            if (log.isWarningEnabled) {
+              val sw = new StringWriter
+              w.printStackTrace(new PrintWriter(sw))
+              log.warning(s"Consumer interrupted with WakeupException after timeout. Message: ${w.getMessage}. " +
+                s"Current value of akka.kafka.consumer.wakeup-timeout is ${settings.wakeupTimeout}. Exception: {}", sw.toString)
+            }
 
             // If the current consumer is using group assignment (i.e. subscriptions is non empty) the wakeup might
             // have prevented the re-balance callbacks to be called leaving the Source in an inconsistent state w.r.t
@@ -348,32 +359,30 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }
   }
 
+  //TODO can't be re-created deterministically so should be pulled out and tested
   private def reconcileAssignments(currentAssignments: Set[TopicPartition], newAssignments: Set[TopicPartition]): Unit = {
-    def groupByTopic(assignments: Set[TopicPartition]): Map[String, Set[TopicPartition]] = {
-      assignments.map { tp =>
-        tp.topic() -> tp
-      }.groupBy(_._1).map {
-        case (topic, tps) =>
-          topic -> tps.map(_._2)
-      }
-    }
 
-    val revokedAssignmentsByTopic: Map[String, Set[TopicPartition]] = groupByTopic(currentAssignments -- newAssignments)
-    val addedAssignmentsByTopic = groupByTopic(newAssignments -- currentAssignments)
+    val revokedAssignmentsByTopic = (currentAssignments -- newAssignments).groupBy(_.topic())
+    val addedAssignmentsByTopic = (newAssignments -- currentAssignments).groupBy(_.topic())
+
+    if (settings.wakeupDebug) {
+      log.info(
+        "Reconciliation has found revoked assignments: {} added assignments: {}. Current subscriptions: {}",
+        revokedAssignmentsByTopic, addedAssignmentsByTopic, subscriptions)
+    }
 
     subscriptions.foreach {
       case Subscribe(topics, listener) =>
         topics.foreach { topic =>
-          val removedTopicAssignments: Set[TopicPartition] = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
+          val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
           if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
 
-          val addedTopicAssignments: Set[TopicPartition] = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
+          val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
           if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
         }
 
       case SubscribePattern(pattern: String, listener) =>
         val ptr = Pattern.compile(pattern)
-
         def filterByPattern(tpm: Map[String, Set[TopicPartition]]): Set[TopicPartition] = {
           tpm.flatMap {
             case (topic, tps) if ptr.matcher(topic).matches() => tps

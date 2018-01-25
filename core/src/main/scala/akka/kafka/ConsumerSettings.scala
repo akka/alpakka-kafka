@@ -161,8 +161,10 @@ object ConsumerSettings {
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
+    val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher, commitTimeWarning)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher,
+      commitTimeWarning, wakeupDebug)
   }
 
   /**
@@ -258,7 +260,8 @@ class ConsumerSettings[K, V](
     val wakeupTimeout: FiniteDuration,
     val maxWakeups: Int,
     val dispatcher: String,
-    val commitTimeWarning: FiniteDuration = 1.second
+    val commitTimeWarning: FiniteDuration = 1.second,
+    val wakeupDebug: Boolean = true
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
@@ -330,6 +333,9 @@ class ConsumerSettings[K, V](
   def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
     copy(maxWakeups = maxWakeups)
 
+  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
+    copy(wakeupDebug = wakeupDebug)
+
   private def copy(
     properties: Map[String, String] = properties,
     keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
@@ -342,11 +348,12 @@ class ConsumerSettings[K, V](
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
     maxWakeups: Int = maxWakeups,
-    dispatcher: String = dispatcher
+    dispatcher: String = dispatcher,
+    wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
       pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, dispatcher, commitTimeWarning)
+      maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
