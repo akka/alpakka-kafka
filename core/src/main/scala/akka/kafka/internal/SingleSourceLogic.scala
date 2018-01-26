@@ -5,10 +5,12 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.event.Logging
+import akka.event.Logging.LogLevel
 import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{GraphStageLogic, OutHandler}
+import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
@@ -19,7 +21,10 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
     settings: ConsumerSettings[K, V],
     subscription: Subscription
-) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
+) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] with StageLogging {
+
+  override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
+
   var consumer: ActorRef = _
   var self: StageActor = _
   var tps = Set.empty[TopicPartition]
@@ -27,6 +32,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   var requested = false
   var requestId = 0
   var shutdownStarted = false
+  val partitionLogLevel = if (settings.wakeupDebug) Logging.InfoLevel else Logging.DebugLevel
 
   override def preStart(): Unit = {
     super.preStart()
@@ -56,12 +62,15 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     self.watch(consumer)
 
     val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
+      // Is info too much here? Will be logged at startup / rebalance
       tps ++= newTps
+      log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
       requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
+      log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
       requestMessages()
     }
 
@@ -103,6 +112,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   private def requestMessages(): Unit = {
     requested = true
     requestId += 1
+    log.debug("Requesting messages, requestId: {}, partitions: {}", requestId, tps)
     consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
   }
 
@@ -122,7 +132,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     super.postStop()
   }
 
-  override def performShutdown() = {
+  override def performShutdown(): Unit = {
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out)
