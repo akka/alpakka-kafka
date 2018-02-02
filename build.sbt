@@ -4,7 +4,7 @@ import de.heikoseeberger.sbtheader.HeaderPattern
 name := "akka-stream-kafka"
 
 val akkaVersion = "2.5.9"
-val kafkaVersion = "0.11.0.1"
+val kafkaVersion = "1.0.0"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -24,7 +24,7 @@ val coreDependencies = Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
   "org.mockito" % "mockito-core" % "2.10.0" % Test,
-  "net.manub" %% "scalatest-embedded-kafka" % "0.16.0" % Test exclude("log4j", "log4j"),
+  "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" % Test exclude("log4j", "log4j"),
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
