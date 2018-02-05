@@ -1,5 +1,6 @@
+enablePlugins(AutomateHeaderPlugin)
+
 import scalariform.formatter.preferences._
-import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
@@ -53,8 +54,7 @@ val commonSettings = Seq(
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
-  "-Xfuture"
-),
+  "-Xfuture"),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
@@ -63,16 +63,12 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   .setPreference(DanglingCloseParenthesis, Preserve)
   .setPreference(NewlineAtEndOfFile, true)
   .setPreference(SpacesAroundMultiImports, false),
-headers := headers.value ++ Map(
-  "scala" -> (
-    HeaderPattern.cStyleBlockComment,
-    """|/*
-       | * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
-       | * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
-       | */
+headerLicense := Some(HeaderLicense.Custom(
+    """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+       |Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
        |""".stripMargin
-  )
-))
+  ))
+)
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
