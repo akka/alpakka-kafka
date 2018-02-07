@@ -10,6 +10,7 @@
     <!--<logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>-->
     <!--<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>-->
     <!--<logger name="akka.kafka" level="TRACE"/>-->
+    <!--<logger name="akka.kafka.internal.SingleSourceLogic.SingleSourceLogic" level="debug"/>-->
 
     <root level="WARN">
         <appender-ref ref="STDOUT" />

@@ -16,7 +16,7 @@ import akka.kafka.{javadsl, scaladsl, _}
 import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl.Source
-import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
+import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, StageLogging}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -46,7 +46,7 @@ private[kafka] object ConsumerStage {
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout, None)(ec)
           }
         }
     }
@@ -69,11 +69,96 @@ private[kafka] object ConsumerStage {
   def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) = {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
+        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] with StageLogging {
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout, Some(self.ref))(ec)
+          }
+
+          var isStopping = false
+          // Used to keep track of latest messages being pushed downstream
+          var latestOffsets = Map[GroupTopicPartition, Long]()
+          var lastCommits = Map[GroupTopicPartition, Long]()
+
+          override def pushMessage(out: Outlet[CommittableMessage[K, V]], elem: CommittableMessage[K, V]): Unit = {
+
+            val partitionOffset = elem.committableOffset.partitionOffset
+            // Extract and store offset-info about the latest pushed message
+            latestOffsets = latestOffsets + (partitionOffset.key -> partitionOffset.offset)
+
+            // Push the message downstream
+            super.pushMessage(out, elem)
+          }
+
+          case class DelayedConsumerShutdownMsg(timedOut: Boolean)
+
+          def commitNotificationReceiver: PartialFunction[(ActorRef, Any), Unit] = {
+            case (_, CommitCompletedMsg(partitionOffset)) =>
+              // A commit has been completed
+
+              lastCommits = lastCommits + (partitionOffset.key -> partitionOffset.offset)
+
+              // Must find out of this one is on of our stored lastOffsets
+              latestOffsets.get(partitionOffset.key) match {
+                case Some(storedOffset) =>
+                  if (partitionOffset.offset >= (storedOffset - settings.maxInflightCommitsOnShutdown) ) {
+                    log.debug(s"The last stored offset ${storedOffset} for key ${partitionOffset.key} has been committed (settings.maxInflightCommitsOnShutdown: ${settings.maxInflightCommitsOnShutdown})")
+                    latestOffsets = latestOffsets - partitionOffset.key
+                  }
+                  else if (partitionOffset.offset < storedOffset) {
+                    log.debug(s"Commit with offset ${partitionOffset.offset} is lower than storedOffset $storedOffset for key ${partitionOffset.key}")
+                  }
+                case None =>
+                  log.warning(s"Did not find commit in latestOffsets - this is odd.. partitionOffset: ${partitionOffset} - latestOffset: $latestOffsets")
+              }
+
+              if (latestOffsets.isEmpty) {
+                log.debug(s"Last inflight commit completed")
+                if (isStopping) {
+                  self.ref ! DelayedConsumerShutdownMsg(timedOut = false)
+                }
+              }
+
+            case (_, DelayedConsumerShutdownMsg(timedOut)) =>
+              if (latestOffsets.isEmpty) {
+                log.info(s"Performing delayed consumer shutdown (timedOut: $timedOut)")
+              }
+              else {
+                log.info(s"Performing delayed consumer shutdown (timedOut: $timedOut). latestOffsets: $latestOffsets lastCommits: $lastCommits")
+              }
+
+              super.stopConsumer()
+
+          }
+
+          override def stageActorPF: PartialFunction[(ActorRef, Any), Unit] = {
+            super.stageActorPF // Default handling
+              .orElse(commitNotificationReceiver)
+          }
+
+          override def stageActorTerminatingPF: PartialFunction[(ActorRef, Any), Unit] = {
+            super.stageActorTerminatingPF // default handling
+              .orElse(commitNotificationReceiver)
+          }
+
+          override def stopConsumer(): Unit = {
+            isStopping = true
+            if (latestOffsets.nonEmpty) {
+              log.info("Delaying consumer-shutdown since we have inflight commits")
+
+              // Start timeout-timer
+              val actorSystem = ActorMaterializerHelper.downcast(materializer).system
+              actorSystem.scheduler.scheduleOnce(
+                settings.maxDelayedConsumerShutdown,
+                self.ref,
+                DelayedConsumerShutdownMsg(timedOut = true))(actorSystem.dispatcher)
+
+            }
+            else {
+              log.debug("Doing consumer-shutdown right away since we do not have inflight commits")
+              super.stopConsumer()
+            }
           }
         }
     }
@@ -86,14 +171,16 @@ private[kafka] object ConsumerStage {
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
+            KafkaAsyncConsumerCommitterRef(consumer, commitTimeout, None)(ec)
           }
         }
     }
   }
 
+  case class CommitCompletedMsg(partitionOffset: PartitionOffset)
+
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
-  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
+  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration, commitDoneNotificationDestRef: Option[ActorRef])(implicit ec: ExecutionContext) extends Committer {
     import scala.collection.breakOut
     import akka.pattern.ask
     implicit val to = Timeout(commitTimeout)
@@ -102,7 +189,20 @@ private[kafka] object ConsumerStage {
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
       }(breakOut)
 
-      (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done).recoverWith {
+      (ref ? Commit(offsetsMap)).mapTo[Committed].map {
+        _ =>
+
+          // Notify that commit is completed
+          commitDoneNotificationDestRef.foreach {
+            notificationDest =>
+              offsets.foreach {
+                partialOffset =>
+                  notificationDest ! CommitCompletedMsg(partialOffset)
+              }
+          }
+
+          Done
+      }.recoverWith {
         case _: AskTimeoutException => Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
         case other => Future.failed(other)
       }

@@ -13,7 +13,7 @@ import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.test.Utils._
-import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings}
+import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerMessage, ProducerSettings}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
@@ -419,4 +419,162 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       }
     }
   }
+
+  def doTakeWhileTest(messagesToTake: Int, messagesOnTopic: Int): Unit = {
+    val topic1 = createTopic(1)
+    val group1 = createGroup(1)
+
+    givenInitializedTopic(topic1)
+
+    // important to use more messages than the internal buffer sizes
+    // to trigger the intended scenario
+    Await.result(produce(topic1, 1 to messagesOnTopic), remainingOrDefault)
+
+    val consumerSettings = createConsumerSettings(group1)
+      .withMaxDelayedConsumerShutdown(FiniteDuration(35, TimeUnit.SECONDS)) // Should not timeout
+
+    val f = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      .take(messagesToTake.toLong) // Take only messagesToTake message
+      .grouped(messagesToTake) // Grouping so that we can do one fixed delay in next step
+      .delay(FiniteDuration(2, TimeUnit.SECONDS))
+      .mapConcat(_.toList)
+      .mapAsync(1) {
+        m =>
+          // Do the commits
+          m.committableOffset.commitScaladsl()
+      }
+      .runWith(Sink.seq)
+
+    // If problem not fixed, then stream will fail with:
+    // 'akka.kafka.CommitTimeoutException: Kafka commit took longer than: 15000 milliseconds'
+
+    val r = Await.result(f, Duration("30s"))
+
+    assert(messagesToTake == r.size)
+
+  }
+
+  "handle late commit when using take/takeWhile with single message" in assertAllStagesStopped {
+    doTakeWhileTest(1, 100)
+  }
+
+  "handle late commit when using take/takeWhile with many message" in assertAllStagesStopped {
+    doTakeWhileTest(25, 100)
+  }
+
+  "handle late commit when using take/takeWhile with many message and batchCommit" in assertAllStagesStopped {
+
+    val messagesOnTopic = 1000
+    val messagesToTake = 500
+
+    val topic1 = createTopic(1)
+    val group1 = createGroup(1)
+
+    givenInitializedTopic(topic1)
+
+    // important to use more messages than the internal buffer sizes
+    // to trigger the intended scenario
+    Await.result(produce(topic1, 1 to messagesOnTopic), remainingOrDefault)
+
+    val consumerSettings = createConsumerSettings(group1)
+      .withMaxDelayedConsumerShutdown(FiniteDuration(35, TimeUnit.SECONDS)) // Should not timeout
+
+    val f = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      .take(messagesToTake.toLong) // Take only messagesToTake message
+      .grouped(messagesToTake) // Grouping so that we can do one fixed delay in next step
+      .delay(FiniteDuration(2, TimeUnit.SECONDS))
+      .mapAsync(1) {
+        msgs =>
+          var batchCommit = ConsumerMessage.emptyCommittableOffsetBatch
+          msgs.foreach {
+            m =>
+              batchCommit = batchCommit.updated(m.committableOffset)
+          }
+          batchCommit.commitScaladsl()
+      }
+      .runWith(Sink.seq)
+
+    // If problem not fixed, then stream will fail with:
+    // 'akka.kafka.CommitTimeoutException: Kafka commit took longer than: 15000 milliseconds'
+
+    val r = Await.result(f, Duration("30s"))
+
+    assert(1 == r.size)
+  }
+
+  "handle late commit when using take/takeWhile with timeout" in assertAllStagesStopped {
+    val messagesOnTopic = 100
+    val messagesToTake = 1
+
+    val topic1 = createTopic(1)
+    val group1 = createGroup(1)
+
+    givenInitializedTopic(topic1)
+
+    // important to use more messages than the internal buffer sizes
+    // to trigger the intended scenario
+    Await.result(produce(topic1, 1 to messagesOnTopic), remainingOrDefault)
+
+    val consumerSettings = createConsumerSettings(group1)
+      .withMaxDelayedConsumerShutdown(FiniteDuration(2, TimeUnit.SECONDS)) // We want it to time out
+
+    val f = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      .take(messagesToTake.toLong) // Take only messagesToTake message
+      .grouped(messagesToTake)
+      .mapConcat(_.toList)
+      .mapAsync(1) {
+        m =>
+          // NOT doing the commits
+          Future.successful(Done)
+      }
+      .runWith(Sink.seq)
+
+    // If problem not fixed, then stream will fail with:
+    // 'akka.kafka.CommitTimeoutException: Kafka commit took longer than: 15000 milliseconds'
+
+    val r = Await.result(f, Duration("6s")) // Must be longer than MaxDelayedConsumerShutdown
+
+    assert(messagesToTake == r.size)
+
+  }
+
+  "handle late commit when using take/takeWhile with custom maxNumberOfInflightCommits" in assertAllStagesStopped {
+    val messagesOnTopic = 100
+    val messagesToTake = 1
+
+    val topic1 = createTopic(1)
+    val group1 = createGroup(1)
+
+    givenInitializedTopic(topic1)
+
+    // important to use more messages than the internal buffer sizes
+    // to trigger the intended scenario
+    Await.result(produce(topic1, 1 to messagesOnTopic), remainingOrDefault)
+
+    val consumerSettings = createConsumerSettings(group1)
+      .withMaxDelayedConsumerShutdown(FiniteDuration(20, TimeUnit.SECONDS)) // We want it NOT to time out
+      .withMaxInflightCommitsOnShutdown(1) // We start to consume one extra message in this test
+
+    val f = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+       .grouped(messagesToTake + 1).mapConcat(_.toList) // This should make us have 1 extra kafka-message in flight before reaching 'take'
+      .take(messagesToTake.toLong) // Take only messagesToTake message
+      .grouped(messagesToTake) // Grouping so that we can do one fixed delay in next step
+      .delay(FiniteDuration(2, TimeUnit.SECONDS))
+      .mapConcat(_.toList)
+      .mapAsync(1) {
+        m =>
+          // Do the commits
+          m.committableOffset.commitScaladsl()
+      }
+      .runWith(Sink.seq)
+
+    // If problem not fixed, then stream will fail with:
+    // 'akka.kafka.CommitTimeoutException: Kafka commit took longer than: 15000 milliseconds'
+
+    val r = Await.result(f, Duration("6s")) // Must be longer than MaxDelayedConsumerShutdown
+
+    assert(messagesToTake == r.size)
+
+  }
+
 }

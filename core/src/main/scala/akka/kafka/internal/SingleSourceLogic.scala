@@ -12,7 +12,7 @@ import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
-import akka.stream.{ActorMaterializerHelper, SourceShape}
+import akka.stream.{ActorMaterializerHelper, Outlet, SourceShape}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -35,6 +35,23 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   var shutdownStarted = false
   val partitionLogLevel = if (settings.wakeupDebug) Logging.InfoLevel else Logging.DebugLevel
 
+  def stageActorPF: PartialFunction[(ActorRef, Any), Unit] = {
+    case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+      // might be more than one in flight when we assign/revoke tps
+      if (msg.requestId == requestId)
+        requested = false
+      // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
+      if (buffer.hasNext) {
+        buffer = buffer ++ msg.messages
+      }
+      else {
+        buffer = msg.messages
+      }
+      pump()
+    case (_, Terminated(ref)) if ref == consumer =>
+      failStage(new ConsumerFailed)
+  }
+
   override def preStart(): Unit = {
     super.preStart()
 
@@ -45,20 +62,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
 
     self = getStageActor {
-      case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        // might be more than one in flight when we assign/revoke tps
-        if (msg.requestId == requestId)
-          requested = false
-        // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-        if (buffer.hasNext) {
-          buffer = buffer ++ msg.messages
-        }
-        else {
-          buffer = msg.messages
-        }
-        pump()
-      case (_, Terminated(ref)) if ref == consumer =>
-        failStage(new ConsumerFailed)
+      case (actorRef, msg) => stageActorPF.apply((actorRef, msg))
     }
     self.watch(consumer)
 
@@ -96,12 +100,16 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   }
 
+  def pushMessage(out: Outlet[Msg], elem: Msg): Unit = {
+    push(out, elem)
+  }
+
   @tailrec
   private def pump(): Unit = {
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()
-        push(shape.out, createMessage(msg))
+        pushMessage(shape.out, createMessage(msg))
         pump()
       }
       else if (!requested && tps.nonEmpty) {
@@ -133,16 +141,25 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     super.postStop()
   }
 
+  def stageActorTerminatingPF: PartialFunction[((ActorRef, Any)), Unit] = {
+    case (_, Terminated(ref)) if ref == consumer =>
+      onShutdown()
+      completeStage()
+  }
+
   override def performShutdown(): Unit = {
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out)
     }
     self.become {
-      case (_, Terminated(ref)) if ref == consumer =>
-        onShutdown()
-        completeStage()
+      case r =>
+        stageActorTerminatingPF.apply(r)
     }
+    stopConsumer()
+  }
+
+  def stopConsumer(): Unit = {
     consumer ! KafkaConsumerActor.Internal.Stop
   }
 }

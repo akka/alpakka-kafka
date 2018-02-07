@@ -158,14 +158,16 @@ object ConsumerSettings {
     val stopTimeout = config.getDuration("stop-timeout", TimeUnit.MILLISECONDS).millis
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
+    val maxDelayedConsumerShutdown = config.getDuration("max-delayed-consumer-shutdown", TimeUnit.MILLISECONDS).millis
+    val maxInflightCommitsOnShutdown = config.getLong("max-inflight-commits-on-shutdown")
     val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher,
-      commitTimeWarning, wakeupDebug)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, maxDelayedConsumerShutdown,
+      maxInflightCommitsOnShutdown, wakeupTimeout, maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
   }
 
   /**
@@ -258,6 +260,8 @@ class ConsumerSettings[K, V](
     val stopTimeout: FiniteDuration,
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
+    val maxDelayedConsumerShutdown: FiniteDuration,
+    val maxInflightCommitsOnShutdown: Long,
     val wakeupTimeout: FiniteDuration,
     val maxWakeups: Int,
     val dispatcher: String,
@@ -322,6 +326,12 @@ class ConsumerSettings[K, V](
   def withCommitTimeout(commitTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(commitTimeout = commitTimeout)
 
+  def withMaxDelayedConsumerShutdown(maxDelayedConsumerShutdown: FiniteDuration): ConsumerSettings[K, V] =
+    copy(maxDelayedConsumerShutdown = maxDelayedConsumerShutdown)
+
+  def withMaxInflightCommitsOnShutdown(maxInflightCommitsOnShutdown: Long): ConsumerSettings[K, V] =
+    copy(maxInflightCommitsOnShutdown = maxInflightCommitsOnShutdown)
+
   def withCommitWarning(commitTimeWarning: FiniteDuration): ConsumerSettings[K, V] =
     copy(commitTimeWarning = commitTimeWarning)
 
@@ -346,6 +356,8 @@ class ConsumerSettings[K, V](
     stopTimeout: FiniteDuration = stopTimeout,
     closeTimeout: FiniteDuration = closeTimeout,
     commitTimeout: FiniteDuration = commitTimeout,
+    maxDelayedConsumerShutdown: FiniteDuration = maxDelayedConsumerShutdown,
+    maxInflightCommitsOnShutdown: Long = maxInflightCommitsOnShutdown,
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
     maxWakeups: Int = maxWakeups,
@@ -353,8 +365,8 @@ class ConsumerSettings[K, V](
     wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, maxDelayedConsumerShutdown,
+      maxInflightCommitsOnShutdown, wakeupTimeout, maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
