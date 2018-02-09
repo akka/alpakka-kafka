@@ -24,6 +24,7 @@ import akka.actor.DeadLetterSuppression
 
 import scala.util.control.{NoStackTrace, NonFatal}
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
@@ -134,9 +135,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       consumer.commitAsync(commitMap.asJava, new OffsetCommitCallback {
         override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
-          val duration = System.nanoTime() - startTime
-          if (duration > settings.commitTimeWarning.toNanos) {
-            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration)
+          val duration = FiniteDuration(System.nanoTime() - startTime, NANOSECONDS)
+          if (duration > settings.commitTimeWarning) {
+            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration.toMillis)
           }
           commitsInProgress -= 1
           if (exception != null) reply ! Status.Failure(exception)
