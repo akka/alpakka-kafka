@@ -24,7 +24,7 @@ val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
-  "org.mockito" % "mockito-core" % "2.10.0" % Test,
+  "org.mockito" % "mockito-core" % "2.15.0" % Test,
   "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" % Test exclude("log4j", "log4j"),
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
