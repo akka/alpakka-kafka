@@ -7,7 +7,6 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.event.Logging
-import akka.event.Logging.LogLevel
 import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
