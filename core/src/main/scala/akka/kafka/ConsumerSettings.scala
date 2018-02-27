@@ -160,11 +160,12 @@ object ConsumerSettings {
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
+    val wakeupWindow = config.getDuration("wakeup-window", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, wakeupWindow, maxWakeups, dispatcher,
       commitTimeWarning, wakeupDebug)
   }
 
@@ -259,6 +260,7 @@ class ConsumerSettings[K, V](
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
+    val wakeupWindow: FiniteDuration = -1.second,
     val maxWakeups: Int,
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
@@ -348,12 +350,13 @@ class ConsumerSettings[K, V](
     commitTimeout: FiniteDuration = commitTimeout,
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
+    wakeupWindow: FiniteDuration = wakeupWindow,
     maxWakeups: Int = maxWakeups,
     dispatcher: String = dispatcher,
     wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, wakeupWindow,
       maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**
