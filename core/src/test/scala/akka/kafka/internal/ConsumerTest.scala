@@ -700,7 +700,6 @@ class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) ex
 
   Mockito.when(mock.poll(mockito.ArgumentMatchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
     override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
-      System.out.println("Call #"+callNumber)
       callNumber = callNumber + 1
       if (failOnCallNumber.contains(callNumber))
         throw throwable
