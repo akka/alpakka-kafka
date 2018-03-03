@@ -11,8 +11,8 @@ Retry handling in case of producer is built-in into Kafka. In case of failure wh
 
 ## Restarting the stream with a backoff stage
 
-Akka streams [provides graph stages](https://doc.akka.io/docs/akka/2.5.5/java/stream/stream-error.html#delayed-restarts-with-a-backoff-stage)
-to gracefully restart streams on failures, with a configurable backoff. This can be taken advantage of to restart a failing consumer with an exponential backoff, by wrapping it in a `RestartSource`:
+Akka streams @extref[provides graph stages](akka-docs:stream/stream-error.html#delayed-restarts-with-a-backoff-stage)
+to gracefully restart a stream on failure, with a configurable backoff. This can be taken advantage of to restart a failing consumer with an exponential backoff, by wrapping it in a `RestartSource`:
 
 Scala
 : @@ snip [restartsource](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #restartSource }
