@@ -1,10 +1,11 @@
+enablePlugins(AutomateHeaderPlugin)
+
 import scalariform.formatter.preferences._
-import de.heikoseeberger.sbtheader.HeaderPattern
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.5.7"
-val kafkaVersion = "0.11.0.1"
+val akkaVersion = "2.5.9"
+val kafkaVersion = "1.0.0"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -23,10 +24,16 @@ val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
-  "org.mockito" % "mockito-core" % "2.10.0" % Test,
-  "net.manub" %% "scalatest-embedded-kafka" % "0.16.0" % Test exclude("log4j", "log4j"),
+  "org.mockito" % "mockito-core" % "2.15.0" % Test,
+  "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" % Test exclude("log4j", "log4j"),
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
+
+val docDependencies = Seq(
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25"
+).map(_ % Test)
 
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
@@ -47,8 +54,7 @@ val commonSettings = Seq(
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
-  "-Xfuture"
-),
+  "-Xfuture"),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
@@ -57,16 +63,12 @@ testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
   .setPreference(DanglingCloseParenthesis, Preserve)
   .setPreference(NewlineAtEndOfFile, true)
   .setPreference(SpacesAroundMultiImports, false),
-headers := headers.value ++ Map(
-  "scala" -> (
-    HeaderPattern.cStyleBlockComment,
-    """|/*
-       | * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
-       | * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
-       | */
+headerLicense := Some(HeaderLicense.Custom(
+    """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+       |Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
        |""".stripMargin
-  )
-))
+  ))
+)
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
@@ -104,7 +106,8 @@ lazy val docs = project.in(file("docs"))
       "extref.akka-docs.base_url"        -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url"       -> s"https://kafka.apache.org/documentation/%s",
       "scaladoc.akka.base_url"           -> s"http://doc.akka.io/api/akka/$akkaVersion"
-    )
+    ),
+    libraryDependencies ++= docDependencies
   )
 
 lazy val Benchmark = config("bench") extend Test
