@@ -34,16 +34,16 @@ object KafkaConsumerActor {
     sealed trait SubscriptionRequest
 
     //requests
-    final case class Assign(tps: Set[TopicPartition])
-    final case class AssignWithOffset(tps: Map[TopicPartition, Long])
-    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
-    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest
+    final case class Assign(tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
+    final case class AssignWithOffset(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
+    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
+    final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
-    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest
-    final case class Seek(tps: Map[TopicPartition, Long])
-    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
-    case object Stop
-    final case class Commit(offsets: Map[TopicPartition, Long])
+    final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
+    final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
+    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition]) extends NoSerializationVerificationNeeded
+    case object Stop extends NoSerializationVerificationNeeded
+    final case class Commit(offsets: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
