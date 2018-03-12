@@ -2,6 +2,7 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
+
 package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
@@ -88,7 +89,7 @@ class ConsumerTest(_system: ActorSystem)
 
   def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
     val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
-      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher") {
+      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher", 1.second, true) {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }

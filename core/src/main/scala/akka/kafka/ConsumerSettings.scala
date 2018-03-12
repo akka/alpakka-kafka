@@ -2,6 +2,7 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
+
 package akka.kafka
 
 import java.util.Optional
@@ -85,7 +86,7 @@ object Subscriptions {
    * Manually assign given topics and partitions with offsets
    * JAVA API
    */
-  def assignmentWithOffset(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentWithOffset(tps.asScala.toMap)
+  def assignmentWithOffset(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription = assignmentWithOffset(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
 
   /**
    * Manually assign given topics and partitions with offsets
@@ -106,7 +107,7 @@ object Subscriptions {
    * Manually assign given topics and partitions with offsets
    * JAVA API
    */
-  def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap)
+  def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
 
   /**
    * Manually assign given topics and partitions with offsets
@@ -161,8 +162,10 @@ object ConsumerSettings {
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
     val dispatcher = config.getString("use-dispatcher")
+    val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher, commitTimeWarning)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher,
+      commitTimeWarning, wakeupDebug)
   }
 
   /**
@@ -258,7 +261,8 @@ class ConsumerSettings[K, V](
     val wakeupTimeout: FiniteDuration,
     val maxWakeups: Int,
     val dispatcher: String,
-    val commitTimeWarning: FiniteDuration = 1.second
+    val commitTimeWarning: FiniteDuration = 1.second,
+    val wakeupDebug: Boolean = true
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
@@ -330,6 +334,9 @@ class ConsumerSettings[K, V](
   def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
     copy(maxWakeups = maxWakeups)
 
+  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
+    copy(wakeupDebug = wakeupDebug)
+
   private def copy(
     properties: Map[String, String] = properties,
     keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
@@ -342,11 +349,12 @@ class ConsumerSettings[K, V](
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
     maxWakeups: Int = maxWakeups,
-    dispatcher: String = dispatcher
+    dispatcher: String = dispatcher,
+    wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
       pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, dispatcher, commitTimeWarning)
+      maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.

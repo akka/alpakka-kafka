@@ -2,6 +2,7 @@
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
+
 package akka.kafka
 
 import java.util.{Map => JMap}
@@ -81,7 +82,7 @@ object ConsumerMessage {
   /**
    * For improved efficiency it is good to aggregate several [[CommittableOffset]],
    * using this class, before [[Committable#commitScaladsl committing]] them. Start with
-   * the [[CommittableOffsetBatch$#empty empty] batch.
+   * the [[CommittableOffsetBatch#empty empty]] batch.
    */
   trait CommittableOffsetBatch extends Committable {
     /**
