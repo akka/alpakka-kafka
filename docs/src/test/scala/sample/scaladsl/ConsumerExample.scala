@@ -7,15 +7,16 @@ package sample.scaladsl
 import akka.pattern.ask
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
-import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.ActorMaterializer
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -363,57 +364,25 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 }
 
-class StreamWrapperActor extends Actor with ConsumerExample with ActorLogging {
-
-  implicit val timeout = akka.util.Timeout(5.seconds)
-
-  case class ProcessMsg(msg: ConsumerRecord[Array[Byte], String])
-
-  def receive = {
-    case ProcessMsg(msg) =>
-      // message processing
-      sender() ! msg
-  }
+class RestartingStream extends ConsumerExample {
 
   def createStream(): Unit = {
-
-    val processingActor = self
-    //#errorHandlingStop
-    val done =
-      Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
-        .mapAsync(1)(msg => processingActor ? ProcessMsg(msg))
-        .runWith(Sink.ignore)
-
-    done.onComplete {
-      case Failure(ex) =>
-        log.error(ex, "Stream failed, stopping the actor.")
-        self ! PoisonPill
-      case Success(ex) => // graceful stream shutdown handling
-    }
-    //#errorHandlingStop
-  }
-
-}
-
-object StreamWrapperActor {
-
-  def create(implicit system: ActorSystem): ActorRef = {
-    //#errorHandlingSupervisor
-    import akka.pattern.{Backoff, BackoffSupervisor}
-
-    val childProps = Props(classOf[StreamWrapperActor])
-
-    val supervisorProps = BackoffSupervisor.props(
-      Backoff.onStop(
-        childProps,
-        childName = "streamActor",
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2
-      )
-    )
-    val supervisor = system.actorOf(supervisorProps, name = "streamActorSupervisor")
-    //#errorHandlingSupervisor
-    supervisor
+    //#restartSource
+    RestartSource.withBackoff(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2) { () =>
+      Source.fromFuture {
+        val source = Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
+        source
+          .via(business)
+          .watchTermination() {
+            case (consumerControl, futureDone) =>
+              futureDone
+                .flatMap { _ => consumerControl.shutdown() }
+                .recoverWith { case _ => consumerControl.shutdown() }
+          }
+          .runWith(Sink.ignore)
+      }
+    }.runWith(Sink.ignore)
+    //#restartSource
   }
 }
+

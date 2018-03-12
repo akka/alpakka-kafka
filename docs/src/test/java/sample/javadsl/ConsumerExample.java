@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -326,4 +327,27 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 }
 
+class RestartingConsumer extends ConsumerExample {
+  public static void main(String[] args) { new RestartingConsumer().demo(); }
 
+  public void demo() {
+    //#restartSource
+    RestartSource.withBackoff(
+        Duration.create(3, TimeUnit.SECONDS),
+        Duration.create(30, TimeUnit.SECONDS),
+        0.2,
+            () ->
+                 Source.fromCompletionStage(
+                      Consumer
+                        .plainSource(consumerSettings, Subscriptions.topics("topic1"))
+                        .via(business())
+                        .watchTermination(
+                                 (control, completionStage) ->
+                                     completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
+                         )
+                        .runWith(Sink.ignore(), materializer)
+                 )
+    );
+    //#restartSource
+  }
+}

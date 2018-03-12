@@ -9,24 +9,16 @@ When the last retry fails, source stage will be failed with an exception.
 
 Retry handling in case of producer is built-in into Kafka. In case of failure when sending a message, an exception will be thrown, which should fail the stream. 
 
-## Restarting the stream
+## Restarting the stream with a backoff stage
 
-Typical approach is to run the stream inside an actor. When there's an exception, this actor should be stopped and a new one should be created.
-Stopping the actor on stream failure:
-
-Scala
-: @@ snip [stopping](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #errorHandlingStop }
-
-Java
-: @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingStop }
-
-In order to ensure that stopped actor gets re-created, it can be wrapped with a [BackoffSupervisor](http://doc.akka.io/docs/akka/current/general/supervision.html#Delayed_restarts_with_the_BackoffSupervisor_pattern)
+Akka streams @extref[provides graph stages](akka-docs:stream/stream-error.html#delayed-restarts-with-a-backoff-stage)
+to gracefully restart a stream on failure, with a configurable backoff. This can be taken advantage of to restart a failing consumer with an exponential backoff, by wrapping it in a `RestartSource`:
 
 Scala
-: @@ snip [restart](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #errorHandlingSupervisor}
+: @@ snip [restartsource](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #restartSource }
 
 Java
-: @@ snip [stopping](../../test/java/sample/javadsl/StreamWrapperActor.java) { #errorHandlingSupervisor }
+: @@ snip [restartsource](../../test/java/sample/javadsl/ConsumerExample.java) { #restartSource }
 
 When a stream fails, library internals will handle all underlying resources.
 
