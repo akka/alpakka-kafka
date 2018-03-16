@@ -40,6 +40,7 @@ object KafkaConsumerActor {
     final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
+    final case class SubscribeWithStartTimestamp(timestamp: Long, topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition]) extends NoSerializationVerificationNeeded
     case object Stop extends NoSerializationVerificationNeeded
@@ -200,6 +201,29 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
       case SubscribePattern(pattern, listener) =>
         consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, listener))
+      case SubscribeWithStartTimestamp(timestamp, topics, listener) =>
+        consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, listener))
+        // -- Seek offset
+        consumer.poll(0)
+        val assignedTopicPartitions = consumer.assignment()
+        if (assignedTopicPartitions.isEmpty) {
+          log.warning(s"Could not seek to $timestamp for topics ${topics.mkString(",")} because no partitions were assigned")
+        }
+        else {
+          val timestampsToSearch = assignedTopicPartitions.asScala
+            .map(_ -> long2Long(timestamp))
+            .toMap.asJava
+
+          val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch)
+
+          topicPartitionToOffsetAndTimestamp.asScala.foreach {
+            case (tp, oat: OffsetAndTimestamp) =>
+              val offset = oat.offset()
+              val ts = oat.timestamp()
+              log.debug("Seeking to offset {} from topic {} for timestamp {}", offset, tp, ts)
+              consumer.seek(tp, offset)
+          }
+        }
     }
   }
 
@@ -223,7 +247,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case _: Terminated =>
     case _@ (_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
-    case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
+    case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern | _: SubscribeWithStartTimestamp) =>
       log.warning("Got unexpected message {} when KafkaConsumerActor is in stopping state", msg)
   }
 
@@ -366,6 +390,14 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     val revokedAssignmentsByTopic = (currentAssignments -- newAssignments).groupBy(_.topic())
     val addedAssignmentsByTopic = (newAssignments -- currentAssignments).groupBy(_.topic())
 
+    def notifyTopicListenersOfReassignment(topic: String, listener: ListenerCallbacks): Unit = {
+      val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
+      if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
+
+      val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
+      if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
+    }
+
     if (settings.wakeupDebug) {
       log.info(
         "Reconciliation has found revoked assignments: {} added assignments: {}. Current subscriptions: {}",
@@ -374,13 +406,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     subscriptions.foreach {
       case Subscribe(topics, listener) =>
-        topics.foreach { topic =>
-          val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
-
-          val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
-        }
+        topics.foreach(notifyTopicListenersOfReassignment(_, listener))
 
       case SubscribePattern(pattern: String, listener) =>
         val ptr = Pattern.compile(pattern)
@@ -396,7 +422,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
         val addedAssignments = filterByPattern(addedAssignmentsByTopic)
         if (addedAssignments.nonEmpty) listener.onAssign(addedAssignments)
+
+      case SubscribeWithStartTimestamp(_, topics, listener) =>
+        topics.foreach(notifyTopicListenersOfReassignment(_, listener))
     }
+
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit = {

@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
+import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern, TopicSubscriptionWithStartTimestamp}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
 import akka.pattern.{AskTimeoutException, ask}
@@ -59,6 +59,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB, partitionRevokedCB)
 
     subscription match {
+      case TopicSubscriptionWithStartTimestamp(timestamp, topics) =>
+        consumer.tell(KafkaConsumerActor.Internal.SubscribeWithStartTimestamp(timestamp, topics, rebalanceListener), self.ref)
       case TopicSubscription(topics) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
       case TopicSubscriptionPattern(topics) =>

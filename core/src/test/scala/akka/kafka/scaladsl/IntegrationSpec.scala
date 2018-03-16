@@ -6,24 +6,24 @@
 package akka.kafka.scaladsl
 
 import java.util.UUID
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.{TimeUnit, ConcurrentLinkedQueue}
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.test.Utils._
-import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings}
+import akka.kafka.{ConsumerSettings, ProducerSettings, ProducerMessage, Subscriptions}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Keep, Source, Sink}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafkaConfig, EmbeddedKafka}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.clients.producer.{ProducerRecord, ProducerConfig}
+import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer, ByteArrayDeserializer, StringDeserializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
@@ -416,6 +416,34 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         probe1.cancel()
         probe2.cancel()
 
+      }
+    }
+
+    "consume starting from a specific timestamp when provided" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 2), remainingOrDefault)
+
+        val seekToTimestamp = System.currentTimeMillis()
+        val toBeConsumed = 3 to 4
+
+        Await.result(produce(topic, toBeConsumed), remainingOrDefault)
+
+        val subscription = Subscriptions.topics(seekToTimestamp, topic)
+        val source = Consumer.plainSource(createConsumerSettings(group), subscription)
+          .map(_.value)
+
+        val probe = source.runWith(TestSink.probe)
+
+        probe
+          .request(2)
+          .expectNextN(toBeConsumed.map(_.toString))
+
+        probe.cancel()
       }
     }
   }
