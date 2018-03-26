@@ -85,3 +85,14 @@ Scala
 
 Java
 : @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #plainSinkWithProducer }
+
+## Accessing KafkaProducer metrics
+
+As it is possible to share an existing `KafkaProducer` (as shown in the previous section),
+accessing its metrics is fairly simple:
+
+Scala
+: @@ snip [plainSinkWithProducer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #producerMetrics }
+
+Java
+: @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #producerMetrics }

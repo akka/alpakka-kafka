@@ -13,9 +13,13 @@ import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.pattern.PatternsCS;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
+//import akka.pattern.PatternsCS;
+//import akka.util.Timeout;
+import akka.util.Timeout;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -31,6 +35,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+// #consumerMetrics
+import akka.kafka.KafkaConsumerActor.ConsumerMetrics;
+import akka.kafka.KafkaConsumerActor.RequestMetrics;
+
+// #consumerMetrics
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -323,6 +333,34 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
       .via(business())
       .runWith(Sink.ignore(), materializer);
     // #consumerActor
+  }
+}
+
+class ConsumerMetricsExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new ConsumerMetricsExample().demo();
+  }
+
+  public void demo() {
+    // #consumerMetrics
+    //Consumer is represented by actor
+    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
+
+    //Manually assign another topic partition
+    Consumer
+      .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+      .via(business())
+      .runWith(Sink.ignore(), materializer);
+
+    Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    RequestMetrics requestMetrics = new RequestMetrics();
+
+    CompletionStage<ConsumerMetrics> metrics =
+        PatternsCS.ask(consumer, requestMetrics, timeout)
+          .thenApply(reply -> (ConsumerMetrics) reply);
+
+    metrics.thenAccept(m -> System.out.println("Metrics: " + m));
+    // #consumerMetrics
   }
 }
 

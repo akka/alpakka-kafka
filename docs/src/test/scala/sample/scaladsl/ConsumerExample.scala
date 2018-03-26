@@ -7,19 +7,22 @@ package sample.scaladsl
 import akka.pattern.ask
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
-import akka.actor.{Props, ActorRef, Actor, ActorSystem, ActorLogging, PoisonPill}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, ThrottleMode}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
+
+import akka.util.Timeout
 
 trait ConsumerExample {
   val system = ActorSystem("example")
@@ -360,6 +363,28 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
       .via(business)
       .runWith(Sink.ignore)
     // #consumerActor
+  }
+}
+
+object ConsumerMetrics extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #consumerMetrics
+    // Consumer is represented by actor
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+    // use the consumer actor manually in streams:
+    Consumer
+      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+      .via(business)
+      .runWith(Sink.ignore)
+
+    // Obtain a single metric Map by asking the consumer actor directly:
+    import KafkaConsumerActor._
+    implicit val t = Timeout(1.second)
+
+    val metrics: Future[ConsumerMetrics] = (consumer ? RequestMetrics).mapTo[ConsumerMetrics]
+    metrics foreach { m ⇒ println(s"Metrics: " + m.metrics) }
+    // #consumerMetrics
   }
 }
 

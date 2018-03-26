@@ -27,9 +27,24 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 
 object KafkaConsumerActor {
-  case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
+  final case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
+
   def props[K, V](settings: ConsumerSettings[K, V]): Props =
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
+
+  // ------------ public protocol ------------
+  /** DO NOT INHERIT */
+  sealed class RequestMetrics
+  case object RequestMetrics extends RequestMetrics {
+    /** Java DSL */
+    def getInstance: RequestMetrics = this
+  }
+  /** Contains a snapshot of metrics obtained from the underlying kafka consumer */
+  final case class ConsumerMetrics(metrics: Map[MetricName, Metric]) {
+    /** Java API */
+    def getMetrics: util.Map[MetricName, Metric] = metrics.asJava
+  }
+  // ------------ end of public protocol ------------
 
   private[kafka] object Internal {
     sealed trait SubscriptionRequest
@@ -61,17 +76,7 @@ object KafkaConsumerActor {
 
     private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
   }
-  
-  /** Public protocol which can be used to interact with the Actor */
-  object Protocol {
-    // requests
-    final case class RequestMetrics()
-    
-    // responses
-    /** Contains a snapshot of metrics obtained from the underlying kafka consumer */
-    final case class ConsumerMetrics(metrics: Map[MetricName, Metric])
-  }
-  
+
   private[kafka] def rebalanceListener(onAssign: Iterable[TopicPartition] => Unit, onRevoke: Iterable[TopicPartition] => Unit) = new ConsumerRebalanceListener {
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       onAssign(partitions.asScala)
@@ -208,10 +213,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         context.become(stopping)
       }
 
-    case Protocol.RequestMetrics() =>
+    case _: RequestMetrics =>
       val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
-      sender() ! Protocol.ConsumerMetrics(unmodifiableYetMutableMetrics.asScala.toMap)
-      
+      sender() ! ConsumerMetrics(unmodifiableYetMutableMetrics.asScala.toMap)
+
     case Terminated(ref) =>
       requests -= ref
       requestors -= ref
