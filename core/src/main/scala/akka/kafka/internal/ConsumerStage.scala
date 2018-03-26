@@ -5,8 +5,9 @@
 
 package akka.kafka.internal
 
-import java.util.{Map ⇒ JMap}
+
 import java.util.concurrent.CompletionStage
+import java.util.{Locale, Map => JMap}
 
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
@@ -21,11 +22,12 @@ import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
+import org.apache.kafka.common.requests.IsolationLevel
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.compat.java8.FutureConverters.FutureOps
 import scala.collection.JavaConverters._
 import scala.collection.immutable
+import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -94,10 +96,31 @@ private[kafka] object ConsumerStage {
     }
   }
 
+  def transactionalSource[K, V](consumerSettings: ConsumerSettings[K, V], subscription: Subscription) = {
+    require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
+    /**
+     * We set the isolation.level config to read_committed to make sure that any consumed messages are from
+     * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
+     * producers may either use transactional messaging or not at all. So the fetching partitions may have both
+     * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
+     * will still consume non-transactional messages.
+     */
+    val txConsumerSettings = consumerSettings.withProperty(
+      ConsumerConfig.ISOLATION_LEVEL_CONFIG, IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH))
+
+    new KafkaSourceStage[K, V, TransactionalMessage[K, V]] {
+      override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]) =
+        new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription) with TransactionalMessageBuilder[K, V] {
+          override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+        }
+    }
+  }
+
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
   case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
-    import scala.collection.breakOut
     import akka.pattern.ask
+
+    import scala.collection.breakOut
     implicit val to = Timeout(commitTimeout)
     override def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done] = {
       val offsetsMap: Map[TopicPartition, Long] = offsets.map { offset =>
@@ -145,6 +168,22 @@ private[kafka] object ConsumerStage {
 
   private trait PlainMessageBuilder[K, V] extends MessageBuilder[K, V, ConsumerRecord[K, V]] {
     override def createMessage(rec: ConsumerRecord[K, V]) = rec
+  }
+
+  private trait TransactionalMessageBuilder[K, V] extends MessageBuilder[K, V, TransactionalMessage[K, V]] {
+    def groupId: String
+
+    override def createMessage(rec: ConsumerRecord[K, V]) = {
+      val offset = ConsumerMessage.PartitionOffset(
+        GroupTopicPartition(
+          groupId = groupId,
+          topic = rec.topic,
+          partition = rec.partition
+        ),
+        offset = rec.offset
+      )
+      ConsumerMessage.TransactionalMessage(rec, offset)
+    }
   }
 
   private trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
@@ -291,6 +330,7 @@ private[kafka] trait MetricsControl extends Control {
 
   def metrics: Future[Map[MetricName, Metric]] = {
     import akka.pattern.ask
+
     import scala.concurrent.duration._
     consumer.?(RequestMetrics)(Timeout(1.minute)).mapTo[ConsumerMetrics]
       .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)

@@ -10,23 +10,26 @@ import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
-import akka.kafka.ProducerSettings
+import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.scaladsl.Flow
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
-import org.apache.kafka.clients.producer.{Callback, KafkaProducer, MockProducer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito
 import org.mockito.Mockito
 import Mockito._
+import akka.kafka.ConsumerMessage.GroupTopicPartition
 import akka.kafka.scaladsl.Producer
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -48,11 +51,13 @@ class ProducerTest(_system: ActorSystem)
   implicit val ec = _system.dispatcher
 
   val checksum = new java.lang.Long(-1)
+  val group = "group"
 
   type K = String
   type V = String
   type Record = ProducerRecord[K, V]
   type Msg = Message[String, String, NotUsed.type]
+  type TxMsg = Message[K, V, ConsumerMessage.PartitionOffset]
 
   def recordAndMetadata(seed: Int) = {
     new ProducerRecord("test", seed.toString, seed.toString) ->
@@ -60,6 +65,9 @@ class ProducerTest(_system: ActorSystem)
   }
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
+  def toTxMessage(tuple: (Record, RecordMetadata)) = Message(
+    tuple._1,
+    ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset()))
   def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
   val toResult = (result _).tupled
 
@@ -68,10 +76,15 @@ class ProducerTest(_system: ActorSystem)
       values.contains(r.value())
   }
 
-  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitIntervalMs(10L)
 
   def testProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage[K, V, P](settings.closeTimeout, closeOnStop, () => mock.mock))
+    Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, P](settings.closeTimeout, closeOnStop, () => mock.mock))
+      .mapAsync(1)(identity)
+
+  def testTransactionProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
+    Flow.fromGraph(new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout, closeOnStop,
+      () => mock.mock, settings.eosCommitIntervalMs))
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {
@@ -315,6 +328,102 @@ class ProducerTest(_system: ActorSystem)
       client.verifyNoMoreInteractions()
     }
   }
+
+  it should "initialize and begin a transaction when first run" in {
+    assertAllStagesStopped {
+      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+
+      val probe = Source
+        .empty[Msg]
+        .via(testTransactionProducerFlow(client))
+        .runWith(TestSink.probe)
+
+      probe.request(1)
+        .expectComplete()
+
+      client.verifyTxInitialized()
+    }
+  }
+
+  it should "commit the current transaction at commit interval" in {
+    assertAllStagesStopped {
+      val input = recordAndMetadata(1)
+
+      val client = {
+        val inputMap = Map(input)
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+
+      val (source, sink) = TestSource.probe[TxMsg]
+        .via(testTransactionProducerFlow(client))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val txMsg = toTxMessage(input)
+      source.sendNext(txMsg)
+      sink.requestNext()
+
+      awaitAssert(client.verifyTxCommit(txMsg.passThrough), 2.second)
+
+      source.sendComplete()
+      sink.expectComplete()
+    }
+  }
+
+  it should "commit the current transaction gracefully on shutdown" in {
+    val input = recordAndMetadata(1)
+
+    val client = {
+      val inputMap = Map(input)
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+    }
+
+    val (source, sink) = TestSource.probe[TxMsg]
+      .via(testTransactionProducerFlow(client))
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    val txMsg = toTxMessage(input)
+    source.sendNext(txMsg)
+    sink.requestNext()
+
+    client.verifySend(atLeastOnce())
+
+    awaitAssert(client.verifyTxCommitWhenShutdown(txMsg.passThrough), 2.second)
+
+    source.sendComplete()
+    sink.expectComplete()
+    client.verifyClosed()
+  }
+
+  it should "abort the current transaction on failure" in {
+    val input = recordAndMetadata(1)
+
+    val client = {
+      val inputMap = Map(input)
+      new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+    }
+
+    val (source, sink) = TestSource.probe[TxMsg]
+      .via(testTransactionProducerFlow(client))
+      .toMat(Sink.lastOption)(Keep.both)
+      .run()
+
+    val txMsg = toTxMessage(input)
+    source.sendNext(txMsg)
+    source.sendError(new Exception())
+
+    // Here we can not be sure that all messages from source delivered to producer
+    // because of buffers in akka-stream and faster error pushing that ignores buffers
+
+    Await.ready(sink, remainingOrDefault)
+    sink.value should matchPattern {
+      case Some(Failure(_)) =>
+    }
+
+    client.verifyTxAbort()
+    client.verifyClosed()
+  }
 }
 
 object ProducerMock {
@@ -379,5 +488,33 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
 
   def verifyNoMoreInteractions() = {
     Mockito.verifyNoMoreInteractions(mock)
+  }
+
+  def verifyTxInitialized() = {
+    val inOrder = Mockito.inOrder(mock)
+    inOrder.verify(mock).initTransactions()
+    inOrder.verify(mock).beginTransaction()
+  }
+
+  def verifyTxCommit(po: ConsumerMessage.PartitionOffset) = {
+    val inOrder = Mockito.inOrder(mock)
+    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
+    inOrder.verify(mock).commitTransaction()
+    inOrder.verify(mock).beginTransaction()
+  }
+
+  def verifyTxCommitWhenShutdown(po: ConsumerMessage.PartitionOffset) = {
+    val inOrder = Mockito.inOrder(mock)
+    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
+    inOrder.verify(mock).commitTransaction()
+  }
+
+  def verifyTxAbort() = {
+    val inOrder = Mockito.inOrder(mock)
+    inOrder.verify(mock).abortTransaction()
+    inOrder.verify(mock).flush()
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
   }
 }

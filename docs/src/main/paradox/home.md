@@ -49,5 +49,6 @@ We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect
 * [Consumer](consumer.md)
 * [Error Handling](errorhandling.md)
 * [At-Least-Once Delivery](atleastonce.md)
+* [Transactions](transactions.md)
 
 @@@

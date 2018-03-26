@@ -7,9 +7,9 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
-import akka.kafka.ConsumerMessage.CommittableMessage
+import akka.kafka.ConsumerMessage.{CommittableMessage, TransactionalMessage}
 import akka.kafka.internal.ConsumerStage
-import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
+import akka.kafka._
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -94,6 +94,13 @@ object Consumer {
       m.committableOffset.commitScaladsl().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
     }
   }
+
+  /**
+   * Transactional source to setup a stream for Exactly Only Once (EoS) kafka message semantics.  To enable EoS it's
+   * necessary to use the [[Producer#transactionalSink]] or [[Producer#transactionalFlow]] (for passthrough).
+   */
+  def transactionalSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
+    Source.fromGraph(ConsumerStage.transactionalSource[K, V](settings, subscription))
 
   /**
    * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.

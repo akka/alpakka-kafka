@@ -10,9 +10,9 @@ import java.util.concurrent.CompletionStage
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
-import akka.kafka.ConsumerMessage.CommittableMessage
+import akka.kafka.ConsumerMessage.{CommittableMessage, TransactionalMessage}
 import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
-import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription, scaladsl}
+import akka.kafka._
 import akka.stream.javadsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -101,6 +101,15 @@ object Consumer {
    */
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer.atMostOnceSource(settings, subscription)
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+
+  /**
+   * Transactional source to setup a stream for Exactly Only Once (EoS) kafka message semantics.  To enable EoS it's
+   * necessary to use the [[Producer#transactionalSink]] or [[Producer#transactionalFlow]] (for passthrough).
+   */
+  def transactionalSource[K, V](consumerSettings: ConsumerSettings[K, V], subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
+    scaladsl.Consumer.transactionalSource(consumerSettings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
