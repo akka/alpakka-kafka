@@ -373,17 +373,13 @@ object ConsumerMetrics extends ConsumerExample {
     val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
 
     // use the consumer actor manually in streams:
-    Consumer
+    val control: Consumer.Control = Consumer
       .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
       .via(business)
-      .runWith(Sink.ignore)
+      .to(Sink.ignore)
+      .run()
 
-    // Obtain a single metric Map by asking the consumer actor directly:
-    import KafkaConsumerActor._
-    implicit val t = Timeout(1.second)
-
-    val metrics: Future[ConsumerMetrics] = (consumer ? RequestMetrics).mapTo[ConsumerMetrics]
-    metrics foreach { m ⇒ println(s"Metrics: " + m.metrics) }
+    println(s"metrics: ${control.metrics}")
     // #consumerMetrics
   }
 }

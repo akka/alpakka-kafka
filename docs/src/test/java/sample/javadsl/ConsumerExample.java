@@ -13,16 +13,14 @@ import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.pattern.PatternsCS;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
-//import akka.pattern.PatternsCS;
-//import akka.util.Timeout;
-import akka.util.Timeout;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -31,16 +29,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-// #consumerMetrics
-import akka.kafka.KafkaConsumerActor.ConsumerMetrics;
-import akka.kafka.KafkaConsumerActor.RequestMetrics;
-
-// #consumerMetrics
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -343,22 +336,14 @@ class ConsumerMetricsExample extends ConsumerExample {
 
   public void demo() {
     // #consumerMetrics
-    //Consumer is represented by actor
-    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
+    // run the stream to obtain the materialized Control value
+    Consumer.Control control = Consumer
+        .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+        .via(business())
+        .to(Sink.ignore())
+        .run(materializer);
 
-    //Manually assign another topic partition
-    Consumer
-      .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
-      .via(business())
-      .runWith(Sink.ignore(), materializer);
-
-    Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
-    RequestMetrics requestMetrics = new RequestMetrics();
-
-    CompletionStage<ConsumerMetrics> metrics =
-        PatternsCS.ask(consumer, requestMetrics, timeout)
-          .thenApply(reply -> (ConsumerMetrics) reply);
-
+    CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
     metrics.thenAccept(m -> System.out.println("Metrics: " + m));
     // #consumerMetrics
   }
