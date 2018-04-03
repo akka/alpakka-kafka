@@ -72,6 +72,14 @@ object PlainSinkWithProducerExample extends ProducerExample {
   }
 }
 
+object ObserveMetricsExample extends ProducerExample {
+  def main(args: Array[String]): Unit = {
+    // #producerMetrics
+    kafkaProducer.metrics() // observe metrics
+    // #producerMetrics
+  }
+}
+
 object ProducerFlowExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
     // #flow

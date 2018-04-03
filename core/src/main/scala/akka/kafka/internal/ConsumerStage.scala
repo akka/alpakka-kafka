@@ -5,12 +5,13 @@
 
 package akka.kafka.internal
 
-import java.util.{Map => JMap}
+import java.util.{Map ⇒ JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorRef
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage._
-import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed}
+import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed, ConsumerMetrics, RequestMetrics}
 import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
 import akka.pattern.AskTimeoutException
@@ -20,7 +21,7 @@ import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.collection.JavaConverters._
@@ -35,14 +36,15 @@ private[kafka] object ConsumerStage {
   def plainSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None, onRevoke: Set[TopicPartition] => Unit = _ => ()) = {
     new KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke) with PlainMessageBuilder[K, V]
+        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke) with PlainMessageBuilder[K, V] with MetricsControl
     }
   }
 
   def committableSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) = {
     new KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
+        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
+
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -62,7 +64,9 @@ private[kafka] object ConsumerStage {
   def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) = {
     new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
       override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V]
+        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V] with MetricsControl {
+          override def consumer: ActorRef = consumer
+        }
     }
   }
 
@@ -79,10 +83,11 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  def externalCommittableSource[K, V](consumer: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
+  def externalCommittableSource[K, V](consumerRef: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] {
+        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumerRef, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
+          def consumer = consumerRef
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -228,6 +233,9 @@ private[kafka] object ConsumerStage {
     override def shutdown(): CompletionStage[Done] = underlying.shutdown().toJava
 
     override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
+
+    override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] =
+      underlying.metrics.map(_.asJava)(ExecutionContexts.sameThreadExecutionContext).toJava
   }
 }
 
@@ -277,4 +285,17 @@ private[kafka] trait PromiseControl extends GraphStageLogic with Control {
     shutdownPromise.future
   }
   override def isShutdown: Future[Done] = shutdownPromise.future
+
+}
+
+private[kafka] trait MetricsControl extends Control {
+
+  protected def consumer: ActorRef
+
+  def metrics: Future[Map[MetricName, Metric]] = {
+    import akka.pattern.ask
+    import scala.concurrent.duration._
+    consumer.?(RequestMetrics)(Timeout(1.minute)).mapTo[ConsumerMetrics]
+      .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+  }
 }

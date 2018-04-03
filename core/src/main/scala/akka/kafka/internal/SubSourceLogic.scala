@@ -9,6 +9,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.dispatch.ExecutionContexts
+import akka.kafka.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
@@ -19,7 +21,7 @@ import akka.stream.stage._
 import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.annotation.tailrec
 import scala.collection.immutable
@@ -32,7 +34,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => ()
-) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
+) extends GraphStageLogic(shape) with PromiseControl with MetricsControl with MessageBuilder[K, V, Msg] {
   var consumer: ActorRef = _
   var self: StageActor = _
   // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
@@ -171,12 +173,13 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     consumer ! KafkaConsumerActor.Internal.Stop
   }
 
-  class SubSourceStage(tp: TopicPartition, consumer: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
+  class SubSourceStage(tp: TopicPartition, consumerRef: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
     val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
-      new GraphStageLogic(shape) with PromiseControl {
+      new GraphStageLogic(shape) with PromiseControl with MetricsControl {
+        def consumer = consumerRef
         val shape = stage.shape
         val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
         var requested = false

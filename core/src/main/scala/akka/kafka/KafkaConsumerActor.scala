@@ -14,7 +14,7 @@ import java.util.regex.Pattern
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
 
 import java.util.concurrent.locks.LockSupport
@@ -27,6 +27,7 @@ import scala.concurrent.duration._
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
+
   def props[K, V](settings: ConsumerSettings[K, V]): Props =
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
 
@@ -38,6 +39,7 @@ object KafkaConsumerActor {
     final case class AssignWithOffset(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     final case class Subscribe(topics: Set[String], listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
+    case object RequestMetrics extends NoSerializationVerificationNeeded
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, listener: ListenerCallbacks) extends SubscriptionRequest with NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
@@ -49,12 +51,15 @@ object KafkaConsumerActor {
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]]) extends NoSerializationVerificationNeeded
     final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
+    final case class ConsumerMetrics(metrics: Map[MetricName, Metric]) extends NoSerializationVerificationNeeded {
+      def getMetrics: java.util.Map[MetricName, Metric] = metrics.asJava
+    }
     //internal
     private[KafkaConsumerActor] final case class Poll[K, V](
         target: KafkaConsumerActor[K, V], periodic: Boolean
     ) extends DeadLetterSuppression with NoSerializationVerificationNeeded
     private val number = new AtomicInteger()
-    def nextNumber() = {
+    def nextNumber(): Int = {
       number.incrementAndGet()
     }
 
@@ -187,6 +192,11 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         stopInProgress = true
         context.become(stopping)
       }
+
+    case RequestMetrics =>
+      val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
+      sender() ! ConsumerMetrics(unmodifiableYetMutableMetrics.asScala.toMap)
+
     case Terminated(ref) =>
       requests -= ref
       requestors -= ref
@@ -369,7 +379,8 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     if (settings.wakeupDebug) {
       log.info(
         "Reconciliation has found revoked assignments: {} added assignments: {}. Current subscriptions: {}",
-        revokedAssignmentsByTopic, addedAssignmentsByTopic, subscriptions)
+        revokedAssignmentsByTopic, addedAssignmentsByTopic, subscriptions
+      )
     }
 
     subscriptions.foreach {

@@ -6,16 +6,21 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.dispatch.ExecutionContexts
 import akka.event.Logging
+import akka.kafka.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions._
 import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
+import akka.util.Timeout
+import org.apache.kafka.clients.consumer.{Consumer, ConsumerRecord}
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
+import scala.collection.JavaConverters._
 import scala.annotation.tailrec
+import scala.concurrent.Future
 
 private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
@@ -144,4 +149,11 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
     consumer ! KafkaConsumerActor.Internal.Stop
   }
+
+  override def metrics: Future[Map[MetricName, Metric]] = {
+    import akka.pattern.ask
+    import scala.concurrent.duration._
+    consumer.?(RequestMetrics)(Timeout(1.minute)).mapTo[ConsumerMetrics].map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+  }
+
 }

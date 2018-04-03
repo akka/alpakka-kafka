@@ -13,7 +13,7 @@ import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subsc
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -48,6 +48,11 @@ object Consumer {
      * from downstream cancellation, errors, or [[#shutdown]].
      */
     def isShutdown: Future[Done]
+
+    /**
+     * Exposes underlying consumer or producer metrics (as reported by underlying Kafka client library)
+     */
+    def metrics: Future[Map[MetricName, Metric]]
   }
 
   /**
