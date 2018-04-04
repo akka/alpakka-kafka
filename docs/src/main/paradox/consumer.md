@@ -177,6 +177,17 @@ Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerActor }
 
 
+## Accessing KafkaConsumer metrics
+
+You can access the underlying consumer metrics by `ask`-ing the `KafkaConsumerActor` for them: 
+
+Scala
+: @@ snip [consumerMetrics](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerMetrics }
+
+Java
+: @@ snip [consumerMetrics](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerMetrics }
+
+
 ## Listening for rebalance events
 
 You may set up callbacks that will be invoked when your consumer will be assigned or revoked from consuming from
@@ -188,3 +199,4 @@ Scala
 
 Java
 : @@ snip [withRebalanceListenerCallbacks](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerCallbacks }
+

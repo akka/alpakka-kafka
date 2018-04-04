@@ -79,6 +79,18 @@ class PlainSinkWithProducerExample extends ProducerExample {
     }
 }
 
+class ObserveMetricsExample extends ProducerExample {
+    public static void main(String[] args) {
+        new PlainSinkExample().demo();
+    }
+
+    public void demo() {
+        // #producerMetrics
+        kafkaProducer.metrics(); // observe metrics
+        // #producerMetrics
+    }
+}
+
 class ProducerFlowExample extends ProducerExample {
   public static void main(String[] args) {
     new ProducerFlowExample().demo();

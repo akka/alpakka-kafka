@@ -20,6 +20,8 @@ import akka.stream.javadsl.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -29,6 +31,7 @@ import scala.concurrent.duration.Duration;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -349,11 +352,30 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
     Subscription sub = Subscriptions.topics("topic")
         .withRebalanceListenerCallbacksJavadsl(onAssign, onRevoke);
 
-
     // use the subscription as usual:
     Consumer
       .plainSource(consumerSettings, sub);
     // #withRebalanceListenerCallbacks
+  }
+}
+
+class ConsumerMetricsExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new ConsumerMetricsExample().demo();
+  }
+
+  public void demo() {
+    // #consumerMetrics
+    // run the stream to obtain the materialized Control value
+    Consumer.Control control = Consumer
+        .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+        .via(business())
+        .to(Sink.ignore())
+        .run(materializer);
+
+    CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
+    metrics.thenAccept(m -> System.out.println("Metrics: " + m));
+    // #consumerMetrics
   }
 }
 
