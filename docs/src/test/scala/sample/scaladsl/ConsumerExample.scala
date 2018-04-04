@@ -448,7 +448,7 @@ object RebalanceListenerExample extends ConsumerExample {
     // log them, or do anything else with this information here:
     val onRebalanceAssign: Set[TopicPartition] ⇒ Unit =
       set ⇒ println(s"Assigned: $set")
-    val onRebalanceRevoke : Set[TopicPartition] ⇒ Unit =
+    val onRebalanceRevoke: Set[TopicPartition] ⇒ Unit =
       set ⇒ println(s"Revoked: $set")
 
     val sub = Subscriptions.topics(Set("topic")) // create subscription

@@ -18,7 +18,7 @@ import scala.annotation.tailrec
 
 private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
-    consumer: ActorRef,
+    val consumer: ActorRef,
     subscription: ManualSubscription
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var tps = Set.empty[TopicPartition]
