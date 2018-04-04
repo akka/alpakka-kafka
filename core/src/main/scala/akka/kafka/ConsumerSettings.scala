@@ -9,6 +9,7 @@ import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.kafka.KafkaConsumerActor.ListenerCallbacks
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
@@ -20,21 +21,46 @@ import scala.collection.JavaConverters._
 import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
 
-sealed trait Subscription
-sealed trait ManualSubscription extends Subscription
-sealed trait AutoSubscription extends Subscription
+sealed trait Subscription {
+  def rebalanceListenerCallbacks: Option[ListenerCallbacks]
+  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): Subscription
+}
+sealed trait ManualSubscription extends Subscription {
+  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): ManualSubscription
+}
+sealed trait AutoSubscription extends Subscription {
+  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AutoSubscription
+}
 
 object Subscriptions {
-  private[kafka] final case class TopicSubscription(tps: Set[String]) extends AutoSubscription
-  private[kafka] final case class TopicSubscriptionPattern(pattern: String) extends AutoSubscription
-  private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription
-  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription
-  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends ManualSubscription
+  /** INTERNAL API */
+  private[kafka] final case class TopicSubscription(tps: Set[String])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends AutoSubscription {
+    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): TopicSubscription =
+      TopicSubscription(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  }
+  /** INTERNAL API */
+  private[kafka] final case class TopicSubscriptionPattern(pattern: String)(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends AutoSubscription {
+    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): TopicSubscriptionPattern =
+      TopicSubscriptionPattern(pattern)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  }
+  /** INTERNAL API */
+  private[kafka] final case class Assignment(tps: Set[TopicPartition])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
+    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): Assignment =
+      Assignment(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  }
+  /** INTERNAL API */
+  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
+    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AssignmentWithOffset =
+      AssignmentWithOffset(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  }
+  /** INTERNAL API */
+  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
+    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AssignmentOffsetsForTimes =
+      AssignmentOffsetsForTimes(timestampsToSearch)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  }
 
-  /**
-   * Creates subscription for given set of topics
-   */
-  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts)
+  /** Creates subscription for given set of topics */
+  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts)(None)
 
   /**
    * Creates subscription for given set of topics
@@ -52,12 +78,12 @@ object Subscriptions {
   /**
    * Creates subscription for given topics pattern
    */
-  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern)
+  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern)(None)
 
   /**
    * Manually assign given topics and partitions
    */
-  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)
+  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)(None)
 
   /**
    * Manually assign given topics and partitions
@@ -75,12 +101,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)
+  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)(None)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)
+  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)(None)
 
   /**
    * Manually assign given topics and partitions with offsets
@@ -96,12 +122,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps)
+  def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps)(None)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap)
+  def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap)(None)
 
   /**
    * Manually assign given topics and partitions with offsets

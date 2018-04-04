@@ -65,17 +65,22 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       // Is info too much here? Will be logged at startup / rebalance
       tps ++= newTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
-      requestMessages()
+      try invokeUserOnAssign(newTps)
+      finally requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
-      requestMessages()
+      try invokeUserOnRevoke(newTps)
+      finally requestMessages()
     }
 
-    def rebalanceListener =
-      KafkaConsumerActor.rebalanceListener(tps => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
+    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
+      val onAssign: Set[TopicPartition] ⇒ Unit = tps ⇒ partitionAssignedCB.invoke(tps)
+      val onRevoke: Set[TopicPartition] ⇒ Unit = set ⇒ partitionRevokedCB.invoke(set)
+      KafkaConsumerActor.rebalanceListener(onAssign, onRevoke)
+    }
 
     subscription match {
       case TopicSubscription(topics) =>
@@ -94,6 +99,11 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
 
   }
+
+  private def invokeUserOnAssign(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListenerCallbacks.foreach(_.onAssign(set))
+  private def invokeUserOnRevoke(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListenerCallbacks.foreach(_.onRevoke(set))
 
   @tailrec
   private def pump(): Unit = {

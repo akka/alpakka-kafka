@@ -6,12 +6,12 @@
 package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
-import java.util.{List => JList, Map => JMap, Set => JSet}
+import java.util.{List ⇒ JList, Map ⇒ JMap, Set ⇒ JSet}
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{CommitTimeoutException, ConsumerSettings}
+import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.scaladsl.Consumer
 import Consumer.Control
@@ -94,7 +94,7 @@ class ConsumerTest(_system: ActorSystem)
         mock.mock
       }
     }
-    Consumer.committableSource(settings, TopicSubscription(topics))
+    Consumer.committableSource(settings, Subscriptions.topics(topics))
   }
 
   it should "fail stream when poll() fails with unhandled exception" in {
