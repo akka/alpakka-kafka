@@ -9,6 +9,7 @@ import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.japi.function.Procedure
 import akka.kafka.KafkaConsumerActor.ListenerCallbacks
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
@@ -23,7 +24,11 @@ import scala.concurrent.duration._
 
 sealed trait Subscription {
   def rebalanceListenerCallbacks: Option[ListenerCallbacks]
+  /** Sets callbacks ti be invoked when the consumer related to this subscription gets rebalancing events */
   def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): Subscription
+  /** Java API: Sets callbacks ti be invoked when the consumer related to this subscription gets rebalancing events */
+  final def withRebalanceListenerCallbacksJavadsl(onAssign: Procedure[java.util.Set[TopicPartition]], onRevoke: Procedure[java.util.Set[TopicPartition]]): Subscription =
+    withRebalanceListenerCallbacks(s ⇒ onAssign(s.asJava), s ⇒ onRevoke(s.asJava))
 }
 sealed trait ManualSubscription extends Subscription {
   def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): ManualSubscription

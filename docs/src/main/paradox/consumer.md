@@ -177,4 +177,14 @@ Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerActor }
 
 
+## Listening for rebalance events
 
+You may set up callbacks that will be invoked when your consumer will be assigned or revoked from consuming from
+specific topic partitions. In order to get informed about those events, you can pass two callbacks to any Subscription,
+created using the `Subscriptions` object, like this:
+
+Scala
+: @@ snip [withRebalanceListenerCallbacks](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #withRebalanceListenerCallbacks }
+
+Java
+: @@ snip [withRebalanceListenerCallbacks](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerCallbacks }

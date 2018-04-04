@@ -10,6 +10,7 @@ import akka.NotUsed;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.japi.Pair;
+import akka.japi.function.Procedure;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
@@ -27,6 +28,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -323,6 +325,35 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
       .via(business())
       .runWith(Sink.ignore(), materializer);
     // #consumerActor
+  }
+}
+
+class RebalanceListenerCallbacksExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new ExternallyControlledKafkaConsumer().demo();
+  }
+
+  public void demo(ActorSystem sytem) {
+    // #withRebalanceListenerCallbacks
+
+    // prepare listener callbacks; you could message the assignments to an Actor,
+    // log them, or do anything else with this information here:
+    Procedure<Set<TopicPartition>> onAssign = set -> {
+      sytem.log().info("Assigned: {}", set);
+    };
+    Procedure<Set<TopicPartition>> onRevoke = set -> {
+      sytem.log().info("Revoked: {}", set);
+    };
+
+    // pass in the listener callbacks into the subscription:
+    Subscription sub = Subscriptions.topics("topic")
+        .withRebalanceListenerCallbacksJavadsl(onAssign, onRevoke);
+
+
+    // use the subscription as usual:
+    Consumer
+      .plainSource(consumerSettings, sub);
+    // #withRebalanceListenerCallbacks
   }
 }
 
