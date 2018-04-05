@@ -70,15 +70,17 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       // Is info too much here? Will be logged at startup / rebalance
       tps ++= newTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
-      try invokeUserOnAssign(newTps)
-      finally requestMessages()
+      try invokeUserOnAssign(newTps) catch {
+        case ex: Exception ⇒ log.warning(s"User onAssign callback has thrown {}", ex)
+      } finally requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
-      try invokeUserOnRevoke(newTps)
-      finally requestMessages()
+      try invokeUserOnRevoke(newTps) catch {
+        case ex: Exception ⇒ log.warning(s"User onRevoke callback has thrown {}", ex)
+      } finally requestMessages()
     }
 
     def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
