@@ -13,7 +13,7 @@ Created and maintained by
 
 [Documentation](http://doc.akka.io/docs/akka-stream-kafka/current/) and [API](http://doc.akka.io/api/akka-stream-kafka/current/)
 
-Supports Kafka 0.10.x
+Supports Kafka 0.10.x, and 1.0.x since 0.20
 
 ## Documentation for version 0.10 or earlier
 
