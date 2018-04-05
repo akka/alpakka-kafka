@@ -10,7 +10,7 @@ import akka.dispatch.ExecutionContexts
 import akka.event.Logging
 import akka.kafka.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions._
-import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
+import akka.kafka._
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
@@ -70,17 +70,14 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       // Is info too much here? Will be logged at startup / rebalance
       tps ++= newTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
-      try invokeUserOnAssign(newTps) catch {
-        case ex: Exception ⇒ log.warning(s"User onAssign callback has thrown {}", ex)
-      } finally requestMessages()
+      notifyUserOnAssign(newTps)
+      requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
-      try invokeUserOnRevoke(newTps) catch {
-        case ex: Exception ⇒ log.warning(s"User onRevoke callback has thrown {}", ex)
-      } finally requestMessages()
+      notifyUserOnRevoke(newTps)
     }
 
     def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
@@ -107,10 +104,10 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
   }
 
-  private def invokeUserOnAssign(set: Set[TopicPartition]): Unit =
-    subscription.rebalanceListenerCallbacks.foreach(_.onAssign(set))
-  private def invokeUserOnRevoke(set: Set[TopicPartition]): Unit =
-    subscription.rebalanceListenerCallbacks.foreach(_.onRevoke(set))
+  private def notifyUserOnAssign(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListener.foreach(ref ⇒ ref ! TopicPartitionsAssigned(subscription, set))
+  private def notifyUserOnRevoke(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListener.foreach(ref ⇒ ref ! TopicPartitionsRevoked(subscription, set))
 
   @tailrec
   private def pump(): Unit = {

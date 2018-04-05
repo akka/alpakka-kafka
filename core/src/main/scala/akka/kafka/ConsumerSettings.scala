@@ -9,8 +9,6 @@ import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.japi.function.Procedure
-import akka.kafka.KafkaConsumerActor.ListenerCallbacks
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
@@ -23,23 +21,16 @@ import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
 
 sealed trait Subscription {
-  def rebalanceListenerCallbacks: Option[ListenerCallbacks]
-  /** Sets callbacks ti be invoked when the consumer related to this subscription gets rebalancing events */
-  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): Subscription
-  /** Java API: Sets callbacks ti be invoked when the consumer related to this subscription gets rebalancing events */
-  final def withRebalanceListenerCallbacksJavadsl(onAssign: Procedure[java.util.Set[TopicPartition]], onRevoke: Procedure[java.util.Set[TopicPartition]]): Subscription =
-    withRebalanceListenerCallbacks(s ⇒ onAssign(s.asJava), s ⇒ onRevoke(s.asJava))
+  /** ActorRef which is to receive [[akka.kafka.ConsumerRebalanceEvent]] signals when rebalancing happens */
+  def rebalanceListener: Option[ActorRef]
+  /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
+  def withRebalanceListener(ref: ActorRef): Subscription
 }
 sealed trait ManualSubscription extends Subscription {
-  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): ManualSubscription
+  def withRebalanceListener(ref: ActorRef): ManualSubscription
 }
 sealed trait AutoSubscription extends Subscription {
-  def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AutoSubscription
-  final def withRebalanceListener(ref: ActorRef): AutoSubscription =
-    withRebalanceListenerCallbacks(
-      onAssign = set ⇒ ref ! TopicPartitionsAssigned(this, set),
-      onRevoke = set ⇒ ref ! TopicPartitionsRevoked(this, set)
-    )
+  def withRebalanceListener(ref: ActorRef): AutoSubscription
 }
 
 sealed trait ConsumerRebalanceEvent
@@ -48,29 +39,29 @@ final case class TopicPartitionsRevoked(sub: Subscription, topicPartitions: Set[
 
 object Subscriptions {
   /** INTERNAL API */
-  private[kafka] final case class TopicSubscription(tps: Set[String])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends AutoSubscription {
-    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): TopicSubscription =
-      TopicSubscription(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  private[kafka] final case class TopicSubscription(tps: Set[String])(val rebalanceListener: Option[ActorRef]) extends AutoSubscription {
+    def withRebalanceListener(ref: ActorRef): TopicSubscription =
+      TopicSubscription(tps)(Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class TopicSubscriptionPattern(pattern: String)(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends AutoSubscription {
-    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): TopicSubscriptionPattern =
-      TopicSubscriptionPattern(pattern)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  private[kafka] final case class TopicSubscriptionPattern(pattern: String)(val rebalanceListener: Option[ActorRef]) extends AutoSubscription {
+    def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
+      TopicSubscriptionPattern(pattern)(Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class Assignment(tps: Set[TopicPartition])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
-    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): Assignment =
-      Assignment(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  private[kafka] final case class Assignment(tps: Set[TopicPartition])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+    def withRebalanceListener(ref: ActorRef): Assignment =
+      Assignment(tps)(Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
-    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AssignmentWithOffset =
-      AssignmentWithOffset(tps)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+    def withRebalanceListener(ref: ActorRef): AssignmentWithOffset =
+      AssignmentWithOffset(tps)(Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])(val rebalanceListenerCallbacks: Option[ListenerCallbacks]) extends ManualSubscription {
-    def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AssignmentOffsetsForTimes =
-      AssignmentOffsetsForTimes(timestampsToSearch)(Some(ListenerCallbacks(onAssign, onRevoke)))
+  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+    def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes =
+      AssignmentOffsetsForTimes(timestampsToSearch)(Some(ref))
   }
 
   /** Creates subscription for given set of topics */

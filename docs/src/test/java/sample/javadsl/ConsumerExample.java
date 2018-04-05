@@ -366,28 +366,6 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
     // #withRebalanceListenerActor
   }
 
-
-  public void demo2(ActorSystem system) {
-    // #withRebalanceListenerCallbacks
-
-    // prepare listener callbacks; you could message the assignments to an Actor,
-    // log them, or do anything else with this information here:
-    Procedure<Set<TopicPartition>> onAssign = set -> {
-      system.log().info("Assigned: {}", set);
-    };
-    Procedure<Set<TopicPartition>> onRevoke = set -> {
-      system.log().info("Revoked: {}", set);
-    };
-
-    // pass in the listener callbacks into the subscription:
-    Subscription sub = Subscriptions.topics("topic")
-        .withRebalanceListenerCallbacksJavadsl(onAssign, onRevoke);
-
-    // use the subscription as usual:
-    Consumer
-      .plainSource(consumerSettings, sub);
-    // #withRebalanceListenerCallbacks
-  }
 }
 
 class ConsumerMetricsExample extends ConsumerExample {

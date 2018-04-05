@@ -469,19 +469,4 @@ object RebalanceListenerExample extends ConsumerExample {
     //#withRebalanceListenerActor
   }
 
-  def create(implicit system: ActorSystem): Source[ConsumerRecord[Array[Byte], String], Consumer.Control] = {
-    //#withRebalanceListenerCallbacks
-    // prepare listener callbacks; you could message the assignments to an Actor,
-    // log them, or do anything else with this information here:
-    val onRebalanceAssign: Set[TopicPartition] ⇒ Unit =
-      set ⇒ println(s"Assigned: $set")
-    val onRebalanceRevoke: Set[TopicPartition] ⇒ Unit =
-      set ⇒ println(s"Revoked: $set")
-
-    val sub = Subscriptions.topics(Set("topic")) // create subscription
-      .withRebalanceListenerCallbacks(onRebalanceAssign, onRebalanceRevoke)
-    //#withRebalanceListenerCallbacks
-
-    Consumer.plainSource(consumerSettings, sub)
-  }
 }

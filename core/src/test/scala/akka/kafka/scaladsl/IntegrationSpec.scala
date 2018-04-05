@@ -230,38 +230,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    "be able to set rebalance listener callbacks" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
-
-      val consumerSettings = createConsumerSettings(group1)
-
-      val p1 = TestProbe()
-      val p2 = TestProbe()
-
-      val sub = Subscriptions.topics(Set(topic1)).withRebalanceListenerCallbacks(t ⇒ p1.ref ! t, t ⇒ p2.ref ! t)
-      val (control, probe1) = Consumer.committableSource(consumerSettings, sub)
-        .filterNot(_.record.value == InitialMsg)
-        .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ ⇒ Done }
-        }
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
-
-      probe1.request(25)
-
-      val revoked = p2.expectMsgType[Set[TopicPartition]]
-      info("revoked: " + revoked)
-      revoked.size shouldEqual 0
-
-      val assigned = p1.expectMsgType[Set[TopicPartition]]
-      info("assigned: " + assigned)
-      assigned.size shouldEqual 1
-
-      probe1.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-    }
-
     "handle commit without demand" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
