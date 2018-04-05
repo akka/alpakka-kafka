@@ -190,13 +190,21 @@ Java
 
 ## Listening for rebalance events
 
-You may set up callbacks that will be invoked when your consumer will be assigned or revoked from consuming from
-specific topic partitions. In order to get informed about those events, you can pass two callbacks to any Subscription,
-created using the `Subscriptions` object, like this:
+You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
+from consuming from specific topic partitions. In order to get informed about those events, you can pass two callbacks to any Subscription, created using the `Subscriptions` object, like this:
 
 Scala
 : @@ snip [withRebalanceListenerCallbacks](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #withRebalanceListenerCallbacks }
 
 Java
 : @@ snip [withRebalanceListenerCallbacks](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerCallbacks }
+
+It is also possible to assign callbacks directly if your intent is only simple things like logging that the event has happened,
+however this style is not encouraged for any more advanced actions (use the Actor style then instead): 
+
+Scala
+: @@ snip [withRebalanceListenerActor](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
+
+Java
+: @@ snip [withRebalanceListenerActor](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }
 

@@ -8,7 +8,7 @@ package akka.kafka
 import java.util.Optional
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.japi.function.Procedure
 import akka.kafka.KafkaConsumerActor.ListenerCallbacks
 import akka.kafka.internal.ConfigSettings
@@ -35,7 +35,16 @@ sealed trait ManualSubscription extends Subscription {
 }
 sealed trait AutoSubscription extends Subscription {
   def withRebalanceListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): AutoSubscription
+  final def withRebalanceListener(ref: ActorRef): AutoSubscription =
+    withRebalanceListenerCallbacks(
+      onAssign = set ⇒ ref ! TopicPartitionsAssigned(this, set),
+      onRevoke = set ⇒ ref ! TopicPartitionsRevoked(this, set)
+    )
 }
+
+sealed trait ConsumerRebalanceEvent
+final case class TopicPartitionsAssigned(sub: Subscription, topicPartitions: Set[TopicPartition]) extends ConsumerRebalanceEvent
+final case class TopicPartitionsRevoked(sub: Subscription, topicPartitions: Set[TopicPartition]) extends ConsumerRebalanceEvent
 
 object Subscriptions {
   /** INTERNAL API */

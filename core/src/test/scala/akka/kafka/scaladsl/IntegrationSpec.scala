@@ -13,7 +13,7 @@ import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.test.Utils._
-import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings, Subscriptions}
+import akka.kafka._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
@@ -197,7 +197,40 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe3.cancel()
     }
 
-    "be able to set rebalance listeners" in assertAllStagesStopped {
+    "be able to set rebalance listener" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      val consumerSettings = createConsumerSettings(group1)
+
+      val listener = TestProbe()
+
+      val sub = Subscriptions.topics(Set(topic1)).withRebalanceListener(listener.ref)
+      val (control, probe1) = Consumer.committableSource(consumerSettings, sub)
+        .filterNot(_.record.value == InitialMsg)
+        .mapAsync(10) { elem =>
+          elem.committableOffset.commitScaladsl().map { _ ⇒ Done }
+        }
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      probe1.request(25)
+
+      val revoked = listener.expectMsgType[TopicPartitionsRevoked]
+      info("revoked: " + revoked)
+      revoked.sub shouldEqual sub
+      revoked.topicPartitions.size shouldEqual 0
+
+      val assigned = listener.expectMsgType[TopicPartitionsAssigned]
+      info("assigned: " + assigned)
+      assigned.sub shouldEqual sub
+      assigned.topicPartitions.size shouldEqual 1
+
+      probe1.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+    }
+
+    "be able to set rebalance listener callbacks" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
@@ -217,13 +250,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe1.request(25)
 
-      val assigned = p1.expectMsgType[Set[TopicPartition]]
-      info("assigned: " + assigned)
-      assigned.size shouldEqual 1
-
       val revoked = p2.expectMsgType[Set[TopicPartition]]
       info("revoked: " + revoked)
       revoked.size shouldEqual 0
+
+      val assigned = p1.expectMsgType[Set[TopicPartition]]
+      info("assigned: " + assigned)
+      assigned.size shouldEqual 1
 
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)

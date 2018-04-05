@@ -440,10 +440,37 @@ object StreamWrapperActor {
 }
 
 object RebalanceListenerExample extends ConsumerExample {
+  //#withRebalanceListenerActor
+  import akka.kafka.TopicPartitionsAssigned
+  import akka.kafka.TopicPartitionsRevoked
+
+  class RebalanceListener extends Actor with ActorLogging {
+    def receive: Receive = {
+      case TopicPartitionsAssigned(sub, topicPartitions) ⇒
+        log.info("Assigned: {}", topicPartitions)
+
+      case TopicPartitionsRevoked(sub, topicPartitions) ⇒
+        log.info("Revoked: {}", topicPartitions)
+    }
+  }
+
+  //#withRebalanceListenerActor
+
+  def createActor(implicit system: ActorSystem): Source[ConsumerRecord[Array[Byte], String], Consumer.Control] = {
+    //#withRebalanceListenerActor
+    val listener = system.actorOf(Props[RebalanceListener])
+
+    val sub = Subscriptions.topics(Set("topic")) // create subscription
+      // additionally, pass the rebalance callbacks:
+      .withRebalanceListener(listener)
+
+    // use the subscription as usual:
+    Consumer.plainSource(consumerSettings, sub)
+    //#withRebalanceListenerActor
+  }
 
   def create(implicit system: ActorSystem): Source[ConsumerRecord[Array[Byte], String], Consumer.Control] = {
     //#withRebalanceListenerCallbacks
-
     // prepare listener callbacks; you could message the assignments to an Actor,
     // log them, or do anything else with this information here:
     val onRebalanceAssign: Set[TopicPartition] ⇒ Unit =
@@ -452,11 +479,9 @@ object RebalanceListenerExample extends ConsumerExample {
       set ⇒ println(s"Revoked: $set")
 
     val sub = Subscriptions.topics(Set("topic")) // create subscription
-      // additionally, pass the rebalance callbacks:
       .withRebalanceListenerCallbacks(onRebalanceAssign, onRebalanceRevoke)
-
-    // use the subscription as usual:
-    Consumer.plainSource(consumerSettings, sub)
     //#withRebalanceListenerCallbacks
+
+    Consumer.plainSource(consumerSettings, sub)
   }
 }

@@ -7,8 +7,10 @@ package sample.javadsl;
 
 import akka.Done;
 import akka.NotUsed;
+import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import akka.actor.Props;
 import akka.japi.Pair;
 import akka.japi.function.Procedure;
 import akka.kafka.*;
@@ -336,16 +338,45 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
     new ExternallyControlledKafkaConsumer().demo();
   }
 
-  public void demo(ActorSystem sytem) {
+  // #withRebalanceListenerActor
+  class RebalanceListener extends AbstractActor {
+
+    @Override
+    public Receive createReceive() {
+      return receiveBuilder()
+          .match(akka.kafka.TopicPartitionsAssigned.class, assigned -> {})
+          .match(akka.kafka.TopicPartitionsRevoked.class, revoked -> {})
+          .build();
+    }
+  }
+
+  // #withRebalanceListenerActor
+
+  public void demo(ActorSystem system) {
+    // #withRebalanceListenerActor
+    ActorRef listener = this.system.actorOf(Props.create(RebalanceListener.class));
+
+    // pass in the listener callbacks into the subscription:
+    Subscription sub = Subscriptions.topics("topic")
+        .withRebalanceListener(listener);
+
+    // use the subscription as usual:
+    Consumer
+      .plainSource(consumerSettings, sub);
+    // #withRebalanceListenerActor
+  }
+
+
+  public void demo2(ActorSystem system) {
     // #withRebalanceListenerCallbacks
 
     // prepare listener callbacks; you could message the assignments to an Actor,
     // log them, or do anything else with this information here:
     Procedure<Set<TopicPartition>> onAssign = set -> {
-      sytem.log().info("Assigned: {}", set);
+      system.log().info("Assigned: {}", set);
     };
     Procedure<Set<TopicPartition>> onRevoke = set -> {
-      sytem.log().info("Revoked: {}", set);
+      system.log().info("Revoked: {}", set);
     };
 
     // pass in the listener callbacks into the subscription:
