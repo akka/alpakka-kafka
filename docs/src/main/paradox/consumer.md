@@ -186,3 +186,16 @@ Scala
 
 Java
 : @@ snip [consumerMetrics](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerMetrics }
+
+
+## Listening for rebalance events
+
+You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
+from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor 
+`akka.kafka.TopicPartitionsAssigned` and `akka.kafka.TopicPartitionsRevoked`, like this:
+
+Scala
+: @@ snip [withRebalanceListenerActor](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
+
+Java
+: @@ snip [withRebalanceListenerActor](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }

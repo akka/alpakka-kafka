@@ -13,16 +13,17 @@ import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.test.Utils._
-import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings}
+import akka.kafka._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.TestKit
+import akka.testkit.{TestKit, TestProbe}
 import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
@@ -101,7 +102,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     consumerSettings: ConsumerSettings[Array[Byte], String],
     topic: String
   ): TestSubscriber.Probe[String] = {
-    Consumer.plainSource(consumerSettings, TopicSubscription(Set(topic)))
+    Consumer.plainSource(consumerSettings, Subscriptions.topics(Set(topic)))
       .filterNot(_.value == InitialMsg)
       .map(_.value)
       .runWith(TestSink.probe)
@@ -147,7 +148,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val consumerSettings = createConsumerSettings(group1)
 
-      val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
@@ -165,7 +166,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
         .map(_.record.value)
         .runWith(TestSink.probe)
 
@@ -184,7 +185,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe2.cancel()
 
       // another consumer should see all
-      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), TopicSubscription(Set(topic1)))
+      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(Set(topic1)))
         .filterNot(_.record.value == InitialMsg)
         .map(_.record.value)
         .runWith(TestSink.probe)
@@ -194,6 +195,39 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         .expectNextN((1 to 100).map(_.toString))
 
       probe3.cancel()
+    }
+
+    "be able to set rebalance listener" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      val consumerSettings = createConsumerSettings(group1)
+
+      val listener = TestProbe()
+
+      val sub = Subscriptions.topics(Set(topic1)).withRebalanceListener(listener.ref)
+      val (control, probe1) = Consumer.committableSource(consumerSettings, sub)
+        .filterNot(_.record.value == InitialMsg)
+        .mapAsync(10) { elem =>
+          elem.committableOffset.commitScaladsl().map { _ ⇒ Done }
+        }
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      probe1.request(25)
+
+      val revoked = listener.expectMsgType[TopicPartitionsRevoked]
+      info("revoked: " + revoked)
+      revoked.sub shouldEqual sub
+      revoked.topicPartitions.size shouldEqual 0
+
+      val assigned = listener.expectMsgType[TopicPartitionsAssigned]
+      info("assigned: " + assigned)
+      assigned.sub shouldEqual sub
+      assigned.topicPartitions.size shouldEqual 1
+
+      probe1.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
     }
 
     "handle commit without demand" in assertAllStagesStopped {
@@ -208,7 +242,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       val consumerSettings = createConsumerSettings(group1)
 
-      val (control, probe1) = Consumer.committableSource(consumerSettings, TopicSubscription(Set(topic1)))
+      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
         .filterNot(_.record.value == InitialMsg)
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -249,7 +283,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(
           consumerSettings,
-          TopicSubscription(Set(topic))
+          Subscriptions.topics(Set(topic))
         )
           .map { msg => msg.committableOffset }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
@@ -289,7 +323,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         val consumerSettings1 = createConsumerSettings(group1)
 
-        val source = Consumer.committableSource(consumerSettings1, TopicSubscription(Set(topic1)))
+        val source = Consumer.committableSource(consumerSettings1, Subscriptions.topics(Set(topic1)))
           .map(msg => {
             ProducerMessage.Message(
               // Produce to topic2
@@ -347,7 +381,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         val consumerSettings = createConsumerSettings(group)
 
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), _ => Future.successful(Map.empty))
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), _ => Future.successful(Map.empty))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -372,7 +406,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         val consumerSettings = createConsumerSettings(group)
 
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), tp => Future.successful(tp.map(_ -> 51L).toMap))
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), tp => Future.successful(tp.map(_ -> 51L).toMap))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -399,7 +433,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         var revoked = false
 
-        val source = Consumer.plainPartitionedManualOffsetSource(consumerSettings, TopicSubscription(Set(topic)), _ => Future.successful(Map.empty), _ => revoked = true)
+        val source = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), _ => Future.successful(Map.empty), _ => revoked = true)
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())

@@ -67,7 +67,7 @@ object KafkaConsumerActor {
   }
 
   private[kafka] case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) extends NoSerializationVerificationNeeded
-  private[kafka] def rebalanceListener(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit) =
+  private[kafka] def rebalanceListener(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit): ListenerCallbacks =
     ListenerCallbacks(onAssign, onRevoke)
 
   private class WrappedAutoPausedListener(client: Consumer[_, _], listener: ListenerCallbacks) extends ConsumerRebalanceListener with NoSerializationVerificationNeeded {

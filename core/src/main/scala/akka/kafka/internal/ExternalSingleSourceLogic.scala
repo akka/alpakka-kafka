@@ -18,7 +18,7 @@ import scala.annotation.tailrec
 
 private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
-    consumer: ActorRef,
+    val consumer: ActorRef,
     subscription: ManualSubscription
 ) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
   var tps = Set.empty[TopicPartition]
@@ -49,13 +49,13 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     self.watch(consumer)
 
     subscription match {
-      case Assignment(topics) =>
+      case Assignment(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
         tps ++= topics
-      case AssignmentWithOffset(topics) =>
+      case AssignmentWithOffset(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
         tps ++= topics.keySet
-      case AssignmentOffsetsForTimes(topics) =>
+      case AssignmentOffsetsForTimes(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
         tps ++= topics.keySet
     }

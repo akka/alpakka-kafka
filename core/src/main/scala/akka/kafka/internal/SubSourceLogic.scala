@@ -61,9 +61,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB, partitionRevokedCB)
 
     subscription match {
-      case TopicSubscription(topics) =>
+      case TopicSubscription(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
-      case TopicSubscriptionPattern(topics) =>
+      case TopicSubscriptionPattern(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
     }
   }

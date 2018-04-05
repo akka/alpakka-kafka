@@ -64,9 +64,7 @@ private[kafka] object ConsumerStage {
   def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) = {
     new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
       override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V] with MetricsControl {
-          override def consumer: ActorRef = consumer
-        }
+        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V] with MetricsControl
     }
   }
 
@@ -83,11 +81,10 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  def externalCommittableSource[K, V](consumerRef: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
+  def externalCommittableSource[K, V](consumer: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumerRef, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
-          def consumer = consumerRef
+        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext

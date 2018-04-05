@@ -10,7 +10,7 @@ import akka.dispatch.ExecutionContexts
 import akka.event.Logging
 import akka.kafka.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions._
-import akka.kafka.{ConsumerFailed, ConsumerSettings, KafkaConsumerActor, Subscription}
+import akka.kafka._
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
@@ -70,35 +70,44 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       // Is info too much here? Will be logged at startup / rebalance
       tps ++= newTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
+      notifyUserOnAssign(newTps)
       requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
       tps --= newTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
-      requestMessages()
+      notifyUserOnRevoke(newTps)
     }
 
-    def rebalanceListener =
-      KafkaConsumerActor.rebalanceListener(tps => partitionAssignedCB.invoke(tps), partitionRevokedCB.invoke)
+    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
+      val onAssign: Set[TopicPartition] ⇒ Unit = tps ⇒ partitionAssignedCB.invoke(tps)
+      val onRevoke: Set[TopicPartition] ⇒ Unit = set ⇒ partitionRevokedCB.invoke(set)
+      KafkaConsumerActor.rebalanceListener(onAssign, onRevoke)
+    }
 
     subscription match {
-      case TopicSubscription(topics) =>
+      case TopicSubscription(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
-      case TopicSubscriptionPattern(topics) =>
+      case TopicSubscriptionPattern(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
-      case Assignment(topics) =>
+      case Assignment(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
         tps ++= topics
-      case AssignmentWithOffset(topics) =>
+      case AssignmentWithOffset(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
         tps ++= topics.keySet
-      case AssignmentOffsetsForTimes(topics) =>
+      case AssignmentOffsetsForTimes(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
         tps ++= topics.keySet
     }
 
   }
+
+  private def notifyUserOnAssign(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListener.foreach(ref ⇒ ref ! TopicPartitionsAssigned(subscription, set))
+  private def notifyUserOnRevoke(set: Set[TopicPartition]): Unit =
+    subscription.rebalanceListener.foreach(ref ⇒ ref ! TopicPartitionsRevoked(subscription, set))
 
   @tailrec
   private def pump(): Unit = {
