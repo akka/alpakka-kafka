@@ -39,33 +39,33 @@ final case class TopicPartitionsRevoked(sub: Subscription, topicPartitions: Set[
 
 object Subscriptions {
   /** INTERNAL API */
-  private[kafka] final case class TopicSubscription(tps: Set[String])(val rebalanceListener: Option[ActorRef]) extends AutoSubscription {
+  private[kafka] final case class TopicSubscription(tps: Set[String], rebalanceListener: Option[ActorRef]) extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
-      TopicSubscription(tps)(Some(ref))
+      TopicSubscription(tps, Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class TopicSubscriptionPattern(pattern: String)(val rebalanceListener: Option[ActorRef]) extends AutoSubscription {
+  private[kafka] final case class TopicSubscriptionPattern(pattern: String, rebalanceListener: Option[ActorRef]) extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
-      TopicSubscriptionPattern(pattern)(Some(ref))
+      TopicSubscriptionPattern(pattern, Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class Assignment(tps: Set[TopicPartition])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+  private[kafka] final case class Assignment(tps: Set[TopicPartition], rebalanceListener: Option[ActorRef]) extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): Assignment =
-      Assignment(tps)(Some(ref))
+      Assignment(tps, Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long], rebalanceListener: Option[ActorRef]) extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentWithOffset =
-      AssignmentWithOffset(tps)(Some(ref))
+      AssignmentWithOffset(tps, Some(ref))
   }
   /** INTERNAL API */
-  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])(val rebalanceListener: Option[ActorRef]) extends ManualSubscription {
+  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long], rebalanceListener: Option[ActorRef]) extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes =
-      AssignmentOffsetsForTimes(timestampsToSearch)(Some(ref))
+      AssignmentOffsetsForTimes(timestampsToSearch, Some(ref))
   }
 
   /** Creates subscription for given set of topics */
-  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts)(None)
+  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts, None)
 
   /**
    * Creates subscription for given set of topics
@@ -83,12 +83,12 @@ object Subscriptions {
   /**
    * Creates subscription for given topics pattern
    */
-  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern)(None)
+  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern, None)
 
   /**
    * Manually assign given topics and partitions
    */
-  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)(None)
+  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps, None)
 
   /**
    * Manually assign given topics and partitions
@@ -106,12 +106,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)(None)
+  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps, None)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)(None)
+  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap, None)
 
   /**
    * Manually assign given topics and partitions with offsets
@@ -127,12 +127,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps)(None)
+  def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps, None)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap)(None)
+  def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap, None)
 
   /**
    * Manually assign given topics and partitions with offsets

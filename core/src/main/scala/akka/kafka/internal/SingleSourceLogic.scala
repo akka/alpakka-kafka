@@ -87,17 +87,17 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     }
 
     subscription match {
-      case TopicSubscription(topics) =>
+      case TopicSubscription(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
-      case TopicSubscriptionPattern(topics) =>
+      case TopicSubscriptionPattern(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
-      case Assignment(topics) =>
+      case Assignment(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
         tps ++= topics
-      case AssignmentWithOffset(topics) =>
+      case AssignmentWithOffset(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
         tps ++= topics.keySet
-      case AssignmentOffsetsForTimes(topics) =>
+      case AssignmentOffsetsForTimes(topics, _) =>
         consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
         tps ++= topics.keySet
     }
