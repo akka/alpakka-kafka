@@ -89,7 +89,19 @@ class ConsumerTest(_system: ActorSystem)
 
   def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
     val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
-      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, 3, "akka.kafka.default-dispatcher", 1.second, true) {
+      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, -1.second, 3, "akka.kafka.default-dispatcher", 1.second, true) {
+      override def createKafkaConsumer(): KafkaConsumer[K, V] = {
+        mock.mock
+      }
+    }
+    Consumer.committableSource(settings, TopicSubscription(topics))
+  }
+
+
+  //Wakeup window will reset wakeup counter every 100 millis and poll will trigger every 200 millis so any consecutive WakeupException will end in WakeupExceeded error, cuz wakeup window is too small
+  def testSourceWithWakupWindow(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
+    val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
+      200.milli, 200.milli, 1.second, closeTimeout, 1.second, 5.seconds, 100.milli, 3, "akka.kafka.default-dispatcher", 1.second, true) {
       override def createKafkaConsumer(): KafkaConsumer[K, V] = {
         mock.mock
       }
@@ -150,6 +162,21 @@ class ConsumerTest(_system: ActorSystem)
       probe
         .request(1)
         .expectError()
+    }
+  }
+
+  it should "not fail stream when poll() failing consecutively, limit exceeded won't trigger because wakeup window is set to 100 millis and poll every 200 millis" in {
+    assertAllStagesStopped {
+      val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3, 4, 5)
+
+      val probe = testSourceWithWakupWindow(mock)
+        .toMat(TestSink.probe)(Keep.right)
+        .run()
+
+      probe
+        .request(1)
+        .expectNoMessage(2000.millis)
+        .cancel()
     }
   }
 

@@ -55,6 +55,7 @@ object KafkaConsumerActor {
       def getMetrics: java.util.Map[MetricName, Metric] = metrics.asJava
     }
     //internal
+    case object WakeupReset
     private[KafkaConsumerActor] final case class Poll[K, V](
         target: KafkaConsumerActor[K, V], periodic: Boolean
     ) extends DeadLetterSuppression with NoSerializationVerificationNeeded
@@ -92,7 +93,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
+  def wakeupWindow() = settings.wakeupWindow
+
   var currentPollTask: Cancellable = _
+  var currentWakeupsResetTask: Option[Cancellable] = None
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -100,6 +104,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   var subscriptions = Set.empty[SubscriptionRequest]
   var commitsInProgress = 0
   var wakeups = 0
+
   var stopInProgress = false
   var delayedPollInFlight = false
 
@@ -184,6 +189,10 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         self ! delayedPollMsg
       }
 
+    case WakeupReset =>
+      wakeups = 0
+      currentWakeupsResetTask = scheduleWakeupResetTask()
+
     case Stop =>
       if (commitsInProgress == 0) {
         context.stop(self)
@@ -240,12 +249,19 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   override def preStart(): Unit = {
     super.preStart()
 
+    currentWakeupsResetTask = scheduleWakeupResetTask()
+
     consumer = settings.createKafkaConsumer()
   }
 
   override def postStop(): Unit = {
     if (currentPollTask != null)
       currentPollTask.cancel()
+
+    currentWakeupsResetTask match {
+      case Some(job) => job.cancel()
+      case None =>
+    }
 
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
@@ -261,6 +277,12 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
   def schedulePollTask(): Cancellable =
     context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
+
+  def scheduleWakeupResetTask(): Option[Cancellable] =
+    if (wakeupWindow().toMillis > 0L)
+      Some(context.system.scheduler.scheduleOnce(wakeupWindow(), self, WakeupReset)(context.dispatcher))
+    else
+      None
 
   private def receivePoll(p: Poll[_, _]): Unit = {
     if (p.target == this) {
