@@ -604,7 +604,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         val consumerSettings = createConsumerSettings(group)
 
-        val control = Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic)))
+        val control = Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
             ProducerMessage.Message(
@@ -618,7 +618,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val probeConsumerSettings = createConsumerSettings(probeConsumerGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic)))
+        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
@@ -654,7 +654,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
           randomFactor = 0.2
         ) { () =>
           restartCount += 1
-          Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic)))
+          Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
             .filterNot(_.record.value() == InitialMsg)
             .map { msg =>
               if (msg.record.value().toInt == 500 && restartCount < 2) {
@@ -681,7 +681,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val probeConsumerSettings = createConsumerSettings(probeGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic)))
+        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
