@@ -320,7 +320,7 @@ private[kafka] object ProducerStage {
     extends TransactionBatch {
     private val offsets = tail + (head.key -> head.offset)
 
-    def group: String = offsets.keys.head.groupId
+    def group: String = head.key.groupId
     def offsetMap(): Map[TopicPartition, OffsetAndMetadata] = offsets.map {
       case (gtp, offset) => new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
     }

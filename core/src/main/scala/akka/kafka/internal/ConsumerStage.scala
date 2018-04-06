@@ -5,7 +5,6 @@
 
 package akka.kafka.internal
 
-
 import java.util.concurrent.CompletionStage
 import java.util.{Locale, Map => JMap}
 

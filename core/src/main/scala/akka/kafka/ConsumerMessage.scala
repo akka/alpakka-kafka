@@ -50,17 +50,6 @@ object ConsumerMessage {
   }
 
   /**
-   * A [[ConsumerMessage]] with partition offset information.
-   */
-  trait PartitionOffsetMessage {
-    /**
-     * Information about the offset position for a
-     * groupId, topic, partition.
-     */
-    def partitionOffset: PartitionOffset
-  }
-
-  /**
    * Included in [[CommittableMessage]]. Makes it possible to
    * commit an offset with the [[Committable#commitScaladsl]] / [[Committable#commitJavadsl]] method
    * or aggregate several offsets in a [[CommittableOffsetBatch batch]]
@@ -71,7 +60,9 @@ object ConsumerMessage {
    * should be the next message your application will consume,
    * i.e. lastProcessedMessageOffset + 1.
    */
-  trait CommittableOffset extends Committable with PartitionOffsetMessage
+  trait CommittableOffset extends Committable {
+    def partitionOffset: PartitionOffset
+  }
 
   /**
    * Offset position for a groupId, topic, partition.
