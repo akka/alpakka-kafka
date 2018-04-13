@@ -14,9 +14,8 @@ import java.util.regex.Pattern
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Props, Status, Terminated}
 import akka.event.LoggingReceive
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
+import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
-
 import java.util.concurrent.locks.LockSupport
 
 import akka.Done
@@ -24,12 +23,29 @@ import akka.Done
 import scala.util.control.{NoStackTrace, NonFatal}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
+import scala.util.Try
 
 object KafkaConsumerActor {
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
 
   def props[K, V](settings: ConsumerSettings[K, V]): Props =
     Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
+
+  //metadata fetching
+  object Metadata {
+    //requests
+    case object ListTopics extends NoSerializationVerificationNeeded
+    final case class GetPartitionsFor(topic: String) extends NoSerializationVerificationNeeded
+    final case class GetBeginningOffsets(partitions: Set[TopicPartition]) extends NoSerializationVerificationNeeded
+    final case class GetEndOffsets(partitions: Set[TopicPartition]) extends NoSerializationVerificationNeeded
+    final case class GetOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
+    //responses
+    final case class Topics(response: Try[Map[String, List[PartitionInfo]]]) extends NoSerializationVerificationNeeded
+    final case class PartitionsFor(response: Try[List[PartitionInfo]]) extends NoSerializationVerificationNeeded
+    final case class BeginningOffsets(response: Try[Map[TopicPartition, Long]]) extends NoSerializationVerificationNeeded
+    final case class EndOffsets(response: Try[Map[TopicPartition, Long]]) extends NoSerializationVerificationNeeded
+    final case class OffsetsForTimes(response: Try[Map[TopicPartition, OffsetAndTimestamp]]) extends NoSerializationVerificationNeeded
+  }
 
   private[kafka] object Internal {
     sealed trait SubscriptionRequest
@@ -200,6 +216,41 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case Terminated(ref) =>
       requests -= ref
       requestors -= ref
+
+    case Metadata.ListTopics =>
+      sender() ! Metadata.Topics(Try {
+        consumer.listTopics().asScala.map {
+          case (k, v) => k -> v.asScala.toList
+        }.toMap
+      })
+
+    case Metadata.GetPartitionsFor(topic) =>
+      sender() ! Metadata.PartitionsFor(Try {
+        consumer.partitionsFor(topic).asScala.toList
+      })
+
+    case Metadata.GetBeginningOffsets(partitions) =>
+      sender() ! Metadata.BeginningOffsets(Try {
+        consumer.beginningOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetEndOffsets(partitions) =>
+      sender ! Metadata.EndOffsets(Try {
+        consumer.endOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetOffsetsForTimes(timestampsToSearch) =>
+      sender ! Metadata.OffsetsForTimes(Try {
+        val search = timestampsToSearch.map {
+          case (k, v) => k -> (v: java.lang.Long)
+        }.asJava
+        consumer.offsetsForTimes(search).asScala.toMap
+      })
+
   }
 
   def handleSubscription(subscription: SubscriptionRequest): Unit = {
