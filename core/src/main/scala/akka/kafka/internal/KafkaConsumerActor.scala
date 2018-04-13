@@ -16,13 +16,14 @@ import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Status, Terminated}
 import akka.event.LoggingReceive
 import akka.kafka.ConsumerSettings
-import akka.kafka.KafkaConsumerActor.StoppingException
+import akka.kafka.KafkaConsumerActor.{Metadata, StoppingException}
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
+import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
 object KafkaConsumerActor {
@@ -210,6 +211,40 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case Terminated(ref) =>
       requests -= ref
       requestors -= ref
+
+    case Metadata.ListTopics =>
+      sender() ! Metadata.Topics(Try {
+        consumer.listTopics().asScala.map {
+          case (k, v) => k -> v.asScala.toList
+        }.toMap
+      })
+
+    case Metadata.GetPartitionsFor(topic) =>
+      sender() ! Metadata.PartitionsFor(Try {
+        consumer.partitionsFor(topic).asScala.toList
+      })
+
+    case Metadata.GetBeginningOffsets(partitions) =>
+      sender() ! Metadata.BeginningOffsets(Try {
+        consumer.beginningOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetEndOffsets(partitions) =>
+      sender ! Metadata.EndOffsets(Try {
+        consumer.endOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetOffsetsForTimes(timestampsToSearch) =>
+      sender ! Metadata.OffsetsForTimes(Try {
+        val search = timestampsToSearch.map {
+          case (k, v) => k -> (v: java.lang.Long)
+        }.asJava
+        consumer.offsetsForTimes(search).asScala.toMap
+      })
   }
 
   def handleSubscription(subscription: SubscriptionRequest): Unit = {

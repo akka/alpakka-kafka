@@ -11,18 +11,22 @@ import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.test.Utils._
+import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
+import akka.util.Timeout
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.Success
 
-class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
+class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(
@@ -401,6 +405,79 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
       }
     }
+
+    "support metadata fetching on ConsumerActor" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        // Create ConsumerActor manually
+        // https://doc.akka.io/docs/akka-stream-kafka/0.20/consumer.html#sharing-kafkaconsumer
+        val consumer = system.actorOf(KafkaConsumerActor.props(consumerDefaults.withGroupId(group)))
+
+        // Timeout for metadata fetching requests
+        implicit val timeout: Timeout = Timeout(5.seconds)
+
+        import KafkaConsumerActor.Metadata._
+
+        // ListTopics
+        inside(Await.result(consumer ? ListTopics, remainingOrDefault)) {
+          case Topics(Success(topics)) =>
+            val pi = topics(topic).head
+            assert(pi.topic == topic, "Topic name in retrieved PartitionInfo does not match?!")
+        }
+
+        // GetPartitionsFor
+        inside(Await.result(consumer ? GetPartitionsFor(topic), remainingOrDefault)) {
+          case PartitionsFor(Success(partitions)) =>
+            assert(partitions.size == 1, "Topic must have one partition GetPartitionsFor")
+            val pi = partitions.head
+            assert(pi.topic == topic, "Topic name mismatch in GetPartitionsFor")
+            assert(pi.partition == 0, "Partition number mismatch in GetPartitionsFor")
+        }
+
+        val partition0 = new TopicPartition(topic, 0)
+
+        // GetBeginningOffsets
+        inside(Await.result(consumer ? GetBeginningOffsets(Set(partition0)), remainingOrDefault)) {
+          case BeginningOffsets(Success(offsets)) =>
+            assert(offsets == Map(partition0 -> 0), "Wrong BeginningOffsets for topic")
+        }
+
+        // GetEndOffsets
+        inside(Await.result(consumer ? GetEndOffsets(Set(partition0)), remainingOrDefault)) {
+          case EndOffsets(Success(offsets)) =>
+            assert(offsets == Map(partition0 -> 101), "Wrong EndOffsets for topic")
+        }
+
+        val tsYesterday = System.currentTimeMillis() - 86400000
+        val tsTomorrow = System.currentTimeMillis() + 86400000
+
+        // GetOffsetsForTimes - beginning
+        inside(Await.result(consumer ? GetOffsetsForTimes(Map(partition0 -> tsYesterday)), remainingOrDefault)) {
+          case OffsetsForTimes(Success(offsets)) =>
+            val offsetAndTs = offsets(partition0)
+            assert(offsetAndTs.offset() == 0, "Wrong offset in OffsetsForTimes (beginning)")
+        }
+
+        // verify that consumption still works
+        val probe = Consumer.plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+          .runWith(TestSink.probe)
+
+        probe
+          .request(100)
+          .expectNextN((1 to 100).map(_.toString))
+
+        probe.cancel()
+      }
+    }
+
   }
 
   "Consumer control" must {
