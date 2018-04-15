@@ -216,3 +216,5 @@ When you are batching the commit messages for better throughput as described ear
 
 The `Consumer.Control` methods return `Future[Done]`, so they should be chained in a for-comprehension.
 
+Scala
+: @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdownBatched }
