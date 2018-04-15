@@ -10,7 +10,7 @@ import akka.kafka._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, ThrottleMode}
+import akka.stream.{ActorMaterializer, KillSwitches, ThrottleMode}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -62,6 +62,7 @@ trait ConsumerExample {
       Future.successful(Done)
     }
   }
+
   // #db
 
   // #rocket
@@ -71,6 +72,7 @@ trait ConsumerExample {
       Future.successful(Done)
     }
   }
+
   // #rocket
 
   def terminateWhenDone(result: Future[Done]): Unit = {
@@ -311,6 +313,7 @@ object ConsumerWithOtherSource extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #committablePartitionedSource3
     type Msg = CommittableMessage[Array[Byte], String]
+
     def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
 
     Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
@@ -469,4 +472,59 @@ object RebalanceListenerExample extends ConsumerExample {
     //#withRebalanceListenerActor
   }
 
+}
+
+// Shutdown via Consumer.Control
+object ShutdownExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #streamShutdown
+    val db = new DB
+
+    val (consumerControl, done) =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .mapAsync(1) { msg =>
+          db.update(msg.record.value).map(_ => msg)
+        }
+        .mapAsync(1) { msg =>
+          msg.committableOffset.commitScaladsl()
+        }
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+
+    consumerControl.shutdown()
+    // #streamShutdown
+
+    terminateWhenDone(done)
+  }
+}
+
+// Shutdown when batching commits
+object ShutdownBatchedExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #streamShutdownBatched
+    val db = new DB
+
+    val ((consumerControl, killSwitch), done) =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .mapAsync(1) { msg =>
+          db.update(msg.record.value).map(_ => msg.committableOffset)
+        }
+        .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+          batch.updated(elem)
+        }
+        .mapAsync(3)(_.commitScaladsl())
+        .viaMat(KillSwitches.single)(Keep.both)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+
+    for {
+      _ <- consumerControl.stop()
+      _ = killSwitch.shutdown()
+      _ <- consumerControl.shutdown()
+    } yield Done
+
+    // #streamShutdownBatched
+
+    terminateWhenDone(done)
+  }
 }

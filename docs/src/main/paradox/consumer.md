@@ -199,3 +199,20 @@ Scala
 
 Java
 : @@ snip [withRebalanceListenerActor](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }
+
+## Controlled shutdown
+The streams created with `Consumer.plainSource` and similar  methods materialize to a `Consumer.Control` instance. This can be used to stop the stream in a controlled manner.
+
+If you are not batching commits, a call to `Consumer.Control.shutdown()` suffices. This stops producing messages from the source and waits for all messages to have been committed.
+
+Scala
+: @@ snip [streamShutdown](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdown }
+
+When you are batching the commit messages for better throughput as described earlier, besides the `Consumer.Control`, it is recommended to add a [`KillSwitch`](https://doc.akka.io/docs/akka/2.5/stream/stream-dynamic.html#controlling-graph-completion-with-killswitch) to the stream and stop it in several steps:
+
+1. `Consumer.Control.stop()` to stop producing messages from the source. This does not complete the source and does not stop the underlying consumer.
+2. `KillSwitch.shutdown()` to flush any batched commits.
+3. `Consumer.Control.shutdown()` to wait until all messages produced from the source have been committed. 
+
+The `Consumer.Control` methods return `Future[Done]`, so they should be chained in a for-comprehension.
+
