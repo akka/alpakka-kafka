@@ -205,8 +205,12 @@ The streams created with `Consumer.plainSource` and similar  methods materialize
 
 If you are not batching commits, a call to `Consumer.Control.shutdown()` suffices. This stops producing messages from the source and waits for all messages to have been committed.
 
+
 Scala
 : @@ snip [streamShutdown](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdown }
+
+Java
+: @@ snip [streamShutdown](../../test/java/sample/javadsl/ConsumerExample.java) { #streamShutdown }
 
 When you are batching the commit messages for better throughput as described earlier, besides the `Consumer.Control`, it is recommended to add a [`KillSwitch`](https://doc.akka.io/docs/akka/2.5/stream/stream-dynamic.html#controlling-graph-completion-with-killswitch) to the stream and stop it in several steps:
 
@@ -218,3 +222,6 @@ The `Consumer.Control` methods return `Future[Done]`, so they should be chained 
 
 Scala
 : @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdownBatched }
+
+Java
+: @@ snip [streamShutdownBatched](../../test/java/sample/javadsl/ConsumerExample.java) { #streamShutdownBatched }

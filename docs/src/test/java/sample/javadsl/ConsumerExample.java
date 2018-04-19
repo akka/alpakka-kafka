@@ -17,7 +17,9 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
+import akka.stream.KillSwitches;
 import akka.stream.Materializer;
+import akka.stream.UniqueKillSwitch;
 import akka.stream.javadsl.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -386,6 +388,63 @@ class ConsumerMetricsExample extends ConsumerExample {
     metrics.thenAccept(m -> System.out.println("Metrics: " + m));
     // #consumerMetrics
   }
+}
+
+// Shutdown via Consumer.Control
+class ShutdownExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new AtLeastOnceExample().demo();
+  }
+
+  public void demo() {
+    // #streamShutdown
+    final DB db = new DB();
+
+    Pair<Consumer.Control, CompletionStage<Done>> r = Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(1, msg -> db.update(msg.record().value())
+                    .thenApply(done -> msg))
+            .mapAsync(1, msg -> msg.committableOffset().commitJavadsl())
+            .toMat(Sink.ignore(), Keep.both())
+            .run(materializer);
+
+    Consumer.Control control = r.first();
+    control.shutdown();
+    // #streamShutdown
+  }
+}
+
+// Shutdown when batching commits
+class ShutdownBatchedExample extends ConsumerExample {
+    public static void main(String[] args) {
+        new AtLeastOnceExample().demo();
+    }
+
+    public void demo() {
+        // #streamShutdownBatched
+        final DB db = new DB();
+
+        Pair<Pair<Consumer.Control, UniqueKillSwitch>, CompletionStage<Done>> r =
+                Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+                        .mapAsync(1, msg ->
+                                db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
+                        .batch(20,
+                                first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
+                                (batch, elem) -> batch.updated(elem))
+                        .mapAsync(3, c -> c.commitJavadsl())
+                        .viaMat(KillSwitches.single(), Keep.both())
+                        .toMat(Sink.ignore(), Keep.both())
+                        .run(materializer);
+
+        Consumer.Control control = r.first().first();
+        UniqueKillSwitch killSwitch = r.first().second();
+
+        control.stop()
+                .thenCompose(result -> {
+                    killSwitch.shutdown();
+                    return control.shutdown();
+                });
+        // #streamShutdownBatched
+    }
 }
 
 
