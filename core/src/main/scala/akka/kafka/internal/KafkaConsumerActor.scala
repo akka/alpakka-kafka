@@ -245,6 +245,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
         }.asJava
         consumer.offsetsForTimes(search).asScala.toMap
       })
+
+    case Metadata.GetCommittedOffset(partition) =>
+      sender ! Metadata.CommittedOffset(Try {
+        consumer.committed(partition)
+      })
   }
 
   def handleSubscription(subscription: SubscriptionRequest): Unit = {

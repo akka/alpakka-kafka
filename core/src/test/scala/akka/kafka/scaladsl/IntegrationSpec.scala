@@ -464,6 +464,12 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
             assert(offsetAndTs.offset() == 0, "Wrong offset in OffsetsForTimes (beginning)")
         }
 
+        // GetCommittedOffset
+        inside(Await.result(consumer ? GetCommittedOffset(partition0), 10.seconds)) {
+          case CommittedOffset(Success(offsetMeta)) =>
+            assert(offsetMeta == null, "Wrong offset in GetCommittedOffset")
+        }
+
         // verify that consumption still works
         val probe = Consumer.plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
           .filterNot(_.value == InitialMsg)
