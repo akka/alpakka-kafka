@@ -125,23 +125,23 @@ object Subscriptions {
   def assignmentWithOffset(tp: TopicPartition, offset: Long): ManualSubscription = assignmentWithOffset(Map(tp -> offset))
 
   /**
-   * Manually assign given topics and partitions with offsets
+   * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentOffsetsForTimes(tps, None)
 
   /**
-   * Manually assign given topics and partitions with offsets
+   * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentOffsetsForTimes(tps.toMap, None)
 
   /**
-   * Manually assign given topics and partitions with offsets
+   * Manually assign given topics and partitions with timestamps
    * JAVA API
    */
   def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription = assignmentOffsetsForTimes(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
 
   /**
-   * Manually assign given topics and partitions with offsets
+   * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tp: TopicPartition, timestamp: Long): ManualSubscription = assignmentOffsetsForTimes(Map(tp -> timestamp))
 
