@@ -4,6 +4,7 @@ scala:
   - "2.11.12"
 jdk:
   - oraclejdk8
+  - oraclejdk9
 script:
   # make 'git branch' work again
   - git branch -f "$TRAVIS_BRANCH" && git checkout "$TRAVIS_BRANCH"
