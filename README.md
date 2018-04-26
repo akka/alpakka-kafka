@@ -15,9 +15,17 @@ Systems don't come alone. In the modern world of microservices and cloud deploym
 
 The Alpakka project is an open source initiative to implement stream-aware, reactive, integration pipelines for Java and Scala. It is built on top of [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](http://www.reactive-streams.org/) and JDK 9+ [java.util.concurrent.Flow](https://docs.oracle.com/javase/10/docs/api/java/util/concurrent/Flow.html)-compliant implementation and therefore [fully interoperable](https://doc.akka.io/docs/akka/current/general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
 
-This repository contains the sources for the **Alpakka Kafka connector**. Which let's you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
+This repository contains the sources for the **Alpakka Kafka connector**. Which lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
-This connector supports Kafka 0.10.x, and 1.0.x since [release 0.20](https://github.com/akka/reactive-kafka/releases). 
+Supported versions
+------------------
+
+|Kafka  | Akka version | Alpakka Kafka Connector 
+|-------|--------------|-------------------------
+|1.0.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)  
+|0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1) 
+|0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1) 
+
 
 This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
 
@@ -76,16 +84,3 @@ Caveat Emptor
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
 Support for the Alpakka Kafka connector is available via [Lightbend subscription](https://www.lightbend.com/subscription). 
-
-
-
-Status as of April 2018
------------------------
-
-|                           | Alpakka Kafka connector
-|---------------------------|------------------------
-|Status                     | **Mature**
-|Supported Kafka versions   | 0.10.x, 0.11.x, 1.0.x
-|[Binary-compatible releases](http://doc.akka.io/docs/akka/current/scala/common/binary-compatibility-rules.html) | No
-|Support                    | Available to [Lightbend subscription](https://www.lightbend.com/subscription) customers
-
