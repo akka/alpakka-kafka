@@ -212,13 +212,11 @@ Scala
 Java
 : @@ snip [streamShutdown](../../test/java/sample/javadsl/ConsumerExample.java) { #streamShutdown }
 
-When you are batching the commit messages for better throughput as described earlier, besides the `Consumer.Control`, it is recommended to add a [`KillSwitch`](https://doc.akka.io/docs/akka/2.5/stream/stream-dynamic.html#controlling-graph-completion-with-killswitch) to the stream and stop it in several steps:
+When you are batching the commit messages for better throughput as described earlier, shutdown involves several steps:
 
 1. `Consumer.Control.stop()` to stop producing messages from the source. This does not complete the source and does not stop the underlying consumer.
-2. `KillSwitch.shutdown()` to flush any batched commits.
-3. `Consumer.Control.shutdown()` to wait until all messages produced from the source have been committed. 
-
-The `Consumer.Control` methods return `Future[Done]`, so they should be chained in a for-comprehension.
+2. Wait for the stream to complete, so that any batched offset commits are flushed and have resulted in commit requests to the Kafka broker.
+3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish.
 
 Scala
 : @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdownBatched }

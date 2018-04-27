@@ -504,7 +504,7 @@ object ShutdownBatchedExample extends ConsumerExample {
     // #streamShutdownBatched
     val db = new DB
 
-    val ((consumerControl, killSwitch), done) =
+    val (consumerControl, done) =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
           db.update(msg.record.value).map(_ => msg.committableOffset)
@@ -513,13 +513,12 @@ object ShutdownBatchedExample extends ConsumerExample {
           batch.updated(elem)
         }
         .mapAsync(3)(_.commitScaladsl())
-        .viaMat(KillSwitches.single)(Keep.both)
         .toMat(Sink.ignore)(Keep.both)
         .run()
 
     for {
       _ <- consumerControl.stop()
-      _ = killSwitch.shutdown()
+      _ <- done
       _ <- consumerControl.shutdown()
     } yield Done
 

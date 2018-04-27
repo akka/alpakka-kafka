@@ -423,7 +423,7 @@ class ShutdownBatchedExample extends ConsumerExample {
         // #streamShutdownBatched
         final DB db = new DB();
 
-        Pair<Pair<Consumer.Control, UniqueKillSwitch>, CompletionStage<Done>> r =
+        Pair<Consumer.Control, CompletionStage<Done>> r =
                 Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
                         .mapAsync(1, msg ->
                                 db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
@@ -431,18 +431,15 @@ class ShutdownBatchedExample extends ConsumerExample {
                                 first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
                                 (batch, elem) -> batch.updated(elem))
                         .mapAsync(3, c -> c.commitJavadsl())
-                        .viaMat(KillSwitches.single(), Keep.both())
                         .toMat(Sink.ignore(), Keep.both())
                         .run(materializer);
 
-        Consumer.Control control = r.first().first();
-        UniqueKillSwitch killSwitch = r.first().second();
+        Consumer.Control control = r.first();
+        CompletionStage<Done> done = r.second();
 
         control.stop()
-                .thenCompose(result -> {
-                    killSwitch.shutdown();
-                    return control.shutdown();
-                });
+                .thenCompose(result -> done)
+                .thenCompose(result -> control.shutdown());
         // #streamShutdownBatched
     }
 }
