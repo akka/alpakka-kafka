@@ -475,33 +475,33 @@ object RebalanceListenerExample extends ConsumerExample {
 }
 
 // Shutdown via Consumer.Control
-object ShutdownExample extends ConsumerExample {
+object ShutdownPlainSourceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
-    // #streamShutdown
+    // #shutdownPlainSource
     val db = new DB
+    db.loadOffset().foreach { fromOffset =>
+      val partition = 0
+      val subscription = Subscriptions.assignmentWithOffset(
+        new TopicPartition("topic1", partition) -> fromOffset
+      )
+      val (consumerControl, done) =
+        Consumer.plainSource(consumerSettings, subscription)
+          .mapAsync(1)(db.save)
+          .toMat(Sink.ignore)(Keep.both)
+          .run()
 
-    val (consumerControl, done) =
-      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-        .mapAsync(1) { msg =>
-          db.update(msg.record.value).map(_ => msg)
-        }
-        .mapAsync(1) { msg =>
-          msg.committableOffset.commitScaladsl()
-        }
-        .toMat(Sink.ignore)(Keep.both)
-        .run()
+      consumerControl.shutdown()
+      // #shutdownPlainSource
 
-    consumerControl.shutdown()
-    // #streamShutdown
-
-    terminateWhenDone(done)
+      terminateWhenDone(done)
+    }
   }
 }
 
 // Shutdown when batching commits
-object ShutdownBatchedExample extends ConsumerExample {
+object ShutdownCommitableSourceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
-    // #streamShutdownBatched
+    // #shutdownCommitableSource
     val db = new DB
 
     val (consumerControl, done) =
@@ -522,7 +522,7 @@ object ShutdownBatchedExample extends ConsumerExample {
       _ <- consumerControl.shutdown()
     } yield Done
 
-    // #streamShutdownBatched
+    // #shutdownCommitableSource
 
     terminateWhenDone(done)
   }

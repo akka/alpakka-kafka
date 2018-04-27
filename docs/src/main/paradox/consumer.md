@@ -201,25 +201,26 @@ Java
 : @@ snip [withRebalanceListenerActor](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }
 
 ## Controlled shutdown
-The streams created with `Consumer.plainSource` and similar  methods materialize to a `Consumer.Control` instance. This can be used to stop the stream in a controlled manner.
+The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` instance. This can be used to stop the stream in a controlled manner.
 
-If you are not batching commits, a call to `Consumer.Control.shutdown()` suffices. This stops producing messages from the source and waits for all messages to have been committed.
-
-
-Scala
-: @@ snip [streamShutdown](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdown }
-
-Java
-: @@ snip [streamShutdown](../../test/java/sample/javadsl/ConsumerExample.java) { #streamShutdown }
-
-When you are batching the commit messages for better throughput as described earlier, shutdown involves several steps:
-
-1. `Consumer.Control.stop()` to stop producing messages from the source. This does not complete the source and does not stop the underlying consumer.
-2. Wait for the stream to complete, so that any batched offset commits are flushed and have resulted in commit requests to the Kafka broker.
-3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish.
+When using external offset storage, a call to `Consumer.Control.shutdown()` suffices to complete the `Source`, which starts the completion of the stream.
 
 Scala
-: @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #streamShutdownBatched }
+: @@ snip [streamShutdown](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #shutdownPlainSource }
 
 Java
-: @@ snip [streamShutdownBatched](../../test/java/sample/javadsl/ConsumerExample.java) { #streamShutdownBatched }
+: @@ snip [streamShutdown](../../test/java/sample/javadsl/ConsumerExample.java) { #shutdownPlainSource }
+
+When you are using offset storage in Kafka, the shutdown process involves several steps:
+
+1. `Consumer.Control.stop()` to stop producing messages from the `Source`. This does not stop the underlying Kafka Consumer.
+2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `commitScaladsl()` or `commitJavadsl()`).
+3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
+
+The example belows shows the `commitableSource` in combination with batched offset commits. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
+
+Scala
+: @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }
+
+Java
+: @@ snip [streamShutdownBatched](../../test/java/sample/javadsl/ConsumerExample.java) { #shutdownCommitableSource }
