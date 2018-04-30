@@ -1,6 +1,8 @@
 # Transactions
 
-Kafka Transactions provide guarantees that messages processed in a consume-transform-produce workflow (consumed from a source topic, transformed, and produced to a destination topic) are processed exactly once or not at all.  This is achieved through coordination between the Kafka consumer group coordinator, transaction coordinator, and the consumer and producer clients used in the user application.  The Kafka producer marks messages that are consumed from the source topic as "committed" only once the transformed messages are successfully produced to the sink.   
+Kafka Transactions provide guarantees that messages processed in a consume-transform-produce workflow (consumed from a source topic, transformed, and produced to a destination topic) are processed exactly once or not at all.  This is achieved through coordination between the Kafka consumer group coordinator, transaction coordinator, and the consumer and producer clients used in the user application.  The Kafka producer marks messages that are consumed from the source topic as "committed" only once the transformed messages are successfully produced to the sink.  
+
+For full details on how transactions are achieved in Kafka you may wish to review the Kafka Improvement Proposal [KIP-98: Exactly Once Delivery and Transactional Messaging](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) and its associated [design document](https://docs.google.com/document/d/11Jqy_GjUGtdXJK94XGsEIK7CP1SnQGdp2eF0wSw9ra8/edit#heading=h.xq0ee1vnpz4o).   
 
 ## Transactional Source
 
