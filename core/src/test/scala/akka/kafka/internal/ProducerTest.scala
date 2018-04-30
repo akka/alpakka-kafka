@@ -76,7 +76,7 @@ class ProducerTest(_system: ActorSystem)
       values.contains(r.value())
   }
 
-  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitIntervalMs(10L)
+  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitInterval(10.milliseconds)
 
   def testProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
     Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, P](settings.closeTimeout, closeOnStop, () => mock.mock))
@@ -84,7 +84,7 @@ class ProducerTest(_system: ActorSystem)
 
   def testTransactionProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
     Flow.fromGraph(new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout, closeOnStop,
-      () => mock.mock, settings.eosCommitIntervalMs))
+      () => mock.mock, settings.eosCommitInterval))
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {

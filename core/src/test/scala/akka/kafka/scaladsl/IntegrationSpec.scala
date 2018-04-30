@@ -660,7 +660,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
               if (msg.record.value().toInt == 500 && restartCount < 2) {
                 // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
                 // up until this record (0 -> 500)
-                Thread.sleep(producerSettings.eosCommitIntervalMs + 10)
+                Thread.sleep(producerSettings.eosCommitInterval.toMillis + 10)
               }
               if (msg.record.value().toInt == 501 && restartCount < 2) {
                 throw new RuntimeException("Uh oh..")

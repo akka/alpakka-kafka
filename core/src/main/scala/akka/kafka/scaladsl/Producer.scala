@@ -102,7 +102,7 @@ object Producer {
       txSettings.closeTimeout,
       closeProducerOnStop = true,
       () => txSettings.createKafkaProducer(),
-      settings.eosCommitIntervalMs
+      settings.eosCommitInterval
     )).mapAsync(txSettings.parallelism)(identity)
 
     flowWithDispatcher(txSettings, flow)

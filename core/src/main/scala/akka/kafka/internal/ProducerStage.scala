@@ -39,7 +39,7 @@ private[kafka] object ProducerStage {
   }
 
   class TransactionProducerStage[K, V, P](val closeTimeout: FiniteDuration, val closeProducerOnStop: Boolean,
-      val producerProvider: () => Producer[K, V], commitInterval: Long)
+      val producerProvider: () => Producer[K, V], commitInterval: FiniteDuration)
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] with ProducerStage[K, V, P] {
 
     override def createLogic(inheritedAttributes: Attributes) =
@@ -196,10 +196,10 @@ private[kafka] object ProducerStage {
    * Transaction (Exactly-Once) Producer State Logic
    */
   class TransactionProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P], producer: Producer[K, V],
-      inheritedAttributes: Attributes, commitIntervalMs: Long)
+      inheritedAttributes: Attributes, commitInterval: FiniteDuration)
     extends DefaultProducerStageLogic(stage, producer, inheritedAttributes) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
     private val commitSchedulerKey = "commit"
-    private val messageDrainIntervalMs = 10
+    private val messageDrainInterval = 10.milliseconds
 
     private var batchOffsets = TransactionBatch.empty
 
@@ -207,7 +207,7 @@ private[kafka] object ProducerStage {
       initTransactions()
       beginTransaction()
       resumeDemand(tryToPull = false)
-      scheduleOnce(commitSchedulerKey, commitIntervalMs.milliseconds)
+      scheduleOnce(commitSchedulerKey, commitInterval)
     }
 
     private def resumeDemand(tryToPull: Boolean = true): Unit = {
@@ -237,9 +237,9 @@ private[kafka] object ProducerStage {
           commitTransaction(batch, beginNewTransaction)
         case _ if awaitingConf > 0 =>
           suspendDemand()
-          scheduleOnce(commitSchedulerKey, messageDrainIntervalMs.milliseconds)
+          scheduleOnce(commitSchedulerKey, messageDrainInterval)
         case _ =>
-          scheduleOnce(commitSchedulerKey, commitIntervalMs.milliseconds)
+          scheduleOnce(commitSchedulerKey, commitInterval)
       }
     }
 
@@ -272,7 +272,7 @@ private[kafka] object ProducerStage {
       if (beginNewTransaction) {
         beginTransaction()
         resumeDemand()
-        scheduleOnce(commitSchedulerKey, commitIntervalMs.milliseconds)
+        scheduleOnce(commitSchedulerKey, commitInterval)
       }
     }
 
