@@ -13,7 +13,7 @@ Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][
 
 Systems don't come alone. In the modern world of microservices and cloud deployment, new components must interact with legacy systems, making integration an important key to success. Reactive Streams give us a technology-independent tool to let these heterogeneous systems communicate without overwhelming each other.
 
-The Alpakka project is an open source initiative to implement stream-aware, reactive, integration pipelines for Java and Scala. It is built on top of [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](http://www.reactive-streams.org/) and JDK 9+ [java.util.concurrent.Flow](https://docs.oracle.com/javase/10/docs/api/java/util/concurrent/Flow.html)-compliant implementation and therefore [fully interoperable](https://doc.akka.io/docs/akka/current/general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
+The Alpakka project is an open source initiative to implement stream-aware, reactive, integration pipelines for Java and Scala. It is built on top of [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](https://www.reactive-streams.org/) and JDK 9+ [java.util.concurrent.Flow](https://docs.oracle.com/javase/10/docs/api/java/util/concurrent/Flow.html)-compliant implementation and therefore [fully interoperable](https://doc.akka.io/docs/akka/current/general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
 
 This repository contains the sources for the **Alpakka Kafka connector**. Which lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
@@ -22,6 +22,7 @@ Supported versions
 
 |Kafka  | Akka version | Alpakka Kafka Connector 
 |-------|--------------|-------------------------
+|1.1.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)  
 |1.0.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)  
 |0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1) 
 |0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1) 
@@ -35,7 +36,7 @@ Akka Stream connectors to other technologies are listed in the [Alpakka reposito
 Documentation
 -------------
 
-- [Alpakka reference](http://developer.lightbend.com/docs/alpakka/current/) documentation 
+- [Alpakka reference](https://developer.lightbend.com/docs/alpakka/current/) documentation 
 
 - **[Alpakka Kafka connector reference](https://doc.akka.io/docs/akka-stream-kafka/current/) documentation**
 
@@ -56,8 +57,8 @@ In addition to that, you may enjoy following:
 
 - The [Akka Team Blog](https://akka.io/blog/)
 - [@akkateam](https://twitter.com/akkateam) on Twitter
-- Questions tagged [#alpakka on StackOverflow](http://stackoverflow.com/questions/tagged/alpakka)
-- Questions tagged [**#reactive-kafka** on StackOverflow](http://stackoverflow.com/questions/tagged/reactive-kafka)
+- Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
+- Questions tagged [**#reactive-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/reactive-kafka)
 
 The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://softwaremill.com/images/header-main-logo.3449d6a3.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
 
