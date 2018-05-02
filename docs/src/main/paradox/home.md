@@ -9,7 +9,7 @@ The examples in this documentation use
 * Alpakka Kafka connector $version$ ([Github](https://github.com/akka/reactive-kafka))
 * Scala $scalaBinaryVersion$
 * @extref[Akka Streams](akka-docs:scala/stream/index.html) $akkaVersion$ ([Github](https://github.com/akka/akka))
-* @extref[Apache Kafka](kafka-docs:index.html) $kafkaVersion$ ([Apache Git](https://git-wip-us.apache.org/repos/asf?p=kafka.git))
+* @extref[Apache Kafka](kafka-docs:index.html) $kafkaVersion$ ([Github](https://github.com/apache/kafka))
 
 Release notes are found at [Github releases](https://github.com/akka/reactive-kafka/releases).
 
