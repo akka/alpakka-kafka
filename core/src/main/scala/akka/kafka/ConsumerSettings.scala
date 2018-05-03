@@ -192,11 +192,14 @@ object ConsumerSettings {
     val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
+    val commitRefreshInterval =
+      if (config.getBoolean("commit-refresh-enabled")) Some(config.getDuration("commit-refresh-interval", TimeUnit.MICROSECONDS).millis)
+      else None
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, dispatcher,
-      commitTimeWarning, wakeupDebug)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, commitRefreshInterval,
+      dispatcher, commitTimeWarning, wakeupDebug)
   }
 
   /**
@@ -291,6 +294,7 @@ class ConsumerSettings[K, V](
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
     val maxWakeups: Int,
+    val commitRefreshInterval: Option[FiniteDuration],
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true
@@ -365,6 +369,12 @@ class ConsumerSettings[K, V](
   def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
     copy(maxWakeups = maxWakeups)
 
+  def withCommitRefreshInterval(commitRefreshInterval: FiniteDuration): ConsumerSettings[K, V] =
+    copy(commitRefreshInterval = Some(commitRefreshInterval))
+
+  def withoutCommitRefresh(): ConsumerSettings[K, V] =
+    copy(commitRefreshInterval = None)
+
   def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
     copy(wakeupDebug = wakeupDebug)
 
@@ -380,12 +390,13 @@ class ConsumerSettings[K, V](
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
     maxWakeups: Int = maxWakeups,
+    commitRefreshInterval: Option[FiniteDuration] = commitRefreshInterval,
     dispatcher: String = dispatcher,
     wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
       pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, dispatcher, commitTimeWarning, wakeupDebug)
+      maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
