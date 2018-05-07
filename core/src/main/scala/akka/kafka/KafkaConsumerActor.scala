@@ -184,7 +184,7 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     case PartitionAssigned(partition, offset) =>
       commitRequestedOffsets += partition -> commitRequestedOffsets.getOrElse(partition, offset)
       committedOffsets += partition -> committedOffsets.getOrElse(partition, offset)
-      commitRefreshDeadline = settings.commitRefreshInterval.map(_.fromNow)
+      commitRefreshDeadline = nextCommitRefreshDeadline()
 
     case PartitionRevoked(partition) =>
       commitRequestedOffsets -= partition
@@ -427,8 +427,13 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     }
   }
 
+  private def nextCommitRefreshDeadline(): Option[Deadline] = settings.commitRefreshInterval match {
+    case finite: FiniteDuration => Some(finite.fromNow)
+    case infinite => None
+  }
+
   private def commit(offsets: Map[TopicPartition, Long], reply: ActorRef): Unit = {
-    commitRefreshDeadline = settings.commitRefreshInterval.map(_.fromNow)
+    commitRefreshDeadline = nextCommitRefreshDeadline()
     val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
     val reply = sender()
     commitsInProgress += 1

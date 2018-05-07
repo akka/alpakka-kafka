@@ -9,7 +9,7 @@ import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.kafka.internal.ConfigSettings
+import akka.kafka.internal._
 import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
@@ -192,9 +192,7 @@ object ConsumerSettings {
     val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
-    val commitRefreshInterval =
-      if (config.getBoolean("commit-refresh-enabled")) Some(config.getDuration("commit-refresh-interval", TimeUnit.MICROSECONDS).millis)
-      else None
+    val commitRefreshInterval = config.getPotentiallyInfiniteDuration("commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
@@ -294,7 +292,7 @@ class ConsumerSettings[K, V](
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
     val maxWakeups: Int,
-    val commitRefreshInterval: Option[FiniteDuration],
+    val commitRefreshInterval: Duration,
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true
@@ -369,11 +367,8 @@ class ConsumerSettings[K, V](
   def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
     copy(maxWakeups = maxWakeups)
 
-  def withCommitRefreshInterval(commitRefreshInterval: FiniteDuration): ConsumerSettings[K, V] =
-    copy(commitRefreshInterval = Some(commitRefreshInterval))
-
-  def withoutCommitRefresh(): ConsumerSettings[K, V] =
-    copy(commitRefreshInterval = None)
+  def withCommitRefreshInterval(commitRefreshInterval: Duration): ConsumerSettings[K, V] =
+    copy(commitRefreshInterval = commitRefreshInterval)
 
   def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
     copy(wakeupDebug = wakeupDebug)
@@ -390,7 +385,7 @@ class ConsumerSettings[K, V](
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
     maxWakeups: Int = maxWakeups,
-    commitRefreshInterval: Option[FiniteDuration] = commitRefreshInterval,
+    commitRefreshInterval: Duration = commitRefreshInterval,
     dispatcher: String = dispatcher,
     wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =

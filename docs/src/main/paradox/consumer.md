@@ -120,7 +120,7 @@ Java
 Maintaining at-least-once delivery semantics requires care, so many risks and solutions
 are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
-If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-enabled` and `akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
 
 ## Connecting Producer and Consumer
 
