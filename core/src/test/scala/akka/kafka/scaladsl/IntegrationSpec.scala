@@ -11,9 +11,8 @@ import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
-import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka.test.Utils._
 import akka.kafka._
+import akka.kafka.test.Utils._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
@@ -23,7 +22,6 @@ import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
@@ -41,7 +39,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat = ActorMaterializer()(system)
   implicit val ec = system.dispatcher
-  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map("offsets.topic.replication.factor" -> "1"))
+  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map(
+    "offsets.topic.replication.factor" -> "1",
+    "offsets.retention.minutes" -> "1",
+    "offsets.retention.check.interval.ms" -> "100"
+  ))
   val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
@@ -228,6 +230,76 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
+    }
+
+    "resume consumer from committed offset after retention period" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+      val group2 = createGroup(2)
+
+      givenInitializedTopic(topic1)
+
+      // NOTE: If no partition is specified but a key is present a partition will be chosen
+      // using a hash of the key. If neither key nor partition is present a partition
+      // will be assigned in a round-robin fashion.
+
+      Source(1 to 100)
+        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .runWith(Producer.plainSink(producerSettings))
+
+      val committedElements = new ConcurrentLinkedQueue[Int]()
+
+      val consumerSettings = createConsumerSettings(group1).withCommitRefreshInterval(5.seconds)
+
+      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+        .filterNot(_.record.value == InitialMsg)
+        .mapAsync(10) { elem =>
+          elem.committableOffset.commitScaladsl().map { _ =>
+            committedElements.add(elem.record.value.toInt)
+            Done
+          }
+        }
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      probe1
+        .request(25)
+        .expectNextN(25).toSet should be(Set(Done))
+
+      Thread.sleep(70000)
+
+      probe1.cancel()
+      Await.result(control.isShutdown, remainingOrDefault)
+
+      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+        .map(_.record.value)
+        .runWith(TestSink.probe)
+
+      // Note that due to buffers and mapAsync(10) the committed offset is more
+      // than 26, and that is not wrong
+
+      // some concurrent publish
+      Source(101 to 200)
+        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .runWith(Producer.plainSink(producerSettings))
+
+      probe2
+        .request(100)
+        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
+
+      Thread.sleep(70000)
+
+      probe2.cancel()
+
+      val probe3 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+        .map(_.record.value)
+        .runWith(TestSink.probe)
+
+      probe3
+        .request(100)
+        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
+
+      probe3.cancel()
     }
 
     "handle commit without demand" in assertAllStagesStopped {

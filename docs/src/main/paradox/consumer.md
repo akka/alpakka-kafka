@@ -120,6 +120,8 @@ Java
 Maintaining at-least-once delivery semantics requires care, so many risks and solutions
 are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
+If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+
 ## Connecting Producer and Consumer
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
