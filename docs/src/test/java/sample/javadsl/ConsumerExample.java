@@ -433,10 +433,10 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
             .run(materializer);
 
     Consumer.Control control = r.first();
-    CompletionStage<Done> done = r.second();
+    CompletionStage<Done> streamComplete = r.second();
 
     control.stop()
-        .thenCompose(result -> done)
+        .thenCompose(result -> streamComplete)
         .thenCompose(result -> control.shutdown());
     // #shutdownCommitableSource
   }

@@ -482,7 +482,7 @@ object ShutdownPlainSourceExample extends ConsumerExample {
       val subscription = Subscriptions.assignmentWithOffset(
         new TopicPartition("topic1", partition) -> fromOffset
       )
-      val (consumerControl, done) =
+      val (consumerControl, streamComplete) =
         Consumer.plainSource(consumerSettings, subscription)
           .mapAsync(1)(db.save)
           .toMat(Sink.ignore)(Keep.both)
@@ -491,7 +491,7 @@ object ShutdownPlainSourceExample extends ConsumerExample {
       consumerControl.shutdown()
       // #shutdownPlainSource
 
-      terminateWhenDone(done)
+      terminateWhenDone(streamComplete)
     }
   }
 }
@@ -502,7 +502,7 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
     // #shutdownCommitableSource
     val db = new DB
 
-    val (consumerControl, done) =
+    val (consumerControl, streamComplete) =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
           db.update(msg.record.value).map(_ => msg.committableOffset)
@@ -516,12 +516,12 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
 
     for {
       _ <- consumerControl.stop()
-      _ <- done
+      _ <- streamComplete
       _ <- consumerControl.shutdown()
     } yield Done
 
     // #shutdownCommitableSource
 
-    terminateWhenDone(done)
+    terminateWhenDone(streamComplete)
   }
 }
