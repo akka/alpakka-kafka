@@ -24,6 +24,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
@@ -230,7 +231,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         })
 
         def performShutdown() = {
-          completeStage()
+          materializer.scheduleOnce(
+            FiniteDuration(5, "seconds"),
+            new Runnable {
+              override def run(): Unit = completeStage()
+            }
+          )
         }
 
         @tailrec
