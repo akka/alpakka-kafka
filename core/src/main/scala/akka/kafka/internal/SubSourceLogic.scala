@@ -83,15 +83,19 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
   def partitionAssignedCB(tps: Set[TopicPartition]) = {
     implicit val ec = materializer.executionContext
-    getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
-      getOffsets(tps)
+
+    val topicsToBeAssigned = tps -- partitionsToRevoke
+    partitionsToRevoke = partitionsToRevoke -- tps
+
+    getOffsetsOnAssign.fold(pumpCB.invoke(topicsToBeAssigned)) { getOffsets =>
+      getOffsets(topicsToBeAssigned)
         .onComplete {
-          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $tps.", ex))
+          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $topicsToBeAssigned.", ex))
           case Success(offsets) =>
             consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
-              .map(_ => pumpCB.invoke(tps))
+              .map(_ => pumpCB.invoke(topicsToBeAssigned))
               .recover {
-                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $topicsToBeAssigned."))
               }
         }
     }
