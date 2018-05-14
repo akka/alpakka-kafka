@@ -42,7 +42,7 @@ val commonSettings = Seq(
   test in assembly := {},
   licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   scalaVersion := "2.11.12",
-  crossScalaVersions := Seq(scalaVersion.value, "2.12.4"),
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.6"),
   crossVersion := CrossVersion.binary,
   scalariformAutoformat := true,
   scalacOptions ++= Seq(
@@ -56,7 +56,7 @@ val commonSettings = Seq(
   "-Ywarn-numeric-widen",
   "-Xfuture"),
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
-  scalariformPreferences := scalariformPreferences.value
+scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(CompactControlReadability, true)
@@ -75,9 +75,27 @@ resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 lazy val root =
   project.in( file(".") )
     .settings(commonSettings)
-    .settings(Seq(
-    publishArtifact := false,
-    publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo")))))
+    .settings(
+      publishArtifact := false,
+      publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo"))),
+      onLoadMessage :=
+          """
+            |** Welcome to the Alpakka Kafka connector! **
+            |
+            |The build has three modules
+            |  core - the Kafka connector sources and tests
+            |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
+            |  benchmarks - for instrunctions read benchmarks/README.md
+            |
+            |Useful sbt tasks:
+            |
+            |  docs/paradox - builds documentation, which is generated at
+            |    docs/target/paradox/site/main/home.html
+            |
+            |  test - runs all the tests
+            |
+          """.stripMargin
+    )
     .aggregate(core, benchmarks, docs)
 
 lazy val core = project
@@ -97,6 +115,7 @@ lazy val docs = project.in(file("docs"))
     publishArtifact := false,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
+    paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
       "version"                          -> version.value,
       "akkaVersion"                      -> akkaVersion,

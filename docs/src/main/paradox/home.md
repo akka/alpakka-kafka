@@ -19,7 +19,7 @@ Release notes are found at [Github releases](https://github.com/akka/reactive-ka
 
 ## Dependencies
 
-@@dependency [sbt,Maven,Gradle] {
+@@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka_$scalaBinaryVersion$
   version=$version$
