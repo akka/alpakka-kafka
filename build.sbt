@@ -125,7 +125,7 @@ lazy val docs = project.in(file("docs"))
       "extref.akka-docs.base_url"             -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url"            -> s"https://kafka.apache.org/documentation/%s",
       "scaladoc.akka.base_url"                -> s"http://doc.akka.io/api/akka/$akkaVersion",
-      "scaladoc.akka.kafka.base_url"          -> s"https://doc.akka.io/docs/akka-stream-kafka/${version.value}/api/",
+      "scaladoc.akka.kafka.base_url"          -> s"https://doc.akka.io/api/akka-stream-kafka/${version.value}/",
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url"     -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),

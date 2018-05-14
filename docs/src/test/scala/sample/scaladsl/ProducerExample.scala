@@ -4,6 +4,8 @@
  */
 package sample.scaladsl
 
+import java.util
+
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
 import akka.kafka.ProducerSettings
@@ -14,8 +16,11 @@ import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.common.serialization.StringSerializer
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+
 import scala.concurrent.Future
 import akka.Done
+import org.apache.kafka.common.{Metric, MetricName}
+
 import scala.util.{Failure, Success}
 
 trait ProducerExample {
@@ -74,9 +79,12 @@ object PlainSinkWithProducerExample extends ProducerExample {
 
 object ObserveMetricsExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
+    // format:off
     // #producerMetrics
-    kafkaProducer.metrics() // observe metrics
+    val metrics: util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
+      kafkaProducer.metrics() // observe metrics
     // #producerMetrics
+    // format:on
   }
 }
 

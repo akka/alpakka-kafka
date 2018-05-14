@@ -14,10 +14,13 @@ import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
+import java.util.Map;
 import java.util.concurrent.CompletionStage;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -86,8 +89,10 @@ class ObserveMetricsExample extends ProducerExample {
 
     public void demo() {
         // #producerMetrics
-        kafkaProducer.metrics(); // observe metrics
-        // #producerMetrics
+        Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
+                kafkaProducer.metrics();// observe metrics
+        metrics.get()
+// #producerMetrics
     }
 }
 
