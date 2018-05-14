@@ -6,6 +6,7 @@ name := "akka-stream-kafka"
 
 val akkaVersion = "2.5.9"
 val kafkaVersion = "1.0.1"
+val kafkaVersionForDocs = "11"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -93,7 +94,6 @@ lazy val root =
             |    docs/target/paradox/site/main/home.html
             |
             |  test - runs all the tests
-            |
           """.stripMargin
     )
     .aggregate(core, benchmarks, docs)
@@ -117,14 +117,17 @@ lazy val docs = project.in(file("docs"))
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
-      "version"                          -> version.value,
-      "akkaVersion"                      -> akkaVersion,
-      "kafkaVersion"                     -> kafkaVersion,
-      "scalaVersion"                     -> scalaVersion.value,
-      "scalaBinaryVersion"               -> scalaBinaryVersion.value,
-      "extref.akka-docs.base_url"        -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
-      "extref.kafka-docs.base_url"       -> s"https://kafka.apache.org/documentation/%s",
-      "scaladoc.akka.base_url"           -> s"http://doc.akka.io/api/akka/$akkaVersion"
+      "version"                               -> version.value,
+      "akkaVersion"                           -> akkaVersion,
+      "kafkaVersion"                          -> kafkaVersion,
+      "scalaVersion"                          -> scalaVersion.value,
+      "scalaBinaryVersion"                    -> scalaBinaryVersion.value,
+      "extref.akka-docs.base_url"             -> s"http://doc.akka.io/docs/akka/$akkaVersion/%s",
+      "extref.kafka-docs.base_url"            -> s"https://kafka.apache.org/documentation/%s",
+      "scaladoc.akka.base_url"                -> s"http://doc.akka.io/api/akka/$akkaVersion",
+      "scaladoc.akka.kafka.base_url"          -> s"https://doc.akka.io/docs/akka-stream-kafka/${version.value}/api/",
+      "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+      "javadoc.org.apache.kafka.base_url"     -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
     libraryDependencies ++= docDependencies
   )
@@ -135,7 +138,7 @@ lazy val benchmarks = project
   .enablePlugins(AutomateHeaderPlugin)
   .enablePlugins(DockerPlugin)
   .settings(commonSettings)
-  .settings(Seq(
+  .settings(
     publishArtifact := false,
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
@@ -158,7 +161,6 @@ lazy val benchmarks = project
         expose(8080)
       }
     }
-  )
   )
   .configs(Benchmark)
   .settings(inConfig(Benchmark)(Defaults.testSettings): _*)
