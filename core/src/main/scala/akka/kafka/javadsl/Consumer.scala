@@ -178,9 +178,9 @@ object Consumer {
    */
   def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
     scaladsl.Consumer.plainExternalSource(consumer, subscription)
-      .map{ identity[org.apache.kafka.clients.consumer.ConsumerRecord[K, V]] }
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
+      .asInstanceOf[Source[ConsumerRecord[K, V], Control]]
   }
 
   /**
@@ -188,8 +188,8 @@ object Consumer {
    */
   def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
     scaladsl.Consumer.committableExternalSource(consumer, subscription, groupId, commitTimeout)
-      .map{ identity[CommittableMessage[K, V]] }
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
+      .asInstanceOf[Source[CommittableMessage[K, V], Control]]
   }
 }

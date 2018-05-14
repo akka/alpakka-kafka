@@ -80,8 +80,8 @@ object Producer {
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings)
-      .map { identity[Result[K, V, PassThrough]] }
       .asJava
+      .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 
   /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
@@ -93,6 +93,6 @@ object Producer {
     producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings, producer)
-      .map { identity[Result[K, V, PassThrough]] }
       .asJava
+      .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 }
