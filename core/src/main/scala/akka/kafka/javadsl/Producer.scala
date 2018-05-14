@@ -79,7 +79,9 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow(settings).asJava
+    scaladsl.Producer.flow(settings)
+      .asJava
+      .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 
   /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
@@ -90,5 +92,7 @@ object Producer {
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow(settings, producer).asJava
+    scaladsl.Producer.flow(settings, producer)
+      .asJava
+      .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 }

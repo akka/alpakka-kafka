@@ -180,6 +180,7 @@ object Consumer {
     scaladsl.Consumer.plainExternalSource(consumer, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
+      .asInstanceOf[Source[ConsumerRecord[K, V], Control]]
   }
 
   /**
@@ -189,5 +190,6 @@ object Consumer {
     scaladsl.Consumer.committableExternalSource(consumer, subscription, groupId, commitTimeout)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
+      .asInstanceOf[Source[CommittableMessage[K, V], Control]]
   }
 }
