@@ -524,5 +524,69 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       }
     }
+
+    "complete source when control stopped" in {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group)
+
+        val (control, probe) = Consumer.plainSource(consumerSettings, Subscriptions.topics(Set(topic)))
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
+
+        probe
+          .request(100)
+          .expectNextN(100)
+
+        val stopped = control.stop()
+        probe.expectComplete()
+
+        Await.result(stopped, remainingOrDefault)
+
+        control.shutdown()
+        probe.cancel()
+      }
+    }
+
+    "complete partition sources when the main source control stopped" in pendingUntilFixed {
+      assertAllStagesStopped {
+        val topic = createTopic(1)
+        val group = createGroup(1)
+
+        givenInitializedTopic(topic)
+
+        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = createConsumerSettings(group)
+
+        val (control, probe) = Consumer.plainPartitionedSource(consumerSettings, Subscriptions.topics(Set(topic)))
+          .flatMapMerge(1, _._2)
+          .filterNot(_.value == InitialMsg)
+          .map(_.value())
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
+
+        probe
+          .request(100)
+          .expectNextN(100)
+
+        val stopped = control.stop()
+        probe.expectComplete()
+
+        Await.result(stopped, remainingOrDefault)
+
+        control.shutdown()
+        probe.cancel()
+      }
+    }
+
   }
 }
