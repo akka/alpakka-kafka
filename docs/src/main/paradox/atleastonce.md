@@ -16,12 +16,13 @@ When connecting a committable source to a producer flow, some applications may r
 To achieve this, it will no longer be sufficient to pass a `CommittableOffset` in the `passThrough` field of `ProducerMessage.Message`. Instead the type used for `PassTrough` should be one that can also encode the absence of an offset. Two valid choices would be `Option[CommittableOffset]` or a `CommittableOffsetBatch`. Currently two instances of `CommittableOffsetBatch` cannot be mergerd together, which will be a problem if we want to create batches, so using an `Option[CommittableOffset]` is preferable. 
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }
+: @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }  
+  Here a `collect` is used to filter away all the `None` values, and unwrap the `CommitableOffset` instances from the `Option` before sending them to the batch stage.
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceManyToOne.java) { #oneToMany }
+: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceOneToMany.java) { #oneToMany }
+  Here `filterNot` removes all the empty optional values, and `map` unwraps the `CommitableOffset` instances from the `Optional` before sending them to the batch stage.
 
-Here a `collect` is used to filter away all the `None` values, and unwrap the `CommitableOffset` instances from the `Option` before sending them to the batch stage.
 
 ### Batches
 

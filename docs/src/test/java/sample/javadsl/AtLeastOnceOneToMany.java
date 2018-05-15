@@ -2,10 +2,8 @@ package sample.javadsl;
 
 // #oneToMany
             import akka.Done;
-            import akka.japi.JavaPartialFunction;
             import akka.japi.function.Function;
             import akka.japi.function.Function2;
-            import akka.japi.Option;
             import akka.kafka.ConsumerMessage;
             import akka.kafka.ConsumerMessage.CommittableOffset;
             import akka.kafka.ConsumerMessage.CommittableOffsetBatch;
@@ -17,6 +15,7 @@ package sample.javadsl;
             import org.apache.kafka.clients.producer.ProducerRecord;
 
             import java.util.Arrays;
+            import java.util.Optional;
             import java.util.concurrent.CompletionStage;
 
 // #oneToMany
@@ -34,28 +33,20 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
             Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
                 .mapConcat(msg ->
                      Arrays.asList(
-                        new ProducerMessage.Message<byte[], String, Option<CommittableOffset>>(
+                        new ProducerMessage.Message<byte[], String, Optional<CommittableOffset>>(
                             new ProducerRecord<>("topic2", msg.record().value()),
-                            Option.none()
+                            Optional.empty()
                         ),
-                        new ProducerMessage.Message<byte[], String, Option<CommittableOffset>>(
+                        new ProducerMessage.Message<byte[], String, Optional<CommittableOffset>>(
                             new ProducerRecord<>("topic2", msg.record().value()),
-                            Option.some(msg.committableOffset())
+                            Optional.ofNullable(msg.committableOffset())
                         )
                     )
                 )
                 .via(Producer.flow(producerSettings))
                 .map(m -> m.message().passThrough())
-                .collect(new JavaPartialFunction<Option<CommittableOffset>, CommittableOffset>() {
-                    @Override
-                    public CommittableOffset apply(Option<CommittableOffset> offset, boolean isCheck) {
-                        if (offset.isDefined()) {
-                            return offset.get();
-                        } else {
-                            throw noMatch();
-                        }
-                    }
-                })
+                .filterNot(Optional::isPresent)
+                .map(Optional::get)
                 .batch(
                     20,
                     (Function<CommittableOffset, CommittableOffsetBatch>) m ->
