@@ -12,7 +12,6 @@ import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.japi.Pair;
-import akka.japi.function.Procedure;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
@@ -32,7 +31,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import scala.concurrent.duration.Duration;
 
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -108,7 +106,7 @@ class ExternalOffsetStorageExample extends ConsumerExample {
         consumerSettings,
         Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 0), fromOffset)
       ).mapAsync(1, record -> db.save(record))
-      .runWith(Sink.ignore(), materializer);
+          .runWith(Sink.ignore(), materializer);
     });
     // #plainSource
   }
@@ -385,6 +383,62 @@ class ConsumerMetricsExample extends ConsumerExample {
     CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
     metrics.thenAccept(m -> System.out.println("Metrics: " + m));
     // #consumerMetrics
+  }
+}
+
+// Shutdown via Consumer.Control
+class ShutdownPlainSourceExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new ExternalOffsetStorageExample().demo();
+  }
+
+  public void demo() {
+    // #shutdownPlainSource
+    final DB db = new DB();
+
+    db.loadOffset().thenAccept(fromOffset -> {
+      Consumer.Control control = Consumer.plainSource(
+          consumerSettings,
+          Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 0), fromOffset)
+      ).mapAsync(1, record -> db.save(record))
+          .toMat(Sink.ignore(), Keep.left())
+          .run(materializer);
+
+      // Shutdown the consumer when desired
+      control.shutdown();
+    });
+    // #shutdownPlainSource
+  }
+}
+
+// Shutdown when batching commits
+class ShutdownCommittableSourceExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new AtLeastOnceExample().demo();
+  }
+
+  public void demo() {
+    // #shutdownCommitableSource
+    final DB db = new DB();
+
+    Pair<Consumer.Control, CompletionStage<Done>> r =
+        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(1, msg ->
+                db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
+            .batch(20,
+                first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
+                (batch, elem) -> batch.updated(elem))
+            .mapAsync(3, c -> c.commitJavadsl())
+            .toMat(Sink.ignore(), Keep.both())
+            .run(materializer);
+
+    Consumer.Control control = r.first();
+    CompletionStage<Done> streamComplete = r.second();
+
+    control.stop()
+        .thenCompose(result -> streamComplete)
+        .thenCompose(result -> control.shutdown());
+    // #shutdownCommitableSource
   }
 }
 

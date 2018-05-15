@@ -10,7 +10,7 @@ import akka.kafka._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, ThrottleMode}
+import akka.stream.{ActorMaterializer}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -21,8 +21,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
-
-import akka.util.Timeout
 
 trait ConsumerExample {
   val system = ActorSystem("example")
@@ -62,6 +60,7 @@ trait ConsumerExample {
       Future.successful(Done)
     }
   }
+
   // #db
 
   // #rocket
@@ -71,6 +70,7 @@ trait ConsumerExample {
       Future.successful(Done)
     }
   }
+
   // #rocket
 
   def terminateWhenDone(result: Future[Done]): Unit = {
@@ -290,6 +290,7 @@ object ConsumerWithOtherSource extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #committablePartitionedSource3
     type Msg = CommittableMessage[Array[Byte], String]
+
     def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
 
     Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
@@ -448,4 +449,58 @@ object RebalanceListenerExample extends ConsumerExample {
     //#withRebalanceListenerActor
   }
 
+}
+
+// Shutdown via Consumer.Control
+object ShutdownPlainSourceExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #shutdownPlainSource
+    val db = new DB
+    db.loadOffset().foreach { fromOffset =>
+      val partition = 0
+      val subscription = Subscriptions.assignmentWithOffset(
+        new TopicPartition("topic1", partition) -> fromOffset
+      )
+      val (consumerControl, streamComplete) =
+        Consumer.plainSource(consumerSettings, subscription)
+          .mapAsync(1)(db.save)
+          .toMat(Sink.ignore)(Keep.both)
+          .run()
+
+      consumerControl.shutdown()
+      // #shutdownPlainSource
+
+      terminateWhenDone(streamComplete)
+    }
+  }
+}
+
+// Shutdown when batching commits
+object ShutdownCommitableSourceExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+    // #shutdownCommitableSource
+    val db = new DB
+
+    val (consumerControl, streamComplete) =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .mapAsync(1) { msg =>
+          db.update(msg.record.value).map(_ => msg.committableOffset)
+        }
+        .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+          batch.updated(elem)
+        }
+        .mapAsync(3)(_.commitScaladsl())
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+
+    for {
+      _ <- consumerControl.stop()
+      _ <- streamComplete
+      _ <- consumerControl.shutdown()
+    } yield Done
+
+    // #shutdownCommitableSource
+
+    terminateWhenDone(streamComplete)
+  }
 }
