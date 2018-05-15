@@ -6,7 +6,7 @@ name := "akka-stream-kafka"
 
 val akkaVersion = "2.5.9"
 val kafkaVersion = "1.0.1"
-val kafkaVersionForDocs = "11"
+val kafkaVersionForDocs = "10"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
