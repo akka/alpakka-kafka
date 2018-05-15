@@ -2,7 +2,7 @@
 
 A producer publishes messages to Kafka topics. The message itself contains information about what topic and partition to publish to so you can publish to different topics with the same producer.
 
-The underlying implementation is using the `KafkaProducer`, see the @javadoc[API](org.apache.kafka.clients.producer.KafkaProducer) for details.
+The underlying implementation is using the `KafkaProducer`, see the @javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer) for details.
 
 ## Settings
 
@@ -24,7 +24,7 @@ In addition to programmatic construction of the `ProducerSettings` (@scaladoc[AP
 
 `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) can also be created from any other `Config` (@scaladoc[API](com.typesafe.config.Config)) section with the same layout as above.
 
-See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for details.
+See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for more details regarding settings.
 
 ## Producer as a Sink
 

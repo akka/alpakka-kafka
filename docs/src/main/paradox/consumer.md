@@ -30,8 +30,6 @@ When creating a consumer stream you need to pass in `ConsumerSettings` (@scalado
 * serializers for the keys and values
 * tuning parameters
 
-
-
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #settings }
 
@@ -44,7 +42,7 @@ In addition to programmatic construction of the `ConsumerSettings` (@scaladoc[AP
 
 `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) can also be created from any other `Config` (@scaladoc[API](com.typesafe.config.Config)) section with the same layout as above.
 
-See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for details.
+See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for more details regarding settings.
 
 
 ## External Offset Storage
@@ -183,7 +181,7 @@ Scala
 
 ## Sharing KafkaConsumer
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[API](org.apache.kafka.clients.consumer.KafkaConsumer)). That can be shared via the `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
+If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)). That can be shared via the `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
  factory methods.
 
