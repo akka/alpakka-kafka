@@ -212,44 +212,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       requests -= ref
       requestors -= ref
 
-    case Metadata.ListTopics =>
-      sender() ! Metadata.Topics(Try {
-        consumer.listTopics().asScala.map {
-          case (k, v) => k -> v.asScala.toList
-        }.toMap
-      })
-
-    case Metadata.GetPartitionsFor(topic) =>
-      sender() ! Metadata.PartitionsFor(Try {
-        consumer.partitionsFor(topic).asScala.toList
-      })
-
-    case Metadata.GetBeginningOffsets(partitions) =>
-      sender() ! Metadata.BeginningOffsets(Try {
-        consumer.beginningOffsets(partitions.asJava).asScala.map {
-          case (k, v) => k -> (v: Long)
-        }.toMap
-      })
-
-    case Metadata.GetEndOffsets(partitions) =>
-      sender ! Metadata.EndOffsets(Try {
-        consumer.endOffsets(partitions.asJava).asScala.map {
-          case (k, v) => k -> (v: Long)
-        }.toMap
-      })
-
-    case Metadata.GetOffsetsForTimes(timestampsToSearch) =>
-      sender ! Metadata.OffsetsForTimes(Try {
-        val search = timestampsToSearch.map {
-          case (k, v) => k -> (v: java.lang.Long)
-        }.asJava
-        consumer.offsetsForTimes(search).asScala.toMap
-      })
-
-    case Metadata.GetCommittedOffset(partition) =>
-      sender ! Metadata.CommittedOffset(Try {
-        consumer.committed(partition)
-      })
+    case req: Metadata.Request =>
+      sender ! handleMetadataRequest(req)
   }
 
   def handleSubscription(subscription: SubscriptionRequest): Unit = {
@@ -531,5 +495,46 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
           }
       }
     }
+  }
+
+  private def handleMetadataRequest(req: Metadata.Request): Metadata.Response = req match {
+    case Metadata.ListTopics =>
+      Metadata.Topics(Try {
+        consumer.listTopics().asScala.map {
+          case (k, v) => k -> v.asScala.toList
+        }.toMap
+      })
+
+    case Metadata.GetPartitionsFor(topic) =>
+      Metadata.PartitionsFor(Try {
+        consumer.partitionsFor(topic).asScala.toList
+      })
+
+    case Metadata.GetBeginningOffsets(partitions) =>
+      Metadata.BeginningOffsets(Try {
+        consumer.beginningOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetEndOffsets(partitions) =>
+      Metadata.EndOffsets(Try {
+        consumer.endOffsets(partitions.asJava).asScala.map {
+          case (k, v) => k -> (v: Long)
+        }.toMap
+      })
+
+    case Metadata.GetOffsetsForTimes(timestampsToSearch) =>
+      Metadata.OffsetsForTimes(Try {
+        val search = timestampsToSearch.map {
+          case (k, v) => k -> (v: java.lang.Long)
+        }.asJava
+        consumer.offsetsForTimes(search).asScala.toMap
+      })
+
+    case Metadata.GetCommittedOffset(partition) =>
+      Metadata.CommittedOffset(Try {
+        consumer.committed(partition)
+      })
   }
 }
