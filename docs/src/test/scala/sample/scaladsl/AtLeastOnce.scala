@@ -1,10 +1,12 @@
 package sample.scaladsl
-
+// #oneToMany
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
-import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.Sink
 import org.apache.kafka.clients.producer.ProducerRecord
+
+// #oneToMany
 
 // Connect a Consumer to Producer, mapping messages one-to-many, and commit in batches
 object AtLeastOnceOneToManyExample extends ConsumerExample {

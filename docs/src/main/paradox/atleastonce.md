@@ -18,6 +18,9 @@ To achieve this, it will no longer be sufficient to pass a `CommittableOffset` i
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }
 
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceManyToOne.java) { #oneToMany }
+
 Here a `collect` is used to filter away all the `None` values, and unwrap the `CommitableOffset` instances from the `Option` before sending them to the batch stage.
 
 ### Batches

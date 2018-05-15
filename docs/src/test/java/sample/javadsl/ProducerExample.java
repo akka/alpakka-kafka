@@ -91,7 +91,6 @@ class ObserveMetricsExample extends ProducerExample {
         // #producerMetrics
         Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
                 kafkaProducer.metrics();// observe metrics
-        metrics.get()
 // #producerMetrics
     }
 }
