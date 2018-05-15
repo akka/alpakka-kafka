@@ -58,7 +58,7 @@ If a particular substream expects to see all messages regarding some entity, it 
  
 Most flows will require some messages to be handled differently from others. Unfortunately this is difficult to do while preserving the at-least-once guarantee because the order of messages must be maintained.
 
-We cannot safely send off the messages to be handled differently to a distinct flow: this other flow cannot commit on its own, and even if merge it back, downstream, with the main flow, ordering will not be preserved. The reason the separate flow cannot commit on its own is that it will only be seeing a subset of the committable messages. If it commits an offset, it cannot know that all prior offsets have been processed in the main flow.
+We cannot safely send off the messages to be handled differently to a distinct flow: this other flow cannot commit on its own, and even if we merge it back, downstream, with the main flow, ordering will not be preserved. The reason this separate flow cannot commit on its own is that it will only be seeing a subset of the committable messages. If it commits an offset, it cannot know that all prior offsets have been processed in the main flow.
 
 This is a significant challenge. Below we suggest a few strategies to deal with some special cases of this general problem.
  
@@ -78,5 +78,5 @@ Why can't we commit the offsets of bad messages as soon as we encounter them, in
 
 Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the commitable source. We can instead create a `ConsumerSettings` parametrized by byte arrays. A subsequent `collect` can deserialize and skip bad messages. Alternatively a `map` stage can be used should we wish to propagate downstream some information about the bad messages, such as their committable offsets.
 
-If bad messages are rare, it might be acceptable to never commit their offsets directly and instead rely on the commit of the next deserializable message to eventually advance the partition beyond the bad messages. This preserves at-least-once semantics, but can lead to more frequent duplicated handling of bad messages on restarts. However that handling might may not have very important effects: it might simply be logging the message.
+If bad messages are rare, it might be acceptable to never commit their offsets directly and instead rely on the commit of the next deserializable message to eventually advance the partition beyond the bad messages. This preserves at-least-once semantics, but can lead to more frequent duplicated handling of bad messages on restarts. However that handling may not have very important effects: it might simply be logging the message.
 
