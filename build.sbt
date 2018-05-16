@@ -30,6 +30,8 @@ val coreDependencies = Seq(
   "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude("org.slf4j", "slf4j-log4j12")
 )
 
+resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
+
 val docDependencies = Seq(
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
   "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -38,51 +40,57 @@ val docDependencies = Seq(
 
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
-  organizationName := "Lightbend",
+  organizationName := "Lightbend Inc.",
+  homepage := Some(url("https://github.com/akka/reactive-kafka")),
+  scmInfo := Some(ScmInfo(url("https://github.com/akka/reactive-kafka"), "git@github.com:akka/reactive-kafka.git")),
+  developers += Developer("contributors",
+    "Contributors",
+    "https://gitter.im/akka/dev",
+    url("https://github.com/akka/reactive-kafka/graphs/contributors")),
   startYear := Some(2014),
-  test in assembly := {},
-  licenses := Seq("Apache License 2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
-  scalaVersion := "2.11.12",
-  crossScalaVersions := Seq(scalaVersion.value, "2.12.6"),
+  licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
+  crossScalaVersions := Seq("2.12.6", "2.11.12"),
+  scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
   scalariformAutoformat := true,
   javacOptions ++= Seq(
     "-Xlint:deprecation"
   ),
   scalacOptions ++= Seq(
-  "-deprecation",
-  "-encoding", "UTF-8",       // yes, this is 2 args
-  "-feature",
-  "-unchecked",
-  "-Xlint",
-  "-Yno-adapted-args",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
-  "-Xfuture"),
+    "-deprecation",
+    "-encoding", "UTF-8",       // yes, this is 2 args
+    "-feature",
+    "-unchecked",
+    "-Xlint",
+    "-Yno-adapted-args",
+    "-Ywarn-dead-code",
+    "-Ywarn-numeric-widen",
+    "-Xfuture"
+  ),
   testOptions += Tests.Argument("-oD"),
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
-scalariformPreferences := scalariformPreferences.value
-  .setPreference(DoubleIndentConstructorArguments, true)
-  .setPreference(PreserveSpaceBeforeArguments, true)
-  .setPreference(CompactControlReadability, true)
-  .setPreference(DanglingCloseParenthesis, Preserve)
-  .setPreference(NewlineAtEndOfFile, true)
-  .setPreference(SpacesAroundMultiImports, false),
-headerLicense := Some(HeaderLicense.Custom(
+  scalariformPreferences := scalariformPreferences.value
+    .setPreference(DoubleIndentConstructorArguments, true)
+    .setPreference(PreserveSpaceBeforeArguments, true)
+    .setPreference(CompactControlReadability, true)
+    .setPreference(DanglingCloseParenthesis, Preserve)
+    .setPreference(NewlineAtEndOfFile, true)
+    .setPreference(SpacesAroundMultiImports, false),
+  headerLicense := Some(HeaderLicense.Custom(
     """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
        |Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
        |""".stripMargin
-  ))
+  )),
+  bintrayOrganization := Some("akka"),
+  bintrayPackage := "alpakka-kafka",
+  bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven")
 )
 
-resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
-
-lazy val root =
-  project.in( file(".") )
+lazy val `alpakka-kafka` =
+  project.in(file("."))
     .settings(commonSettings)
     .settings(
-      publishArtifact := false,
-      publishTo := Some(Resolver.file("Unused transient repository", file("target/unusedrepo"))),
+      skip in publish := true,
       onLoadMessage :=
           """
             |** Welcome to the Alpakka Kafka connector! **
@@ -116,7 +124,7 @@ lazy val docs = project.in(file("docs"))
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
-    publishArtifact := false,
+    skip in publish := true,
     paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
@@ -144,7 +152,7 @@ lazy val benchmarks = project
   .enablePlugins(DockerPlugin)
   .settings(commonSettings)
   .settings(
-    publishArtifact := false,
+    skip in publish := true,
     name := "akka-stream-kafka-benchmarks",
     parallelExecution in Benchmark := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
