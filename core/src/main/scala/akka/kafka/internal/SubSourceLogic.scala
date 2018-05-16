@@ -155,7 +155,16 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     super.postStop()
   }
 
-  override def performShutdown() = {
+  override def performStop(): Unit = {
+    setKeepGoing(true)
+    subSources.foreach {
+      case (_, control) => control.stop()
+    }
+    complete(shape.out)
+    onStop()
+  }
+
+  override def performShutdown(): Unit = {
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
     subSources.foreach {

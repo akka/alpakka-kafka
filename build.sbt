@@ -56,7 +56,8 @@ val commonSettings = Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Xfuture"),
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
+  testOptions += Tests.Argument("-oD"),
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
 scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)

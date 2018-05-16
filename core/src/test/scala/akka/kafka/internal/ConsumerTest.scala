@@ -539,8 +539,7 @@ class ConsumerTest(_system: ActorSystem)
     }
   }
 
-  // not implemented yet
-  ignore should "keep stage running after cancellation until all futures completed" in {
+  it should "keep stage running after cancellation until all futures completed" in {
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)

@@ -556,7 +556,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       }
     }
 
-    "complete partition sources when the main source control stopped" in pendingUntilFixed {
+    "complete partition sources when the main source control stopped" in {
       assertAllStagesStopped {
         val topic = createTopic(1)
         val group = createGroup(1)
