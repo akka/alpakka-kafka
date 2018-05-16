@@ -2,7 +2,7 @@
 
 A consumer is used for subscribing to Kafka topics.
 
-The underlying implementation is using the `KafkaConsumer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) for description of consumer groups, offsets, and other details.
+The underlying implementation is using the `KafkaConsumer`, see @javadoc[API](org.apache.kafka.clients.consumer.KafkaConsumer) for description of consumer groups, offsets, and other details.
 
 ## Example Code
 
@@ -23,7 +23,7 @@ Java
 
 ## Settings
 
-When creating a consumer stream you need to pass in `ConsumerSettings` that define things like:
+When creating a consumer stream you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
 
 * bootstrap servers of the Kafka cluster
 * group id for the consumer, note that offsets are always committed for a given consumer group
@@ -36,17 +36,20 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #settings }
 
-In addition to programmatic construction of the `ConsumerSettings` it can also be created from configuration (`application.conf`). By default when creating `ConsumerSettings` with the `ActorSystem` parameter it uses the config section `akka.kafka.consumer`.
+In addition to programmatic construction of the `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) it can also be created from configuration (`application.conf`). By default when creating `ConsumerSettings` with the `ActorSystem` (@scaladoc[API](akka.actor.ActorSystem)) parameter it uses the config section `akka.kafka.consumer`.
 
 @@ snip [flow](../../../../core/src/main/resources/reference.conf) { #consumer-settings }
 
-`ConsumerSettings` can also be created from any other `Config` section with the same layout as above.
+`ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) can also be created from any other `Config` (@scaladoc[API](com.typesafe.config.Config)) section with the same layout as above.
 
-See [KafkaConsumer Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) and [ConsumerConfig Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/consumer/ConsumerConfig.html) for details.
+See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for more details regarding settings.
+
 
 ## External Offset Storage
 
-`Consumer.plainSource` and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` elements
+`Consumer.plainSource` 
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]) 
+and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
 (as received from the underlying `KafkaConsumer`). They do not have support for committing offsets to Kafka. When using
 these Sources, either store an offset externally or use auto-commit (note that auto-commit is by default disabled).
 
@@ -67,14 +70,17 @@ topic and partition. The group id is defined in the `ConsumerSettings`.
 
 With `Consumer.plainPartitionedManualOffsetSource`, only the consumer group id and the topic is required on creation.
 The starting point is fetched by calling the `getOffsetsOnAssign` function passed in by the user. This function should return
-a `Map` of `TopicPartition` to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
+a `Map` of `TopicPartition` (@javadoc[API](org.apache.kafka.common.TopicPartition)) to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
 that is not included in the `Map` that results from `getOffsetsOnAssign`, the default starting position will be used,
 according to the consumer configuration value `auto.offset.reset`. Also note that `Consumer.plainPartitionedManualOffsetSource`
 emits tuples of assigned topic-partition and a corresponding source, as in [Source per partition](#source-per-partition).
 
+
 ## Offset Storage in Kafka
 
-The `Consumer.committableSource` makes it possible to commit offset positions to Kafka.
+The `Consumer.committableSource` 
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+makes it possible to commit offset positions to Kafka.
 
 Compared to auto-commit this gives exact control of when a message is considered consumed.
 
@@ -122,6 +128,7 @@ are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
 
+
 ## Connecting Producer and Consumer
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
@@ -142,9 +149,12 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlowBatch }
 
+
 ## Source per partition
 
-`Consumer.plainPartitionedSource` and `Consumer.committablePartitionedSource` supports tracking the automatic partition assignment from Kafka. When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source. When topic-partition is revoked then corresponding source completes.
+`Consumer.plainPartitionedSource` 
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+and `Consumer.committablePartitionedSource` supports tracking the automatic partition assignment from Kafka. When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source. When topic-partition is revoked then corresponding source completes.
 
 Backpressure per partition with batch commit:
 
@@ -168,9 +178,12 @@ Join flows based on automatically assigned partitions:
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #committablePartitionedSource3 }
 
+
 ## Sharing KafkaConsumer
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer`. That can be shared via the `KafkaConsumerActor`. You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` factory methods.
+If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)). That can be shared via the `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+ factory methods.
 
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerActor }

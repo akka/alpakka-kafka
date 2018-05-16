@@ -2,11 +2,11 @@
 
 A producer publishes messages to Kafka topics. The message itself contains information about what topic and partition to publish to so you can publish to different topics with the same producer.
 
-The underlying implementation is using the `KafkaProducer`, see [Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) for details.
+The underlying implementation is using the `KafkaProducer`, see the @javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer) for details.
 
 ## Settings
 
-When creating a producer stream you need to pass in `ProducerSettings` that define things like:
+When creating a producer stream you need to pass in `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) that define things like:
 
 * bootstrap servers of the Kafka cluster
 * serializers for the keys and values
@@ -18,17 +18,19 @@ Scala
 Java
 : @@ snip [flow](../../test/java/sample/javadsl/ProducerExample.java) { #settings }
 
-In addition to programmatic construction of the `ProducerSettings` it can also be created from configuration (`application.conf`). By default when creating `ProducerSettings` with the `ActorSystem` parameter it uses the config section `akka.kafka.producer`.
+In addition to programmatic construction of the `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) it can also be created from configuration (`application.conf`). By default when creating `ProducerSettings` with the `ActorSystem` (@scaladoc[API](akka.actor.ActorSystem)) parameter it uses the config section `akka.kafka.producer`.
 
 @@ snip [flow](../../../../core/src/main/resources/reference.conf) { #producer-settings }
 
-`ProducerSettings` can also be created from any other `Config` section with the same layout as above.
+`ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) can also be created from any other `Config` (@scaladoc[API](com.typesafe.config.Config)) section with the same layout as above.
 
-See [KafkaProducer Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) and [ProducerConfig Javadoc](http://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/ProducerConfig.html) for details.
+See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for more details regarding settings.
 
 ## Producer as a Sink
 
-`Producer.plainSink` is the easiest way to publish messages. The sink consumes `ProducerRecord` elements which contains a topic name to which the record is being sent, an optional partition number, and an optional key and value.
+`Producer.plainSink` 
+(@scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer)]@java[@scaladoc[Producer API](akka.kafka.javadsl.Producer)]) 
+is the easiest way to publish messages. The sink consumes `ProducerRecord` (@javadoc[API](org.apache.kafka.clients.producer.ProducerRecord)) elements which contains a topic name to which the record is being sent, an optional partition number, and an optional key and value.
 
 Scala
 : @@ snip [plainSink](../../test/scala/sample/scaladsl/ProducerExample.scala) { #plainSink }
@@ -36,7 +38,7 @@ Scala
 
 Java
 : @@ snip [plainSink](../../test/java/sample/javadsl/ProducerExample.java) { #plainSink }
-  The materialized value of the sink is a `CompletionStage[Done]` which is completed with `Done` when the stream completes or with exception if an error occurs.
+  The materialized value of the sink is a `CompletionStage<Done>` which is completed with `Done` when the stream completes or with exception if an error occurs.
 
 There is another variant of a producer sink named `Producer.commitableSink` that is useful when connecting a consumer to a producer and let the sink commit the offset back to the consumer when it has successfully published the message.
 
@@ -46,7 +48,7 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerSink }
 
-Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "at-least once delivery" semantics.
+Note that there is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least once delivery" semantics.
 
 ## Producer as a Flow
 
@@ -66,9 +68,10 @@ Scala
 Java
 : @@ snip [consumerToProducerFlow](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
 
+
 ## Sharing KafkaProducer
 
-If you have many streams it can be more efficient to share the underlying `KafkaProducer`.
+If you have many streams it can be more efficient to share the underlying `KafkaProducer` instance.
 
 You can create a `KafkaProducer` instance from `ProducerSettings`.
 
@@ -86,10 +89,10 @@ Scala
 Java
 : @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #plainSinkWithProducer }
 
+
 ## Accessing KafkaProducer metrics
 
-As it is possible to share an existing `KafkaProducer` (as shown in the previous section),
-accessing its metrics is fairly simple:
+By passing an explicit reference to a `KafkaProducer` (as shown in the previous section) its metrics become accessible. Refer to the @javadoc[MetricName API](org.apache.kafka.common.MetricName) for more details.
 
 Scala
 : @@ snip [plainSinkWithProducer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #producerMetrics }

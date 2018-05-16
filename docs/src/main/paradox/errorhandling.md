@@ -2,12 +2,12 @@
 
 ## Failing consumer
 
-When a consumer fails to read from Kafka due to connection problems, it throws a WakeupException which is handled internally with retries. Refer to consumer configuration [settings](consumer.html#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
+When a consumer fails to read from Kafka due to connection problems, it throws a @javadoc[WakeupException](org.apache.kafka.common.errors.WakeupException) which is handled internally with retries. Refer to consumer configuration [settings](consumer.html#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
 When the last retry fails, source stage will be failed with an exception.
 
 ## Failing producer
 
-Retry handling in case of producer is built-in into Kafka. In case of failure when sending a message, an exception will be thrown, which should fail the stream. 
+Retry handling for producers is built-in into Kafka. In case of failure when sending a message, an exception will be thrown, which should fail the stream. 
 
 ## Restarting the stream
 
