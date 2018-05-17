@@ -10,6 +10,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 
 // Connect a Consumer to Producer, mapping messages one-to-many, and commit in batches
 object AtLeastOnceOneToManyExample extends ConsumerExample {
+
   def main(args: Array[String]): Unit = {
     val done =
       // #oneToMany
@@ -17,11 +18,11 @@ object AtLeastOnceOneToManyExample extends ConsumerExample {
         .mapConcat(msg =>
           List(
             ProducerMessage.Message(
-              new ProducerRecord[Array[Byte], String]("topic2", msg.record.value),
+              new ProducerRecord[String, Array[Byte]]("topic2", msg.record.key, msg.record.value),
               None
             ),
             ProducerMessage.Message(
-              new ProducerRecord[Array[Byte], String]("topic2", msg.record.value),
+              new ProducerRecord[String, Array[Byte]]("topic2", msg.record.key, msg.record.value),
               Some(msg.committableOffset)
             )
           ))

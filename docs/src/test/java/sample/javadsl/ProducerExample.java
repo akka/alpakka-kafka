@@ -31,11 +31,11 @@ abstract class ProducerExample {
 
   // #producer
   // #settings
-  protected final ProducerSettings<byte[], String> producerSettings = ProducerSettings
-    .create(system, new ByteArraySerializer(), new StringSerializer())
+  protected final ProducerSettings<String, String> producerSettings = ProducerSettings
+    .create(system, new StringSerializer(), new StringSerializer())
     .withBootstrapServers("localhost:9092");
   // #settings
-  protected final KafkaProducer<byte[], String> kafkaProducer = producerSettings.createKafkaProducer();
+  protected final KafkaProducer<String, String> kafkaProducer = producerSettings.createKafkaProducer();
   // #producer
 
   protected void terminateWhenDone(CompletionStage<Done> result) {
@@ -57,7 +57,7 @@ class PlainSinkExample extends ProducerExample {
     // #plainSink
     CompletionStage<Done> done =
       Source.range(1, 100)
-        .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+        .map(n -> n.toString()).map(elem -> new ProducerRecord<String, String>("topic1", elem))
         .runWith(Producer.plainSink(producerSettings), materializer);
     // #plainSink
 
@@ -74,7 +74,7 @@ class PlainSinkWithProducerExample extends ProducerExample {
         // #plainSinkWithProducer
         CompletionStage<Done> done =
                 Source.range(1, 100)
-                        .map(n -> n.toString()).map(elem -> new ProducerRecord<byte[], String>("topic1", elem))
+                        .map(n -> n.toString()).map(elem -> new ProducerRecord<String, String>("topic1", elem))
                         .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
         // #plainSinkWithProducer
 
@@ -108,12 +108,12 @@ class ProducerFlowExample extends ProducerExample {
           //int partition = Math.abs(n) % 2;
           int partition = 0;
           String elem = String.valueOf(n);
-          return new ProducerMessage.Message<byte[], String, Integer>(
+          return new ProducerMessage.Message<String, String, Integer>(
             new ProducerRecord<>("topic1", partition, null, elem), n);
         })
         .via(Producer.flow(producerSettings))
         .map(result -> {
-          ProducerRecord<byte[], String> record = result.message().record();
+          ProducerRecord<String, String> record = result.message().record();
           System.out.println(record);
           return result;
         })

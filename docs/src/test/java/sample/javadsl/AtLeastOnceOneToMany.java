@@ -33,11 +33,11 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
             Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
                 .mapConcat(msg ->
                      Arrays.asList(
-                        new ProducerMessage.Message<byte[], String, Optional<CommittableOffset>>(
+                        new ProducerMessage.Message<String, byte[], Optional<CommittableOffset>>(
                             new ProducerRecord<>("topic2", msg.record().value()),
                             Optional.empty()
                         ),
-                        new ProducerMessage.Message<byte[], String, Optional<CommittableOffset>>(
+                        new ProducerMessage.Message<String, byte[], Optional<CommittableOffset>>(
                             new ProducerRecord<>("topic2", msg.record().value()),
                             Optional.ofNullable(msg.committableOffset())
                         )
