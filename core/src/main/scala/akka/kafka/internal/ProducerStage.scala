@@ -70,6 +70,7 @@ private[kafka] class ProducerStage[K, V, P](
         override def onPush() = {
           val msg = grab(in)
           val r = Promise[Result[K, V, P]]
+          awaitingConfirmation.incrementAndGet()
           producer.send(msg.record, new Callback {
             override def onCompletion(metadata: RecordMetadata, exception: Exception) = {
               if (exception == null) {
@@ -91,7 +92,6 @@ private[kafka] class ProducerStage[K, V, P](
                 checkForCompletionCB.invoke(())
             }
           })
-          awaitingConfirmation.incrementAndGet()
           push(out, r.future)
         }
 
