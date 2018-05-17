@@ -30,16 +30,23 @@ import scala.util.{Failure, Success, Try}
  */
 private[kafka] object ProducerStage {
 
-  class DefaultProducerStage[K, V, P](val closeTimeout: FiniteDuration, val closeProducerOnStop: Boolean,
-      val producerProvider: () => Producer[K, V])
+  class DefaultProducerStage[K, V, P](
+      val closeTimeout: FiniteDuration,
+      val closeProducerOnStop: Boolean,
+      val producerProvider: () => Producer[K, V]
+  )
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] with ProducerStage[K, V, P] {
 
     override def createLogic(inheritedAttributes: Attributes) =
       new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
   }
 
-  class TransactionProducerStage[K, V, P](val closeTimeout: FiniteDuration, val closeProducerOnStop: Boolean,
-      val producerProvider: () => Producer[K, V], commitInterval: FiniteDuration)
+  class TransactionProducerStage[K, V, P](
+      val closeTimeout: FiniteDuration,
+      val closeProducerOnStop: Boolean,
+      val producerProvider: () => Producer[K, V],
+      commitInterval: FiniteDuration
+  )
     extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] with ProducerStage[K, V, P] {
 
     override def createLogic(inheritedAttributes: Attributes) =
@@ -116,6 +123,7 @@ private[kafka] object ProducerStage {
 
     def produce(msg: Message[K, V, P]): Unit = {
       val r = Promise[Result[K, V, P]]
+      awaitingConfirmation.incrementAndGet()
       producer.send(msg.record, new Callback {
         override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
           if (exception == null) {
@@ -138,40 +146,8 @@ private[kafka] object ProducerStage {
             checkForCompletionCB.invoke(())
         }
       })
-      awaitingConfirmation.incrementAndGet()
       push(stage.out, r.future)
     }
-
-
-    setHandler(stage.in, new InHandler {
-      override def onPush(): Unit = {
-        val msg = grab(stage.in)
-        val r = Promise[Result[K, V, P]]
-        awaitingConfirmation.incrementAndGet()
-        producer.send(msg.record, new Callback {
-          override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-            if (exception == null) {
-              r.success(Result(metadata, msg))
-            }
-            else {
-              decider(exception) match {
-                case Supervision.Stop =>
-                  if (stage.closeProducerOnStop) {
-                    producer.close(0, TimeUnit.MILLISECONDS)
-                  }
-                  failStageCb.invoke(exception)
-                case _ =>
-                  r.failure(exception)
-              }
-            }
-
-            if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-              checkForCompletionCB.invoke(())
-          }
-        })
-        push(stage.out, r.future)
-      }
-    })
 
     override def postStop(): Unit = {
       log.debug("Stage completed")
