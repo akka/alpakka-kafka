@@ -10,6 +10,10 @@ jobs:
     - script: sbt -jvm-opts .jvmopts-travis +test
       jdk: oraclejdk9
 
+    - script: sbt -jvm-opts .jvmopts-travis mimaReportBinaryIssues
+      jdk: oraclejdk8
+      env: mimaReportBinaryIssues
+
     - stage: whitesource
       script: sbt -jvm-opts .jvmopts-travis whitesourceCheckPolicies whitesourceUpdate
       jdk: oraclejdk8
