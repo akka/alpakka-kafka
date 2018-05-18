@@ -5,80 +5,76 @@
 
 package akka.kafka.scaladsl
 
-import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.Message
-import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.test.Utils._
 import akka.kafka._
 import akka.kafka.test.Utils._
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{TestKit, TestProbe}
 import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
 class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   with WordSpecLike with Matchers with BeforeAndAfterAll
-  with BeforeAndAfterEach with TypeCheckedTripleEquals with Eventually {
+  with Eventually {
 
-  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
-  implicit val mat = ActorMaterializer()(system)
-  implicit val ec = system.dispatcher
-  implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map(
+  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
+  implicit val mat: Materializer = ActorMaterializer()
+  implicit val ec: ExecutionContext = system.dispatcher
+  implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map(
     "offsets.topic.replication.factor" -> "1",
     "offsets.retention.minutes" -> "1",
     "offsets.retention.check.interval.ms" -> "100"
   ))
+
   val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
+
+  var testProducer: KafkaProducer[String, String] = _
 
   val DefaultKey = "key"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    EmbeddedKafka.start()
-  }
-
-  override def afterAll(): Unit = {
-    shutdown(system, 30.seconds)
-    EmbeddedKafka.stop()
-    super.afterAll()
-  }
-
-  def uuid = UUID.randomUUID().toString
-
-  def createTopic(number: Int) = s"topic$number-" + uuid
-
-  def createGroup(number: Int) = s"group$number-" + uuid
-
-  val partition0 = 0
-
   val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
 
-  def givenInitializedTopic(topic: String): Unit = {
-    val producer = producerSettings.createKafkaProducer()
-    producer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
-    producer.close(60, TimeUnit.SECONDS)
+  override protected def beforeAll(): Unit = {
+    EmbeddedKafka.start()
+    testProducer = producerSettings.createKafkaProducer()
   }
+
+  override def afterAll(): Unit = {
+    testProducer.close(60, TimeUnit.SECONDS)
+    TestKit.shutdownActorSystem(system)
+    EmbeddedKafka.stop()
+  }
+
+  val topicCounter = new AtomicInteger()
+
+  def createTopic(number: Int) = s"topic$number-${topicCounter.incrementAndGet()}"
+
+  def createGroup(number: Int) = s"group$number-${topicCounter.incrementAndGet()}"
+
+  val partition0 = 0
+
+  def givenInitializedTopic(topic: String): Unit =
+    testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
 
   /**
    * Produce messages to topic using specified range and return
@@ -91,7 +87,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Message(record, NotUsed)
       })
-      .viaMat(Producer.flow(settings))(Keep.right)
+      .viaMat(Producer.flow(settings, testProducer))(Keep.right)
 
     source.runWith(Sink.ignore)
   }
@@ -237,10 +233,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    "resume consumer from committed offset after retention period" in assertAllStagesStopped {
+    "resume consumer from committed offset after retention period" ignore assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
-      val group2 = createGroup(2)
 
       givenInitializedTopic(topic1)
 
@@ -593,108 +588,5 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       }
     }
 
-    "complete a consume-transform-produce transaction" in {
-      assertAllStagesStopped {
-        val sourceTopic = createTopic(1)
-        val sinkTopic = createTopic(2)
-        val group = createGroup(1)
-
-        givenInitializedTopic(sourceTopic)
-        givenInitializedTopic(sinkTopic)
-
-        Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
-
-        val consumerSettings = createConsumerSettings(group)
-
-        val control = Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-          .filterNot(_.record.value() == InitialMsg)
-          .map { msg =>
-            ProducerMessage.Message(
-              new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value), msg.partitionOffset)
-          }
-          .via(Producer.transactionalFlow(producerSettings, group))
-          .toMat(Sink.ignore)(Keep.left)
-          .run()
-
-        val probeConsumerGroup = createGroup(2)
-        val probeConsumerSettings = createConsumerSettings(probeConsumerGroup)
-          .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
-
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .runWith(TestSink.probe)
-
-        probeConsumer
-          .request(100)
-          .expectNextN((1 to 100).map(_.toString))
-
-        probeConsumer.cancel()
-        Await.result(control.shutdown(), remainingOrDefault)
-      }
-    }
-
-    "complete a consume-transform-produce transaction with transient failure causing an abort with restartable source" in {
-      assertAllStagesStopped {
-        val sourceTopic = createTopic(1)
-        val sinkTopic = createTopic(2)
-        val group = createGroup(1)
-
-        givenInitializedTopic(sourceTopic)
-        givenInitializedTopic(sinkTopic)
-
-        Await.result(produce(sourceTopic, 1 to 1000), remainingOrDefault)
-
-        val consumerSettings = createConsumerSettings(group)
-
-        var restartCount = 0
-        var innerControl = null.asInstanceOf[Control]
-
-        val restartSource = RestartSource.onFailuresWithBackoff(
-          minBackoff = 0.1.seconds,
-          maxBackoff = 1.seconds,
-          randomFactor = 0.2
-        ) { () =>
-          restartCount += 1
-          Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-            .filterNot(_.record.value() == InitialMsg)
-            .map { msg =>
-              if (msg.record.value().toInt == 500 && restartCount < 2) {
-                // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
-                // up until this record (0 -> 500)
-                Thread.sleep(producerSettings.eosCommitInterval.toMillis + 10)
-              }
-              if (msg.record.value().toInt == 501 && restartCount < 2) {
-                throw new RuntimeException("Uh oh..")
-              }
-              else {
-                ProducerMessage.Message(
-                  new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value()), msg.partitionOffset)
-              }
-            }
-            // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
-            .mapMaterializedValue(innerControl = _)
-            .via(Producer.transactionalFlow(producerSettings, group))
-        }
-
-        restartSource.runWith(Sink.ignore)
-
-        val probeGroup = createGroup(2)
-        val probeConsumerSettings = createConsumerSettings(probeGroup)
-          .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
-
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .runWith(TestSink.probe)
-
-        probeConsumer
-          .request(1000)
-          .expectNextN((1 to 1000).map(_.toString))
-
-        probeConsumer.cancel()
-        Await.result(innerControl.shutdown(), remainingOrDefault)
-      }
-    }
   }
 }
