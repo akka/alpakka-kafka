@@ -12,7 +12,6 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
 import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
-import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.scaladsl.Consumer
 import Consumer.Control
 import akka.stream._

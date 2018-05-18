@@ -17,7 +17,6 @@ import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class RetentionPeriodSpec extends SpecBase(kafkaPort = 9012) {
 
@@ -58,7 +57,7 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = 9012) {
         .request(25)
         .expectNextN(25).toSet should be(Set(Done))
 
-      val longerThanRetentionPeriod = 70000
+      val longerThanRetentionPeriod = 70000L
       Thread.sleep(longerThanRetentionPeriod)
 
       probe1.cancel()

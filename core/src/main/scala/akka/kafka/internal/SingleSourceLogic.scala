@@ -15,10 +15,9 @@ import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
 import akka.util.Timeout
-import org.apache.kafka.clients.consumer.{Consumer, ConsumerRecord}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.collection.JavaConverters._
 import scala.annotation.tailrec
 import scala.concurrent.Future
 

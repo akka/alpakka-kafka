@@ -10,9 +10,8 @@ import akka.stream.javadsl.RestartSource;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import scala.concurrent.duration.Duration;
 
-import java.util.concurrent.TimeUnit;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 class TransactionsSink extends ConsumerExample {
@@ -44,8 +43,8 @@ class TransactionsFailureRetryExample extends ConsumerExample {
 
         Source<ProducerMessage.Result<byte[], String, ConsumerMessage.PartitionOffset>,NotUsed> stream =
             RestartSource.onFailuresWithBackoff(
-                Duration.apply(3, TimeUnit.SECONDS), // min backoff
-                Duration.apply(30, TimeUnit.SECONDS), // max backoff
+                java.time.Duration.of(3, ChronoUnit.SECONDS), // min backoff
+                java.time.Duration.of(30, ChronoUnit.SECONDS), // max backoff
                 0.2, // adds 20% "noise" to vary the intervals slightly
                 () -> Consumer.transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
                     .via(business())

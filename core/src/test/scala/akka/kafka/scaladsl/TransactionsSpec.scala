@@ -5,9 +5,6 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
-import akka.Done
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
@@ -18,10 +15,8 @@ import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class TransactionsSpec extends SpecBase(kafkaPort = 9022) {
 
