@@ -5,111 +5,32 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.ActorSystem
+import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
-import akka.kafka.ProducerMessage.Message
 import akka.kafka._
 import akka.kafka.test.Utils._
-import akka.stream.{ActorMaterializer, Materializer}
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.TestSubscriber
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.{TestKit, TestProbe}
-import akka.{Done, NotUsed}
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+import akka.testkit.TestProbe
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.scalatest._
-import org.scalatest.concurrent.Eventually
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.language.postfixOps
+import scala.concurrent.{Await, Future}
 
-class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
-  with WordSpecLike with Matchers with BeforeAndAfterAll
-  with Eventually {
+class IntegrationSpec extends SpecBase(kafkaPort = 9092) {
 
-  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
-  implicit val mat: Materializer = ActorMaterializer()
-  implicit val ec: ExecutionContext = system.dispatcher
-  implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = EmbeddedKafkaConfig(9092, 2181, Map(
-    "offsets.topic.replication.factor" -> "1",
-    "offsets.retention.minutes" -> "1",
-    "offsets.retention.check.interval.ms" -> "100"
-  ))
-
-  val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
-
-  var testProducer: KafkaProducer[String, String] = _
-
-  val DefaultKey = "key"
-  val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
-
-  val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
-    .withBootstrapServers(bootstrapServers)
-
-  override protected def beforeAll(): Unit = {
-    EmbeddedKafka.start()
-    testProducer = producerSettings.createKafkaProducer()
-  }
-
-  override def afterAll(): Unit = {
-    testProducer.close(60, TimeUnit.SECONDS)
-    TestKit.shutdownActorSystem(system)
-    EmbeddedKafka.stop()
-  }
-
-  val topicCounter = new AtomicInteger()
-
-  def createTopic(number: Int) = s"topic$number-${topicCounter.incrementAndGet()}"
-
-  def createGroup(number: Int) = s"group$number-${topicCounter.incrementAndGet()}"
-
-  val partition0 = 0
-
-  def givenInitializedTopic(topic: String): Unit =
-    testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
-
-  /**
-   * Produce messages to topic using specified range and return
-   * a Future so the caller can synchronize consumption.
-   */
-  def produce(topic: String, range: Range, settings: ProducerSettings[String, String] = producerSettings): Future[Done] = {
-    val source = Source(range)
-      .map(n => {
-        val record = new ProducerRecord(topic, partition0, DefaultKey, n.toString)
-
-        Message(record, NotUsed)
-      })
-      .viaMat(Producer.flow(settings, testProducer))(Keep.right)
-
-    source.runWith(Sink.ignore)
-  }
-
-  def createConsumerSettings(group: String): ConsumerSettings[String, String] = {
-    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
-      .withBootstrapServers("localhost:9092")
-      .withGroupId(group)
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-      .withWakeupTimeout(10 seconds)
-      .withMaxWakeups(10)
-  }
-
-  def createProbe(
-    consumerSettings: ConsumerSettings[String, String],
-    topic: String
-  ): TestSubscriber.Probe[String] = {
-    Consumer.plainSource(consumerSettings, Subscriptions.topics(Set(topic)))
-      .filterNot(_.value == InitialMsg)
-      .map(_.value)
-      .runWith(TestSink.probe)
-  }
+  def createKafkaConfig: EmbeddedKafkaConfig =
+    EmbeddedKafkaConfig(
+      kafkaPort,
+      zooKeeperPort,
+      Map(
+        "offsets.topic.replication.factor" -> "1"
+      ))
 
   "Reactive kafka streams" must {
     "produce to plainSink and consume from plainSource" in {
@@ -121,8 +42,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group1)
-        val probe = createProbe(consumerSettings, topic1)
+        val probe = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
         probe
           .request(100)
@@ -145,13 +65,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       Source(1 to 100)
         .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerSettings))
+        .runWith(Producer.plainSink(producerDefaults))
 
       val committedElements = new ConcurrentLinkedQueue[Int]()
 
-      val consumerSettings = createConsumerSettings(group1)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
+      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
@@ -169,7 +89,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
+      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
         .runWith(TestSink.probe)
 
@@ -179,7 +99,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // some concurrent publish
       Source(101 to 200)
         .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerSettings))
+        .runWith(Producer.plainSink(producerDefaults))
 
       probe2
         .request(100)
@@ -188,7 +108,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       probe2.cancel()
 
       // another consumer should see all
-      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(Set(topic1)))
+      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .map(_.record.value)
         .runWith(TestSink.probe)
@@ -204,15 +124,15 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
-      val consumerSettings = createConsumerSettings(group1)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
 
       val listener = TestProbe()
 
-      val sub = Subscriptions.topics(Set(topic1)).withRebalanceListener(listener.ref)
+      val sub = Subscriptions.topics(topic1).withRebalanceListener(listener.ref)
       val (control, probe1) = Consumer.committableSource(consumerSettings, sub)
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ ⇒ Done }
+          elem.committableOffset.commitScaladsl()
         }
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -233,75 +153,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
     }
 
-    "resume consumer from committed offset after retention period" ignore assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
-
-      givenInitializedTopic(topic1)
-
-      // NOTE: If no partition is specified but a key is present a partition will be chosen
-      // using a hash of the key. If neither key nor partition is present a partition
-      // will be assigned in a round-robin fashion.
-
-      Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerSettings))
-
-      val committedElements = new ConcurrentLinkedQueue[Int]()
-
-      val consumerSettings = createConsumerSettings(group1).withCommitRefreshInterval(5.seconds)
-
-      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .filterNot(_.record.value == InitialMsg)
-        .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ =>
-            committedElements.add(elem.record.value.toInt)
-            Done
-          }
-        }
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
-
-      probe1
-        .request(25)
-        .expectNextN(25).toSet should be(Set(Done))
-
-      Thread.sleep(70000)
-
-      probe1.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-
-      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .map(_.record.value)
-        .runWith(TestSink.probe)
-
-      // Note that due to buffers and mapAsync(10) the committed offset is more
-      // than 26, and that is not wrong
-
-      // some concurrent publish
-      Source(101 to 200)
-        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerSettings))
-
-      probe2
-        .request(100)
-        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
-
-      Thread.sleep(70000)
-
-      probe2.cancel()
-
-      val probe3 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .map(_.record.value)
-        .runWith(TestSink.probe)
-
-      probe3
-        .request(100)
-        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
-
-      probe3.cancel()
-    }
-
     "handle commit without demand" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
@@ -312,9 +163,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // to trigger the intended scenario
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val consumerSettings = createConsumerSettings(group1)
-
-      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(Set(topic1)))
+      val (control, probe1) = Consumer.committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -350,12 +199,12 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       givenInitializedTopic(topic1)
 
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-      val consumerSettings = createConsumerSettings(group1)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
 
       def consumeAndBatchCommit(topic: String) = {
         Consumer.committableSource(
           consumerSettings,
-          Subscriptions.topics(Set(topic))
+          Subscriptions.topics(topic)
         )
           .map { msg => msg.committableOffset }
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
@@ -374,10 +223,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       Await.result(control.isShutdown, remainingOrDefault)
 
       // Resume consumption
-      val consumerSettings2 = createConsumerSettings(group1)
-      val probe2 = createProbe(consumerSettings2, topic1)
+      val probe2 = createProbe(consumerSettings, topic1)
 
-      val element = probe2.request(1).expectNext(60 seconds)
+      val element = probe2.request(1).expectNext(60.seconds)
 
       Assertions.assert(element.toInt > 1, "Should start after first element")
       probe2.cancel()
@@ -393,9 +241,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-        val consumerSettings1 = createConsumerSettings(group1)
-
-        val source = Consumer.committableSource(consumerSettings1, Subscriptions.topics(Set(topic1)))
+        val source = Consumer.committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
           .map(msg => {
             ProducerMessage.Message(
               // Produce to topic2
@@ -403,12 +249,12 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
               msg.committableOffset
             )
           })
-          .via(Producer.flow(producerSettings))
+          .via(Producer.flow(producerDefaults))
           .map(_.message.passThrough)
           .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
             batch.updated(elem)
           }
-          .mapAsync(producerSettings.parallelism)(_.commitScaladsl())
+          .mapAsync(producerDefaults.parallelism)(_.commitScaladsl())
 
         val probe = source.runWith(TestSink.probe)
 
@@ -424,15 +270,13 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         val group1 = createGroup(1)
         // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
         // effectively failing the production of the first messages
-        val failFirstMessagesProducerSettings = producerSettings.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
+        val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
 
         givenInitializedTopic(topic1)
 
         Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group1)
-
-        val probe = createProbe(consumerSettings, topic1)
+        val probe = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
         probe
           .request(100)
@@ -451,9 +295,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group)
-
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), _ => Future.successful(Map.empty))
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), _ => Future.successful(Map.empty))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -476,9 +318,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group)
-
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), tp => Future.successful(tp.map(_ -> 51L).toMap))
+        val probe = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), tp => Future.successful(tp.map(_ -> 51L).toMap))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -501,11 +341,9 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group)
-
         var revoked = false
 
-        val source = Consumer.plainPartitionedManualOffsetSource(consumerSettings, Subscriptions.topics(Set(topic)), _ => Future.successful(Map.empty), _ => revoked = true)
+        val source = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), _ => Future.successful(Map.empty), _ => revoked = true)
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -524,8 +362,11 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       }
     }
+  }
 
-    "complete source when control stopped" in {
+  "Consumer control" must {
+
+    "complete source when stopped" in
       assertAllStagesStopped {
         val topic = createTopic(1)
         val group = createGroup(1)
@@ -534,9 +375,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group)
-
-        val (control, probe) = Consumer.plainSource(consumerSettings, Subscriptions.topics(Set(topic)))
+        val (control, probe) = Consumer.plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .toMat(TestSink.probe)(Keep.both)
@@ -554,9 +393,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         control.shutdown()
         probe.cancel()
       }
-    }
 
-    "complete partition sources when the main source control stopped" in {
+    "complete partition sources when stopped" in
       assertAllStagesStopped {
         val topic = createTopic(1)
         val group = createGroup(1)
@@ -565,9 +403,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val consumerSettings = createConsumerSettings(group)
-
-        val (control, probe) = Consumer.plainPartitionedSource(consumerSettings, Subscriptions.topics(Set(topic)))
+        val (control, probe) = Consumer.plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -586,7 +422,6 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
         control.shutdown()
         probe.cancel()
       }
-    }
 
   }
 }
