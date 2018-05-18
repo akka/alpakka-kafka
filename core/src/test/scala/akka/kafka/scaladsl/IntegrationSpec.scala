@@ -25,7 +25,7 @@ import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
@@ -48,6 +48,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     "offsets.retention.check.interval.ms" -> "100"
   ))
   val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
+
+  val DefaultKey = "key"
   val InitialMsg = "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
   override protected def beforeAll(): Unit = {
@@ -69,12 +71,12 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
   val partition0 = 0
 
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
     .withBootstrapServers(bootstrapServers)
 
   def givenInitializedTopic(topic: String): Unit = {
     val producer = producerSettings.createKafkaProducer()
-    producer.send(new ProducerRecord(topic, partition0, null: Array[Byte], InitialMsg))
+    producer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
     producer.close(60, TimeUnit.SECONDS)
   }
 
@@ -82,10 +84,10 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
    * Produce messages to topic using specified range and return
    * a Future so the caller can synchronize consumption.
    */
-  def produce(topic: String, range: Range, settings: ProducerSettings[Array[Byte], String] = producerSettings): Future[Done] = {
+  def produce(topic: String, range: Range, settings: ProducerSettings[String, String] = producerSettings): Future[Done] = {
     val source = Source(range)
       .map(n => {
-        val record = new ProducerRecord(topic, partition0, null: Array[Byte], n.toString)
+        val record = new ProducerRecord(topic, partition0, DefaultKey, n.toString)
 
         Message(record, NotUsed)
       })
@@ -94,8 +96,8 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
     source.runWith(Sink.ignore)
   }
 
-  def createConsumerSettings(group: String): ConsumerSettings[Array[Byte], String] = {
-    ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
+  def createConsumerSettings(group: String): ConsumerSettings[String, String] = {
+    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
@@ -104,7 +106,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
   }
 
   def createProbe(
-    consumerSettings: ConsumerSettings[Array[Byte], String],
+    consumerSettings: ConsumerSettings[String, String],
     topic: String
   ): TestSubscriber.Probe[String] = {
     Consumer.plainSource(consumerSettings, Subscriptions.topics(Set(topic)))
@@ -146,7 +148,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // will be assigned in a round-robin fashion.
 
       Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
       val committedElements = new ConcurrentLinkedQueue[Int]()
@@ -180,7 +182,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // some concurrent publish
       Source(101 to 200)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
       probe2
@@ -247,7 +249,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
       // will be assigned in a round-robin fashion.
 
       Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
       val committedElements = new ConcurrentLinkedQueue[Int]()
@@ -283,7 +285,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
 
       // some concurrent publish
       Source(101 to 200)
-        .map(n => new ProducerRecord(topic1, partition0, null: Array[Byte], n.toString))
+        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
         .runWith(Producer.plainSink(producerSettings))
 
       probe2
@@ -402,7 +404,7 @@ class IntegrationSpec extends TestKit(ActorSystem("IntegrationSpec"))
           .map(msg => {
             ProducerMessage.Message(
               // Produce to topic2
-              new ProducerRecord[Array[Byte], String](topic2, msg.record.value),
+              new ProducerRecord[String, String](topic2, msg.record.value),
               msg.committableOffset
             )
           })
