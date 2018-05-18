@@ -56,7 +56,9 @@ object ProducerSettings {
     val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
     val dispatcher = config.getString("use-dispatcher")
-    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher)
+    val eosCommitInterval = config.getDuration("eos-commit-interval", TimeUnit.MILLISECONDS).millis
+    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher,
+      eosCommitInterval)
   }
 
   /**
@@ -146,7 +148,8 @@ class ProducerSettings[K, V](
     val valueSerializerOpt: Option[Serializer[V]],
     val closeTimeout: FiniteDuration,
     val parallelism: Int,
-    val dispatcher: String
+    val dispatcher: String,
+    val eosCommitInterval: FiniteDuration
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ProducerSettings[K, V] =
@@ -189,15 +192,20 @@ class ProducerSettings[K, V](
   def withDispatcher(dispatcher: String): ProducerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
+  def withEosCommitInterval(eosCommitInterval: FiniteDuration): ProducerSettings[K, V] =
+    copy(eosCommitInterval = eosCommitInterval)
+
   private def copy(
     properties: Map[String, String] = properties,
     keySerializer: Option[Serializer[K]] = keySerializerOpt,
     valueSerializer: Option[Serializer[V]] = valueSerializerOpt,
     closeTimeout: FiniteDuration = closeTimeout,
     parallelism: Int = parallelism,
-    dispatcher: String = dispatcher
+    dispatcher: String = dispatcher,
+    eosCommitInterval: FiniteDuration = eosCommitInterval
   ): ProducerSettings[K, V] =
-    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher)
+    new ProducerSettings[K, V](properties, keySerializer, valueSerializer, closeTimeout, parallelism, dispatcher,
+      eosCommitInterval)
 
   /**
    * Create a `KafkaProducer` instance from the settings.
@@ -208,4 +216,9 @@ class ProducerSettings[K, V](
     }
     new KafkaProducer[K, V](javaProps, keySerializerOpt.orNull, valueSerializerOpt.orNull)
   }
+
+  /**
+   * Lazily evaluate and store KafkaProducer when it's needed for operations like transactions.
+   */
+  lazy val lazyProducer: KafkaProducer[K, V] = createKafkaProducer()
 }

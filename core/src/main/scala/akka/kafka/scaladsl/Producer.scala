@@ -11,7 +11,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.{Done, NotUsed}
-import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord, Producer => KProducer}
 
 import scala.concurrent.Future
 
@@ -73,19 +73,54 @@ object Producer {
       .toMat(Sink.ignore)(Keep.right)
 
   /**
+   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage#PartitionOffset]] from a [[Consumer]].  It will
+   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  def transactionalSink[K, V](
+    settings: ProducerSettings[K, V],
+    transactionalId: String
+  ): Sink[Message[K, V, ConsumerMessage.PartitionOffset], Future[Done]] = {
+    transactionalFlow(settings, transactionalId)
+      .toMat(Sink.ignore)(Keep.right)
+  }
+
+  /**
+   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Consumer]] that
+   * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
+   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
+   */
+  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Message[K, V, ConsumerMessage.PartitionOffset], Result[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
+    require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
+
+    val txSettings = settings.withProperties(
+      ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
+      ProducerConfig.TRANSACTIONAL_ID_CONFIG -> transactionalId,
+      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
+    )
+
+    val flow = Flow.fromGraph(new ProducerStage.TransactionProducerStage[K, V, ConsumerMessage.PartitionOffset](
+      txSettings.closeTimeout,
+      closeProducerOnStop = true,
+      () => txSettings.createKafkaProducer(),
+      settings.eosCommitInterval
+    )).mapAsync(txSettings.parallelism)(identity)
+
+    flowWithDispatcher(txSettings, flow)
+  }
+
+  /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
    * can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough](
       settings.closeTimeout,
       closeProducerOnStop = true,
       () => settings.createKafkaProducer()
     )).mapAsync(settings.parallelism)(identity)
 
-    if (settings.dispatcher.isEmpty) flow
-    else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
+    flowWithDispatcher(settings, flow)
   }
 
   /**
@@ -97,14 +132,17 @@ object Producer {
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage[K, V, PassThrough](
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough](
       closeTimeout = settings.closeTimeout,
       closeProducerOnStop = false,
       producerProvider = () => producer
     )).mapAsync(settings.parallelism)(identity)
 
+    flowWithDispatcher(settings, flow)
+  }
+
+  private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
-
 }

@@ -74,6 +74,26 @@ object Producer {
       .asJava
 
   /**
+   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage#PartitionOffset]] from a [[Consumer]].  It will
+   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  def transactionalSink[K, V](
+    settings: ProducerSettings[K, V],
+    transactionalId: String
+  ): Sink[Message[K, V, ConsumerMessage.PartitionOffset], CompletionStage[Done]] =
+    scaladsl.Producer.transactionalSink(settings, transactionalId)
+      .mapMaterializedValue(_.toJava)
+      .asJava
+
+  /**
+   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Consumer]] that
+   * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
+   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
+   */
+  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Message[K, V, ConsumerMessage.PartitionOffset], Result[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+    scaladsl.Producer.transactionalFlow(settings, transactionalId).asJava
+
+  /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
    * can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]] that can
    * be committed later in the flow.

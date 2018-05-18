@@ -29,6 +29,15 @@ object ConsumerMessage {
   )
 
   /**
+   * Output element of `transactionalSource`.
+   * The offset is automatically committed as by the Producer
+   */
+  final case class TransactionalMessage[K, V](
+      record: ConsumerRecord[K, V],
+      partitionOffset: PartitionOffset
+  )
+
+  /**
    * Commit an offset that is included in a [[CommittableMessage]].
    * If you need to store offsets in anything other than Kafka, this API
    * should not be used.
@@ -52,10 +61,6 @@ object ConsumerMessage {
    * i.e. lastProcessedMessageOffset + 1.
    */
   trait CommittableOffset extends Committable {
-    /**
-     * Information about the offset position for a
-     * groupId, topic, partition.
-     */
     def partitionOffset: PartitionOffset
   }
 

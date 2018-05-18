@@ -467,3 +467,4 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
     // #shutdownCommitableSource
   }
 }
+
