@@ -42,7 +42,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-        val probe = createProbe(consumerDefaults.withGroupId(group1), topic1)
+        val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
         probe
           .request(100)
@@ -223,7 +223,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
       Await.result(control.isShutdown, remainingOrDefault)
 
       // Resume consumption
-      val probe2 = createProbe(consumerSettings, topic1)
+      val (control2, probe2) = createProbe(consumerSettings, topic1)
 
       val element = probe2.request(1).expectNext(60.seconds)
 
@@ -276,7 +276,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
         Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
 
-        val probe = createProbe(consumerDefaults.withGroupId(group1), topic1)
+        val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
         probe
           .request(100)
