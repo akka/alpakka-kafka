@@ -18,7 +18,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TransactionsSpec extends SpecBase(kafkaPort = 9022) {
+class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(

@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class IntegrationSpec extends SpecBase(kafkaPort = 9092) {
+class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(

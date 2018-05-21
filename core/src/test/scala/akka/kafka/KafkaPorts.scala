@@ -3,7 +3,7 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka
 
 /**
  * Ports to use for Kafka and Zookeeper throughout integration tests.
