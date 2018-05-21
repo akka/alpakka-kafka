@@ -25,7 +25,7 @@ class TransactionsSink extends ConsumerExample {
             .transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
             .via(business())
             .map(msg ->
-                    new ProducerMessage.Message<byte[], String, ConsumerMessage.PartitionOffset>(
+                    new ProducerMessage.Message<String, byte[], ConsumerMessage.PartitionOffset>(
                             new ProducerRecord<>("sink-topic", msg.record().value()), msg.partitionOffset()))
             .runWith(Producer.transactionalSink(producerSettings, "transactional-id"), materializer);
         // #transactionalSink
@@ -41,7 +41,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
         // #transactionalFailureRetry
         AtomicReference<Consumer.Control> innerControl = null;
 
-        Source<ProducerMessage.Result<byte[], String, ConsumerMessage.PartitionOffset>,NotUsed> stream =
+        Source<ProducerMessage.Result<String, byte[], ConsumerMessage.PartitionOffset>,NotUsed> stream =
             RestartSource.onFailuresWithBackoff(
                 java.time.Duration.of(3, ChronoUnit.SECONDS), // min backoff
                 java.time.Duration.of(30, ChronoUnit.SECONDS), // max backoff
@@ -49,7 +49,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
                 () -> Consumer.transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
                     .via(business())
                     .map(msg ->
-                        new ProducerMessage.Message<byte[], String, ConsumerMessage.PartitionOffset>(
+                        new ProducerMessage.Message<String, byte[], ConsumerMessage.PartitionOffset>(
                             new ProducerRecord<>("sink-topic", msg.record().value()), msg.partitionOffset()))
                     // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
                     .mapMaterializedValue(control -> {
