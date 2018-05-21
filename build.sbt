@@ -115,6 +115,8 @@ lazy val core = project
   .settings(commonSettings)
   .settings(Seq(
     name := "akka-stream-kafka",
+    Test/fork := true,
+    Test/parallelExecution := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies
 ))
 

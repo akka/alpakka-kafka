@@ -21,7 +21,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.

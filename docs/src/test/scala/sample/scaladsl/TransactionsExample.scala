@@ -17,7 +17,7 @@ class TransactionsSink extends ConsumerExample {
         .via(business)
         .map { msg =>
           ProducerMessage.Message(
-            new ProducerRecord[Array[Byte], String]("sink-topic", msg.record.value), msg.partitionOffset)
+            new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
         }
         .runWith(Producer.transactionalSink(producerSettings, "transactional-id"))
     // #transactionalSink
@@ -40,7 +40,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
         .via(business)
         .map { msg =>
           ProducerMessage.Message(
-            new ProducerRecord[Array[Byte], String]("sink-topic", msg.record.value), msg.partitionOffset)
+            new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
         }
         // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
         .mapMaterializedValue(innerControl = _)
