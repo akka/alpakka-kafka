@@ -129,12 +129,12 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
   /**
    * Messages expected from #produceBatches generation.
    */
-  def batchMessagesExpected(topics: Seq[String], batches: Int, batchSize: Int): (Seq[String], Int) = {
+  def batchMessagesExpected(topics: Seq[String], batches: Int, batchSize: Int): (Seq[String], Long) = {
     val expectedData = topics.flatMap { topic =>
       (0 until batches * batchSize).map(i => topic + i.toString)
     }
     val expectedCount = batches * batchSize * topics.length
-    (expectedData, expectedCount)
+    (expectedData, expectedCount.toLong)
   }
 
   def createProbe(consumerSettings: ConsumerSettings[String, String], topic: String*): (Control, TestSubscriber.Probe[String]) =
