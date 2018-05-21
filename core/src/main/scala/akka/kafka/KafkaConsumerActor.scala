@@ -296,9 +296,9 @@ private[kafka] class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
   def poll(): Unit = {
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
       log.warning("KafkaConsumer poll has exceeded wake up timeout ({}ms). Waking up consumer to avoid thread starvation.", settings.wakeupTimeout.toMillis)
-      if (settings.wakeupDebug) {
+      if (settings.wakeupDebug && wakeups > settings.maxWakeups / 2) {
         val stacks = Thread.getAllStackTraces.asScala.map { case (k, v) => s"$k\n ${v.mkString("\n")}" }.mkString("\n\n")
-        log.warning("Wake up has been triggered. Dumping stacks: {}", stacks)
+        log.warning("Wake up has been triggered {} times (See setting akka.kafka.consumer.wakeup-debug). Dumping stacks: {}", wakeups, stacks)
       }
       consumer.wakeup()
     }(context.system.dispatcher)
