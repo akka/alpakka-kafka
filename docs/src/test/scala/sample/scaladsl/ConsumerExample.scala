@@ -4,13 +4,11 @@
  */
 package sample.scaladsl
 
-import akka.pattern.ask
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{ActorMaterializer}
 import akka.{Done, NotUsed}
@@ -32,13 +30,13 @@ trait ConsumerExample {
   val maxPartitions = 100
 
   // #settings
-  val consumerSettings = ConsumerSettings(system, new ByteArrayDeserializer, new StringDeserializer)
+  val consumerSettings = ConsumerSettings(system, new StringDeserializer, new ByteArrayDeserializer)
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   //#settings
 
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
     .withBootstrapServers("localhost:9092")
 
   def business[T] = Flow[T]
@@ -48,7 +46,7 @@ trait ConsumerExample {
 
     private val offset = new AtomicLong
 
-    def save(record: ConsumerRecord[Array[Byte], String]): Future[Done] = {
+    def save(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = {
       println(s"DB.save: ${record.value}")
       offset.set(record.offset)
       Future.successful(Done)
@@ -57,8 +55,8 @@ trait ConsumerExample {
     def loadOffset(): Future[Long] =
       Future.successful(offset.get)
 
-    def update(data: String): Future[Done] = {
-      println(s"DB.update: $data")
+    def update(key: String, data: Array[Byte]): Future[Done] = {
+      println(s"DB.update: $key")
       Future.successful(Done)
     }
   }
@@ -135,7 +133,7 @@ object AtMostOnceExample extends ConsumerExample {
 
     val done = Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
       .mapAsync(1) { record =>
-        rocket.launch(record.value)
+        rocket.launch(record.key)
       }
       .runWith(Sink.ignore)
     // #atMostOnce
@@ -153,7 +151,7 @@ object AtLeastOnceExample extends ConsumerExample {
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
-          db.update(msg.record.value).map(_ => msg)
+          db.update(msg.record.key, msg.record.value).map(_ => msg)
         }
         .mapAsync(1) { msg =>
           msg.committableOffset.commitScaladsl()
@@ -174,7 +172,7 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
-          db.update(msg.record.value).map(_ => msg.committableOffset)
+          db.update(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
         .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)
@@ -194,7 +192,7 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map { msg =>
         println(s"topic1 -> topic2: $msg")
-        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
+        ProducerMessage.Message(new ProducerRecord[String, Array[Byte]](
           "topic2",
           msg.record.value
         ), msg.committableOffset)
@@ -212,7 +210,7 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map { msg =>
           println(s"topic1 -> topic2: $msg")
-          ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
+          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]](
             "topic2",
             msg.record.value
           ), msg.committableOffset)
@@ -235,7 +233,7 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map(msg =>
-          ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
+          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value), msg.committableOffset))
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
         .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
@@ -255,7 +253,7 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
     val done =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map(msg =>
-          ProducerMessage.Message(new ProducerRecord[Array[Byte], String]("topic2", msg.record.value), msg.committableOffset))
+          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value), msg.committableOffset))
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
         // #groupedWithin
@@ -312,7 +310,7 @@ object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
 object ConsumerWithOtherSource extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #committablePartitionedSource3
-    type Msg = CommittableMessage[Array[Byte], String]
+    type Msg = CommittableMessage[String, Array[Byte]]
 
     def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
 
@@ -356,13 +354,13 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
 
     //Manually assign topic partition to it
     Consumer
-      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+      .plainExternalSource[String, Array[Byte]](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
       .via(business)
       .runWith(Sink.ignore)
 
     //Manually assign another topic partition
     Consumer
-      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
+      .plainExternalSource[String, Array[Byte]](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
       .via(business)
       .runWith(Sink.ignore)
     // #consumerActor
@@ -377,7 +375,7 @@ object ConsumerMetrics extends ConsumerExample {
 
     // use the consumer actor manually in streams:
     val control: Consumer.Control = Consumer
-      .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
+      .plainExternalSource[String, Array[Byte]](consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
       .via(business)
       .to(Sink.ignore)
       .run()
@@ -426,7 +424,7 @@ object RebalanceListenerExample extends ConsumerExample {
 
   //#withRebalanceListenerActor
 
-  def createActor(implicit system: ActorSystem): Source[ConsumerRecord[Array[Byte], String], Consumer.Control] = {
+  def createActor(implicit system: ActorSystem): Source[ConsumerRecord[String, Array[Byte]], Consumer.Control] = {
     //#withRebalanceListenerActor
     val listener = system.actorOf(Props[RebalanceListener])
 
@@ -474,7 +472,7 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
     val (consumerControl, streamComplete) =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
-          db.update(msg.record.value).map(_ => msg.committableOffset)
+          db.update(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
         .batch(max = 20, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
           batch.updated(elem)

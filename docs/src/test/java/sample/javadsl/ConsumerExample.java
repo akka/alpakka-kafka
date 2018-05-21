@@ -50,23 +50,23 @@ abstract class ConsumerExample {
   }
 
   // #settings
-  protected final ConsumerSettings<byte[], String> consumerSettings =
-      ConsumerSettings.create(system, new ByteArrayDeserializer(), new StringDeserializer())
+  protected final ConsumerSettings<String, byte[]> consumerSettings =
+      ConsumerSettings.create(system, new StringDeserializer(), new ByteArrayDeserializer())
     .withBootstrapServers("localhost:9092")
     .withGroupId("group1")
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   // #settings
 
-  protected final ProducerSettings<byte[], String> producerSettings =
-      ProducerSettings.create(system, new ByteArraySerializer(), new StringSerializer())
+  protected final ProducerSettings<String, byte[]> producerSettings =
+      ProducerSettings.create(system, new StringSerializer(), new ByteArraySerializer())
     .withBootstrapServers("localhost:9092");
 
   // #db
   static class DB {
     private final AtomicLong offset = new AtomicLong();
 
-    public CompletionStage<Done> save(ConsumerRecord<byte[], String> record) {
-      System.out.println("DB.save: " + record.value());
+    public CompletionStage<Done> save(ConsumerRecord<String, byte[]> record) {
+      System.out.println("DB.save: " + record.key());
       offset.set(record.offset());
       return CompletableFuture.completedFuture(Done.getInstance());
     }
@@ -75,8 +75,8 @@ abstract class ConsumerExample {
       return CompletableFuture.completedFuture(offset.get());
     }
 
-    public CompletionStage<Done> update(String data) {
-      System.out.println("DB.update: " + data);
+    public CompletionStage<Done> update(String key, byte[] data) {
+      System.out.println("DB.update: " + key);
       return CompletableFuture.completedFuture(Done.getInstance());
     }
   }
@@ -124,7 +124,7 @@ class AtMostOnceExample extends ConsumerExample {
     final Rocket rocket = new Rocket();
 
     Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
-      .mapAsync(1, record -> rocket.launch(record.value()))
+      .mapAsync(1, record -> rocket.launch(record.key()))
       .runWith(Sink.ignore(), materializer);
     // #atMostOnce
   }
@@ -141,7 +141,7 @@ class AtLeastOnceExample extends ConsumerExample {
     final DB db = new DB();
 
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .mapAsync(1, msg -> db.update(msg.record().value())
+      .mapAsync(1, msg -> db.update(msg.record().key(), msg.record().value())
         .thenApply(done -> msg))
       .mapAsync(1, msg -> msg.committableOffset().commitJavadsl())
       .runWith(Sink.ignore(), materializer);
@@ -161,7 +161,7 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .mapAsync(1, msg ->
-        db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
+        db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
       .batch(20,
         first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
         (batch, elem) -> batch.updated(elem))
@@ -181,8 +181,8 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
     // #consumerToProducerSink
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map(msg ->
-        new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
-            new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
+        new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
+            new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()), msg.committableOffset()))
       .runWith(Producer.commitableSink(producerSettings), materializer);
     // #consumerToProducerSink
   }
@@ -198,7 +198,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
     // #consumerToProducerFlow
     Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map(msg ->
-        new ProducerMessage.Message<byte[], String, ConsumerMessage.Committable>(
+        new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
           new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
       .via(Producer.flow(producerSettings))
       .mapAsync(producerSettings.parallelism(), result ->
@@ -219,7 +219,7 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map(msg ->
-          new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
+          new ProducerMessage.Message<String, byte[], ConsumerMessage.CommittableOffset>(
               new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
       .via(Producer.flow(producerSettings))
       .map(result -> result.message().passThrough());
@@ -243,7 +243,7 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
       .map(msg ->
-          new ProducerMessage.Message<byte[], String, ConsumerMessage.CommittableOffset>(
+          new ProducerMessage.Message<String, byte[], ConsumerMessage.CommittableOffset>(
               new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
       .via(Producer.flow(producerSettings))
       .map(result -> result.message().passThrough());
@@ -450,7 +450,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
     Pair<Consumer.Control, CompletionStage<Done>> r =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(1, msg ->
-                db.update(msg.record().value()).thenApply(done -> msg.committableOffset()))
+                db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
             .batch(20,
                 first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
                 (batch, elem) -> batch.updated(elem))

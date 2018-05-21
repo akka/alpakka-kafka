@@ -12,14 +12,12 @@ import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.common.serialization.StringSerializer
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 
 import scala.concurrent.Future
 import akka.Done
-import org.apache.kafka.common.{Metric, MetricName}
 
 import scala.util.{Failure, Success}
 
@@ -28,7 +26,7 @@ trait ProducerExample {
 
   // #producer
   // #settings
-  val producerSettings = ProducerSettings(system, new ByteArraySerializer, new StringSerializer)
+  val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
     .withBootstrapServers("localhost:9092")
   // #settings
   val kafkaProducer = producerSettings.createKafkaProducer()
@@ -53,7 +51,7 @@ object PlainSinkExample extends ProducerExample {
     val done = Source(1 to 100)
       .map(_.toString)
       .map { elem =>
-        new ProducerRecord[Array[Byte], String]("topic1", elem)
+        new ProducerRecord[String, String]("topic1", elem)
       }
       .runWith(Producer.plainSink(producerSettings))
     // #plainSink
@@ -68,7 +66,7 @@ object PlainSinkWithProducerExample extends ProducerExample {
     val done = Source(1 to 100)
       .map(_.toString)
       .map { elem =>
-        new ProducerRecord[Array[Byte], String]("topic1", elem)
+        new ProducerRecord[String, String]("topic1", elem)
       }
       .runWith(Producer.plainSink(producerSettings, kafkaProducer))
     // #plainSinkWithProducer
@@ -85,6 +83,7 @@ object ObserveMetricsExample extends ProducerExample {
       kafkaProducer.metrics() // observe metrics
     // #producerMetrics
     // format:on
+    metrics.clear()
   }
 }
 
@@ -95,8 +94,8 @@ object ProducerFlowExample extends ProducerExample {
       .map { n =>
         // val partition = math.abs(n) % 2
         val partition = 0
-        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](
-          "topic1", partition, null, n.toString
+        ProducerMessage.Message(new ProducerRecord[String, String](
+          "topic1", partition, "key", n.toString
         ), n)
       }
       .via(Producer.flow(producerSettings))
