@@ -111,6 +111,32 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
       .map(n => new ProducerRecord(topic, partition0, DefaultKey, n.toString))
       .runWith(Producer.plainSink(settings))
 
+  /**
+   * Produce batches over several topics.
+   */
+  def produceBatches(topics: Seq[String], batches: Int, batchSize: Int): Future[Seq[Done]] = {
+    val produceMessages: immutable.Seq[Future[Done]] = (0 until batches)
+      .flatMap { batch =>
+        topics.map { topic =>
+          val batchStart = batch * batchSize
+          val values = (batchStart until batchStart + batchSize).map(i => topic + i.toString)
+          produceString(topic, values, partition = partition0)
+        }
+      }
+    Future.sequence(produceMessages)
+  }
+
+  /**
+   * Messages expected from #produceBatches generation.
+   */
+  def batchMessagesExpected(topics: Seq[String], batches: Int, batchSize: Int): (Seq[String], Int) = {
+    val expectedData = topics.flatMap { topic =>
+      (0 until batches * batchSize).map(i => topic + i.toString)
+    }
+    val expectedCount = batches * batchSize * topics.length
+    (expectedData, expectedCount)
+  }
+
   def createProbe(consumerSettings: ConsumerSettings[String, String], topic: String*): (Control, TestSubscriber.Probe[String]) =
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))

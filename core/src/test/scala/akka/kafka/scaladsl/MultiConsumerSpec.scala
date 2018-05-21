@@ -5,24 +5,13 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.TimeUnit
-
 import akka.Done
-import akka.kafka.Subscriptions.TopicSubscription
-import akka.kafka._
-import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.test.Utils._
-import akka.stream.scaladsl.{Keep, RestartSource, Sink}
-import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.TestKit
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 import scala.collection.immutable
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.reflect.io.Directory
+import scala.concurrent.{Await, Future}
 
 class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
 
@@ -36,9 +25,9 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
         "offsets.topic.num.partitions" -> "3"
       ))
 
-  "A single consumer group" must {
+  "Multiple consumer in a single consumer group" must {
 
-    "read all data from multiple topics" in assertAllStagesStopped {
+    "together read all data from multiple topics" in assertAllStagesStopped {
       val topics = List(
         createTopic(0),
         createTopic(1),
@@ -47,38 +36,36 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
       val group2 = createGroup(2)
 
       // produce 10 batches of 10 elements to all topics
-      val produceMessages: immutable.Seq[Future[Done]] = (0 to 9).flatMap(batch => topics.map(t => {
-        val values = ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)
-        produceString(t, values, partition = partition0)
-      }))
-      Await.result(Future.sequence(produceMessages), remainingOrDefault)
+      val batches = 10
+      val batchSize = 10
+      Await.result(produceBatches(topics, batches, batchSize), remainingOrDefault)
 
-      val consumerSettings1 = consumerDefaults.withGroupId(group1)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val (control1, probe1) = createProbe(consumerSettings1, topics: _*)
-      val (control2, probe2) = createProbe(consumerSettings1, topics: _*)
+      val (control1, probe1) = createProbe(consumerSettings, topics: _*)
+      val (control2, probe2) = createProbe(consumerSettings, topics: _*)
 
-      val expectedData = (0 to 9).flatMap(batch => topics.flatMap(t => ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)))
-      val expectedCount = 100 * topics.length
+      val (expectedData, expectedCount) = batchMessagesExpected(topics, batches, batchSize)
 
       probe1.request(expectedCount)
       probe2.request(expectedCount)
 
       val seq1 = probe1.receiveWithin(10.seconds)
-      val seq2 = probe2.receiveWithin(10.seconds)
-
-      seq1 should not be ('empty)
-      seq2 should not Be ('empty)
+      val seq2 = probe2.receiveWithin(1.seconds)
 
       val allReceived = seq1 ++ seq2
       allReceived should have size (expectedCount)
       allReceived should contain theSameElementsAs (expectedData)
 
+      // Consumers are not fair, most of the time one receives all
+      // seq1 should not be 'empty
+      // seq2 should not be 'empty
+
       Await.result(Future.sequence(Seq(control1.shutdown(), control2.shutdown())), remainingOrDefault)
     }
   }
 
-  "Multiple consumer groups" must {
+  "Consumer in different consumer groups" must {
 
     "read all data from multiple topics" in assertAllStagesStopped {
       val topics = List(
@@ -89,11 +76,9 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
       val group2 = createGroup(2)
 
       // produce 10 batches of 10 elements to all topics
-      val produceMessages: immutable.Seq[Future[Done]] = (0 to 9).flatMap(batch => topics.map(t => {
-        val values = ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)
-        produceString(t, values, partition = partition0)
-      }))
-      Await.result(Future.sequence(produceMessages), remainingOrDefault)
+      val batches = 10
+      val batchSize = 10
+      Await.result(produceBatches(topics, batches, batchSize), remainingOrDefault)
 
       val consumerSettings1 = consumerDefaults.withGroupId(group1)
       val consumerSettings2 = consumerDefaults.withGroupId(group2)
@@ -101,8 +86,7 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
       val (control1, probe1) = createProbe(consumerSettings1, topics: _*)
       val (control2, probe2) = createProbe(consumerSettings2, topics: _*)
 
-      val expectedData = (0 to 9).flatMap(batch => topics.flatMap(t => ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)))
-      val expectedCount = 100 * topics.length
+      val (expectedData, expectedCount) = batchMessagesExpected(topics, batches, batchSize)
       probe1.request(expectedCount + 1)
       probe2.request(expectedCount + 1)
       probe1.expectNextN(expectedCount) should contain theSameElementsAs (expectedData)
@@ -122,11 +106,17 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
       val group1 = createGroup(1)
       val group2 = createGroup(2)
 
-      // produce 10 batches of 10 elements to all topics
-      val produceMessages: immutable.Seq[Future[Done]] = (0 to 9).flatMap(batch => topics.map(t => {
-        val values = ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)
-        produceString(t, values, partition = batch % 3)
-      }))
+      // produce 10 batches of 10 elements to all topics on different partitions
+      val batches = 10
+      val batchSize = 10
+      val produceMessages: immutable.Seq[Future[Done]] = (0 until batches)
+        .flatMap { batch =>
+          topics.map { topic =>
+            val batchStart = batch * batchSize
+            val values = (batchStart until batchStart + batchSize).map(i => topic + i.toString)
+            produceString(topic, values, partition = batch % 3)
+          }
+        }
       Await.result(Future.sequence(produceMessages), remainingOrDefault)
 
       val consumerSettings1 = consumerDefaults.withGroupId(group1)
@@ -135,8 +125,7 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
       val (control1, probe1) = createProbe(consumerSettings1, topics: _*)
       val (control2, probe2) = createProbe(consumerSettings2, topics: _*)
 
-      val expectedData = (0 to 9).flatMap(batch => topics.flatMap(t => ((batch * 10) to (batch * 10 + 9)).map(i => t + i.toString)))
-      val expectedCount = 100 * topics.length
+      val (expectedData, expectedCount) = batchMessagesExpected(topics, batches, batchSize)
       probe1.request(expectedCount + 1)
       probe2.request(expectedCount + 1)
       probe1.expectNextN(expectedCount) should contain theSameElementsAs (expectedData)
@@ -149,4 +138,5 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
     }
 
   }
+
 }
