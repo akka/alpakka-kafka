@@ -11,8 +11,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka._
+import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.test.Utils._
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
@@ -27,6 +28,7 @@ import org.scalatest.concurrent.Eventually
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.collection.immutable
 
 abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
   extends TestKit(actorSystem)
@@ -45,7 +47,7 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
 
   def createKafkaConfig: EmbeddedKafkaConfig
 
-  val bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
+  def bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
 
   var testProducer: KafkaProducer[String, String] = _
 
@@ -89,12 +91,15 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
    * Produce messages to topic using specified range and return
    * a Future so the caller can synchronize consumption.
    */
-  def produce(topic: String, range: Range): Future[Done] =
+  def produce(topic: String, range: immutable.Seq[Int], partition: Int = partition0): Future[Done] =
+    produceString(topic, range.map(_.toString), partition)
+
+  def produceString(topic: String, range: immutable.Seq[String], partition: Int = partition0): Future[Done] =
     Source(range)
       // NOTE: If no partition is specified but a key is present a partition will be chosen
       // using a hash of the key. If neither key nor partition is present a partition
       // will be assigned in a round-robin fashion.
-      .map(n => new ProducerRecord(topic, partition0, DefaultKey, n.toString))
+      .map(n => new ProducerRecord(topic, partition, DefaultKey, n))
       .runWith(Producer.plainSink(producerDefaults, testProducer))
 
   /**
@@ -106,11 +111,38 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
       .map(n => new ProducerRecord(topic, partition0, DefaultKey, n.toString))
       .runWith(Producer.plainSink(settings))
 
-  def createProbe(consumerSettings: ConsumerSettings[String, String], topic: String): TestSubscriber.Probe[String] =
+  /**
+   * Produce batches over several topics.
+   */
+  def produceBatches(topics: Seq[String], batches: Int, batchSize: Int): Future[Seq[Done]] = {
+    val produceMessages: immutable.Seq[Future[Done]] = (0 until batches)
+      .flatMap { batch =>
+        topics.map { topic =>
+          val batchStart = batch * batchSize
+          val values = (batchStart until batchStart + batchSize).map(i => topic + i.toString)
+          produceString(topic, values, partition = partition0)
+        }
+      }
+    Future.sequence(produceMessages)
+  }
+
+  /**
+   * Messages expected from #produceBatches generation.
+   */
+  def batchMessagesExpected(topics: Seq[String], batches: Int, batchSize: Int): (Seq[String], Long) = {
+    val expectedData = topics.flatMap { topic =>
+      (0 until batches * batchSize).map(i => topic + i.toString)
+    }
+    val expectedCount = batches * batchSize * topics.length
+    (expectedData, expectedCount.toLong)
+  }
+
+  def createProbe(consumerSettings: ConsumerSettings[String, String], topic: String*): (Control, TestSubscriber.Probe[String]) =
     Consumer
-      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
       .filterNot(_.value == InitialMsg)
       .map(_.value)
-      .runWith(TestSink.probe)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
 }
