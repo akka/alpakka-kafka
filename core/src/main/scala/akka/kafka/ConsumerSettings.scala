@@ -191,13 +191,14 @@ object ConsumerSettings {
     val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
     val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
     val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
+    val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
     val maxWakeups = config.getInt("max-wakeups")
     val commitRefreshInterval = config.getPotentiallyInfiniteDuration("commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, commitRefreshInterval,
-      dispatcher, commitTimeWarning, wakeupDebug)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, waitClosePartition,
+      maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug)
   }
 
   /**
@@ -291,6 +292,7 @@ class ConsumerSettings[K, V](
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
     val wakeupTimeout: FiniteDuration,
+    val waitClosePartition: FiniteDuration,
     val maxWakeups: Int,
     val commitRefreshInterval: Duration,
     val dispatcher: String,
@@ -361,6 +363,9 @@ class ConsumerSettings[K, V](
   def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(wakeupTimeout = wakeupTimeout)
 
+  def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
+    copy(waitClosePartition = waitClosePartition)
+
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
@@ -384,13 +389,14 @@ class ConsumerSettings[K, V](
     commitTimeout: FiniteDuration = commitTimeout,
     commitTimeWarning: FiniteDuration = commitTimeWarning,
     wakeupTimeout: FiniteDuration = wakeupTimeout,
+    waitClosePartition: FiniteDuration = waitClosePartition,
     maxWakeups: Int = maxWakeups,
     commitRefreshInterval: Duration = commitRefreshInterval,
     dispatcher: String = dispatcher,
     wakeupDebug: Boolean = wakeupDebug
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, waitClosePartition,
       maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug)
 
   /**

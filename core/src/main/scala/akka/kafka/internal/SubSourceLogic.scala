@@ -43,8 +43,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   // We have created a source for these partitions, but it has not started up and is not in subSources yet.
   var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
   var subSources: Map[TopicPartition, Control] = immutable.Map.empty
-  val waitForPendingRequests: FiniteDuration =
-    ConfigFactory.load().getDuration("akka.kafka.consumer.wait-pending-requests", TimeUnit.SECONDS).seconds
 
   override def preStart(): Unit = {
     super.preStart()
@@ -116,7 +114,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
     revokePendingCall = Option(
       materializer.scheduleOnce(
-        waitForPendingRequests,
+        settings.waitClosePartition,
         new Runnable {
           override def run(): Unit = cb.invoke(())
         }
