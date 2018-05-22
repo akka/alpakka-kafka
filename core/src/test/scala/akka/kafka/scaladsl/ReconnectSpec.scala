@@ -44,7 +44,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       val proxyConnection = proxyKillSwtich.futureValue
 
       // construct a consumer directly to Kafka and request a first message and kill the proxy-Kafka connection
-      val probe = createProbe(consumerDefaults.withGroupId(group1), topic1)
+      val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
       probe.requestNext() should be("1")
       proxyConnection.shutdown()
       sleep(100.millis)
@@ -78,7 +78,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       val consumerSettings = consumerDefaults
         .withGroupId(group1)
         .withBootstrapServers(s"localhost:$proxyPort")
-      val probe = createProbe(consumerSettings, topic1)
+      val (control, probe) = createProbe(consumerSettings, topic1)
 
       // expect an element and kill the proxy
       probe.requestNext() should be("1")
@@ -94,7 +94,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       probe.expectNextN((2 to messagesProduced).map(_.toString))
 
       // shut down
-      probe.cancel()
+      control.shutdown().futureValue
       proxyBinding2.map(_.unbind()).futureValue
     }
 

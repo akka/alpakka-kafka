@@ -32,7 +32,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
         "offsets.topic.replication.factor" -> "1"
       ))
 
-  "Reactive kafka streams" must {
+  "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
       assertAllStagesStopped {
         val topic1 = createTopic(1)
