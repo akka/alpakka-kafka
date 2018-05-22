@@ -33,7 +33,6 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
         createTopic(1),
         createTopic(2))
       val group1 = createGroup(1)
-      val group2 = createGroup(2)
 
       // produce 10 batches of 10 elements to all topics
       val batches = 10
