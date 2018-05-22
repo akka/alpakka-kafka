@@ -22,7 +22,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
     EmbeddedKafkaConfig(
       kafkaPort, zooKeeperPort,
       Map(
-        "offsets.topic.replication.factor" -> "1",
+        "offsets.topic.replication.factor" -> "1"
       ))
 
   "A killed Kafka server" must {
