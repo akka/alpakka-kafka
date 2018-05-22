@@ -55,7 +55,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads elements from Kafka source and commits a batch as soon as it's possible. Bacpressures when batch max of
+   * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
    * size is accumulated.
    */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {

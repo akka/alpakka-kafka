@@ -8,7 +8,7 @@ package akka.kafka.benchmarks
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage.{Message, Result}
-import akka.kafka.ProducerSettings
+import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.Flow
