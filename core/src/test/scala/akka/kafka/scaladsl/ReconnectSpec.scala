@@ -7,12 +7,13 @@ package akka.kafka.scaladsl
 
 import akka.kafka._
 import akka.kafka.test.Utils._
-import akka.stream.{KillSwitches, UniqueKillSwitch}
-import akka.stream.scaladsl.{Keep, Sink, Tcp}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
+import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
 
@@ -20,49 +21,112 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(
-      kafkaPort, zooKeeperPort,
+      kafkaPort,
+      zooKeeperPort,
       Map(
         "offsets.topic.replication.factor" -> "1"
       ))
 
-  "A killed Kafka server" must {
+  "A Producer" must {
 
-    "work for a Producer" in assertAllStagesStopped {
+    "continue to work when there is another Kafka port available" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
       givenInitializedTopic(topic1)
 
-      val producerSettings = producerDefaults.withBootstrapServers(s"localhost:$proxyPort")
-
-      // start a TCP proxy forwarding to Kafka and start producing messages
+      // start a TCP proxy forwarding to Kafka
       val (proxyBinding, proxyKillSwtich) = createProxy()
       Await.ready(proxyBinding, remainingOrDefault)
 
       val messagesProduced = 100
-      produce(topic1, 1 to messagesProduced, producerSettings)
-      val proxyConnection = proxyKillSwtich.futureValue
+      val firstBatch = 10
+      val messages = (1 to messagesProduced).map(_.toString)
+      // start a producer flow with a queue as source
+      val producer: SourceQueueWithComplete[String] = Source
+        .queue[String](messagesProduced, OverflowStrategy.backpressure)
+        .map(msg => new ProducerRecord(topic1, partition0, DefaultKey, msg))
+        .to(Producer.plainSink(
+          producerDefaults.withBootstrapServers(s"localhost:$proxyPort")))
+        .run()
 
-      // construct a consumer directly to Kafka and request a first message and kill the proxy-Kafka connection
+      def offerInOrder(msgs: Seq[String]): Future[_] =
+        if (msgs.isEmpty) Future.unit
+        else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
+
+      // put one batch into the stream
+      offerInOrder(messages.take(firstBatch))
+
+      // construct a consumer directly to Kafka and request messages and kill the proxy-Kafka connection
       val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
-      probe.requestNext() should be("1")
-      proxyConnection.shutdown()
-      sleep(100.millis)
-
-      // expect some radio silence
-      probe.expectNoMessage(1.second)
-
-      // create new proxy and expect all other messages
-      val (proxyBinding2, _) = createProxy()
       probe.request(messagesProduced.toLong)
-      probe.expectNextN((2 to messagesProduced).map(_.toString))
+      probe.expectNextN(messages.take(firstBatch))
+      val proxyConnection = proxyKillSwtich.futureValue
+      proxyConnection.shutdown()
+
+      probe.expectNoMessage(500.millis)
+
+      offerInOrder(messages.drop(firstBatch))
+
+      probe.expectNextN(messagesProduced.toLong - firstBatch) should be(messages.drop(firstBatch))
 
       // shut down
+      producer.complete()
       probe.cancel()
-      proxyBinding2.map(_.unbind()).futureValue
     }
 
-    "work for a Consumer" in assertAllStagesStopped {
+    "pick up again when the Kafka server comes back up" in pendingUntilFixed {
+      assertAllStagesStopped {
+        val topic1 = createTopic(1)
+        val group1 = createGroup(1)
+
+        givenInitializedTopic(topic1)
+
+        val messagesProduced = 10
+        val firstBatch = 2
+        val messages = (1 to messagesProduced).map(_.toString)
+        // start a producer flow with a queue as source
+        val producer: SourceQueueWithComplete[String] = Source
+          .queue[String](1, OverflowStrategy.backpressure)
+          .map(msg => new ProducerRecord(topic1, partition0, DefaultKey, msg))
+          .to(Producer.plainSink(producerDefaults))
+          .run()
+
+        def offerInOrder(msgs: Seq[String]): Future[_] =
+          if (msgs.isEmpty) Future.unit
+          else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
+
+        // put one batch into the stream
+        offerInOrder(messages.take(firstBatch))
+
+        // construct a consumer directly to Kafka and request messages and kill the proxy-Kafka connection
+        val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
+        probe.request(messagesProduced.toLong)
+        probe.expectNextN(messages.take(firstBatch))
+        EmbeddedKafka.stop()
+
+        probe.expectNoMessage(500.millis)
+
+        offerInOrder(messages.drop(firstBatch))
+        // expect some radio silence
+        probe.expectNoMessage(1.second)
+
+        EmbeddedKafka.start()
+
+        probe.request(messagesProduced.toLong)
+        // TODO sometime no messages arrive, sometimes order is not kept
+        probe.expectNextN(messagesProduced.toLong - firstBatch) should be(messages.drop(firstBatch))
+        // shut down
+        producer.complete()
+        probe.cancel()
+      }
+    }
+
+  }
+
+  "A Consumer" must {
+
+    "continue to work when there is another Kafka port available" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroup(1)
 
@@ -85,26 +149,60 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       proxyKillSwtich.futureValue.shutdown()
       sleep(100.millis)
 
-      // expect some radio silence
-      probe.expectNoMessage(1.second)
-
-      // create new proxy and expect all other messages
-      val (proxyBinding2, _) = createProxy()
       probe.request(messagesProduced.toLong)
       probe.expectNextN((2 to messagesProduced).map(_.toString))
 
       // shut down
       control.shutdown().futureValue
-      proxyBinding2.map(_.unbind()).futureValue
+    }
+
+    "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      givenInitializedTopic(topic1)
+
+      // produce messages
+      val messagesProduced = 100
+      produce(topic1, 1 to messagesProduced)
+
+      // create a consumer
+      val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
+
+      // expect an element and kill the Kafka instance
+      probe.requestNext() should be("1")
+      EmbeddedKafka.stop()
+      sleep(1.second)
+
+      // by now all messages have arrived in the consumer
+      probe.request(messagesProduced.toLong - 1)
+      probe.receiveWithin(100.millis) should be((2 to messagesProduced).map(_.toString))
+
+      // expect silence
+      probe.request(1)
+      probe.expectNoMessage(1.second)
+
+      // start a new Kafka server and produce another round
+      EmbeddedKafka.start()
+      sleep(1.second) // Got some messages dropped during startup
+      produce(topic1, messagesProduced + 1 to messagesProduced * 2)
+
+      probe.request(messagesProduced.toLong)
+      probe.receiveWithin(5.second) should be((messagesProduced + 1 to messagesProduced * 2).map(_.toString))
+
+      // shut down
+      Await.ready(control.shutdown(), remainingOrDefault)
     }
 
   }
 
-  /** Create a proxy so it can be shut down.
-    */
+  /**
+   * Create a proxy so it can be shut down.
+   */
   def createProxy(): (Future[Tcp.ServerBinding], Future[UniqueKillSwitch]) = {
     // Create a proxy so it can be shut down
-    val (proxyBinding, connection) = Tcp().bind("localhost", proxyPort).toMat(Sink.head)(Keep.both).run()
+    val (proxyBinding, connection) =
+      Tcp().bind("localhost", proxyPort).toMat(Sink.head)(Keep.both).run()
     val proxyKsFut = connection.map(
       _.handleWith(
         Tcp()
