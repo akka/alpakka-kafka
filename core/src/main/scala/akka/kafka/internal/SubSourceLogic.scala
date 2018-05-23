@@ -24,10 +24,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
-
-import com.typesafe.config.ConfigFactory
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
