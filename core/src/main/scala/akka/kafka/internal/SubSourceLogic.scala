@@ -79,18 +79,18 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   def partitionAssignedCB(tps: Set[TopicPartition]) = {
     implicit val ec = materializer.executionContext
 
-    val topicsToBeAssigned = tps -- partitionsToRevoke
+    val partitions = tps -- partitionsToRevoke
     partitionsToRevoke = partitionsToRevoke -- tps
 
-    getOffsetsOnAssign.fold(pumpCB.invoke(topicsToBeAssigned)) { getOffsets =>
-      getOffsets(topicsToBeAssigned)
+    getOffsetsOnAssign.fold(pumpCB.invoke(partitions)) { getOffsets =>
+      getOffsets(partitions)
         .onComplete {
-          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $topicsToBeAssigned.", ex))
+          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $partitions.", ex))
           case Success(offsets) =>
             consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
-              .map(_ => pumpCB.invoke(topicsToBeAssigned))
+              .map(_ => pumpCB.invoke(partitions))
               .recover {
-                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $topicsToBeAssigned."))
+                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $partitions."))
               }
         }
     }
@@ -112,9 +112,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     revokePendingCall = Option(
       materializer.scheduleOnce(
         settings.waitClosePartition,
-        new Runnable {
-          override def run(): Unit = cb.invoke(())
-        }
+        () => cb.invoke(())
       )
     )
   }

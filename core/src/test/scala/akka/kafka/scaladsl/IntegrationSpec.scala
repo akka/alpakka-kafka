@@ -332,7 +332,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
       }
     }
 
-    "call the onRevoked hook" ignore {
+    "call the onRevoked hook" in {
       assertAllStagesStopped {
         val topic = createTopic(1)
         val group = createGroup(1)
@@ -352,6 +352,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
         probe1
           .request(50)
+
+        Thread.sleep(consumerDefaults.waitClosePartition.toMillis)
 
         val probe2 = source.runWith(TestSink.probe)
 
