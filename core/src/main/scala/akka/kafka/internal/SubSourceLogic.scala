@@ -112,7 +112,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     revokePendingCall = Option(
       materializer.scheduleOnce(
         settings.waitClosePartition,
-        () => cb.invoke(())
+        new Runnable {
+          override def run(): Unit = cb.invoke(())
+        }
       )
     )
   }
