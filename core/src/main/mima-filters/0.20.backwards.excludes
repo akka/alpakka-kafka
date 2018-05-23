@@ -1,0 +1,10 @@
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.KafkaConsumerActor#WrappedAutoPausedListener.this")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>$default$12")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
+ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.kafka.ConsumerSettings.<init>$default$13")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ProducerSettings.this")
+ProblemFilters.exclude[FinalClassProblem]("akka.kafka.internal.ProducerStage")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.internal.ProducerStage.shape")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.internal.ProducerStage.createLogic")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.internal.ProducerStage.this")
+

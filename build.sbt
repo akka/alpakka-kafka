@@ -83,7 +83,7 @@ val commonSettings = Seq(
   )),
   bintrayOrganization := Some("akka"),
   bintrayPackage := "alpakka-kafka",
-  bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven")
+  bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven"),
 )
 
 lazy val `alpakka-kafka` =
@@ -117,7 +117,8 @@ lazy val core = project
     name := "akka-stream-kafka",
     Test/fork := true,
     Test/parallelExecution := false,
-    libraryDependencies ++= commonDependencies ++ coreDependencies
+    libraryDependencies ++= commonDependencies ++ coreDependencies,
+    mimaPreviousArtifacts := (20 to 20).map(minor => organization.value %% name.value % s"0.$minor").toSet,
 ))
 
 lazy val docs = project.in(file("docs"))
