@@ -5,6 +5,7 @@
 
 package akka.kafka.scaladsl
 
+import akka.Done
 import akka.kafka._
 import akka.kafka.test.Utils._
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
@@ -51,7 +52,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
         .run()
 
       def offerInOrder(msgs: Seq[String]): Future[_] =
-        if (msgs.isEmpty) Future.successful()
+        if (msgs.isEmpty) Future.successful(Done)
         else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
 
       // put one batch into the stream
@@ -93,7 +94,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
           .run()
 
         def offerInOrder(msgs: Seq[String]): Future[_] =
-          if (msgs.isEmpty) Future.unit
+          if (msgs.isEmpty) Future.successful(Done)
           else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
 
         // put one batch into the stream
