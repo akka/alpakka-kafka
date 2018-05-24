@@ -113,13 +113,14 @@ lazy val `alpakka-kafka` =
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
-  .settings(Seq(
+  .settings(
     name := "akka-stream-kafka",
+    AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     Test/fork := true,
     Test/parallelExecution := false,
     libraryDependencies ++= commonDependencies ++ coreDependencies,
     mimaPreviousArtifacts := (20 to 20).map(minor => organization.value %% name.value % s"0.$minor").toSet,
-))
+  )
 
 lazy val docs = project.in(file("docs"))
   .enablePlugins(ParadoxPlugin)
