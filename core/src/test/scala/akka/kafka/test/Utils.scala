@@ -6,7 +6,7 @@
 package akka.kafka.test
 
 import akka.actor.{ActorRef, ActorRefWithCell, ActorSystem}
-import akka.stream.Materializer
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.impl.StreamSupervisor
 import akka.testkit.TestProbe
 import com.typesafe.config.ConfigFactory
@@ -23,14 +23,8 @@ object Utils {
   case class TE(message: String) extends RuntimeException(message) with NoStackTrace
   final case class StageStoppingTimeout(time: FiniteDuration)
 
-  /** Compatibility between 2.4 and 2.5 */
-  type ActorMaterializerImpl = {
-    def system: ActorSystem
-    def supervisor: ActorRef
-  }
-
   def assertAllStagesStopped[T](block: ⇒ T)(implicit timeout: StageStoppingTimeout, materializer: Materializer): T = {
-    val impl = materializer.asInstanceOf[ActorMaterializerImpl] // refined type, will never fail
+    val impl = materializer.asInstanceOf[ActorMaterializer] // refined type, will never fail
     val probe = TestProbe()(impl.system)
     probe.send(impl.supervisor, StreamSupervisor.StopChildren)
     probe.expectMsg(StreamSupervisor.StoppedChildren)
