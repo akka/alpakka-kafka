@@ -13,7 +13,7 @@ import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
 
 import akka.Done
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Props, Status, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Status, Terminated}
 import akka.event.LoggingReceive
 import akka.kafka.ConsumerSettings
 import akka.kafka.KafkaConsumerActor.StoppingException
@@ -26,9 +26,6 @@ import scala.concurrent.duration._
 import scala.util.control.{NoStackTrace, NonFatal}
 
 object KafkaConsumerActor {
-
-  def props[K, V](settings: ConsumerSettings[K, V]): Props =
-    Props(new KafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
 
   object Internal {
     sealed trait SubscriptionRequest

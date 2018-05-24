@@ -44,7 +44,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     consumer = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
-      extendedActorSystem.systemActorOf(akka.kafka.internal.KafkaConsumerActor.props(settings), name)
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
     }
 
     self = getStageActor {
