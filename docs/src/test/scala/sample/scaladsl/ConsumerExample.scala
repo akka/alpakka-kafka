@@ -363,6 +363,9 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
       .plainExternalSource[String, Array[Byte]](consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
       .via(business)
       .runWith(Sink.ignore)
+
+    //Stop consumer actor
+    consumer ! KafkaConsumerActor.Stop
     // #consumerActor
   }
 }

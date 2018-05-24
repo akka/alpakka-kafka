@@ -8,7 +8,7 @@ package akka.kafka.internal
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.dispatch.ExecutionContexts
 import akka.event.Logging
-import akka.kafka.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
+import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions._
 import akka.kafka._
 import akka.stream.stage.GraphStageLogic.StageActor
@@ -44,7 +44,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     consumer = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
-      extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
+      extendedActorSystem.systemActorOf(akka.kafka.internal.KafkaConsumerActor.props(settings), name)
     }
 
     self = getStageActor {

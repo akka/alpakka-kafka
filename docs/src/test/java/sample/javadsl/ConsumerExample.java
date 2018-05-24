@@ -7,10 +7,7 @@ package sample.javadsl;
 
 import akka.Done;
 import akka.NotUsed;
-import akka.actor.AbstractActor;
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
+import akka.actor.*;
 import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
@@ -313,9 +310,11 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 
   public void demo() {
+
+    ActorRef self = null;
     // #consumerActor
     //Consumer is represented by actor
-    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
+    ActorRef consumer = system.actorOf(KafkaConsumerActor.props(consumerSettings));
 
     //Manually assign topic partition to it
     Consumer
@@ -328,6 +327,9 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
       .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
       .via(business())
       .runWith(Sink.ignore(), materializer);
+
+    //Stop consumer actor
+    consumer.tell(KafkaConsumerActor.stop(), self);
     // #consumerActor
   }
 }

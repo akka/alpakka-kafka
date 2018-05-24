@@ -5,6 +5,9 @@
 
 package akka.kafka
 
+/**
+ * Kafka consumer stages fail with this exception.
+ */
 class ConsumerFailed(msg: String) extends RuntimeException(msg) {
   def this() = this("Consumer actor terminated") // for backwards compatibility
   def this(cause: Throwable) = {

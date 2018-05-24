@@ -11,7 +11,7 @@ import java.util.{Locale, Map => JMap}
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage._
-import akka.kafka.KafkaConsumerActor.Internal.{Commit, Committed, ConsumerMetrics, RequestMetrics}
+import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, Committed, ConsumerMetrics, RequestMetrics}
 import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
 import akka.pattern.AskTimeoutException

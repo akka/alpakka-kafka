@@ -38,7 +38,7 @@ object ProducerMessage {
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
   ) {
-    def offset = metadata.offset()
+    def offset: Long = metadata.offset()
   }
 
 }
