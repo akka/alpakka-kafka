@@ -76,7 +76,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       probe.cancel()
     }
 
-    "pick up again when the Kafka server comes back up" in pendingUntilFixed {
+    "pick up again when the Kafka server comes back up" ignore /* because it is flaky */ {
       assertAllStagesStopped {
         val topic1 = createTopic(1)
         val group1 = createGroup(1)
@@ -117,6 +117,25 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
         probe.request(messagesProduced.toLong)
         // TODO sometime no messages arrive, sometimes order is not kept
         probe.expectNextN(messagesProduced.toLong - firstBatch) should be(messages.drop(firstBatch))
+        /*
+        For me it produces three variations of results:
+        1. it works
+        2. All messages arrive, but in wrong order
+            List("6", "7", "8", "9", "10", "3", "4", "5") was not equal to Vector("3", "4", "5", "6", "7", "8", "9", "10")
+            ScalaTestFailureLocation: akka.kafka.scaladsl.ReconnectSpec at (ReconnectSpec.scala:118)
+            Expected :Vector("3", "4", "5", "6", "7", "8", "9", "10")
+            Actual   :List("6", "7", "8", "9", "10", "3", "4", "5")
+        3. Nothing arrives
+            assertion failed: timeout (10 seconds) during expectMsgClass waiting for class akka.stream.testkit.TestSubscriber$OnNext
+            java.lang.AssertionError: assertion failed: timeout (10 seconds) during expectMsgClass waiting for class akka.stream.testkit.TestSubscriber$OnNext
+              at scala.Predef$.assert(Predef.scala:219)
+              at akka.testkit.TestKitBase.expectMsgClass_internal(TestKit.scala:509)
+              at akka.testkit.TestKitBase.expectMsgType(TestKit.scala:482)
+              at akka.testkit.TestKitBase.expectMsgType$(TestKit.scala:482)
+              at akka.testkit.TestKit.expectMsgType(TestKit.scala:896)
+              at akka.stream.testkit.TestSubscriber$ManualProbe.expectNextN(StreamTestKit.scala:374)
+              at akka.kafka.scaladsl.ReconnectSpec.$anonfun$new$8(ReconnectSpec.scala:117)
+         */
         // shut down
         producer.complete()
         probe.cancel()
