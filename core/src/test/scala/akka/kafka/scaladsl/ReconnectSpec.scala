@@ -51,7 +51,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
         .run()
 
       def offerInOrder(msgs: Seq[String]): Future[_] =
-        if (msgs.isEmpty) Future.unit
+        if (msgs.isEmpty) Future.successful()
         else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
 
       // put one batch into the stream
