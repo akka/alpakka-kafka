@@ -25,10 +25,9 @@ Release notes are found at [Github releases](https://github.com/akka/reactive-ka
   version=$version$
 }
 
-
 ## Scala and Java APIs
 
-There are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.javadsl` 
+There are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.javadsl`
 with the API for Scala and Java. These packages contain `Producer` and `Consumer`
 classes with factory methods for the various Akka Streams `Flow`, `Sink` and `Source`
 that are producing or consuming messages to/from Kafka.
@@ -38,8 +37,7 @@ that are producing or consuming messages to/from Kafka.
 
 Please feel free to contribute to Alpakka and the Alpakka Kafka connector by reporting issues you identify, or by suggesting changes to the code. Please refer to our [contributing instructions](https://github.com/akka/reactive-kafka/blob/master/CONTRIBUTING.md) to learn how it can be done.
 
-We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://github.com/akka/reactive-kafka/blob/master/CODE_OF_CONDUCT.md). 
-
+We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://github.com/akka/reactive-kafka/blob/master/CODE_OF_CONDUCT.md).
 
 @@ toc { .main depth=3 }
 
@@ -50,5 +48,6 @@ We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect
 * [Error Handling](errorhandling.md)
 * [At-Least-Once Delivery](atleastonce.md)
 * [Transactions](transactions.md)
+* [Snapshots](snapshots.md)
 
 @@@
