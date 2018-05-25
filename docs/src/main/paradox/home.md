@@ -40,6 +40,43 @@ Please feel free to contribute to Alpakka and the Alpakka Kafka connector by rep
 
 We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://github.com/akka/reactive-kafka/blob/master/CODE_OF_CONDUCT.md). 
 
+## Snapshots
+
+Snapshots are published after every merged PR to a repository in bintray. Add the following to your project build definition to resolve Alpakka Kafka connector snapshots:
+
+sbt
+:   ```scala
+    resolvers += Resolver.bintrayRepo("akka", "snapshots")
+    ```
+
+Maven
+:   ```xml
+    <project>
+    ...
+      <repositories>
+        <repository>
+          <id>alpakka-kafka-snapshots</id>
+          <name>Alpakka Kafka Snapshots</name>
+          <url>https://dl.bintray.com/akka/snapshots</url>
+        </repository>
+      </repositories>
+    ...
+    </project>
+    ```
+
+Gradle
+:   ```gradle
+    repositories {
+      maven {
+        url  "https://dl.bintray.com/akka/snapshots"
+      }
+    }
+    ```
+
+[snapshots-badge]:  https://api.bintray.com/packages/akka/snapshots/alpakka-kafka/images/download.svg
+[snapshots]:        https://bintray.com/akka/snapshots/alpakka-kafka/_latestVersion
+
+Last published snapshot version is [![snapshots-badge][]][snapshots]
 
 @@ toc { .main depth=3 }
 
