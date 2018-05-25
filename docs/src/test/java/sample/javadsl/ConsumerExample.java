@@ -54,42 +54,21 @@ abstract class ConsumerExample {
           .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   // #settings
 
+  final ConsumerSettings<String, byte[]> consumerSettingsWithAutoCommit =
+  // #settings-autocommit
+          consumerSettings
+                  .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
+                  .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5000");
+  // #settings-autocommit
+
   protected final ProducerSettings<String, byte[]> producerSettings =
       ProducerSettings.create(system, new StringSerializer(), new ByteArraySerializer())
           .withBootstrapServers("localhost:9092");
 
-  // #db
-  static class DB {
-    private final AtomicLong offset = new AtomicLong();
 
-    public CompletionStage<Done> save(ConsumerRecord<String, byte[]> record) {
-      System.out.println("DB.save: " + record.key());
-      offset.set(record.offset());
-      return CompletableFuture.completedFuture(Done.getInstance());
-    }
-
-    public CompletionStage<Long> loadOffset() {
-      return CompletableFuture.completedFuture(offset.get());
-    }
-
-    public CompletionStage<Done> update(String key, byte[] data) {
-      System.out.println("DB.update: " + key);
-      return CompletableFuture.completedFuture(Done.getInstance());
-    }
-  }
-  // #db
-
-  // #rocket
-  static class Rocket {
-    public CompletionStage<Done> launch(String destination) {
-      System.out.println("Rocket launched to " + destination);
-      return CompletableFuture.completedFuture(Done.getInstance());
-    }
-  }
-  // #rocket
 }
 
-// Consume messages and store a representation, including offset, in DB
+// Consume messages and store a representation, including offset, in OffsetStorage
 class ExternalOffsetStorageExample extends ConsumerExample {
   public static void main(String[] args) {
     new ExternalOffsetStorageExample().demo();
@@ -97,17 +76,50 @@ class ExternalOffsetStorageExample extends ConsumerExample {
 
   public void demo() {
     // #plainSource
-    final DB db = new DB();
+    final OffsetStorage db = new OffsetStorage();
 
-    db.loadOffset().thenAccept(fromOffset -> {
-      Consumer.plainSource(
-        consumerSettings,
-        Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 0), fromOffset)
-      ).mapAsync(1, record -> db.save(record))
-          .runWith(Sink.ignore(), materializer);
-    });
+    CompletionStage<Consumer.Control> controlCompletionStage =
+        db.loadOffset().thenApply(fromOffset -> {
+            return Consumer
+                .plainSource(
+                    consumerSettings,
+                    Subscriptions.assignmentWithOffset(
+                        new TopicPartition("topic1", /* partition: */  0),
+                        fromOffset
+                    )
+                )
+                .mapAsync(1, db::businessLogicAndStoreOffset)
+                .to(Sink.ignore())
+                .run(materializer);
+        });
     // #plainSource
   }
+
+  // #plainSource
+
+
+  class OffsetStorage {
+  // #plainSource
+    private final AtomicLong offsetStore = new AtomicLong();
+
+  // #plainSource
+    public CompletionStage<Done> businessLogicAndStoreOffset(ConsumerRecord<String, byte[]> record) { // ... }
+  // #plainSource
+      offsetStore.set(record.offset());
+      return CompletableFuture.completedFuture(Done.getInstance());
+    }
+
+    // #plainSource
+    public CompletionStage<Long> loadOffset() { // ... }
+    // #plainSource
+
+      return CompletableFuture.completedFuture(offsetStore.get());
+    }
+
+    // #plainSource
+  }
+  // #plainSource
+
 }
 
 // Consume messages at-most-once
@@ -116,14 +128,23 @@ class AtMostOnceExample extends ConsumerExample {
     new AtMostOnceExample().demo();
   }
 
+
   public void demo() {
     // #atMostOnce
-    final Rocket rocket = new Rocket();
+    Consumer.Control control =
+        Consumer
+            .atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(10, record -> business(record.key(), record.value()))
+            .to(Sink.foreach(it -> System.out.println("Done with " + it)))
+            .run(materializer);
 
-    Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
-      .mapAsync(1, record -> rocket.launch(record.key()))
-      .runWith(Sink.ignore(), materializer);
     // #atMostOnce
+  }
+
+   // #atMostOnce
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+  // #atMostOnce
+    return CompletableFuture.completedFuture("");
   }
 }
 
@@ -135,15 +156,25 @@ class AtLeastOnceExample extends ConsumerExample {
 
   public void demo() {
     // #atLeastOnce
-    final DB db = new DB();
-
-    Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .mapAsync(1, msg -> db.update(msg.record().key(), msg.record().value())
-        .thenApply(done -> msg))
-      .mapAsync(1, msg -> msg.committableOffset().commitJavadsl())
-      .runWith(Sink.ignore(), materializer);
+    Consumer.Control control =
+        Consumer
+            .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(1, msg ->
+                business(msg.record().key(), msg.record().value())
+                    .thenApply(done -> msg.committableOffset()))
+            .mapAsync(1, offset -> offset.commitJavadsl())
+            .to(Sink.ignore())
+            .run(materializer);
     // #atLeastOnce
   }
+
+    // #atLeastOnce
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+    // #atLeastOnce
+    return CompletableFuture.completedFuture("");
+  }
+
 }
 
 // Consume messages at-least-once, and commit in batches
@@ -154,17 +185,24 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 
   public void demo() {
     // #atLeastOnceBatch
-    final DB db = new DB();
-
-    Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .mapAsync(1, msg ->
-        db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
-      .batch(20,
-        first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
-        (batch, elem) -> batch.updated(elem))
-        .mapAsync(3, c -> c.commitJavadsl())
-      .runWith(Sink.ignore(), materializer);
+    Consumer.Control control =
+        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(1, msg ->
+                business(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset())
+            )
+            .batch(
+                20,
+                first -> ConsumerMessage.createCommittableOffsetBatch(first),
+                (batch, elem) -> batch.updated(elem)
+            )
+            .mapAsync(3, c -> c.commitJavadsl())
+            .to(Sink.ignore())
+            .run(materializer);
     // #atLeastOnceBatch
+  }
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+    return CompletableFuture.completedFuture("");
   }
 }
 
@@ -261,22 +299,11 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
       // #groupedWithin
       source
         .groupedWithin(20, java.time.Duration.of(5, ChronoUnit.SECONDS))
-        .map(group -> foldLeft(group))
+        .map(ConsumerMessage::createCommittableOffsetBatch)
         .mapAsync(3, c -> c.commitJavadsl())
       // #groupedWithin
         .runWith(Sink.ignore(), materializer);
   }
-
-  // #groupedWithin
-
-  private ConsumerMessage.CommittableOffsetBatch foldLeft(List<ConsumerMessage.CommittableOffset> group) {
-    ConsumerMessage.CommittableOffsetBatch batch = ConsumerMessage.emptyCommittableOffsetBatch();
-    for (ConsumerMessage.CommittableOffset elem: group) {
-      batch = batch.updated(elem);
-    }
-    return batch;
-  }
-  //#groupedWithin
 }
 
 // Backpressure per partition with batch commit
@@ -287,17 +314,19 @@ class ConsumerWithPerPartitionBackpressure extends ConsumerExample {
 
   public void demo() {
     // #committablePartitionedSource
-    Consumer
-      .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
-      .flatMapMerge(maxPartitions, Pair::second)
-      .via(business())
-      .batch(
-          100,
-          first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first.committableOffset()),
-          (batch, elem) -> batch.updated(elem.committableOffset())
-      )
-      .mapAsync(3, x -> x.commitJavadsl())
-      .runWith(Sink.ignore(), materializer);
+    Consumer.Control control =
+        Consumer
+            .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
+            .flatMapMerge(maxPartitions, Pair::second)
+            .via(business())
+            .batch(
+                100,
+                first -> ConsumerMessage.createCommittableOffsetBatch(first.committableOffset()),
+                (batch, elem) -> batch.updated(elem.committableOffset())
+            )
+            .mapAsync(3, offsetBatch -> offsetBatch.commitJavadsl())
+            .to(Sink.ignore())
+            .run(materializer);
     // #committablePartitionedSource
   }
 }
@@ -308,12 +337,21 @@ class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
   }
 
   public void demo() {
-    // #committablePartitionedSource2
+    // #committablePartitionedSource-stream-per-partition
     Consumer.Control c =
-      Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
-        .map(pair -> pair.second().via(business()).toMat(Sink.ignore(), Keep.both()).run(materializer))
-        .mapAsyncUnordered(maxPartitions, (pair) -> pair.second()).to(Sink.ignore()).run(materializer);
-    // #committablePartitionedSource2
+        Consumer
+            .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
+            .map(pair -> {
+                Source<ConsumerMessage.CommittableMessage<String, byte[]>, NotUsed> source = pair.second();
+                return source
+                    .via(business())
+                    .mapAsync(1, message -> message.committableOffset().commitJavadsl())
+                    .runWith(Sink.ignore(), materializer);
+            })
+            .mapAsyncUnordered(maxPartitions, completion -> completion)
+            .to(Sink.ignore())
+            .run(materializer);
+    // #committablePartitionedSource-stream-per-partition
   }
 }
 
@@ -323,26 +361,29 @@ class ExternallyControlledKafkaConsumer extends ConsumerExample {
   }
 
   public void demo() {
-
-    ActorRef self = null;
     // #consumerActor
     //Consumer is represented by actor
-    ActorRef consumer = system.actorOf(KafkaConsumerActor.props(consumerSettings));
+    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
 
     //Manually assign topic partition to it
-    Consumer
-      .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 1)))
-      .via(business())
-      .runWith(Sink.ignore(), materializer);
+    Consumer.Control controlPartition1 = Consumer
+        .plainExternalSource(
+            consumer,
+            Subscriptions.assignment(new TopicPartition("topic1", 1))
+        )
+        .via(business())
+        .to(Sink.ignore())
+        .run(materializer);
 
     //Manually assign another topic partition
-    Consumer
-      .plainExternalSource(consumer, Subscriptions.assignment(new TopicPartition("topic1", 2)))
-      .via(business())
-      .runWith(Sink.ignore(), materializer);
-
-    //Stop consumer actor
-    consumer.tell(KafkaConsumerActor.stop(), self);
+    Consumer.Control controlPartition2 = Consumer
+        .plainExternalSource(
+            consumer,
+            Subscriptions.assignment(new TopicPartition("topic1", 2))
+        )
+        .via(business())
+        .to(Sink.ignore())
+        .run(materializer);
     // #consumerActor
   }
 }
@@ -378,13 +419,17 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
   }
 
   // #withRebalanceListenerActor
-  class RebalanceListener extends AbstractActor {
+  class RebalanceListener extends AbstractLoggingActor {
 
     @Override
     public Receive createReceive() {
       return receiveBuilder()
-          .match(akka.kafka.TopicPartitionsAssigned.class, assigned -> {})
-          .match(akka.kafka.TopicPartitionsRevoked.class, revoked -> {})
+          .match(akka.kafka.TopicPartitionsAssigned.class, assigned -> {
+            log().info("Assigned: {}", assigned);
+          })
+          .match(akka.kafka.TopicPartitionsRevoked.class, revoked -> {
+            log().info("Revoked: {}", revoked);
+          })
           .build();
     }
   }
@@ -393,15 +438,15 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
 
   public void demo(ActorSystem system) {
     // #withRebalanceListenerActor
-    ActorRef listener = this.system.actorOf(Props.create(RebalanceListener.class));
+    ActorRef rebalanceListener = this.system.actorOf(Props.create(RebalanceListener.class));
 
-    // pass in the listener callbacks into the subscription:
-    Subscription sub = Subscriptions.topics("topic")
-        .withRebalanceListener(listener);
+    Subscription subscription = Subscriptions.topics("topic")
+        // additionally, pass the actor reference:
+        .withRebalanceListener(rebalanceListener);
 
     // use the subscription as usual:
     Consumer
-      .plainSource(consumerSettings, sub);
+      .plainSource(consumerSettings, subscription);
     // #withRebalanceListenerActor
   }
 
@@ -422,7 +467,7 @@ class ConsumerMetricsExample extends ConsumerExample {
         .run(materializer);
 
     CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
-    metrics.thenAccept(m -> System.out.println("Metrics: " + m));
+    metrics.thenAccept(map -> System.out.println("Metrics: " + map));
     // #consumerMetrics
   }
 }
@@ -435,14 +480,20 @@ class ShutdownPlainSourceExample extends ConsumerExample {
 
   public void demo() {
     // #shutdownPlainSource
-    final DB db = new DB();
+    final OffsetStorage db = new OffsetStorage();
 
     db.loadOffset().thenAccept(fromOffset -> {
       Consumer.Control control = Consumer.plainSource(
           consumerSettings,
           Subscriptions.assignmentWithOffset(new TopicPartition("topic1", 0), fromOffset)
-      ).mapAsync(1, record -> db.save(record))
-          .toMat(Sink.ignore(), Keep.left())
+      )
+
+              .mapAsync(10, record -> {
+                return business(record.key(), record.value())
+                        .thenApply(res -> db.storeProcessedOffset(record.offset()));
+              })
+
+              .toMat(Sink.ignore(), Keep.left())
           .run(materializer);
 
       // Shutdown the consumer when desired
@@ -450,6 +501,26 @@ class ShutdownPlainSourceExample extends ConsumerExample {
     });
     // #shutdownPlainSource
   }
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+    return CompletableFuture.completedFuture("");
+  }
+
+  class OffsetStorage {
+
+    private final AtomicLong offsetStore = new AtomicLong();
+
+    public CompletionStage<Done> storeProcessedOffset(long offset) { // ... }
+      offsetStore.set(offset);
+      return CompletableFuture.completedFuture(Done.getInstance());
+    }
+
+    public CompletionStage<Long> loadOffset() { // ... }
+      return CompletableFuture.completedFuture(offsetStore.get());
+    }
+
+  }
+
 }
 
 // Shutdown when batching commits
@@ -466,7 +537,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
     Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(1, msg ->
-                db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
+                business(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
             .batch(20,
                 first -> ConsumerMessage.emptyCommittableOffsetBatch().updated(first),
                 (batch, elem) -> batch.updated(elem))
@@ -478,5 +549,10 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
     control.drainAndShutdown(ec);
     // #shutdownCommitableSource
   }
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+    return CompletableFuture.completedFuture("");
+  }
+
 }
 

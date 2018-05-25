@@ -207,7 +207,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
           Subscriptions.topics(topic)
         )
           .map { msg => msg.committableOffset }
-          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) {
+          .batch(max = 10, first => CommittableOffsetBatch(first)) {
             (batch, elem) => batch.updated(elem)
           }
           .mapAsync(1)(_.commitScaladsl())
@@ -251,7 +251,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
           })
           .via(Producer.flow(producerDefaults))
           .map(_.message.passThrough)
-          .batch(max = 10, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+          .batch(max = 10, first => CommittableOffsetBatch(first)) { (batch, elem) =>
             batch.updated(elem)
           }
           .mapAsync(producerDefaults.parallelism)(_.commitScaladsl())

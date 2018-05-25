@@ -96,7 +96,7 @@ Java
 : @@ snip [consumerToProducerFlow](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
 
 
-## Sharing KafkaProducer
+## Sharing the KafkaProducer instance
 
 The underlying `KafkaProducer` (@javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer)) is thread safe and sharing a single producer instance across streams will generally be faster than having multiple instances.
 

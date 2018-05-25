@@ -5,23 +5,6 @@ A consumer subscribes to Kafka topics and passes the messages into an Akka Strea
 The underlying implementation is using the `KafkaConsumer`, see @javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer) for a description of consumer groups, offsets, and other details.
 
 
-## Example Code
-
-For the examples in this section we use the following two dummy classes to illustrate how messages can be consumed.
-
-Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #db }
-
-Java
-: @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #db }
-
-
-Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #rocket }
-
-Java
-: @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #rocket }
-
 ## Settings
 
 When creating a consumer stream you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
@@ -49,13 +32,21 @@ When creating `ConsumerSettings` with the `ActorSystem` (@scaladoc[API](akka.act
 See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for more details regarding settings.
 
 
-## External Offset Storage
+## Offset Storage external to Kafka
+
+The Kafka read offset can either be stored in Kafka (se below), or at a data store of your choice.
 
 `Consumer.plainSource` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]) 
 and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
-(as received from the underlying `KafkaConsumer`). They do not have support for committing offsets to Kafka. When using
-these Sources, either store an offset externally or use auto-commit (note that auto-commit is by default disabled).
+as received from the underlying `KafkaConsumer`. They do not have support for committing offsets to Kafka. When using
+these Sources, either store an offset externally, or use auto-commit (note that auto-commit is by default disabled).
+
+Scala
+: @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #settings-autocommit }
+
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #settings-autocommit }
 
 The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
 choosing. The primary use case for this is allowing the application to store both the offset and the results of the
@@ -69,10 +60,9 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #plainSource }
 
-Note how with `Consumer.plainSource`, the starting point (offset) is assigned for a given consumer group id,
-topic and partition. The group id is defined in the `ConsumerSettings`.
+For with `Consumer.plainSource` the `Subscriptions.assignmentWithOffset` specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the `ConsumerSettings`.
 
-With `Consumer.plainPartitionedManualOffsetSource`, only the consumer group id and the topic is required on creation.
+Alternatively, with `Consumer.plainPartitionedManualOffsetSource` (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]), only the consumer group id and the topic are required on creation.
 The starting point is fetched by calling the `getOffsetsOnAssign` function passed in by the user. This function should return
 a `Map` of `TopicPartition` (@javadoc[API](org.apache.kafka.common.TopicPartition)) to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
 that is not included in the `Map` that results from `getOffsetsOnAssign`, the default starting position will be used,
@@ -80,15 +70,11 @@ according to the consumer configuration value `auto.offset.reset`. Also note tha
 emits tuples of assigned topic-partition and a corresponding source, as in [Source per partition](#source-per-partition).
 
 
-## Offset Storage in Kafka
+## Offset Storage in Kafka - committing
 
 The `Consumer.committableSource` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
-makes it possible to commit offset positions to Kafka.
-
-Compared to auto-commit this gives exact control of when a message is considered consumed.
-
-If you need to store offsets in anything other than Kafka, `plainSource` should be used instead of this API.
+makes it possible to commit offset positions to Kafka. Compared to auto-commit this gives exact control of when a message is considered consumed.
 
 This is useful when "at-least once delivery" is desired, as each message will likely be delivered one time but in failure cases could be duplicated.
 
@@ -110,7 +96,9 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atLeastOnceBatch }
 
-`groupedWithin` is an alternative way of aggregating elements:
+If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+
+For less active topics timing-based aggregating with `groupedWithin` might be a better choice.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #groupedWithin }
@@ -119,7 +107,7 @@ Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #groupedWithin }
 
 
-If you commit the offset before processing the message you get "at-most once delivery" semantics, and for that there is a `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
+If you commit the offset before processing the message you get "**at-most** once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #atMostOnce }
@@ -127,17 +115,14 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
-Maintaining at-least-once delivery semantics requires care, so many risks and solutions
-are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
-
-If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+Maintaining **at-least-once** delivery semantics requires care, so many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 
 ## Connecting Producer and Consumer
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
 
-Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "at-least once delivery" semantics.
+Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "**at-least** once" delivery semantics.
 
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -171,10 +156,10 @@ Java
 Separate streams per partition:
 
 Scala
-: @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #committablePartitionedSource2 }
+: @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #committablePartitionedSource-stream-per-partition }
 
 Java
-: @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #committablePartitionedSource2 }
+: @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #committablePartitionedSource-stream-per-partition }
 
 
 Join flows based on automatically assigned partitions:
@@ -183,9 +168,9 @@ Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #committablePartitionedSource3 }
 
 
-## Sharing KafkaConsumer
+## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)). That can be shared via the `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it by sending the `Stop` message, when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
+If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
  factory methods.
 
@@ -198,7 +183,7 @@ Java
 
 ## Accessing KafkaConsumer metrics
 
-You can access the underlying consumer metrics by `ask`-ing the `KafkaConsumerActor` for them: 
+You can access the underlying consumer metrics via the materialized `Control` instance: 
 
 Scala
 : @@ snip [consumerMetrics](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerMetrics }
@@ -211,13 +196,16 @@ Java
 
 You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
 from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor 
-`akka.kafka.TopicPartitionsAssigned` and `akka.kafka.TopicPartitionsRevoked`, like this:
+
+* `akka.kafka.TopicPartitionsAssigned` and 
+* `akka.kafka.TopicPartitionsRevoked`, like this:
 
 Scala
 : @@ snip [withRebalanceListenerActor](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
 
 Java
 : @@ snip [withRebalanceListenerActor](../../test/java/sample/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }
+
 
 ## Controlled shutdown
 The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` instance. This can be used to stop the stream in a controlled manner.

@@ -29,7 +29,7 @@ object AtLeastOnceOneToManyExample extends ConsumerExample {
         .via(Producer.flow(producerSettings))
         .map(_.message.passThrough)
         .collect{ case Some(offset) => offset }
-        .batch(max = 20, CommittableOffsetBatch.empty.updated(_))(_.updated(_))
+        .batch(max = 20, CommittableOffsetBatch(_))(_.updated(_))
         .mapAsync(3)(_.commitScaladsl())
         .runWith(Sink.ignore)
     // #oneToMany
