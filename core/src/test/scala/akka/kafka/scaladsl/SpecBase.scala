@@ -23,7 +23,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest._
-import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.{Eventually, ScalaFutures}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,6 +35,7 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
   with WordSpecLike
   with Matchers
   with BeforeAndAfterAll
+  with ScalaFutures
   with Eventually {
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
@@ -75,6 +76,8 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
     TestKit.shutdownActorSystem(system)
     EmbeddedKafka.stop()
   }
+
+  def sleep(time: FiniteDuration): Unit = Thread.sleep(time.toMillis)
 
   private val topicCounter = new AtomicInteger()
 
