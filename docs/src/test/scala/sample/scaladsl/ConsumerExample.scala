@@ -32,10 +32,12 @@ trait ConsumerExample {
   val maxPartitions = 100
 
   // #settings
-  val consumerSettings = ConsumerSettings(system, new StringDeserializer, new ByteArrayDeserializer)
-    .withBootstrapServers("localhost:9092")
-    .withGroupId("group1")
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+  val config = system.settings.config
+  val consumerSettings =
+    ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
+      .withBootstrapServers("localhost:9092")
+      .withGroupId("group1")
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   //#settings
 
   val producerSettings = ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
@@ -190,17 +192,21 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
 // Connect a Consumer to Producer
 object ConsumerToProducerSinkExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    //format: off
     // #consumerToProducerSink
-    Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map { msg =>
-        println(s"topic1 -> topic2: $msg")
-        ProducerMessage.Message(new ProducerRecord[String, Array[Byte]](
-          "topic2",
-          msg.record.value
-        ), msg.committableOffset)
-      }
-      .runWith(Producer.commitableSink(producerSettings))
+    val control =
+      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+        .map { msg =>
+          ProducerMessage.Message(
+            new ProducerRecord[String, Array[Byte]]("targetTopic", msg.record.value),
+            msg.committableOffset
+          )
+        }
+        .to(Producer.commitableSink(producerSettings))
+        .run()
     // #consumerToProducerSink
+    //format: on
+    control.shutdown()
   }
 }
 
@@ -208,23 +214,24 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
 object ConsumerToProducerFlowExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #consumerToProducerFlow
-    val done =
+    val control =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map { msg =>
-          println(s"topic1 -> topic2: $msg")
-          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]](
-            "topic2",
-            msg.record.value
-          ), msg.committableOffset)
+          ProducerMessage.Message(
+            new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
+            passThrough = msg.committableOffset
+          )
         }
         .via(Producer.flow(producerSettings))
         .mapAsync(producerSettings.parallelism) { result =>
-          result.message.passThrough.commitScaladsl()
+          val committable = result.message.passThrough
+          committable.commitScaladsl()
         }
-        .runWith(Sink.ignore)
+        .to(Sink.ignore)
+        .run()
     // #consumerToProducerFlow
 
-    terminateWhenDone(done)
+    terminateWhenDone(control.shutdown())
   }
 }
 

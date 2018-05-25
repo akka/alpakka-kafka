@@ -15,6 +15,7 @@ import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
+import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -45,16 +46,17 @@ abstract class ConsumerExample {
   }
 
   // #settings
-  protected final ConsumerSettings<String, byte[]> consumerSettings =
-      ConsumerSettings.create(system, new StringDeserializer(), new ByteArrayDeserializer())
-    .withBootstrapServers("localhost:9092")
-    .withGroupId("group1")
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+  final Config config = system.settings().config();
+  final ConsumerSettings<String, byte[]> consumerSettings =
+      ConsumerSettings.create(config, new StringDeserializer(), new ByteArrayDeserializer())
+          .withBootstrapServers("localhost:9092")
+          .withGroupId("group1")
+          .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   // #settings
 
   protected final ProducerSettings<String, byte[]> producerSettings =
       ProducerSettings.create(system, new StringSerializer(), new ByteArraySerializer())
-    .withBootstrapServers("localhost:9092");
+          .withBootstrapServers("localhost:9092");
 
   // #db
   static class DB {
@@ -174,12 +176,18 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
 
   public void demo() {
     // #consumerToProducerSink
-    Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map(msg ->
-        new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
-            new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()), msg.committableOffset()))
-      .runWith(Producer.commitableSink(producerSettings), materializer);
+    Consumer.Control control =
+        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+          .map(msg ->
+              new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
+                  new ProducerRecord<>("targetTopic", msg.record().key(), msg.record().value()),
+                  msg.committableOffset()
+              )
+          )
+          .to(Producer.commitableSink(producerSettings))
+          .run(materializer);
     // #consumerToProducerSink
+    control.shutdown();
   }
 }
 
@@ -191,15 +199,22 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
 
   public void demo() {
     // #consumerToProducerFlow
-    Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map(msg ->
-        new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
-          new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
-      .via(Producer.flow(producerSettings))
-      .mapAsync(producerSettings.parallelism(), result ->
-        result.message().passThrough().commitJavadsl())
-      .runWith(Sink.ignore(), materializer);
-    // #consumerToProducerFlow
+      Consumer.Control control =
+          Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+              .map(msg ->
+                  new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
+                      new ProducerRecord<>("topic2", msg.record().value()),
+                      msg.committableOffset() // the passThrough
+                  )
+              )
+              .via(Producer.flow(producerSettings))
+              .mapAsync(producerSettings.parallelism(), result -> {
+                  ConsumerMessage.Committable committable = result.message().passThrough();
+                  return committable.commitJavadsl();
+              })
+              .to(Sink.ignore())
+              .run(materializer);
+      // #consumerToProducerFlow
   }
 }
 

@@ -26,8 +26,10 @@ trait ProducerExample {
 
   // #producer
   // #settings
-  val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
-    .withBootstrapServers("localhost:9092")
+  val config = system.settings.config
+  val producerSettings =
+    ProducerSettings(config, new StringSerializer, new StringSerializer)
+      .withBootstrapServers("localhost:9092")
   // #settings
   val kafkaProducer = producerSettings.createKafkaProducer()
   // #producer
@@ -48,12 +50,11 @@ trait ProducerExample {
 object PlainSinkExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
     // #plainSink
-    val done = Source(1 to 100)
-      .map(_.toString)
-      .map { elem =>
-        new ProducerRecord[String, String]("topic1", elem)
-      }
-      .runWith(Producer.plainSink(producerSettings))
+    val done: Future[Done] =
+      Source(1 to 100)
+        .map(_.toString)
+        .map(value => new ProducerRecord[String, String]("topic1", value))
+        .runWith(Producer.plainSink(producerSettings))
     // #plainSink
 
     terminateWhenDone(done)
@@ -65,9 +66,7 @@ object PlainSinkWithProducerExample extends ProducerExample {
     // #plainSinkWithProducer
     val done = Source(1 to 100)
       .map(_.toString)
-      .map { elem =>
-        new ProducerRecord[String, String]("topic1", elem)
-      }
+      .map(value => new ProducerRecord[String, String]("topic1", value))
       .runWith(Producer.plainSink(producerSettings, kafkaProducer))
     // #plainSinkWithProducer
 
@@ -89,24 +88,26 @@ object ObserveMetricsExample extends ProducerExample {
 
 object ProducerFlowExample extends ProducerExample {
   def main(args: Array[String]): Unit = {
+    // format:off
     // #flow
     val done = Source(1 to 100)
-      .map { n =>
-        // val partition = math.abs(n) % 2
+      .map { number =>
         val partition = 0
-        ProducerMessage.Message(new ProducerRecord[String, String](
-          "topic1", partition, "key", n.toString
-        ), n)
+        val value = number.toString
+        ProducerMessage.Message(
+          new ProducerRecord("topic1", partition, "key", value),
+          number
+        )
       }
       .via(Producer.flow(producerSettings))
       .map { result =>
         val record = result.message.record
-        println(s"${record.topic}/${record.partition} ${result.offset}: ${record.value}" +
-          s"(${result.message.passThrough})")
-        result
+        val meta = result.metadata
+        s"${meta.topic}/${meta.partition} ${result.offset}: ${record.value}"
       }
-      .runWith(Sink.ignore)
+      .runWith(Sink.foreach(println(_)))
     // #flow
+    // format:on
 
     terminateWhenDone(done)
   }

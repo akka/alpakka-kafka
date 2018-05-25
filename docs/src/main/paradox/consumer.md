@@ -1,8 +1,9 @@
 # Consumer
 
-A consumer is used for subscribing to Kafka topics.
+A consumer subscribes to Kafka topics and passes the messages into an Akka Stream.
 
-The underlying implementation is using the `KafkaConsumer`, see @javadoc[API](org.apache.kafka.clients.consumer.KafkaConsumer) for description of consumer groups, offsets, and other details.
+The underlying implementation is using the `KafkaConsumer`, see @javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer) for a description of consumer groups, offsets, and other details.
+
 
 ## Example Code
 
@@ -25,10 +26,10 @@ Java
 
 When creating a consumer stream you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
 
+* serializers for the keys and values
 * bootstrap servers of the Kafka cluster
 * group id for the consumer, note that offsets are always committed for a given consumer group
-* serializers for the keys and values
-* tuning parameters
+* Kafka consumer tuning parameters
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #settings }
@@ -36,11 +37,14 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #settings }
 
-In addition to programmatic construction of the `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) it can also be created from configuration (`application.conf`). By default when creating `ConsumerSettings` with the `ActorSystem` (@scaladoc[API](akka.actor.ActorSystem)) parameter it uses the config section `akka.kafka.consumer`.
+In addition to programmatic construction of the `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) it can also be created from configuration (`application.conf`). 
+
+When creating `ConsumerSettings` with the `ActorSystem` (@scaladoc[API](akka.actor.ActorSystem)) settings it uses the config section `akka.kafka.consumer`. The format of these settings files are described in the [Typesafe Config Documentation](https://github.com/lightbend/config#using-hocon-the-json-superset).
+
 
 @@ snip [flow](../../../../core/src/main/resources/reference.conf) { #consumer-settings }
 
-`ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) can also be created from any other `Config` (@scaladoc[API](com.typesafe.config.Config)) section with the same layout as above.
+`ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) can also be created from any other `Config` section with the same layout as above.
 
 See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for more details regarding settings.
 
