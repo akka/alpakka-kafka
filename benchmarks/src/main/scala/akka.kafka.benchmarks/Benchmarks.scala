@@ -39,8 +39,8 @@ object Benchmarks {
         runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
       case "transactions" =>
         runPerfTest(cmd, KafkaTransactionFixtures.initialize(cmd), KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
-      //      case "akka-transactional" =>
-      //        runPerfTest(cmd, ReactiveKafkaConsumerFixtures.commitableSources(cmd), ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
+      case "akka-transactions" =>
+        runPerfTest(cmd, ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds), ReactiveKafkaTransactionBenchmarks.consumeTransformProduceTransaction)
       case _ => Future.failed(new IllegalArgumentException(s"Unrecognized test name: ${cmd.testName}"))
     }
   }
