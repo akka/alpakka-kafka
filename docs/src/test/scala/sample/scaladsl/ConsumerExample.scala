@@ -410,7 +410,11 @@ class RestartingStream extends ConsumerExample {
 
   def createStream(): Unit = {
     //#restartSource
-    RestartSource.withBackoff(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2) { () =>
+    RestartSource.withBackoff(
+      minBackoff = 3.seconds,
+      maxBackoff = 30.seconds,
+      randomFactor = 0.2
+    ) { () =>
       Source.fromFuture {
         val source = Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
         source

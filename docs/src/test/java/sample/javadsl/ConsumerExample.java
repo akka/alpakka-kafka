@@ -397,17 +397,17 @@ class RestartingConsumer extends ConsumerExample {
         java.time.Duration.of(3, ChronoUnit.SECONDS),
         java.time.Duration.of(30, ChronoUnit.SECONDS),
         0.2,
-            () ->
-                 Source.fromCompletionStage(
-                      Consumer
-                        .plainSource(consumerSettings, Subscriptions.topics("topic1"))
-                        .via(business())
-                        .watchTermination(
-                                 (control, completionStage) ->
-                                     completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
-                         )
-                        .runWith(Sink.ignore(), materializer)
-                 )
+        () ->
+             Source.fromCompletionStage(
+                  Consumer
+                    .plainSource(consumerSettings, Subscriptions.topics("topic1"))
+                    .via(business())
+                    .watchTermination(
+                             (control, completionStage) ->
+                                 completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
+                     )
+                    .runWith(Sink.ignore(), materializer)
+             )
     );
     //#restartSource
   }
