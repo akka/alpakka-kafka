@@ -17,8 +17,8 @@ The Alpakka project is an open source initiative to implement stream-aware, reac
 
 This repository contains the sources for the **Alpakka Kafka connector**. Which lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
-Supported versions
-------------------
+Matching Versions
+-----------------
 
 |Kafka  | Akka version | Alpakka Kafka Connector 
 |-------|--------------|-------------------------
