@@ -10,7 +10,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer}
+import akka.stream.ActorMaterializer
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -21,6 +21,8 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
+
+import akka.kafka.scaladsl.Consumer.DrainingControl
 
 trait ConsumerExample {
   val system = ActorSystem("example")
@@ -472,7 +474,7 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
     // #shutdownCommitableSource
     val db = new DB
 
-    val (consumerControl, streamComplete) =
+    val drainingControl =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
           db.update(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
@@ -482,13 +484,10 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
         }
         .mapAsync(3)(_.commitScaladsl())
         .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.create)
         .run()
 
-    for {
-      _ <- consumerControl.stop()
-      _ <- streamComplete
-      _ <- consumerControl.shutdown()
-    } yield Done
+    val streamComplete = drainingControl.drainAndShutdown()
 
     // #shutdownCommitableSource
 

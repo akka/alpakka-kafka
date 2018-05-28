@@ -449,7 +449,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
     // #shutdownCommitableSource
     final DB db = new DB();
 
-    Pair<Consumer.Control, CompletionStage<Done>> r =
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(1, msg ->
                 db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
@@ -458,14 +458,10 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
                 (batch, elem) -> batch.updated(elem))
             .mapAsync(3, c -> c.commitJavadsl())
             .toMat(Sink.ignore(), Keep.both())
+                .mapMaterializedValue(Consumer.DrainingControl::new)
             .run(materializer);
 
-    Consumer.Control control = r.first();
-    CompletionStage<Done> streamComplete = r.second();
-
-    control.stop()
-        .thenCompose(result -> streamComplete)
-        .thenCompose(result -> control.shutdown());
+    control.drainAndShutdown();
     // #shutdownCommitableSource
   }
 }

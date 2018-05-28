@@ -47,6 +47,16 @@ object Consumer {
     def shutdown(): CompletionStage[Done]
 
     /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source` so that all consumed messages
+     * reach the end of the stream.
+     */
+    def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] =
+      stop()
+        .thenCompose(_ => streamComplete)
+        .thenCompose(result => shutdown().thenApply(_ => result))
+
+    /**
      * Shutdown status. The `CompletionStage` will be completed when the stage has been shut down
      * and the underlying `KafkaConsumer` has been closed. Shutdown can be triggered
      * from downstream cancellation, errors, or [[#shutdown]].
@@ -58,6 +68,45 @@ object Consumer {
      */
     def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]]
 
+  }
+
+  /**
+   * Combine control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   */
+  final class DrainingControl[T](tuple: Pair[Control, CompletionStage[T]]) extends Control {
+
+    private val control = tuple.first
+    private val streamCompletion = tuple.second
+
+    override def stop(): CompletionStage[Done] = control.stop()
+
+    override def shutdown(): CompletionStage[Done] = control.shutdown()
+
+    override def drainAndShutdown[S](streamCompletion: CompletionStage[S]): CompletionStage[S] =
+      control.drainAndShutdown(streamCompletion)
+
+    /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source`. It will wait for outstanding offset
+     * commit requests to finish before shutting down.
+     */
+    def drainAndShutdown(): CompletionStage[T] =
+      control.drainAndShutdown(streamCompletion)
+
+    override def isShutdown: CompletionStage[Done] = control.isShutdown
+
+    override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] = control.getMetrics
+  }
+
+  object DrainingControl {
+    /**
+     * Combine control and a stream completion signal materialized values into
+     * one, so that the stream can be stopped in a controlled way without losing
+     * commits.
+     */
+    def create[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair)
   }
 
   /**
