@@ -11,7 +11,7 @@ import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, KafkaConsumerActor}
+import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
@@ -46,7 +46,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     consumer = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
-      extendedActorSystem.systemActorOf(KafkaConsumerActor.props(settings), name)
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
     }
 
     self = getStageActor {

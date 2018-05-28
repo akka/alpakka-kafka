@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, Terminated}
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
-import akka.kafka.{ConsumerFailed, KafkaConsumerActor, ManualSubscription}
+import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler}
