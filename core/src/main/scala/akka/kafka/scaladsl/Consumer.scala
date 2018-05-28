@@ -17,6 +17,8 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -48,11 +50,11 @@ object Consumer {
      * reach the end of the stream.
      */
     def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
-      for {
-        _ <- stop()
-        result <- streamCompletion
-        _ <- shutdown()
-      } yield result
+      stop()
+        .flatMap(_ => streamCompletion)
+        .transformWith { res =>
+          shutdown().map(_ => res.get)
+        }
 
     /**
      * Shutdown status. The `Future` will be completed when the stage has been shut down
@@ -72,9 +74,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T] private (tuple: (Control, Future[T])) extends Control {
-
-    private val (control, streamCompletion) = tuple
+  final class DrainingControl[T] private (control: Control, streamCompletion: Future[T]) extends Control {
 
     override def stop(): Future[Done] = control.stop()
 
@@ -101,7 +101,7 @@ object Consumer {
      * one, so that the stream can be stopped in a controlled way without losing
      * commits.
      */
-    def create[T](tuple: (Control, Future[T])) = new DrainingControl[T](tuple)
+    def apply[T](tuple: (Control, Future[T])) = new DrainingControl[T](tuple._1, tuple._2)
   }
 
   /**

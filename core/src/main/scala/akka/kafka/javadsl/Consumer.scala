@@ -54,6 +54,9 @@ object Consumer {
     def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] =
       stop()
         .thenCompose(_ => streamComplete)
+        .exceptionally(e =>
+          shutdown().thenApply(throw e)
+        )
         .thenCompose(result => shutdown().thenApply(_ => result))
 
     /**
@@ -75,10 +78,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T](tuple: Pair[Control, CompletionStage[T]]) extends Control {
-
-    private val control = tuple.first
-    private val streamCompletion = tuple.second
+  final class DrainingControl[T] private (control: Control, streamCompletion: CompletionStage[T]) extends Control {
 
     override def stop(): CompletionStage[Done] = control.stop()
 
@@ -106,7 +106,7 @@ object Consumer {
      * one, so that the stream can be stopped in a controlled way without losing
      * commits.
      */
-    def create[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair)
+    def create[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair.first, pair.second)
   }
 
   /**

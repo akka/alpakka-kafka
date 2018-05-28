@@ -484,7 +484,7 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
         }
         .mapAsync(3)(_.commitScaladsl())
         .toMat(Sink.ignore)(Keep.both)
-        .mapMaterializedValue(DrainingControl.create)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
 
     val streamComplete = drainingControl.drainAndShutdown()
