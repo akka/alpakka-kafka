@@ -48,12 +48,13 @@ object Consumer {
      * Stop producing messages from the `Source`, wait for stream completion
      * and shut down the consumer `Source` so that all consumed messages
      * reach the end of the stream.
+     * Failures in stream completion will be propagated, the source will be shut down anyway.
      */
     def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
       stop()
         .flatMap(_ => streamCompletion)
-        .transformWith { res =>
-          shutdown().map(_ => res.get)
+        .transformWith { _ =>
+          shutdown().flatMap(_ => streamCompletion)
         }
 
     /**

@@ -50,6 +50,7 @@ object Consumer {
      * Stop producing messages from the `Source`, wait for stream completion
      * and shut down the consumer `Source` so that all consumed messages
      * reach the end of the stream.
+     * Failures in stream completion will be propagated, the source will be shut down anyway.
      */
     def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] =
       stop()
