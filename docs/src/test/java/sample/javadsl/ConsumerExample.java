@@ -458,7 +458,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
                 (batch, elem) -> batch.updated(elem))
             .mapAsync(3, c -> c.commitJavadsl())
             .toMat(Sink.ignore(), Keep.both())
-                .mapMaterializedValue(Consumer.DrainingControl::create)
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
     control.drainAndShutdown();

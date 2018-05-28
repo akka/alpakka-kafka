@@ -18,7 +18,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
-import scala.util.control.NonFatal
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -53,8 +52,11 @@ object Consumer {
     def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
       stop()
         .flatMap(_ => streamCompletion)
-        .transformWith { _ =>
-          shutdown().flatMap(_ => streamCompletion)
+        .transformWith {
+          case Success(result) =>
+            shutdown().map(_ => result)
+          case Failure(e) =>
+            shutdown().transformWith(_ => streamCompletion)
         }
 
     /**

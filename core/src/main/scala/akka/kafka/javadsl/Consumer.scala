@@ -11,16 +11,16 @@ import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{CommittableMessage, TransactionalMessage}
-import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
 import akka.kafka._
+import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
 import akka.stream.javadsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.FiniteDuration
 import scala.compat.java8.FutureConverters
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -55,9 +55,6 @@ object Consumer {
     def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] =
       stop()
         .thenCompose(_ => streamComplete)
-        .exceptionally(e =>
-          shutdown().thenApply(throw e)
-        )
         .thenCompose(result => shutdown().thenApply(_ => result))
 
     /**
@@ -79,7 +76,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T] private (control: Control, streamCompletion: CompletionStage[T]) extends Control {
+  final class DrainingControl[T] private[javadsl] (control: Control, streamCompletion: CompletionStage[T]) extends Control {
 
     override def stop(): CompletionStage[Done] = control.stop()
 
@@ -101,14 +98,12 @@ object Consumer {
     override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] = control.getMetrics
   }
 
-  object DrainingControl {
-    /**
-     * Combine control and a stream completion signal materialized values into
-     * one, so that the stream can be stopped in a controlled way without losing
-     * commits.
-     */
-    def create[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair.first, pair.second)
-  }
+  /**
+   * Combine control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   */
+  def createDrainingControl[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair.first, pair.second)
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
