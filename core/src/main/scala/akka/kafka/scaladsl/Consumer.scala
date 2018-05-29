@@ -52,11 +52,20 @@ object Consumer {
     def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
       stop()
         .flatMap(_ => streamCompletion)
-        .transformWith {
-          case Success(result) =>
-            shutdown().map(_ => result)
-          case Failure(e) =>
-            shutdown().transformWith(_ => streamCompletion)
+        .recoverWith {
+          case completionError: Throwable =>
+            shutdown()
+              .flatMap(_ => streamCompletion)
+              .recoverWith {
+                case _: Throwable => throw completionError
+              }
+        }
+        .flatMap { result =>
+          shutdown()
+            .map(_ => result)
+            .recover {
+              case shutdownError: Throwable => throw shutdownError
+            }
         }
 
     /**

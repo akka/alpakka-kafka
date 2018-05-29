@@ -53,16 +53,33 @@ object Consumer {
      * reach the end of the stream.
      * Failures in stream completion will be propagated, the source will be shut down anyway.
      */
-    def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] = {
+    def drainAndShutdown[T](streamCompletion: CompletionStage[T]): CompletionStage[T] = {
       // TODO this should be possible to implement with CompletionStage instead
+      // this might become easier when Scala 2.11 is not a requirement anymore
       implicit val ec = ExecutionContexts.sameThreadExecutionContext
-      stop().toScala
-        .flatMap(_ => streamComplete.toScala)
-        .transformWith {
-          case Success(result) =>
-            shutdown().toScala.map(_ => result)
-          case Failure(e) =>
-            shutdown().toScala.transformWith(_ => streamComplete.toScala)
+      stop()
+        .thenCompose[T](new java.util.function.Function[akka.Done, CompletionStage[T]]() {
+          override def apply(v1: Done): CompletionStage[T] = streamCompletion
+        })
+        .toScala
+        .recoverWith {
+          case completionError: Throwable =>
+            shutdown()
+              .thenCompose(new java.util.function.Function[akka.Done, CompletionStage[T]]() {
+                override def apply(v1: Done): CompletionStage[T] = streamCompletion
+              })
+              .toScala
+              .recoverWith {
+                case _: Throwable => throw completionError
+              }
+        }
+        .flatMap { result =>
+          shutdown()
+            .toScala
+            .map(_ => result)
+            .recover {
+              case shutdownError: Throwable => throw shutdownError
+            }
         }.toJava
     }
 
