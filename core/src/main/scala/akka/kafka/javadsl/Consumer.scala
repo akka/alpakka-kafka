@@ -5,22 +5,22 @@
 
 package akka.kafka.javadsl
 
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{CommittableMessage, TransactionalMessage}
-import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
 import akka.kafka._
+import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
 import akka.stream.javadsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
-import scala.compat.java8.FutureConverters
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -47,6 +47,14 @@ object Consumer {
     def shutdown(): CompletionStage[Done]
 
     /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source` so that all consumed messages
+     * reach the end of the stream.
+     * Failures in stream completion will be propagated, the source will be shut down anyway.
+     */
+    def drainAndShutdown[T](streamCompletion: CompletionStage[T], ec: Executor): CompletionStage[T]
+
+    /**
      * Shutdown status. The `CompletionStage` will be completed when the stage has been shut down
      * and the underlying `KafkaConsumer` has been closed. Shutdown can be triggered
      * from downstream cancellation, errors, or [[#shutdown]].
@@ -59,6 +67,40 @@ object Consumer {
     def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]]
 
   }
+
+  /**
+   * Combine control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   */
+  final class DrainingControl[T] private[javadsl] (control: Control, streamCompletion: CompletionStage[T]) extends Control {
+
+    override def stop(): CompletionStage[Done] = control.stop()
+
+    override def shutdown(): CompletionStage[Done] = control.shutdown()
+
+    override def drainAndShutdown[S](streamCompletion: CompletionStage[S], ec: Executor): CompletionStage[S] =
+      control.drainAndShutdown(streamCompletion, ec)
+
+    /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source`. It will wait for outstanding offset
+     * commit requests to finish before shutting down.
+     */
+    def drainAndShutdown(ec: Executor): CompletionStage[T] =
+      control.drainAndShutdown(streamCompletion, ec)
+
+    override def isShutdown: CompletionStage[Done] = control.isShutdown
+
+    override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] = control.getMetrics
+  }
+
+  /**
+   * Combine control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   */
+  def createDrainingControl[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair.first, pair.second)
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
@@ -137,7 +179,7 @@ object Consumer {
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         _ => ()
       )
       .map {
@@ -159,7 +201,7 @@ object Consumer {
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {

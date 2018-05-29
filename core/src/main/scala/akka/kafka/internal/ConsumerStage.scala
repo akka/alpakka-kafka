@@ -5,7 +5,7 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executor}
 import java.util.{Locale, Map => JMap}
 
 import akka.actor.ActorRef
@@ -26,7 +26,7 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
-import scala.compat.java8.FutureConverters.FutureOps
+import scala.compat.java8.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -266,6 +266,9 @@ private[kafka] object ConsumerStage {
     override def stop(): CompletionStage[Done] = underlying.stop().toJava
 
     override def shutdown(): CompletionStage[Done] = underlying.shutdown().toJava
+
+    override def drainAndShutdown[T](streamCompletion: CompletionStage[T], ec: Executor): CompletionStage[T] =
+      underlying.drainAndShutdown(streamCompletion.toScala)(ExecutionContext.fromExecutor(ec)).toJava
 
     override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
 

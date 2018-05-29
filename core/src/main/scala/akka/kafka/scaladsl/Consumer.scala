@@ -15,7 +15,7 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -43,6 +43,31 @@ object Consumer {
     def shutdown(): Future[Done]
 
     /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source` so that all consumed messages
+     * reach the end of the stream.
+     * Failures in stream completion will be propagated, the source will be shut down anyway.
+     */
+    def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
+      stop()
+        .flatMap(_ => streamCompletion)
+        .recoverWith {
+          case completionError: Throwable =>
+            shutdown()
+              .flatMap(_ => streamCompletion)
+              .recoverWith {
+                case _: Throwable => throw completionError
+              }
+        }
+        .flatMap { result =>
+          shutdown()
+            .map(_ => result)
+            .recover {
+              case shutdownError: Throwable => throw shutdownError
+            }
+        }
+
+    /**
      * Shutdown status. The `Future` will be completed when the stage has been shut down
      * and the underlying `KafkaConsumer` has been closed. Shutdown can be triggered
      * from downstream cancellation, errors, or [[#shutdown]].
@@ -53,6 +78,41 @@ object Consumer {
      * Exposes underlying consumer or producer metrics (as reported by underlying Kafka client library)
      */
     def metrics: Future[Map[MetricName, Metric]]
+  }
+
+  /**
+   * Combine control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   */
+  final class DrainingControl[T] private (control: Control, streamCompletion: Future[T]) extends Control {
+
+    override def stop(): Future[Done] = control.stop()
+
+    override def shutdown(): Future[Done] = control.shutdown()
+
+    override def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
+      control.drainAndShutdown(streamCompletion)
+
+    /**
+     * Stop producing messages from the `Source`, wait for stream completion
+     * and shut down the consumer `Source` so that all consumed messages
+     * reach the end of the stream.
+     */
+    def drainAndShutdown()(implicit ec: ExecutionContext): Future[T] = control.drainAndShutdown(streamCompletion)(ec)
+
+    override def isShutdown: Future[Done] = control.isShutdown
+
+    override def metrics: Future[Map[MetricName, Metric]] = control.metrics
+  }
+
+  object DrainingControl {
+    /**
+     * Combine control and a stream completion signal materialized values into
+     * one, so that the stream can be stopped in a controlled way without losing
+     * commits.
+     */
+    def apply[T](tuple: (Control, Future[T])) = new DrainingControl[T](tuple._1, tuple._2)
   }
 
   /**

@@ -5,7 +5,7 @@
 
 package akka.kafka.test
 
-import akka.actor.{ActorRef, ActorRefWithCell, ActorSystem}
+import akka.actor.{ActorRef, ActorRefWithCell}
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.impl.StreamSupervisor
 import akka.testkit.TestProbe
@@ -13,7 +13,6 @@ import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
-import scala.language.reflectiveCalls
 
 object Utils {
 

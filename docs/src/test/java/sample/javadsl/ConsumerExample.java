@@ -29,9 +29,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -447,9 +445,10 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
 
   public void demo() {
     // #shutdownCommitableSource
+    final Executor ec = Executors.newCachedThreadPool();
     final DB db = new DB();
 
-    Pair<Consumer.Control, CompletionStage<Done>> r =
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(1, msg ->
                 db.update(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset()))
@@ -458,14 +457,10 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
                 (batch, elem) -> batch.updated(elem))
             .mapAsync(3, c -> c.commitJavadsl())
             .toMat(Sink.ignore(), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
-    Consumer.Control control = r.first();
-    CompletionStage<Done> streamComplete = r.second();
-
-    control.stop()
-        .thenCompose(result -> streamComplete)
-        .thenCompose(result -> control.shutdown());
+    control.drainAndShutdown(ec);
     // #shutdownCommitableSource
   }
 }
