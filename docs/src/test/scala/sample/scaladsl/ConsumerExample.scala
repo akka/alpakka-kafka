@@ -139,11 +139,12 @@ object AtLeastOnceExample extends ConsumerExample {
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
         .mapAsync(5)(offset => offset.commitScaladsl())
-        .to(Sink.ignore)
+        .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnce
 
-    terminateWhenDone(control.shutdown())
+    terminateWhenDone(control.drainAndShutdown())
   }
   // format: off
   // #atLeastOnce
@@ -168,11 +169,12 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
           batch.updated(elem)
         }
         .mapAsync(3)(_.commitScaladsl())
-        .to(Sink.ignore)
+        .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnceBatch
 
-    terminateWhenDone(control.shutdown())
+    terminateWhenDone(control.drainAndShutdown())
   }
 
   def business(key: String, value: Array[Byte]): Future[Done] = ???
@@ -191,11 +193,12 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
             msg.committableOffset
           )
         }
-        .to(Producer.commitableSink(producerSettings))
+        .toMat(Producer.commitableSink(producerSettings))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
     //format: on
-    control.shutdown()
+    control.drainAndShutdown()
   }
 }
 
@@ -216,11 +219,12 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
         val committable = result.message.passThrough
         committable.commitScaladsl()
       }
-      .to(Sink.ignore)
+      .toMat(Sink.ignore)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlow
 
-    terminateWhenDone(control.shutdown())
+    terminateWhenDone(control.drainAndShutdown())
   }
 }
 
@@ -242,11 +246,12 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
         batch.updated(elem)
       }
       .mapAsync(3)(_.commitScaladsl())
-      .to(Sink.ignore)
+      .toMat(Sink.ignore)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlowBatch
 
-    terminateWhenDone(control.shutdown())
+    terminateWhenDone(control.drainAndShutdown())
   }
 }
 
@@ -386,6 +391,8 @@ object ExternallyControlledKafkaConsumer extends ConsumerExample {
       .via(business)
       .to(Sink.ignore)
       .run()
+
+    consumer ! KafkaConsumerActor.Stop
     // #consumerActor
     terminateWhenDone(controlPartition1.shutdown().flatMap(_ => controlPartition2.shutdown()))
   }

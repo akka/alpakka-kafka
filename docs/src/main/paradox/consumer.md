@@ -180,7 +180,7 @@ Scala
 
 ## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
+If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
  factory methods.
 
@@ -234,7 +234,7 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `commitScaladsl()` or `commitJavadsl()`).
 3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
 
-The example belows shows the `commitableSource` in combination with batched offset commits. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
+To manage this shutdown process, use the `Consumer.DrainingControl` by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue'. That control offers the method `drainAndShutdown` which implements the process descibed above. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
 
 Scala
 : @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }
