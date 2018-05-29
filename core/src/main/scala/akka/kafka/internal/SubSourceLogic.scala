@@ -8,7 +8,7 @@ package akka.kafka.internal
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
-import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.actor.{ActorRef, Cancellable, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
@@ -32,7 +32,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => ()
-) extends GraphStageLogic(shape) with PromiseControl with MetricsControl with MessageBuilder[K, V, Msg] {
+) extends GraphStageLogic(shape) with PromiseControl with MetricsControl with MessageBuilder[K, V, Msg] with StageLogging {
   var consumer: ActorRef = _
   var self: StageActor = _
   // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
@@ -40,6 +40,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   // We have created a source for these partitions, but it has not started up and is not in subSources yet.
   var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
   var subSources: Map[TopicPartition, Control] = immutable.Map.empty
+  var partitionsToRevoke: Set[TopicPartition] = Set.empty
+  var pendingRevokeCall: Option[Cancellable] = None
 
   override def preStart(): Unit = {
     super.preStart()
@@ -78,28 +80,52 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
   def partitionAssignedCB(tps: Set[TopicPartition]) = {
     implicit val ec = materializer.executionContext
-    getOffsetsOnAssign.fold(pumpCB.invoke(tps)) { getOffsets =>
-      getOffsets(tps)
+
+    val partitions = tps -- partitionsToRevoke
+
+    if (partitions.nonEmpty) {
+      log.debug(s"Assigning new partitions: ${partitions.mkString(", ")}")
+    }
+
+    partitionsToRevoke = partitionsToRevoke -- tps
+
+    getOffsetsOnAssign.fold(pumpCB.invoke(partitions)) { getOffsets =>
+      getOffsets(partitions)
         .onComplete {
-          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: $tps.", ex))
+          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: ${partitions.mkString(", ")}.", ex))
           case Success(offsets) =>
             consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
-              .map(_ => pumpCB.invoke(tps))
+              .map(_ => pumpCB.invoke(partitions))
               .recover {
-                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: $tps."))
+                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: ${partitions.mkString(", ")}."))
               }
         }
     }
   }
 
   def partitionRevokedCB(tps: Set[TopicPartition]) = {
-    getAsyncCallback[Unit] { _ =>
-      onRevoke(tps)
-      pendingPartitions --= tps
-      partitionsInStartup --= tps
-      tps.flatMap(subSources.get).foreach(_.shutdown())
-      subSources --= tps
-    }.invoke(())
+    pendingRevokeCall.map(_.cancel())
+    partitionsToRevoke ++= tps
+    val cb = getAsyncCallback[Unit] { _ =>
+      onRevoke(partitionsToRevoke)
+      pendingPartitions --= partitionsToRevoke
+      partitionsInStartup --= partitionsToRevoke
+      partitionsToRevoke.flatMap(subSources.get).foreach(_.shutdown())
+      subSources --= partitionsToRevoke
+    }
+
+    log.debug(s"Waiting ${settings.waitClosePartition.toMillis} ms for pending requests before close partitions")
+    pendingRevokeCall = Option(
+      materializer.scheduleOnce(
+        settings.waitClosePartition,
+        new Runnable {
+          override def run(): Unit = {
+            cb.invoke(())
+            pendingRevokeCall = None
+          }
+        }
+      )
+    )
   }
 
   val subsourceCancelledCB = getAsyncCallback[TopicPartition] { tp =>
@@ -230,6 +256,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         })
 
         def performShutdown() = {
+          log.debug(s"Revoking partition $tp")
           completeStage()
         }
 

@@ -353,6 +353,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
         probe1
           .request(50)
 
+        Thread.sleep(consumerDefaults.waitClosePartition.toMillis)
+
         val probe2 = source.runWith(TestSink.probe)
 
         eventually(assert(revoked))

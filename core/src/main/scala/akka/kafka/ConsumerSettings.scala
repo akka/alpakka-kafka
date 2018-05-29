@@ -66,9 +66,10 @@ object ConsumerSettings {
     val commitRefreshInterval = config.getPotentiallyInfiniteDuration("commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
+    val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups, commitRefreshInterval,
-      dispatcher, commitTimeWarning, wakeupDebug)
+      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups,
+      commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug, waitClosePartition)
   }
 
   /**
@@ -166,7 +167,8 @@ class ConsumerSettings[K, V](
     val commitRefreshInterval: Duration,
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
-    val wakeupDebug: Boolean = true
+    val wakeupDebug: Boolean = true,
+    val waitClosePartition: FiniteDuration
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
@@ -244,6 +246,9 @@ class ConsumerSettings[K, V](
   def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
     copy(wakeupDebug = wakeupDebug)
 
+  def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
+    copy(waitClosePartition = waitClosePartition)
+
   private def copy(
     properties: Map[String, String] = properties,
     keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
@@ -258,11 +263,12 @@ class ConsumerSettings[K, V](
     maxWakeups: Int = maxWakeups,
     commitRefreshInterval: Duration = commitRefreshInterval,
     dispatcher: String = dispatcher,
-    wakeupDebug: Boolean = wakeupDebug
+    wakeupDebug: Boolean = wakeupDebug,
+    waitClosePartition: FiniteDuration = waitClosePartition
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
       pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug)
+      maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug, waitClosePartition)
 
   /**
    * Create a `KafkaConsumer` instance from the settings.
