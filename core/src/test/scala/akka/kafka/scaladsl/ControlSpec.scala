@@ -47,7 +47,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = DrainingControl.apply((control, Future.failed(new RuntimeException("expected"))))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
 
@@ -57,7 +58,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = DrainingControl.apply((control, Future.failed(new RuntimeException("expected"))))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
 
@@ -67,7 +69,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = DrainingControl.apply((control, Future.successful(Done)))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
   }

@@ -53,7 +53,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = Consumer.createDrainingControl(akka.japi.Pair(control, Future.failed[String](new RuntimeException("expected")).toJava))
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
 
@@ -63,7 +64,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = Consumer.createDrainingControl(akka.japi.Pair(control, Future.failed[String](new RuntimeException("expected")).toJava))
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
 
@@ -73,7 +75,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       val drainingControl = Consumer.createDrainingControl(akka.japi.Pair(control, Future.successful(Done).toJava))
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
-      value.getMessage should be("expected")
+      // endWith to accustom Scala 2.11 and 2.12
+      value.getMessage should endWith("expected")
       control.shutdownCalled.get() should be (true)
     }
 
