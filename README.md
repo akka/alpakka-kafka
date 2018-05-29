@@ -17,19 +17,6 @@ The Alpakka project is an open source initiative to implement stream-aware, reac
 
 This repository contains the sources for the **Alpakka Kafka connector**. Which lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
-Matching Versions
------------------
-
-|Kafka  | Akka version | Alpakka Kafka Connector 
-|-------|--------------|-------------------------
-|1.1.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)  
-|1.0.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)  
-|0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1) 
-|0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1) 
-
-
-This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
-
 Akka Stream connectors to other technologies are listed in the [Alpakka repository](https://github.com/akka/alpakka).
 
 

@@ -27,7 +27,6 @@ Matching Versions
 |0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1)
 
 
-
 ### Reported issues
 
 [Issues at Github](https://github.com/akka/reactive-kafka/issues)
@@ -39,6 +38,9 @@ Matching Versions
   artifact=akka-stream-kafka_$scalaBinaryVersion$
   version=$version$
 }
+
+This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
+
 
 ## Scala and Java APIs
 
