@@ -56,3 +56,7 @@ ProblemFilters.exclude[MissingClassProblem]("akka.kafka.KafkaConsumerActor$Inter
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.KafkaConsumerActor$ListenerCallbacks")
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.KafkaConsumerActor$ListenerCallbacks$")
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.KafkaConsumerActor$WrappedAutoPausedListener")
+
+# interface not intended to be extended
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.javadsl.Consumer#Control.drainAndShutdown")
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.scaladsl.Consumer#Control.drainAndShutdown")
