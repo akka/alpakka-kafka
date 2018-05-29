@@ -49,23 +49,7 @@ Java
 
 ### Connecting a Producer to a Consumer
 
-For simple cases of transferring from Kafka topics to another Kafka topic the `Producer.commitableSink` is useful, as this sink commits the offset back to the Kafka consumer, when it successfully published the message.
-
-The `committableSink` accepts messages of type `ProducerMessage.Message` (@scaladoc[API](akka.kafka.ProducerMessage$$Message)) to combine Kafka's `ProducerRecord` with the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))).
-
-Scala
-: @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
-
-Java
-: @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerSink }
-
-@@@note 
-
-There is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least once delivery" semantics.
-
-To get delivery guarantees, please read about @ref[transactions](transactions.md).
-
-@@@
+See the @ref[Consumer page](consumer.md#connecting-producer-and-consumer).
 
 
 ## Producer as a Flow

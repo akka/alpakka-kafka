@@ -80,17 +80,31 @@ object ConsumerMessage {
 
   object CommittableOffsetBatch {
     val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty)
+
+    /**
+     * Scala API:
+     * Create an offset batch out of a first offsets.
+     */
     def apply(offset: CommittableOffset): CommittableOffsetBatch = empty.updated(offset)
+
+    /**
+     * Scala API:
+     * Create an offset batch out of a list of offsets.
+     */
     def apply(offsets: Seq[CommittableOffset]): CommittableOffsetBatch =
       offsets.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) => batch.updated(elem) }
   }
 
   val emptyCommittableOffsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
+  /**
+   * Java API:
+   * Create an offset batch out of a first offsets.
+   */
   def createCommittableOffsetBatch(first: CommittableOffset): CommittableOffsetBatch = CommittableOffsetBatch(first)
 
   /**
-   * Java API
+   * Java API:
    * Create an offset batch out of a list of offsets.
    */
   def createCommittableOffsetBatch(offsets: java.util.List[CommittableOffset]): CommittableOffsetBatch = {

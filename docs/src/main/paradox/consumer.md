@@ -34,7 +34,7 @@ See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer)
 
 ## Offset Storage external to Kafka
 
-The Kafka read offset can either be stored in Kafka (se below), or at a data store of your choice.
+The Kafka read offset can either be stored in Kafka (see below), or at a data store of your choice.
 
 `Consumer.plainSource` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]) 
@@ -52,7 +52,7 @@ The consumer application doesn't need to use Kafka's built-in offset storage, it
 choosing. The primary use case for this is allowing the application to store both the offset and the results of the
 consumption in the same system in a way that both the results and offsets are stored atomically. This is not always
 possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
-stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
+stronger than the "at-least-once" semantics you get with Kafka's offset commit functionality.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #plainSource }
@@ -60,7 +60,7 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #plainSource }
 
-For with `Consumer.plainSource` the `Subscriptions.assignmentWithOffset` specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the `ConsumerSettings`.
+For `Consumer.plainSource` the `Subscriptions.assignmentWithOffset` specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the `ConsumerSettings`.
 
 Alternatively, with `Consumer.plainPartitionedManualOffsetSource` (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]), only the consumer group id and the topic are required on creation.
 The starting point is fetched by calling the `getOffsetsOnAssign` function passed in by the user. This function should return
@@ -76,7 +76,7 @@ The `Consumer.committableSource`
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
 makes it possible to commit offset positions to Kafka. Compared to auto-commit this gives exact control of when a message is considered consumed.
 
-This is useful when "at-least once delivery" is desired, as each message will likely be delivered one time but in failure cases could be duplicated.
+This is useful when "at-least-once delivery" is desired, as each message will likely be delivered one time but in failure cases could be duplicated.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #atLeastOnce }
@@ -107,7 +107,7 @@ Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #groupedWithin }
 
 
-If you commit the offset before processing the message you get "**at-most** once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
+If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #atMostOnce }
@@ -115,14 +115,16 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
-Maintaining **at-least-once** delivery semantics requires care, so many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
+Maintaining at-least-once delivery semantics requires care, so many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 
 ## Connecting Producer and Consumer
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
 
-Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "**at-least** once" delivery semantics.
+The `committableSink` accepts messages of type `ProducerMessage.Message` (@scaladoc[API](akka.kafka.ProducerMessage$$Message)) to combine Kafka's `ProducerRecord` with the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))).
+
+Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "at-least-once" delivery semantics. 
 
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -130,13 +132,21 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerSink }
 
-As mentioned earlier, committing each message is rather slow and we can batch the commits to get higher throughput.
+Committing messages one-by-one is rather slow, but we can batch the commits to get higher throughput.
 
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerFlowBatch }
 
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlowBatch }
+
+@@@note 
+
+There is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least-once delivery" semantics.
+
+To get delivery guarantees, please read about @ref[transactions](transactions.md).
+
+@@@
 
 
 ## Source per partition
