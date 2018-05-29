@@ -18,6 +18,7 @@ Assuming that you have docker and eventually docker-machine to switch between VM
 2. Run:
 `docker run -d --name zookeeper -p 2181:2181 jplock/zookeeper:3.4.6` for ZK
 `docker run -d --name kafka --link zookeeper:zookeeper -p 9092:9092 ches/kafka:0.10.0.0` for Kafka
+or `docker-compose.yml` in `benchmarks/docker/`
 3. Optionally switch to the machine where you want your app to be deployed
 4. Run `docker run -d --name benchmarks -e KAFKA_IP=172.17.0.3 -e TEST_NAME=akka-plain-consumer -e MSG_COUNT=500000000 com.typesafe.akka/akka-stream-kafka-benchmarks`
 Options:

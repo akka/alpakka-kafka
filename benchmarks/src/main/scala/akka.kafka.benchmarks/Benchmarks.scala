@@ -10,6 +10,7 @@ import akka.kafka.benchmarks.app.RunTestCommand
 import akka.stream.Materializer
 import Timed._
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 object Benchmarks {
 
@@ -36,6 +37,10 @@ object Benchmarks {
         runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
       case "akka-plain-producer" =>
         runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
+      case "transactions" =>
+        runPerfTest(cmd, KafkaTransactionFixtures.initialize(cmd), KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
+      case "akka-transactions" =>
+        runPerfTest(cmd, ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds), ReactiveKafkaTransactionBenchmarks.consumeTransformProduceTransaction)
       case _ => Future.failed(new IllegalArgumentException(s"Unrecognized test name: ${cmd.testName}"))
     }
   }

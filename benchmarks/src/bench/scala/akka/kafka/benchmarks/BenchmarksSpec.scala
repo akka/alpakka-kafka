@@ -20,11 +20,12 @@ class BenchmarksSpec extends TestKit(ActorSystem("AkkaKafkaBenchmarks")) with Fl
 
   it should "work" in {
     //Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
-    //    Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
-    //    Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 2000000))
-    //    Benchmarks.run(RunTestCommand("at-most-once-consumer", kafkaHost, 1000))
-    Benchmarks.run(RunTestCommand("akka-at-most-once-consumer", kafkaHost, 50000))
-
+    //Benchmarks.run(RunTestCommand("akka-plain-consumer", kafkaHost, 2000000))
+    //Benchmarks.run(RunTestCommand("batched-consumer", kafkaHost, 20000))
+    //Benchmarks.run(RunTestCommand("akka-batched-consumer", kafkaHost, 20000))
+    //Benchmarks.run(RunTestCommand("at-most-once-consumer", kafkaHost, 50000))
+    Benchmarks.run(RunTestCommand("transactions", kafkaHost, 100000))
+    Benchmarks.run(RunTestCommand("akka-transactions", kafkaHost, 100000))
   }
 
   override protected def afterAll(): Unit = {
