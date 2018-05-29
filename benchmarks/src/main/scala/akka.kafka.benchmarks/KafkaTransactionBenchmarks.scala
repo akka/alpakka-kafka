@@ -36,7 +36,7 @@ object KafkaTransactionBenchmarks extends LazyLogging {
 
     def doCommit(): Unit = {
       accumulatedMsgCount = 0
-      val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
+      val offsetMap = Map(new TopicPartition(fixture.sourceTopic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
       logger.debug("Committing offset " + offsetMap.head._2.offset())
       producer.sendOffsetsToTransaction(offsetMap.asJava, fixture.groupId)
       producer.commitTransaction()

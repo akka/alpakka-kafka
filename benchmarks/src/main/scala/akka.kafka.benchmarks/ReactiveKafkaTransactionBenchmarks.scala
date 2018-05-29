@@ -23,7 +23,7 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
   type TransactionFixture = ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult]
 
   /**
-   *
+   * Process records in a consume-transform-produce transacational workflow and commit every interval.
    */
   def consumeTransformProduceTransaction(fixture: TransactionFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
