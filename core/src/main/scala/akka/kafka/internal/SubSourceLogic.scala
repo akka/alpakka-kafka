@@ -83,8 +83,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
     val partitions = tps -- partitionsToRevoke
 
-    if (partitions.nonEmpty) {
-      log.debug(s"Assigning new partitions: ${partitions.mkString(", ")}")
+    if (log.isDebugEnabled && partitions.nonEmpty) {
+      log.debug("Assigning new partitions: {}", partitions.mkString(", "))
     }
 
     partitionsToRevoke = partitionsToRevoke -- tps
@@ -114,7 +114,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       subSources --= partitionsToRevoke
     }
 
-    log.debug(s"Waiting ${settings.waitClosePartition.toMillis} ms for pending requests before close partitions")
+    log.debug("Waiting {} for pending requests before close partitions", settings.waitClosePartition)
     pendingRevokeCall = Option(
       materializer.scheduleOnce(
         settings.waitClosePartition,
@@ -256,7 +256,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         })
 
         def performShutdown() = {
-          log.debug(s"Revoking partition $tp")
+          log.debug("Revoking partition {}", tp)
           completeStage()
         }
 
