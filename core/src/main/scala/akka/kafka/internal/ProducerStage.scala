@@ -240,8 +240,8 @@ private[kafka] object ProducerStage {
 
     private def commitTransaction(batch: NonemptyTransactionBatch, beginNewTransaction: Boolean): Unit = {
       val group = batch.group
+      log.debug("Committing transaction for consumer group '{}' with offsets: {}", group, batch.offsetMap())
       val offsetMap = batch.offsetMap().asJava
-      log.debug(s"Committing transaction for consumer group '$group' with offsets: $offsetMap")
       producer.sendOffsetsToTransaction(offsetMap, group)
       producer.commitTransaction()
       batchOffsets = TransactionBatch.empty
