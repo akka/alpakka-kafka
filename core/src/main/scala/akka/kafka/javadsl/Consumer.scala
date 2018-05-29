@@ -19,8 +19,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
-import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success}
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -52,10 +53,18 @@ object Consumer {
      * reach the end of the stream.
      * Failures in stream completion will be propagated, the source will be shut down anyway.
      */
-    def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] =
-      stop()
-        .thenCompose(_ => streamComplete)
-        .thenCompose(result => shutdown().thenApply(_ => result))
+    def drainAndShutdown[T](streamComplete: CompletionStage[T]): CompletionStage[T] = {
+      // TODO this should be possible to implement with CompletionStage instead
+      implicit val ec = ExecutionContexts.sameThreadExecutionContext
+      stop().toScala
+        .flatMap(_ => streamComplete.toScala)
+        .transformWith {
+          case Success(result) =>
+            shutdown().toScala.map(_ => result)
+          case Failure(e) =>
+            shutdown().toScala.transformWith(_ => streamComplete.toScala)
+        }.toJava
+    }
 
     /**
      * Shutdown status. The `CompletionStage` will be completed when the stage has been shut down
@@ -182,7 +191,7 @@ object Consumer {
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         _ => ()
       )
       .map {
@@ -204,7 +213,7 @@ object Consumer {
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => FutureConverters.toScala(getOffsetsOnAssign(tps.asJava)).map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {
