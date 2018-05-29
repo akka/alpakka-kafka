@@ -12,7 +12,7 @@ services:
     ports:
       - "9092:9092"
     environment:
-      # On Mac you may need to change `localhost` in KAFKA_ADVERTISED_LISTENERS to the ip/host of your docker machine ip
+      # On non-Linux you will need to change `localhost` in `KAFKA_ADVERTISED_LISTENERS` to the ip/host of your docker machine ip
       KAFKA_ADVERTISED_LISTENERS: INSIDE://localhost:9092,OUTSIDE://localhost:9094
       KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT

@@ -15,7 +15,7 @@ import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySe
 
 import scala.collection.JavaConverters._
 
-case class KafkaTransactionTestFixture(topic: String, msgCount: Int, groupId: String, sinkTopic: String,
+case class KafkaTransactionTestFixture(sourceTopic: String, sinkTopic: String, msgCount: Int, groupId: String,
     consumer: KafkaConsumer[Array[Byte], String],
     producer: KafkaProducer[Array[Byte], String]) {
   def close(): Unit = {
@@ -28,7 +28,7 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
 
   def noopFixtureGen(c: RunTestCommand): FixtureGen[KafkaTransactionTestFixture] =
     FixtureGen[KafkaTransactionTestFixture](c, msgCount => {
-      KafkaTransactionTestFixture("topic", msgCount, "groupId", "sinkTopic", consumer = null, producer = null)
+      KafkaTransactionTestFixture("sourceTopic", "sinkTopic", msgCount, "groupId", consumer = null, producer = null)
     })
 
   def initialize(c: RunTestCommand) = FixtureGen[KafkaTransactionTestFixture](c, msgCount => {
@@ -56,6 +56,6 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
     producerJavaProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, randomId())
     val producer = new KafkaProducer[Array[Byte], String](producerJavaProps)
 
-    KafkaTransactionTestFixture(sourceTopic, msgCount, groupId, sinkTopic, consumer, producer)
+    KafkaTransactionTestFixture(sourceTopic, sinkTopic, msgCount, groupId, consumer, producer)
   })
 }
