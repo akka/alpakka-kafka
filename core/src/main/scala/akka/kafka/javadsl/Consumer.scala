@@ -5,7 +5,7 @@
 
 package akka.kafka.javadsl
 
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
@@ -21,7 +21,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import scala.collection.JavaConverters._
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success}
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -53,35 +52,7 @@ object Consumer {
      * reach the end of the stream.
      * Failures in stream completion will be propagated, the source will be shut down anyway.
      */
-    def drainAndShutdown[T](streamCompletion: CompletionStage[T]): CompletionStage[T] = {
-      // TODO this should be possible to implement with CompletionStage instead
-      // this might become easier when Scala 2.11 is not a requirement anymore
-      implicit val ec = ExecutionContexts.sameThreadExecutionContext
-      stop()
-        .thenCompose[T](new java.util.function.Function[akka.Done, CompletionStage[T]]() {
-          override def apply(v1: Done): CompletionStage[T] = streamCompletion
-        })
-        .toScala
-        .recoverWith {
-          case completionError: Throwable =>
-            shutdown()
-              .thenCompose(new java.util.function.Function[akka.Done, CompletionStage[T]]() {
-                override def apply(v1: Done): CompletionStage[T] = streamCompletion
-              })
-              .toScala
-              .recoverWith {
-                case _: Throwable => throw completionError
-              }
-        }
-        .flatMap { result =>
-          shutdown()
-            .toScala
-            .map(_ => result)
-            .recover {
-              case shutdownError: Throwable => throw shutdownError
-            }
-        }.toJava
-    }
+    def drainAndShutdown[T](streamCompletion: CompletionStage[T], ec: Executor): CompletionStage[T]
 
     /**
      * Shutdown status. The `CompletionStage` will be completed when the stage has been shut down
@@ -108,16 +79,16 @@ object Consumer {
 
     override def shutdown(): CompletionStage[Done] = control.shutdown()
 
-    override def drainAndShutdown[S](streamCompletion: CompletionStage[S]): CompletionStage[S] =
-      control.drainAndShutdown(streamCompletion)
+    override def drainAndShutdown[S](streamCompletion: CompletionStage[S], ec: Executor): CompletionStage[S] =
+      control.drainAndShutdown(streamCompletion, ec)
 
     /**
      * Stop producing messages from the `Source`, wait for stream completion
      * and shut down the consumer `Source`. It will wait for outstanding offset
      * commit requests to finish before shutting down.
      */
-    def drainAndShutdown(): CompletionStage[T] =
-      control.drainAndShutdown(streamCompletion)
+    def drainAndShutdown(ec: Executor): CompletionStage[T] =
+      control.drainAndShutdown(streamCompletion, ec)
 
     override def isShutdown: CompletionStage[Done] = control.isShutdown
 

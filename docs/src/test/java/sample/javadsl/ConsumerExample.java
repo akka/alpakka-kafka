@@ -29,9 +29,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -447,6 +445,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
 
   public void demo() {
     // #shutdownCommitableSource
+    final Executor ec = Executors.newCachedThreadPool();
     final DB db = new DB();
 
     Consumer.DrainingControl<Done> control =
@@ -461,7 +460,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
-    control.drainAndShutdown();
+    control.drainAndShutdown(ec);
     // #shutdownCommitableSource
   }
 }

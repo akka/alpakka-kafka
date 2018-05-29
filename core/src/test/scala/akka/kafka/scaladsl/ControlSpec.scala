@@ -16,8 +16,7 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
-
+object ControlSpec {
   class ControlImpl(stopFuture: Future[Done] = Future.successful(Done), shutdownFuture: Future[Done] = Future.successful(Done)) extends Consumer.Control {
     val shutdownCalled = new AtomicBoolean(false)
 
@@ -29,6 +28,10 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
     override def isShutdown: Future[Done] = ???
     override def metrics: Future[Map[MetricName, Metric]] = ???
   }
+}
+
+class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
+  import ControlSpec._
 
   "Control" should {
     "drain to stream result" in {
