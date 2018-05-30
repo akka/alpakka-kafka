@@ -194,9 +194,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
 
     case Stop =>
       if (commitsInProgress == 0) {
+        log.debug("Stopping")
         context.stop(self)
       }
       else {
+        log.debug("Received Stop, waiting for commitsInProgress={}", commitsInProgress)
         stopInProgress = true
         context.become(stopping)
       }
@@ -382,6 +384,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
     finally wakeupTask.cancel()
 
     if (stopInProgress && commitsInProgress == 0) {
+      log.debug("Stopping")
       context.stop(self)
     }
   }

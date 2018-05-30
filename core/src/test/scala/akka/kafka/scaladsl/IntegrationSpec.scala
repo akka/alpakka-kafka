@@ -11,7 +11,7 @@ import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.test.Utils._
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
@@ -284,6 +284,43 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
 
         probe.cancel()
       }
+    }
+
+    "stop and shut down KafkaConsumerActor for committableSource used with take" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
+
+      val (control, res) =
+        Consumer
+          .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
+          .mapAsync(1)(msg =>
+            msg.committableOffset.commitScaladsl().map(_ => msg.record.value))
+          .take(5)
+          .toMat(Sink.seq)(Keep.both)
+          .run()
+
+      Await.result(control.isShutdown, remainingOrDefault) should be(Done)
+      res.futureValue should be ((1 to 5).map(_.toString))
+    }
+
+    "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
+      val topic1 = createTopic(1)
+      val group1 = createGroup(1)
+
+      Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
+
+      val (control, res) =
+        Consumer
+          .atMostOnceSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
+          .map(_.value)
+          .take(5)
+          .toMat(Sink.seq)(Keep.both)
+          .run()
+
+      Await.result(control.isShutdown, remainingOrDefault) should be(Done)
+      res.futureValue should be ((1 to 5).map(_.toString))
     }
 
     "begin consuming from the beginning of the topic" in {
