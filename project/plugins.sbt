@@ -7,3 +7,5 @@ addSbtPlugin("com.lightbend.paradox" % "sbt-paradox" % "0.3.2")
 addSbtPlugin("com.lightbend" % "sbt-whitesource"  % "0.1.10")
 addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.4")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
+addSbtPlugin("lt.dvim.paradox" % "sbt-paradox-local" % "0.1")
+

@@ -102,8 +102,8 @@ lazy val `alpakka-kafka` =
             |
             |Useful sbt tasks:
             |
-            |  docs/paradox - builds documentation, which is generated at
-            |    docs/target/paradox/site/main/home.html
+            |  docs/Local/paradox - builds documentation, which is generated at
+            |    docs/target/paradox/site/local/home.html
             |
             |  test - runs all the tests
           """.stripMargin
@@ -146,6 +146,8 @@ lazy val docs = project.in(file("docs"))
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url"     -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
+    paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
+    paradoxLocalApiDir := (core / Compile / doc).value,
     libraryDependencies ++= docDependencies
   )
 
