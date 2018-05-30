@@ -6,7 +6,7 @@ For full details on how transactions are achieved in Kafka you may wish to revie
 
 ## Transactional Source
 
-The `Consumer.transactionalSource` emits a `ConsumerMessage.TransactionalMessage` which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with `ConsumerMessage.CommittableMessage`, the user is not responsible for committing transactions, this is handled by `Producer.transactionalFlow` or `Producer.transactionalSink`.
+The `Consumer.transactionalSource` emits a `ConsumerMessage.TransactionalMessage` (@scaladoc[API](akka.kafka.ConsumerMessage.TransactionalMessage)) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with `ConsumerMessage.CommittableMessage`, the user is not responsible for committing transactions, this is handled by `Producer.transactionalFlow` or `Producer.transactionalSink`.
 
 This source overrides the Kafka consumer property `isolation.level` to `read_committed`, so that only committed messages can be consumed.
 
@@ -30,7 +30,7 @@ Transactions are committed on an interval which can be controlled with the produ
 
 When the stream is materialized the producer will initialize the transaction for the provided `transactional.id` and a transaction will begin.  Every commit interval (`eos-commit-interval`) we check if there are any offsets available to commit.  If offsets exist then we suspend backpressured demand while we drain all outstanding messages that have not yet been successfully acknowledged (if any) and then commit the transaction.  After the commit succeeds a new transaction is begun and we re-initialize demand for upstream messages.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer.Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer.Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
@@ -44,7 +44,7 @@ Java
 
 When any stage in the stream fails the whole stream will be torn down.  In the general case it's desirable to allow transient errors to fail the whole stream because they cannot be recovered from within the application.  Transient errors can be caused by network partitions, Kafka broker failures, `ProducerFencedException`'s from other application instances, and so on.  When the stream encounters transient errors then the current transaction will be aborted before the stream is torn down.  Any produced messages that were not committed will not be available to downstream consumers as long as those consumers are configured with `isolation.level = read_committed`.
 
-For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the [`RestartSource`](https://doc.akka.io/docs/akka/current/stream/stream-error.html#delayed-restarts-with-a-backoff-stage) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
+For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the `RestartSource` (@extref[Akka docs](akka-docs:/stream/stream-error.html#delayed-restarts-with-a-backoff-stage)) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
 
 Scala
 : @@ snip [transactionalFailureRetry](../../test/scala/sample/scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }

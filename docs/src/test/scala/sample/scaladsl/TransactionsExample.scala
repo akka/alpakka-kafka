@@ -19,10 +19,14 @@ class TransactionsSink extends ConsumerExample {
           ProducerMessage.Message(
             new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
         }
-        .runWith(Producer.transactionalSink(producerSettings, "transactional-id"))
-    // #transactionalSink
+        .to(Producer.transactionalSink(producerSettings, "transactional-id"))
+        .run()
 
-    terminateWhenDone(control)
+    // ...
+
+    control.shutdown()
+    // #transactionalSink
+    terminateWhenDone(control.shutdown())
   }
 }
 

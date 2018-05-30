@@ -13,6 +13,20 @@ The examples in this documentation use
 
 Release notes are found at [Github releases](https://github.com/akka/reactive-kafka/releases).
 
+If you want to try out a connector that has not yet been released, give @ref[snapshots](snapshots.md) a spin which are published after every commit on master.
+
+
+Matching Versions
+-----------------
+
+|Kafka  | Akka version | Alpakka Kafka Connector
+|-------|--------------|-------------------------
+|1.1.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)
+|1.0.x  | 2.5.x        | [release 0.20](https://github.com/akka/reactive-kafka/releases)
+|0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
+|0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1)
+
+
 ### Reported issues
 
 [Issues at Github](https://github.com/akka/reactive-kafka/issues)
@@ -24,6 +38,9 @@ Release notes are found at [Github releases](https://github.com/akka/reactive-ka
   artifact=akka-stream-kafka_$scalaBinaryVersion$
   version=$version$
 }
+
+This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
+
 
 ## Scala and Java APIs
 

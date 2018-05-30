@@ -65,7 +65,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
       .map {
         msg => msg.committableOffset
       }
-      .batch(batchSize.toLong, first => CommittableOffsetBatch.empty.updated(first)) { (batch, elem) =>
+      .batch(batchSize.toLong, first => CommittableOffsetBatch(first)) { (batch, elem) =>
         meter.mark()
         batch.updated(elem)
 

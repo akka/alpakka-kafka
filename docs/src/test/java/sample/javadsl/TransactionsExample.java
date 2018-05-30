@@ -21,13 +21,19 @@ class TransactionsSink extends ConsumerExample {
 
     public void demo() {
         // #transactionalSink
-        Consumer
-            .transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
-            .via(business())
-            .map(msg ->
-                    new ProducerMessage.Message<String, byte[], ConsumerMessage.PartitionOffset>(
-                            new ProducerRecord<>("sink-topic", msg.record().value()), msg.partitionOffset()))
-            .runWith(Producer.transactionalSink(producerSettings, "transactional-id"), materializer);
+        Consumer.Control control =
+            Consumer
+                .transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
+                .via(business())
+                .map(msg ->
+                        new ProducerMessage.Message<String, byte[], ConsumerMessage.PartitionOffset>(
+                                new ProducerRecord<>("sink-topic", msg.record().value()), msg.partitionOffset()))
+                .to(Producer.transactionalSink(producerSettings, "transactional-id"))
+                .run(materializer);
+
+        // ...
+
+        control.shutdown();
         // #transactionalSink
     }
 }
