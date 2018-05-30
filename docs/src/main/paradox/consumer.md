@@ -37,8 +37,8 @@ See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer)
 The Kafka read offset can either be stored in Kafka (see below), or at a data store of your choice.
 
 `Consumer.plainSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)]) 
-and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]) 
+and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
 as received from the underlying `KafkaConsumer`. They do not have support for committing offsets to Kafka. When using
 these Sources, either store an offset externally, or use auto-commit (note that auto-commit is by default disabled).
 
@@ -73,7 +73,7 @@ emits tuples of assigned topic-partition and a corresponding source, as in [Sour
 ## Offset Storage in Kafka - committing
 
 The `Consumer.committableSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
 makes it possible to commit offset positions to Kafka. Compared to auto-commit this gives exact control of when a message is considered consumed.
 
 This is useful when "at-least-once delivery" is desired, as each message will likely be delivered one time but in failure cases could be duplicated.
@@ -152,7 +152,7 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 ## Source per partition
 
 `Consumer.plainPartitionedSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
 and `Consumer.committablePartitionedSource` supports tracking the automatic partition assignment from Kafka. When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source. When topic-partition is revoked then corresponding source completes.
 
 Backpressure per partition with batch commit:
@@ -180,8 +180,8 @@ Scala
 
 ## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor)). You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer)])
+If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor$)). You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
+(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
  factory methods.
 
 Scala
@@ -218,7 +218,8 @@ Java
 
 
 ## Controlled shutdown
-The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` instance. This can be used to stop the stream in a controlled manner.
+The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) 
+instance. This can be used to stop the stream in a controlled manner.
 
 When using external offset storage, a call to `Consumer.Control.shutdown()` suffices to complete the `Source`, which starts the completion of the stream.
 
@@ -234,7 +235,9 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `commitScaladsl()` or `commitJavadsl()`).
 3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
 
-To manage this shutdown process, use the `Consumer.DrainingControl` by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue'. That control offers the method `drainAndShutdown` which implements the process descibed above. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
+To manage this shutdown process, use the `Consumer.DrainingControl` 
+(@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$DrainingControl)])
+by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue'. That control offers the method `drainAndShutdown` which implements the process descibed above. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
 
 Scala
 : @@ snip [streamShutdownBatched](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }

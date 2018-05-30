@@ -237,7 +237,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
 
   public void demo() {
     // #consumerToProducerFlow
-      Consumer.Control control =
+      Consumer.DrainingControl<Done> control =
           Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
               .map(msg ->
                   new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
@@ -250,7 +250,8 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
                   ConsumerMessage.Committable committable = result.message().passThrough();
                   return committable.commitJavadsl();
               })
-              .to(Sink.ignore())
+              .toMat(Sink.ignore(), Keep.both())
+              .mapMaterializedValue(Consumer::createDrainingControl)
               .run(materializer);
       // #consumerToProducerFlow
   }
