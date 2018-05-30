@@ -4,7 +4,7 @@ import scalariform.formatter.preferences._
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.5.12"
+val akkaVersion = "2.5.13"
 val kafkaVersion = "1.0.1"
 val kafkaVersionForDocs = "10"
 
