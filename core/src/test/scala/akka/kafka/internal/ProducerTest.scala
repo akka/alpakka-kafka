@@ -79,10 +79,10 @@ class ProducerTest(_system: ActorSystem)
   val settings = ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitInterval(10.milliseconds)
 
   def testProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, P](settings.closeTimeout, closeOnStop, () => mock.mock))
+    Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout, closeOnStop, () => mock.mock))
       .mapAsync(1)(identity)
 
-  def testTransactionProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
+  def testTransactionProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[MessageOrPassThrough[K, V, P], ResultOrPassThrough[K, V, P], NotUsed] =
     Flow.fromGraph(new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout, closeOnStop,
       () => mock.mock, settings.eosCommitInterval))
       .mapAsync(1)(identity)

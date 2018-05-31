@@ -105,7 +105,7 @@ object Producer {
       settings.eosCommitInterval
     )).mapAsync(txSettings.parallelism)(identity)
 
-    flowWithDispatcher(txSettings, flow)
+    flowWithDispatcherForMessageOrPassThrough(txSettings, flow)
   }
 
   /**
@@ -146,7 +146,7 @@ object Producer {
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
 
-  private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[MessageOrPassThrough[K, V, PassThrough], ResultOrPassThrough[K, V, PassThrough], NotUsed]) = {
+  private def flowWithDispatcherForMessageOrPassThrough[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[MessageOrPassThrough[K, V, PassThrough], ResultOrPassThrough[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }

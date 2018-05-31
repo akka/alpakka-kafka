@@ -6,7 +6,9 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.ProducerMessage
+import akka.kafka.ProducerMessage.{PassThroughResult, Result, ResultOrPassThrough}
 import akka.kafka.benchmarks.ReactiveKafkaTransactionFixtures.{KProducerMessage, KResult, KTransactionMessage}
+import akka.kafka.benchmarks.ReactiveKafkaTransactionFixtures.{Key, PassThrough, Val}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.Meter
@@ -23,7 +25,7 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
   type TransactionFixture = ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult]
 
   /**
-   * Process records in a consume-transform-produce transacational workflow and commit every interval.
+   * Process records in a consume-transform-produce transactional workflow and commit every interval.
    */
   def consumeTransformProduceTransaction(fixture: TransactionFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
@@ -42,11 +44,14 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
       }
       .via(fixture.flow)
       .toMat(
-        Sink.foreach { result =>
-          val offset = result.offset
-          if (result.offset % loggedStep == 0)
-            logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
-          if (result.offset >= fixture.msgCount - 1)
+        Sink.foreach {
+          case result: Result[Key, Val, PassThrough] =>
+            val offset = result.offset
+            if (result.offset % loggedStep == 0)
+              logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
+            if (result.offset >= fixture.msgCount - 1)
+              promise.complete(Success(()))
+          case passThrough: PassThroughResult[Key, Val, PassThrough] =>
             promise.complete(Success(()))
         })(Keep.left)
       .run()

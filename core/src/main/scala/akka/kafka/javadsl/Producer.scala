@@ -10,10 +10,10 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.NotUsed
 import akka.kafka.{ConsumerMessage, ProducerSettings}
-import akka.kafka.ProducerMessage._
+import akka.kafka.ProducerMessage.{MessageOrPassThrough, _}
 import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -77,10 +77,10 @@ object Producer {
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage#PartitionOffset]] from a [[Consumer]].  It will
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
-  def transactionalSink[K, V](
+  def transactionalSink[K, V, IN <: MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset]](
     settings: ProducerSettings[K, V],
     transactionalId: String
-  ): Sink[Message[K, V, ConsumerMessage.PartitionOffset], CompletionStage[Done]] =
+  ): Sink[IN, CompletionStage[Done]] =
     scaladsl.Producer.transactionalSink(settings, transactionalId)
       .mapMaterializedValue(_.toJava)
       .asJava
@@ -90,7 +90,7 @@ object Producer {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], ResultOrPassThrough[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+  def transactionalFlow[K, V, IN <: MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset]](settings: ProducerSettings[K, V], transactionalId: String): Flow[IN, ResultOrPassThrough[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Producer.transactionalFlow(settings, transactionalId).asJava
 
   /**

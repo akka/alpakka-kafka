@@ -13,7 +13,9 @@ import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
  */
 object ProducerMessage {
 
-  sealed trait MessageOrPassThrough[K, V, +PassThrough]
+  sealed trait MessageOrPassThrough[K, V, +PassThrough] {
+    def passThrough: PassThrough
+  }
 
   /**
    * Input element of `Producer#commitableSink` and `Producer#flow`.
@@ -30,13 +32,33 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  ) extends MessageOrPassThrough[K, V, PassThrough]
+  ) extends MessageOrPassThrough[K, V, PassThrough] {
+
+    /**
+     * Returns this Message if applying the predicate to
+     * this Message returns true. Otherwise, returns a [[PassThroughMessage]].
+     */
+    def filter(p: Message[K, V, PassThrough] => Boolean): MessageOrPassThrough[K, V, PassThrough] =
+      if (p(this)) this
+      else PassThroughMessage(passThrough)
+
+    /**
+     * Returns this Message if applying the predicate to
+     * this Message returns false. Otherwise, returns a [[PassThroughMessage]].
+     */
+    def filterNot(p: Message[K, V, PassThrough] => Boolean): MessageOrPassThrough[K, V, PassThrough] =
+      if (!p(this)) this
+      else PassThroughMessage(passThrough)
+  }
 
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
   ) extends MessageOrPassThrough[K, V, PassThrough]
 
-  sealed trait ResultOrPassThrough[K, V, PassThrough]
+  sealed trait ResultOrPassThrough[K, V, PassThrough] {
+    def isEmpty: Boolean
+    def nonEmpty: Boolean
+  }
 
   /**
    * Output element of `Producer#flow`. Emitted when the message has been
@@ -47,10 +69,15 @@ object ProducerMessage {
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
   ) extends ResultOrPassThrough[K, V, PassThrough] {
+    val isEmpty = false
+    val nonEmpty = true
     def offset: Long = metadata.offset()
   }
 
   final case class PassThroughResult[K, V, PassThrough](passThrough: PassThrough)
-    extends ResultOrPassThrough[K, V, PassThrough]
+    extends ResultOrPassThrough[K, V, PassThrough] {
+    val isEmpty = true
+    val nonEmpty = false
+  }
 
 }

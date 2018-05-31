@@ -107,7 +107,7 @@ private[kafka] object ProducerStage {
       failStage(ex)
     }
 
-    override val onMessageAckCb: AsyncCallback[Message[K, V, P]] = getAsyncCallback[Message[K, V, P]] { _ => }
+    override val onMessageAckCb: AsyncCallback[MessageOrPassThrough[K, V, P]] = getAsyncCallback[MessageOrPassThrough[K, V, P]] { _ => }
 
     setHandler(stage.out, new OutHandler {
       override def onPull(): Unit = tryPull(stage.in)
@@ -130,10 +130,10 @@ private[kafka] object ProducerStage {
     })
 
     def produce(msg: MessageOrPassThrough[K, V, P]): Unit = {
-      awaitingConfirmation.incrementAndGet()
       msg match {
         case msg: Message[K, V, P] =>
-          val r = Promise[ResultOrPassThrough[K, V, P]]
+          val r = Promise[Result[K, V, P]]
+          awaitingConfirmation.incrementAndGet()
           producer.send(msg.record, new Callback {
             override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
               if (exception == null) {
@@ -156,10 +156,12 @@ private[kafka] object ProducerStage {
                 checkForCompletionCB.invoke(())
             }
           })
-          val future: Future[ResultOrPassThrough[K, V, P]] = r.future
-          push(stage.out, future)
+          val future: Future[Result[K, V, P]] = r.future
+          push(stage.out, future.asInstanceOf[Future[OUT]])
+
         case pt: PassThroughMessage[K, V, P] =>
-          push(stage.out, Future.successful(PassThroughResult[K, V, P](pt.passThrough)))
+          onMessageAckCb.invoke(msg)
+          push(stage.out, Future.successful(PassThroughResult[K, V, P](pt.passThrough)).asInstanceOf[Future[OUT]])
 
       }
     }
@@ -234,8 +236,8 @@ private[kafka] object ProducerStage {
       }
     }
 
-    override val onMessageAckCb: AsyncCallback[Message[K, V, P]] =
-      getAsyncCallback[Message[K, V, P]](_.passThrough match {
+    override val onMessageAckCb: AsyncCallback[MessageOrPassThrough[K, V, P]] =
+      getAsyncCallback[MessageOrPassThrough[K, V, P]](_.passThrough match {
         case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
         case _ =>
       })
@@ -290,7 +292,7 @@ private[kafka] object ProducerStage {
 
   trait MessageCallback[K, V, P] {
     def awaitingConfirmation: AtomicInteger
-    def onMessageAckCb: AsyncCallback[Message[K, V, P]]
+    def onMessageAckCb: AsyncCallback[MessageOrPassThrough[K, V, P]]
   }
 
   object TransactionBatch {
