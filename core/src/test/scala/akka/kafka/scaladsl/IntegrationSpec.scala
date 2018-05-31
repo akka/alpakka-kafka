@@ -455,7 +455,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         }
 
         val tsYesterday = System.currentTimeMillis() - 86400000
-        val tsTomorrow = System.currentTimeMillis() + 86400000
 
         // GetOffsetsForTimes - beginning
         inside(Await.result(consumer ? GetOffsetsForTimes(Map(partition0 -> tsYesterday)), remainingOrDefault)) {
