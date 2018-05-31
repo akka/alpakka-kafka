@@ -12,6 +12,9 @@ import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
  * [[scaladsl.Producer]].
  */
 object ProducerMessage {
+
+  sealed trait MessageOrPassThrough[K, V, +PassThrough]
+
   /**
    * Input element of `Producer#commitableSink` and `Producer#flow`.
    *
@@ -27,7 +30,13 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  )
+  ) extends MessageOrPassThrough[K, V, PassThrough]
+
+  final case class PassThroughMessage[K, V, +PassThrough](
+      passThrough: PassThrough
+  ) extends MessageOrPassThrough[K, V, PassThrough]
+
+  sealed trait ResultOrPassThrough[K, V, PassThrough]
 
   /**
    * Output element of `Producer#flow`. Emitted when the message has been
@@ -37,8 +46,11 @@ object ProducerMessage {
   final case class Result[K, V, PassThrough](
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
-  ) {
+  ) extends ResultOrPassThrough[K, V, PassThrough] {
     def offset: Long = metadata.offset()
   }
+
+  final case class PassThroughResult[K, V, PassThrough](passThrough: PassThrough)
+    extends ResultOrPassThrough[K, V, PassThrough]
 
 }

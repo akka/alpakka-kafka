@@ -90,7 +90,7 @@ object Producer {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Message[K, V, ConsumerMessage.PartitionOffset], Result[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], ResultOrPassThrough[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Producer.transactionalFlow(settings, transactionalId).asJava
 
   /**

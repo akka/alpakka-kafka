@@ -79,7 +79,7 @@ object Producer {
   def transactionalSink[K, V](
     settings: ProducerSettings[K, V],
     transactionalId: String
-  ): Sink[Message[K, V, ConsumerMessage.PartitionOffset], Future[Done]] = {
+  ): Sink[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], Future[Done]] = {
     transactionalFlow(settings, transactionalId)
       .toMat(Sink.ignore)(Keep.right)
   }
@@ -89,7 +89,7 @@ object Producer {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Message[K, V, ConsumerMessage.PartitionOffset], Result[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
+  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], ResultOrPassThrough[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
     require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
 
     val txSettings = settings.withProperties(
@@ -114,7 +114,7 @@ object Producer {
    * be committed later in the flow.
    */
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough](
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
       settings.closeTimeout,
       closeProducerOnStop = true,
       () => settings.createKafkaProducer()
@@ -132,7 +132,7 @@ object Producer {
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough](
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
       closeTimeout = settings.closeTimeout,
       closeProducerOnStop = false,
       producerProvider = () => producer
@@ -142,6 +142,11 @@ object Producer {
   }
 
   private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]) = {
+    if (settings.dispatcher.isEmpty) flow
+    else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
+  }
+
+  private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[MessageOrPassThrough[K, V, PassThrough], ResultOrPassThrough[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
