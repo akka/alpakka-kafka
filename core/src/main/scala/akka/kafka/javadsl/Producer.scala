@@ -10,10 +10,10 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.NotUsed
 import akka.kafka.{ConsumerMessage, ProducerSettings}
-import akka.kafka.ProducerMessage.{MessageOrPassThrough, _}
+import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
+import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
 
 import scala.compat.java8.FutureConverters.FutureOps
 

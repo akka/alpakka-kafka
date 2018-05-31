@@ -370,6 +370,32 @@ class ProducerTest(_system: ActorSystem)
     }
   }
 
+  it should "commit the current transaction even if all messages are filtered out" in {
+    assertAllStagesStopped {
+      val input = recordAndMetadata(1)
+
+      val client = {
+        val inputMap = Map(input)
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+
+      val (source, sink) = TestSource.probe[TxMsg]
+        .map(_.filter(_ => false))
+        .via(testTransactionProducerFlow(client))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val txMsg = toTxMessage(input)
+      source.sendNext(txMsg)
+      sink.requestNext()
+
+      awaitAssert(client.verifyTxCommit(txMsg.passThrough), 2.second)
+
+      source.sendComplete()
+      sink.expectComplete()
+    }
+  }
+
   it should "commit the current transaction gracefully on shutdown" in {
     val input = recordAndMetadata(1)
 

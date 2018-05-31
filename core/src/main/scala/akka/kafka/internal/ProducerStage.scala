@@ -37,10 +37,6 @@ private[kafka] object ProducerStage {
   )
     extends GraphStage[FlowShape[IN, Future[OUT]]] with ProducerStage[K, V, P, IN, OUT] {
 
-    val in: Inlet[IN] = Inlet[IN]("messages")
-    val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")
-    val shape: FlowShape[IN, Future[OUT]] = FlowShape(in, out)
-
     override def createLogic(inheritedAttributes: Attributes) =
       new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
   }
@@ -53,10 +49,6 @@ private[kafka] object ProducerStage {
   )
     extends GraphStage[FlowShape[MessageOrPassThrough[K, V, P], Future[ResultOrPassThrough[K, V, P]]]] with ProducerStage[K, V, P, MessageOrPassThrough[K, V, P], ResultOrPassThrough[K, V, P]] {
 
-    val in: Inlet[MessageOrPassThrough[K, V, P]] = Inlet[MessageOrPassThrough[K, V, P]]("messages")
-    val out: Outlet[Future[ResultOrPassThrough[K, V, P]]] = Outlet[Future[ResultOrPassThrough[K, V, P]]]("result")
-    val shape = FlowShape(in, out)
-
     override def createLogic(inheritedAttributes: Attributes) =
       new TransactionProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
   }
@@ -66,9 +58,9 @@ private[kafka] object ProducerStage {
     val closeProducerOnStop: Boolean
     val producerProvider: () => Producer[K, V]
 
-    def in: Inlet[IN]
-    def out: Outlet[Future[OUT]]
-    def shape: FlowShape[IN, Future[OUT]]
+    val in: Inlet[IN] = Inlet[IN]("messages")
+    val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")
+    val shape: FlowShape[IN, Future[OUT]] = FlowShape(in, out)
   }
 
   /**
@@ -129,8 +121,8 @@ private[kafka] object ProducerStage {
       }
     })
 
-    def produce(msg: MessageOrPassThrough[K, V, P]): Unit = {
-      msg match {
+    def produce(in: MessageOrPassThrough[K, V, P]): Unit = {
+      in match {
         case msg: Message[K, V, P] =>
           val r = Promise[Result[K, V, P]]
           awaitingConfirmation.incrementAndGet()
@@ -156,12 +148,13 @@ private[kafka] object ProducerStage {
                 checkForCompletionCB.invoke(())
             }
           })
-          val future: Future[Result[K, V, P]] = r.future
-          push(stage.out, future.asInstanceOf[Future[OUT]])
+          val future = r.future.asInstanceOf[Future[OUT]]
+          push(stage.out, future)
 
-        case pt: PassThroughMessage[K, V, P] =>
-          onMessageAckCb.invoke(msg)
-          push(stage.out, Future.successful(PassThroughResult[K, V, P](pt.passThrough)).asInstanceOf[Future[OUT]])
+        case _: PassThroughMessage[K, V, P] =>
+          onMessageAckCb.invoke(in)
+          val future = Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]]
+          push(stage.out, future)
 
       }
     }
@@ -285,12 +278,12 @@ private[kafka] object ProducerStage {
     }
   }
 
-  trait ProducerCompletionState {
+  sealed trait ProducerCompletionState {
     def onCompletionSuccess(): Unit
     def onCompletionFailure(ex: Throwable): Unit
   }
 
-  trait MessageCallback[K, V, P] {
+  sealed trait MessageCallback[K, V, P] {
     def awaitingConfirmation: AtomicInteger
     def onMessageAckCb: AsyncCallback[MessageOrPassThrough[K, V, P]]
   }
@@ -299,15 +292,15 @@ private[kafka] object ProducerStage {
     def empty: TransactionBatch = new EmptyTransactionBatch()
   }
 
-  trait TransactionBatch {
+  sealed trait TransactionBatch {
     def updated(partitionOffset: PartitionOffset): TransactionBatch
   }
 
-  class EmptyTransactionBatch extends TransactionBatch {
+  final class EmptyTransactionBatch extends TransactionBatch {
     override def updated(partitionOffset: PartitionOffset): TransactionBatch = new NonemptyTransactionBatch(partitionOffset)
   }
 
-  class NonemptyTransactionBatch(
+  final class NonemptyTransactionBatch(
       head: PartitionOffset,
       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
     extends TransactionBatch {
