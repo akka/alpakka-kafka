@@ -62,6 +62,7 @@ We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect
 
 * [Producer](producer.md)
 * [Consumer](consumer.md)
+* [Consumer Metadata](consumer-metadata.md)
 * [Error Handling](errorhandling.md)
 * [At-Least-Once Delivery](atleastonce.md)
 * [Transactions](transactions.md)
