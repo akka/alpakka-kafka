@@ -26,8 +26,9 @@ public class FetchMetadata extends ConsumerExample {
         ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
 
         // ... create source ...
+        Timeout timeout = new Timeout(2, TimeUnit.SECONDS);
 
-        CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, new Metadata.GetCommittedOffset(new TopicPartition("f", 0)), new Timeout(2, TimeUnit.SECONDS))
+        CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)
                 .thenApply(reply -> ((Metadata.Topics) reply));
 
         // print response

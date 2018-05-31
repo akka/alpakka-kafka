@@ -42,7 +42,7 @@ object Metadata {
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#listTopics()]]
    */
-  val listTopics: ListTopics.type = ListTopics
+  def createListTopics: ListTopics.type = ListTopics
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#partitionsFor()]]
@@ -61,7 +61,7 @@ object Metadata {
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#partitionsFor()]]
    */
-  def getPartitionsFor(topic: String): GetPartitionsFor = GetPartitionsFor(topic)
+  def createGetPartitionsFor(topic: String): GetPartitionsFor = GetPartitionsFor(topic)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#beginningOffsets()]]
@@ -83,7 +83,7 @@ object Metadata {
    *
    * Warning: KafkaConsumer documentation states that this method may block indefinitely if the partition does not exist.
    */
-  def getBeginningOffsets(partitions: java.util.Set[TopicPartition]): GetBeginningOffsets = GetBeginningOffsets(partitions.asScala.toSet)
+  def createGetBeginningOffsets(partitions: java.util.Set[TopicPartition]): GetBeginningOffsets = GetBeginningOffsets(partitions.asScala.toSet)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#endOffsets()]]
@@ -105,7 +105,7 @@ object Metadata {
    *
    * Warning: KafkaConsumer documentation states that this method may block indefinitely if the partition does not exist.
    */
-  def getEndOffsets(paritions: java.util.Set[TopicPartition]): GetEndOffsets = GetEndOffsets(paritions.asScala.toSet)
+  def createGetEndOffsets(paritions: java.util.Set[TopicPartition]): GetEndOffsets = GetEndOffsets(paritions.asScala.toSet)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#offsetsForTimes()]]
@@ -127,7 +127,7 @@ object Metadata {
    *
    * Warning: KafkaConsumer documentation states that this method may block indefinitely if the partition does not exist.
    */
-  def getOffsetForTimes(timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]): GetOffsetsForTimes =
+  def createGetOffsetForTimes(timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]): GetOffsetsForTimes =
     GetOffsetsForTimes(timestampsToSearch.asScala.mapValues(_.toLong).toMap)
 
   /**
@@ -145,5 +145,5 @@ object Metadata {
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
-  def getCommitedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
+  def createGetCommitedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
 }
