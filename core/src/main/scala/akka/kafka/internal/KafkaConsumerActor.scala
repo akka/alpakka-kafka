@@ -15,8 +15,8 @@ import java.util.regex.Pattern
 import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, DeadLetterSuppression, NoSerializationVerificationNeeded, Status, Terminated}
 import akka.event.LoggingReceive
-import akka.kafka.ConsumerSettings
-import akka.kafka.KafkaConsumerActor.{Metadata, StoppingException}
+import akka.kafka.KafkaConsumerActor.StoppingException
+import akka.kafka.{ConsumerSettings, Metadata}
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}

@@ -422,7 +422,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         // Timeout for metadata fetching requests
         implicit val timeout: Timeout = Timeout(5.seconds)
 
-        import KafkaConsumerActor.Metadata._
+        import Metadata._
 
         // ListTopics
         inside(Await.result(consumer ? ListTopics, remainingOrDefault)) {

@@ -3,7 +3,7 @@ package sample.scaladsl
 // #metadata
 import akka.actor.ActorRef
 import akka.kafka.KafkaConsumerActor
-import akka.kafka.KafkaConsumerActor.Metadata
+import akka.kafka.Metadata
 import akka.pattern.ask
 import akka.util.Timeout
 
@@ -23,8 +23,7 @@ object FetchMetadata extends ConsumerExample {
 
     // ... create source ...
 
-    val topicsFuture: Future[Metadata.Topics] =
-      (consumer ? Metadata.ListTopics).mapTo[Metadata.Topics]
+    val topicsFuture: Future[Metadata.Topics] = (consumer ? Metadata.ListTopics).mapTo[Metadata.Topics]
 
     topicsFuture.map(_.response.foreach { map =>
       map.foreach {

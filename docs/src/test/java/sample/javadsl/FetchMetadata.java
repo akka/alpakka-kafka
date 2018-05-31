@@ -1,15 +1,15 @@
 package sample.javadsl;
 
 // #metadata
+        import akka.actor.ActorRef;
+        import akka.kafka.KafkaConsumerActor;
+        import akka.kafka.Metadata;
+        import akka.pattern.PatternsCS;
+        import akka.util.Timeout;
+        import org.apache.kafka.common.TopicPartition;
 
-import akka.actor.ActorRef;
-import akka.kafka.KafkaConsumerActor;
-import akka.kafka.KafkaConsumerActor.Metadata;
-import akka.pattern.PatternsCS;
-import akka.util.Timeout;
-
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
+        import java.util.concurrent.CompletionStage;
+        import java.util.concurrent.TimeUnit;
 
 // #metadata
 
@@ -27,7 +27,7 @@ public class FetchMetadata extends ConsumerExample {
 
         // ... create source ...
 
-        CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, KafkaConsumerActor.listTopics(), new Timeout(2, TimeUnit.SECONDS))
+        CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, new Metadata.GetCommittedOffset(new TopicPartition("f", 0)), new Timeout(2, TimeUnit.SECONDS))
                 .thenApply(reply -> ((Metadata.Topics) reply));
 
         // print response
