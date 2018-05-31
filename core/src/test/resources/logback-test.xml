@@ -5,13 +5,18 @@
         </encoder>
     </appender>
 
-    <!--<logger name="akka" level="WARN"/>-->
-    <!--<logger name="org.apache.kafka" level="WARN"/>-->
-    <!--<logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>-->
-    <!--<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>-->
-    <!--<logger name="akka.kafka" level="TRACE"/>-->
+    <logger name="akka" level="WARN"/>
+    <logger name="akka.kafka" level="DEBUG"/>
 
-    <root level="WARN">
+    <logger name="org.apache.zookeeper" level="WARN"/>
+    <logger name="org.I0Itec.zkclient" level="WARN"/>
+
+    <logger name="kafka" level="WARN"/>
+    <logger name="org.apache.kafka" level="WARN"/>
+    <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
+    <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
+
+    <root level="DEBUT">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
