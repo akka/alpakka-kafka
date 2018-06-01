@@ -202,6 +202,11 @@ Java
 : @@ snip [consumerMetrics](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerMetrics }
 
 
+## Accessing KafkaConsumer metadata
+
+Accessing of Kafka consumer metadata is possible as described in @ref[Consumer Metadata](consumer-metadata.md).
+
+
 ## Listening for rebalance events
 
 You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
