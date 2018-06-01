@@ -61,31 +61,34 @@ object ProducerMessage {
       passThrough: PassThrough
   ) extends Messages[K, V, PassThrough]
 
-  sealed trait Results[K, V, PassThrough]
+  sealed trait Results[K, V, PassThrough] {
+    def passThrough: PassThrough
+  }
 
   /**
    * Output element of `Producer#flow`. Emitted when the message has been
    * successfully published. Includes the original message, metadata returned from KafkaProducer and the
    * `offset` of the produced message.
    */
-  final case class Result[K, V, PassThrough](
+  final case class Result[K, V, PassThrough] private (
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
   ) extends Results[K, V, PassThrough] {
     def offset: Long = metadata.offset()
+    def passThrough: PassThrough = message.passThrough
   }
 
-  final case class MultiResultPart[K, V](
+  final case class MultiResultPart[K, V] private (
       metadata: RecordMetadata,
       record: ProducerRecord[K, V]
   )
 
-  final case class MultiResult[K, V, PassThrough](
+  final case class MultiResult[K, V, PassThrough] private (
       parts: Seq[MultiResultPart[K, V]],
       passThrough: PassThrough
   ) extends Results[K, V, PassThrough]
 
-  final case class PassThroughResult[K, V, PassThrough](passThrough: PassThrough)
+  final case class PassThroughResult[K, V, PassThrough] private (passThrough: PassThrough)
     extends Results[K, V, PassThrough]
 
 }

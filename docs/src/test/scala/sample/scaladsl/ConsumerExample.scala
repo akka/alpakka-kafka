@@ -214,9 +214,9 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
           passThrough = msg.committableOffset
         )
       }
-      .via(Producer.flow(producerSettings))
+      .via(Producer.flow2(producerSettings))
       .mapAsync(producerSettings.parallelism) { result =>
-        val committable = result.message.passThrough
+        val committable = result.passThrough
         committable.commitScaladsl()
       }
       .toMat(Sink.ignore)(Keep.both)
@@ -240,8 +240,8 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
           msg.committableOffset
         )
       )
-      .via(Producer.flow(producerSettings))
-      .map(_.message.passThrough)
+      .via(Producer.flow2(producerSettings))
+      .map(_.passThrough)
       .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
         batch.updated(elem)
       }
@@ -266,8 +266,8 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
           msg.committableOffset
         )
       )
-      .via(Producer.flow(producerSettings))
-      .map(_.message.passThrough)
+      .via(Producer.flow2(producerSettings))
+      .map(_.passThrough)
     val done =
       // #groupedWithin
       source

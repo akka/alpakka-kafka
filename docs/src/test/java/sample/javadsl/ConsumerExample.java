@@ -241,15 +241,17 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
     // #consumerToProducerFlow
       Consumer.DrainingControl<Done> control =
           Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-              .map(msg ->
-                  new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
-                      new ProducerRecord<>("topic2", msg.record().value()),
-                      msg.committableOffset() // the passThrough
-                  )
-              )
-              .via(Producer.flow(producerSettings))
+              .map(msg -> {
+                ProducerMessage.Messages<String, byte[], ConsumerMessage.Committable> prodMsg =
+                    new ProducerMessage.Message<>(
+                        new ProducerRecord<>("topic2", msg.record().value()),
+                        msg.committableOffset() // the passThrough
+                    );
+                return prodMsg;
+              })
+              .via(Producer.flow2(producerSettings))
               .mapAsync(producerSettings.parallelism(), result -> {
-                  ConsumerMessage.Committable committable = result.message().passThrough();
+                  ConsumerMessage.Committable committable = result.passThrough();
                   return committable.commitJavadsl();
               })
               .toMat(Sink.ignore(), Keep.both())
@@ -269,11 +271,16 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     // #consumerToProducerFlowBatch
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map(msg ->
-          new ProducerMessage.Message<String, byte[], ConsumerMessage.CommittableOffset>(
-              new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
-      .via(Producer.flow(producerSettings))
-      .map(result -> result.message().passThrough());
+      .map(msg -> {
+          ProducerMessage.Messages<String, byte[], ConsumerMessage.CommittableOffset> prodMsg =
+              new ProducerMessage.Message<>(
+                  new ProducerRecord<>("topic2", msg.record().value()),
+                  msg.committableOffset()
+              );
+          return prodMsg;
+      })
+      .via(Producer.flow2(producerSettings))
+      .map(result -> result.passThrough());
 
     source.batch(20,
           first -> ConsumerMessage.createCommittableOffsetBatch(first),
@@ -293,11 +300,16 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   public void demo() {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map(msg ->
-          new ProducerMessage.Message<String, byte[], ConsumerMessage.CommittableOffset>(
-              new ProducerRecord<>("topic2", msg.record().value()), msg.committableOffset()))
-      .via(Producer.flow(producerSettings))
-      .map(result -> result.message().passThrough());
+      .map(msg -> {
+          ProducerMessage.Messages<String, byte[], ConsumerMessage.CommittableOffset> prodMsg =
+              new ProducerMessage.Message<>(
+                  new ProducerRecord<>("topic2", msg.record().value()),
+                  msg.committableOffset()
+              );
+          return prodMsg;
+      })
+      .via(Producer.flow2(producerSettings))
+      .map(result -> result.passThrough());
 
       // #groupedWithin
       source
@@ -324,9 +336,9 @@ class ConsumerWithPerPartitionBackpressure extends ConsumerExample {
             .flatMapMerge(maxPartitions, Pair::second)
             .via(business())
             .batch(
-                    100,
-                    first -> ConsumerMessage.createCommittableOffsetBatch(first.committableOffset()),
-                    (batch, elem) -> batch.updated(elem.committableOffset())
+                100,
+                first -> ConsumerMessage.createCommittableOffsetBatch(first.committableOffset()),
+                (batch, elem) -> batch.updated(elem.committableOffset())
             )
             .mapAsync(3, offsetBatch -> offsetBatch.commitJavadsl())
             .toMat(Sink.ignore(), Keep.both())
