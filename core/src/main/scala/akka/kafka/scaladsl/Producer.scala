@@ -79,7 +79,7 @@ object Producer {
   def transactionalSink[K, V](
     settings: ProducerSettings[K, V],
     transactionalId: String
-  ): Sink[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], Future[Done]] = {
+  ): Sink[Messages[K, V, ConsumerMessage.PartitionOffset], Future[Done]] = {
     transactionalFlow(settings, transactionalId)
       .toMat(Sink.ignore)(Keep.right)
   }
@@ -89,7 +89,7 @@ object Producer {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[MessageOrPassThrough[K, V, ConsumerMessage.PartitionOffset], ResultOrPassThrough[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
+  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Messages[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
     require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
 
     val txSettings = settings.withProperties(
@@ -146,7 +146,7 @@ object Producer {
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
 
-  private def flowWithDispatcherForMessageOrPassThrough[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[MessageOrPassThrough[K, V, PassThrough], ResultOrPassThrough[K, V, PassThrough], NotUsed]) = {
+  private def flowWithDispatcherForMessageOrPassThrough[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }

@@ -47,7 +47,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
         // #transactionalFailureRetry
         AtomicReference<Consumer.Control> innerControl = null;
 
-        Source<ProducerMessage.ResultOrPassThrough<String, byte[], ConsumerMessage.PartitionOffset>,NotUsed> stream =
+        Source<ProducerMessage.Results<String, byte[], ConsumerMessage.PartitionOffset>,NotUsed> stream =
             RestartSource.onFailuresWithBackoff(
                 java.time.Duration.of(3, ChronoUnit.SECONDS), // min backoff
                 java.time.Duration.of(30, ChronoUnit.SECONDS), // max backoff

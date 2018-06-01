@@ -6,9 +6,8 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.ProducerMessage
-import akka.kafka.ProducerMessage.{PassThroughResult, Result, ResultOrPassThrough}
-import akka.kafka.benchmarks.ReactiveKafkaTransactionFixtures.{KProducerMessage, KResult, KTransactionMessage}
-import akka.kafka.benchmarks.ReactiveKafkaTransactionFixtures.{Key, PassThrough, Val}
+import akka.kafka.ProducerMessage.{Result, Results}
+import akka.kafka.benchmarks.ReactiveKafkaTransactionFixtures._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.Meter
@@ -51,7 +50,7 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
               logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
             if (result.offset >= fixture.msgCount - 1)
               promise.complete(Success(()))
-          case passThrough: PassThroughResult[Key, Val, PassThrough] =>
+          case other: Results[Key, Val, PassThrough] =>
             promise.complete(Success(()))
         })(Keep.left)
       .run()

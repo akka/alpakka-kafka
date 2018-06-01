@@ -6,6 +6,7 @@
 package akka.kafka
 
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
+import scala.collection.immutable.Seq
 
 /**
  * Classes that are used in both [[javadsl.Producer]] and
@@ -13,7 +14,7 @@ import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
  */
 object ProducerMessage {
 
-  sealed trait MessageOrPassThrough[K, V, +PassThrough] {
+  sealed trait Messages[K, V, +PassThrough] {
     def passThrough: PassThrough
   }
 
@@ -32,13 +33,13 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  ) extends MessageOrPassThrough[K, V, PassThrough] {
+  ) extends Messages[K, V, PassThrough] {
 
     /**
      * Returns this Message if applying the predicate to
      * this Message returns true. Otherwise, returns a [[PassThroughMessage]].
      */
-    def filter(p: Message[K, V, PassThrough] => Boolean): MessageOrPassThrough[K, V, PassThrough] =
+    def filter(p: Message[K, V, PassThrough] => Boolean): Messages[K, V, PassThrough] =
       if (p(this)) this
       else PassThroughMessage(passThrough)
 
@@ -46,19 +47,21 @@ object ProducerMessage {
      * Returns this Message if applying the predicate to
      * this Message returns false. Otherwise, returns a [[PassThroughMessage]].
      */
-    def filterNot(p: Message[K, V, PassThrough] => Boolean): MessageOrPassThrough[K, V, PassThrough] =
+    def filterNot(p: Message[K, V, PassThrough] => Boolean): Messages[K, V, PassThrough] =
       if (!p(this)) this
       else PassThroughMessage(passThrough)
   }
 
+  final case class MultiMessage[K, V, +PassThrough](
+      records: Seq[ProducerRecord[K, V]],
+      passThrough: PassThrough
+  ) extends Messages[K, V, PassThrough]
+
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
-  ) extends MessageOrPassThrough[K, V, PassThrough]
+  ) extends Messages[K, V, PassThrough]
 
-  sealed trait ResultOrPassThrough[K, V, PassThrough] {
-    def isEmpty: Boolean
-    def nonEmpty: Boolean
-  }
+  sealed trait Results[K, V, PassThrough]
 
   /**
    * Output element of `Producer#flow`. Emitted when the message has been
@@ -68,16 +71,21 @@ object ProducerMessage {
   final case class Result[K, V, PassThrough](
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
-  ) extends ResultOrPassThrough[K, V, PassThrough] {
-    val isEmpty = false
-    val nonEmpty = true
+  ) extends Results[K, V, PassThrough] {
     def offset: Long = metadata.offset()
   }
 
+  final case class MultiResultPart[K, V](
+      metadata: RecordMetadata,
+      record: ProducerRecord[K, V]
+  )
+
+  final case class MultiResult[K, V, PassThrough](
+      parts: Seq[MultiResultPart[K, V]],
+      passThrough: PassThrough
+  ) extends Results[K, V, PassThrough]
+
   final case class PassThroughResult[K, V, PassThrough](passThrough: PassThrough)
-    extends ResultOrPassThrough[K, V, PassThrough] {
-    val isEmpty = true
-    val nonEmpty = false
-  }
+    extends Results[K, V, PassThrough]
 
 }
