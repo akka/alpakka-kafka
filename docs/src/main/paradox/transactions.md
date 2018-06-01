@@ -6,17 +6,17 @@ For full details on how transactions are achieved in Kafka you may wish to revie
 
 ## Transactional Source
 
-The `Consumer.transactionalSource` emits a `ConsumerMessage.TransactionalMessage` (@scaladoc[API](akka.kafka.ConsumerMessage.TransactionalMessage)) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with `ConsumerMessage.CommittableMessage`, the user is not responsible for committing transactions, this is handled by `Producer.transactionalFlow` or `Producer.transactionalSink`.
+The `Transactional.source` emits a `ConsumerMessage.TransactionalMessage` (@scaladoc[API](akka.kafka.ConsumerMessage$$TransactionalMessage)) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with `ConsumerMessage.CommittableMessage`, the user is not responsible for committing transactions, this is handled by `Transactional.flow` or `Transactional.sink`.
 
 This source overrides the Kafka consumer property `isolation.level` to `read_committed`, so that only committed messages can be consumed.
 
 A consumer group ID must be provided.
 
-Only use this source if you have the intention to connect it to `Producer.transactionalFlow` or `Producer.transactionalSink`.
+Only use this source if you have the intention to connect it to `Transactional.flow` or `Transactional.sink`.
 
 ## Transactional Sink and Flow
 
-The `Producer.transactionalSink` is similar to the `Consumer.commitableSink` in that messages will be automatically committed as part of a transaction.  The `Producer.transactionalSink` or `Producer.transactionalFlow` are required when connecting a consumer to a producer to achieve a transactional workflow.
+The `Transactional.sink` is similar to the `Consumer.commitableSink` in that messages will be automatically committed as part of a transaction.  The `Transactional.sink` or `Transactional.flow` are required when connecting a consumer to a producer to achieve a transactional workflow.
 
 They override producer properties `enable.idempotence` to `true` and `max.in.flight.requests.per.connection` to `1` as required by the Kafka producer to enable transactions.
 
@@ -24,13 +24,13 @@ A `transactional.id` must be defined and unique for each instance of the applica
 
 ## Consume-Transform-Produce Workflow
 
-Kafka transactions are handled transparently to the user.  The `Consumer.transactionalSource` will enforce that a consumer group id is specified and the `Producer.transactionalFlow` or `Producer.transactionalSink` will enforce that a `transactional.id` is specified.  All other Kafka consumer and producer properties required to enable transactions are overridden.
+Kafka transactions are handled transparently to the user.  The `Transactional.source` will enforce that a consumer group id is specified and the `Transactional.flow` or `Transactional.sink` will enforce that a `transactional.id` is specified.  All other Kafka consumer and producer properties required to enable transactions are overridden.
 
 Transactions are committed on an interval which can be controlled with the producer config `akka.kafka.producer.eos-commit-interval`, similar to how exactly once works with Kafka Streams.  The default value is `100ms`.  The larger commit interval is the more records will need to be reprocessed in the event of failure and the transaction is aborted.
 
 When the stream is materialized the producer will initialize the transaction for the provided `transactional.id` and a transaction will begin.  Every commit interval (`eos-commit-interval`) we check if there are any offsets available to commit.  If offsets exist then we suspend backpressured demand while we drain all outstanding messages that have not yet been successfully acknowledged (if any) and then commit the transaction.  After the commit succeeds a new transaction is begun and we re-initialize demand for upstream messages.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer.Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer.Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 

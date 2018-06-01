@@ -42,13 +42,13 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
-        val control = Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+        val control = Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
             ProducerMessage.Message(
               new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
           }
-          .via(Producer.transactionalFlow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults, group))
           .toMat(Sink.ignore)(Keep.left)
           .run()
 
@@ -82,7 +82,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
-      val control = Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+      val control = Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
         .filterNot(_.record.value() == InitialMsg)
         .map { msg =>
           if (msg.record.value.toInt % 10 == 0) {
@@ -93,7 +93,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
               new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
           }
         }
-        .via(Producer.transactionalFlow(producerDefaults, group))
+        .via(Transactional.flow(producerDefaults, group))
         .toMat(Sink.ignore)(Keep.left)
         .run()
 
@@ -136,7 +136,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           randomFactor = 0.2
         ) { () =>
           restartCount += 1
-          Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+          Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
             .filterNot(_.record.value() == InitialMsg)
             .map { msg =>
               if (msg.record.value().toInt == 500 && restartCount < 2) {
@@ -154,7 +154,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
             }
             // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
             .mapMaterializedValue(innerControl = _)
-            .via(Producer.transactionalFlow(producerDefaults, group))
+            .via(Transactional.flow(producerDefaults, group))
         }
 
         restartSource.runWith(Sink.ignore)
@@ -198,7 +198,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         randomFactor = 0.2
       ) { () =>
         restartCount += 1
-        Consumer.transactionalSource(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+        Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
             if (msg.record.value().toInt == 50 && restartCount < 2) {
@@ -217,7 +217,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           .map(_.filterNot(_.record.value.toInt % 10 == 0))
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
           .mapMaterializedValue(innerControl = _)
-          .via(Producer.transactionalFlow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults, group))
       }
 
       restartSource.runWith(Sink.ignore)

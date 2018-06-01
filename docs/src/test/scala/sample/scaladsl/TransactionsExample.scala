@@ -1,7 +1,7 @@
 package sample.scaladsl
 
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl.Transactional
 import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{RestartSource, Sink}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -13,13 +13,13 @@ class TransactionsSink extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #transactionalSink
     val control =
-      Consumer.transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
+      Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
         .via(business)
         .map { msg =>
           ProducerMessage.Message(
             new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
         }
-        .to(Producer.transactionalSink(producerSettings, "transactional-id"))
+        .to(Transactional.sink(producerSettings, "transactional-id"))
         .run()
 
     // ...
@@ -40,7 +40,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
       maxBackoff = 30.seconds,
       randomFactor = 0.2
     ) { () =>
-      Consumer.transactionalSource(consumerSettings, Subscriptions.topics("source-topic"))
+      Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
         .via(business)
         .map { msg =>
           ProducerMessage.Message(
@@ -48,7 +48,7 @@ class TransactionsFailureRetryExample extends ConsumerExample {
         }
         // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
         .mapMaterializedValue(innerControl = _)
-        .via(Producer.transactionalFlow(producerSettings, "transactional-id"))
+        .via(Transactional.flow(producerSettings, "transactional-id"))
     }
 
     stream.runWith(Sink.ignore)

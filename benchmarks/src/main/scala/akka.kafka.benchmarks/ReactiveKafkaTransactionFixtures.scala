@@ -11,7 +11,7 @@ import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.ProducerMessage.{Messages, Results}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl.Transactional
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscriptions}
 import akka.stream.scaladsl.{Flow, Source}
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -49,10 +49,10 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
       val sinkTopic = randomId()
 
       val consumerSettings = createConsumerSettings(c.kafkaHost)
-      val source: Source[KTransactionMessage, Control] = Consumer.transactionalSource(consumerSettings, Subscriptions.topics(sourceTopic))
+      val source: Source[KTransactionMessage, Control] = Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
 
       val producerSettings = createProducerSettings(c.kafkaHost).withEosCommitInterval(commitInterval)
-      val flow: Flow[KProducerMessage, KResult, NotUsed] = Producer.transactionalFlow(producerSettings, randomId())
+      val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings, randomId())
 
       ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult](sourceTopic, sinkTopic, msgCount, source, flow)
     })

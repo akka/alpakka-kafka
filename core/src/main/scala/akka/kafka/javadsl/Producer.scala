@@ -7,13 +7,11 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.Done
-import akka.NotUsed
-import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.{Done, NotUsed}
 import akka.kafka.ProducerMessage._
-import akka.kafka.scaladsl
+import akka.kafka.{ConsumerMessage, ProducerSettings, scaladsl}
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -72,26 +70,6 @@ object Producer {
     scaladsl.Producer.commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
-
-  /**
-   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage#PartitionOffset]] from a [[Consumer]].  It will
-   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
-   */
-  def transactionalSink[K, V, IN <: Messages[K, V, ConsumerMessage.PartitionOffset]](
-    settings: ProducerSettings[K, V],
-    transactionalId: String
-  ): Sink[IN, CompletionStage[Done]] =
-    scaladsl.Producer.transactionalSink(settings, transactionalId)
-      .mapMaterializedValue(_.toJava)
-      .asJava
-
-  /**
-   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Consumer]] that
-   * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
-   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
-   */
-  def transactionalFlow[K, V, IN <: Messages[K, V, ConsumerMessage.PartitionOffset]](settings: ProducerSettings[K, V], transactionalId: String): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
-    scaladsl.Producer.transactionalFlow(settings, transactionalId).asJava
 
   /**
    * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
