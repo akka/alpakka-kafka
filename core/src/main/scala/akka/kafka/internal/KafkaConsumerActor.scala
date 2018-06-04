@@ -142,7 +142,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V])
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
       val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava)
-      topicPartitionToOffsetAndTimestamp.asScala.foreach {
+      topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).foreach {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
           val ts = oat.timestamp()

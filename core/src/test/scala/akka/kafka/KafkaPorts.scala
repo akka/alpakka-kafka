@@ -16,5 +16,6 @@ object KafkaPorts {
   val TransactionsSpec = 9022
   val ReconnectSpec = 9032
   val ReconnectSpecProxy = 9034
+  val TimestampSpec = 9042
 
 }
