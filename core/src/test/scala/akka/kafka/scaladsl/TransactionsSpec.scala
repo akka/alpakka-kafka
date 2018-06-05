@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+import akka.kafka.ConsumerMessage.PartitionOffset
+import akka.kafka.ProducerMessage.PassThroughMessage
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
@@ -210,11 +212,16 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
               throw new RuntimeException("Uh oh..")
             }
             else {
-              ProducerMessage.Message(
-                new ProducerRecord[String, String](sinkTopic, msg.record.value()), msg.partitionOffset)
+              ProducerMessage.Message[String, String, PartitionOffset](
+                new ProducerRecord(sinkTopic, msg.record.value()), msg.partitionOffset)
             }
           }
-          .map(_.filterNot(_.record.value.toInt % 10 == 0))
+          .map { msg =>
+            if (msg.record.value.toInt % 10 == 0) {
+              PassThroughMessage[String, String, PartitionOffset](msg.passThrough)
+            }
+            else msg
+          }
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
           .mapMaterializedValue(innerControl = _)
           .via(Transactional.flow(producerDefaults, group))

@@ -119,13 +119,8 @@ object ProducerFlowExample extends ProducerExample {
     new ProducerMessage.PassThroughMessage(
       passThrough
     )
-
-    val message: ProducerMessage.Message[KeyType, ValueType, PassThroughType] = ???
-    val filtered: ProducerMessage.Messages[KeyType, ValueType, PassThroughType] =
-      message.filter(_.record.value.toString.length > 1)
     // #passThroughMessage
     // format:on
-    val _ = filtered.passThrough
   }
 
   def main(args: Array[String]): Unit = {

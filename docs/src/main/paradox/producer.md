@@ -95,8 +95,6 @@ For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.Multi
 
 The `ProducerMessage.PassThroughMessage` allows to let an element pass through a Kafka flow without producing a new message to a Kafka topic. This is primarily useful with Kafka commit offsets and transactions, so that these can be committed without producing new messages.
 
-As a convenience, `ProducerMessage.Message` has a `filter` method that mimics the stream filter method. 
-
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #passThroughMessage }
 

@@ -51,24 +51,7 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  ) extends Messages[K, V, PassThrough] {
-
-    /**
-     * Returns this Message if applying the predicate to
-     * this Message returns true. Otherwise, returns a [[PassThroughMessage]].
-     */
-    def filter(p: Message[K, V, PassThrough] => Boolean): Messages[K, V, PassThrough] =
-      if (p(this)) this
-      else PassThroughMessage(passThrough)
-
-    /**
-     * Returns this Message if applying the predicate to
-     * this Message returns false. Otherwise, returns a [[PassThroughMessage]].
-     */
-    def filterNot(p: Message[K, V, PassThrough] => Boolean): Messages[K, V, PassThrough] =
-      if (!p(this)) this
-      else PassThroughMessage(passThrough)
-  }
+  ) extends Messages[K, V, PassThrough]
 
   /**
    * [[Messages]] implementation that produces multiple message to a Kafka topics, flows emit

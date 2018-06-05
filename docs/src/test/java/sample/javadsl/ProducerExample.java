@@ -151,18 +151,6 @@ class ProducerFlowExample extends ProducerExample {
         new ProducerMessage.PassThroughMessage<>(
                 passThrough
         );
-
-
-        ProducerMessage.Message<KeyType, ValueType, PassThroughType> message = // ...
-        // #passThroughMessage
-                new ProducerMessage.Message<KeyType, ValueType, PassThroughType>(
-                        new ProducerRecord<>("topicName", key, value),
-                        passThrough
-                );
-
-        // #passThroughMessage
-        ProducerMessage.Messages<KeyType, ValueType, PassThroughType> filtered =
-                message.filter(m -> m.record().value().toString().length() > 1);
         // #passThroughMessage
         return ptm;
     }

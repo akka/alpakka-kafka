@@ -7,34 +7,33 @@ package akka.kafka.internal
 
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
-import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
+import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
 import akka.kafka.ProducerMessage._
-import akka.kafka.{ConsumerMessage, ProducerSettings}
-import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.scaladsl.Flow
-import akka.stream.testkit.scaladsl.{TestSink, TestSource}
-import akka.testkit.TestKit
+import akka.kafka.scaladsl.Producer
 import akka.kafka.test.Utils._
+import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
+import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.testkit.TestKit
+import akka.{Done, NotUsed}
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
 import org.mockito
 import org.mockito.Mockito
-import Mockito._
-import akka.kafka.ConsumerMessage.GroupTopicPartition
-import akka.kafka.scaladsl.Producer
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-import org.scalatest.{FlatSpecLike, Matchers}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 class ProducerTest(_system: ActorSystem)
   extends TestKit(_system) with FlatSpecLike
@@ -380,7 +379,7 @@ class ProducerTest(_system: ActorSystem)
       }
 
       val (source, sink) = TestSource.probe[TxMsg]
-        .map(_.filter(_ => false))
+        .map(msg => PassThroughMessage[K, V, PartitionOffset](msg.passThrough))
         .via(testTransactionProducerFlow(client))
         .toMat(TestSink.probe)(Keep.both)
         .run()
