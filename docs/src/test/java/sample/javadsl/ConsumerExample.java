@@ -190,12 +190,13 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
     Consumer.Control control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(1, msg ->
-                business(msg.record().key(), msg.record().value()).thenApply(done -> msg.committableOffset())
+                business(msg.record().key(), msg.record().value())
+                        .thenApply(done -> msg.committableOffset())
             )
             .batch(
                 20,
-                first -> ConsumerMessage.createCommittableOffsetBatch(first),
-                (batch, elem) -> batch.updated(elem)
+                ConsumerMessage::createCommittableOffsetBatch,
+                ConsumerMessage.CommittableOffsetBatch::updated
             )
             .mapAsync(3, c -> c.commitJavadsl())
             .to(Sink.ignore())
@@ -284,9 +285,12 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
       .via(Producer.flow2(producerSettings))
       .map(result -> result.passThrough());
 
-    source.batch(20,
-          first -> ConsumerMessage.createCommittableOffsetBatch(first),
-          (batch, elem) -> batch.updated(elem))
+    source
+        .batch(
+          20,
+          ConsumerMessage::createCommittableOffsetBatch,
+          ConsumerMessage.CommittableOffsetBatch::updated
+        )
         .mapAsync(3, c -> c.commitJavadsl())
         .runWith(Sink.ignore(), materializer);
     // #consumerToProducerFlowBatch
@@ -337,12 +341,13 @@ class ConsumerWithPerPartitionBackpressure extends ConsumerExample {
             .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
             .flatMapMerge(maxPartitions, Pair::second)
             .via(business())
+            .map(msg -> msg.committableOffset())
             .batch(
                 100,
-                first -> ConsumerMessage.createCommittableOffsetBatch(first.committableOffset()),
-                (batch, elem) -> batch.updated(elem.committableOffset())
+                ConsumerMessage::createCommittableOffsetBatch,
+                ConsumerMessage.CommittableOffsetBatch::updated
             )
-            .mapAsync(3, offsetBatch -> offsetBatch.commitJavadsl())
+            .mapAsync(3, offsets -> offsets.commitJavadsl())
             .toMat(Sink.ignore(), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);

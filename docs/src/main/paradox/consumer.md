@@ -9,7 +9,7 @@ The underlying implementation is using the `KafkaConsumer`, see @javadoc[Kafka A
 
 When creating a consumer stream you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
 
-* serializers for the keys and values
+* de-serializers for the keys and values
 * bootstrap servers of the Kafka cluster
 * group id for the consumer, note that offsets are always committed for a given consumer group
 * Kafka consumer tuning parameters
@@ -40,7 +40,7 @@ The Kafka read offset can either be stored in Kafka (see below), or at a data st
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]) 
 and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
 as received from the underlying `KafkaConsumer`. They do not have support for committing offsets to Kafka. When using
-these Sources, either store an offset externally, or use auto-commit (note that auto-commit is by default disabled).
+these Sources, either store an offset externally, or use auto-commit (note that auto-commit is disabled by default).
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #settings-autocommit }
@@ -76,7 +76,7 @@ The `Consumer.committableSource`
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
 makes it possible to commit offset positions to Kafka. Compared to auto-commit this gives exact control of when a message is considered consumed.
 
-This is useful when "at-least-once delivery" is desired, as each message will likely be delivered one time but in failure cases could be duplicated.
+This is useful when "at-least-once" delivery is desired, as each message will likely be delivered one time, but in failure cases could be received more than once.
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #atLeastOnce }
@@ -96,10 +96,10 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atLeastOnceBatch }
 
-If you consume from a not very active topic and it is possible that you don't have any messages received for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+If you consume from a topic with low activity, and possibly no messages arrive for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
 
-For less active topics timing-based aggregating with `groupedWithin` might be a better choice.
-
+For less active topics timing-based aggregation with `groupedWithin` might be a better choice than the `batch` operator.
+                                                                                              
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #groupedWithin }
 
@@ -115,14 +115,14 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
-Maintaining at-least-once delivery semantics requires care, so many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
+Maintaining at-least-once delivery semantics requires care, many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 
 ## Connecting Producer and Consumer
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
 
-The `committableSink` accepts messages of type `ProducerMessage.Message` (@scaladoc[API](akka.kafka.ProducerMessage$$Message)) to combine Kafka's `ProducerRecord` with the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))).
+The `committableSink` accepts implementations `ProducerMessage.Messages` (@scaladoc[API](akka.kafka.ProducerMessage$$Messages)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Messages` supported.
 
 Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "at-least-once" delivery semantics. 
 
@@ -132,7 +132,7 @@ Scala
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerSink }
 
-Committing messages one-by-one is rather slow, but we can batch the commits to get higher throughput.
+As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits.
 
 Scala
 : @@ snip [consumerToProducerSink](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerFlowBatch }
@@ -142,7 +142,7 @@ Java
 
 @@@note 
 
-There is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least-once delivery" semantics.
+There is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least-once" delivery semantics.
 
 To get delivery guarantees, please read about @ref[transactions](transactions.md).
 
@@ -153,7 +153,7 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 
 `Consumer.plainPartitionedSource` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
-and `Consumer.committablePartitionedSource` supports tracking the automatic partition assignment from Kafka. When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source. When topic-partition is revoked then corresponding source completes.
+and `Consumer.committablePartitionedSource` support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
 
 Backpressure per partition with batch commit:
 
