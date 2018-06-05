@@ -132,20 +132,8 @@ private[kafka] object ProducerStage {
                 onMessageAckCb.invoke(msg)
                 r.success(Result(metadata, msg))
               }
-              else {
-                decider(exception) match {
-                  case Supervision.Stop =>
-                    if (stage.closeProducerOnStop) {
-                      producer.close(0, TimeUnit.MILLISECONDS)
-                    }
-                    failStageCb.invoke(exception)
-                  case _ =>
-                    r.failure(exception)
-                }
-              }
-
-              if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-                checkForCompletionCB.invoke(())
+              else handle(exception, r)
+              completionCheck()
             }
           })
           val future = r.future.asInstanceOf[Future[OUT]]
@@ -162,20 +150,8 @@ private[kafka] object ProducerStage {
                 if (exception == null) {
                   r.success(MultiResultPart(metadata, msg))
                 }
-                else {
-                  decider(exception) match {
-                    case Supervision.Stop =>
-                      if (stage.closeProducerOnStop) {
-                        producer.close(0, TimeUnit.MILLISECONDS)
-                      }
-                      failStageCb.invoke(exception)
-                    case _ =>
-                      r.failure(exception)
-                  }
-                }
-
-                if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-                  checkForCompletionCB.invoke(())
+                else handle(exception, r)
+                completionCheck()
               }
             })
             r.future
@@ -194,6 +170,23 @@ private[kafka] object ProducerStage {
           push(stage.out, future)
 
       }
+    }
+
+    private def handle(exception: Exception, promise: Promise[_]): Unit = {
+      decider(exception) match {
+        case Supervision.Stop =>
+          if (stage.closeProducerOnStop) {
+            producer.close(0, TimeUnit.MILLISECONDS)
+          }
+          failStageCb.invoke(exception)
+        case _ =>
+          promise.failure(exception)
+      }
+    }
+
+    private def completionCheck(): Unit = {
+      if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
+        checkForCompletionCB.invoke(())
     }
 
     override def postStop(): Unit = {

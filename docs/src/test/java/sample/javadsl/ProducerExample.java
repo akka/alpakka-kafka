@@ -18,6 +18,7 @@ import akka.stream.javadsl.RestartFlow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -118,26 +119,89 @@ class ProducerFlowExample extends ProducerExample {
     new ProducerFlowExample().demo();
   }
 
+    <KeyType, ValueType, PassThroughType> ProducerMessage.Message<KeyType, ValueType, PassThroughType> createMessage(KeyType key, ValueType value, PassThroughType passThrough) {
+        return
+                // #singleMessage
+                new ProducerMessage.Message<KeyType, ValueType, PassThroughType>(
+                        new ProducerRecord<>("topicName", key, value),
+                        passThrough
+                );
+        // #singleMessage
+
+    }
+
+    <KeyType, ValueType, PassThroughType> ProducerMessage.MultiMessage<KeyType, ValueType, PassThroughType> createMultiMessage(KeyType key, ValueType value, PassThroughType passThrough) {
+        return
+                // #multiMessage
+                new ProducerMessage.MultiMessage<KeyType, ValueType, PassThroughType>(
+                        Arrays.asList(
+                                new ProducerRecord<>("topicName", key, value),
+                                new ProducerRecord<>("anotherTopic", key, value)
+                        ),
+                        passThrough
+                );
+        // #multiMessage
+
+    }
+
+    <KeyType, ValueType, PassThroughType> ProducerMessage.PassThroughMessage<KeyType, ValueType, PassThroughType> createPassThroughMessage(KeyType key, ValueType value, PassThroughType passThrough) {
+
+        ProducerMessage.PassThroughMessage<KeyType, ValueType, PassThroughType> ptm =
+                // #passThroughMessage
+        new ProducerMessage.PassThroughMessage<>(
+                passThrough
+        );
+
+
+        ProducerMessage.Message<KeyType, ValueType, PassThroughType> message = // ...
+        // #passThroughMessage
+                new ProducerMessage.Message<KeyType, ValueType, PassThroughType>(
+                        new ProducerRecord<>("topicName", key, value),
+                        passThrough
+                );
+
+        // #passThroughMessage
+        ProducerMessage.Messages<KeyType, ValueType, PassThroughType> filtered =
+                message.filter(m -> m.record().value().toString().length() > 1);
+        // #passThroughMessage
+        return ptm;
+    }
+
   public void demo() {
     // #flow
-    CompletionStage<Done> done =
-      Source.range(1, 100)
-        .map(number -> {
-          int partition = 0;
-          String value = String.valueOf(number);
-          return new ProducerMessage.Message<String, String, Integer>(
-            new ProducerRecord<>("topic1", partition, "key", value),
-            number
-          );
-        })
-        .via(Producer.flow(producerSettings))
-        .map(result -> {
-          ProducerRecord<String, String> record = result.message().record();
-          RecordMetadata meta = result.metadata();
-          return meta.topic() + "/" + meta.partition() + " " + result.offset() + ": " + record.value();
-        })
-        .runWith(Sink.foreach(System.out::println), materializer);
-    // #flow
+      CompletionStage<Done> done =
+              Source.range(1, 100)
+                      .map(number -> {
+                          int partition = 0;
+                          String value = String.valueOf(number);
+                          ProducerMessage.Messages<String, String, Integer> msg =
+                                  new ProducerMessage.Message<String, String, Integer>(
+                                          new ProducerRecord<>("topic1", partition, "key", value),
+                                          number
+                                  );
+                          return msg;
+                      })
+
+                      .via(Producer.flow2(producerSettings))
+
+                      .map(result -> {
+                          if (result instanceof ProducerMessage.Result) {
+                              ProducerMessage.Result<String, String, Integer> res = (ProducerMessage.Result<String, String, Integer>) result;
+                              ProducerRecord<String, String> record = res.message().record();
+                              RecordMetadata meta = res.metadata();
+                              return meta.topic() + "/" + meta.partition() + " " + res.offset() + ": " + record.value();
+                          } else if (result instanceof ProducerMessage.MultiResult) {
+                              ProducerMessage.MultiResult<String, String, Integer> res = (ProducerMessage.MultiResult<String, String, Integer>) result;
+                              return res.getParts() .stream().map( part -> {
+                                  RecordMetadata meta = part.metadata();
+                                  return meta.topic() + "/" + meta.partition() + " " + part.metadata().offset() + ": " + part.record().value();
+                              }).reduce((acc, s) -> acc + ", " + s);
+                          } else {
+                              return "passed through";
+                          }
+                      })
+                      .runWith(Sink.foreach(System.out::println), materializer);
+      // #flow
 
     terminateWhenDone(done);
   }

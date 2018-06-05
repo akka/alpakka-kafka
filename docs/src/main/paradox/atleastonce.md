@@ -13,15 +13,13 @@ the flow in a particular state, and that state could be unlikely to occur.
 
 When connecting a committable source to a producer flow, some applications may require each consumed message to produce more than one message. In that case, in order to preserve at-least-once semantics, the message offset should only be committed after all associated messages have been produced.
 
-To achieve this, it will no longer be sufficient to pass a `CommittableOffset` in the `passThrough` field of `ProducerMessage.Message`. Instead the type used for `PassTrough` should be one that can also encode the absence of an offset. Two valid choices would be `Option[CommittableOffset]` or a `CommittableOffsetBatch`. Currently two instances of `CommittableOffsetBatch` cannot be mergerd together, which will be a problem if we want to create batches, so using an `Option[CommittableOffset]` is preferable. 
+To achieve this, use the `ProducerMessage.MultiMessage` implementation of `Messages`:
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }  
-  Here a `collect` is used to filter away all the `None` values, and unwrap the `CommitableOffset` instances from the `Option` before sending them to the batch stage.
 
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceOneToMany.java) { #oneToMany }
-  Here `filterNot` removes all the empty optional values, and `map` unwraps the `CommitableOffset` instances from the `Optional` before sending them to the batch stage.
 
 
 ### Batches
@@ -66,9 +64,14 @@ This is a significant challenge. Below we suggest a few strategies to deal with 
 
 Since `ProducerRecord` contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
 
-Each committable message may safely lead to the production of more than one message, as long as the `CommittableOffset` is associated to the last message, as described earlier.
+In case a committable message should lead to the production of multiple messages, the `ProducerMessage.MultiMessage` is available. If no messages should be produced, the `ProducerMessage.PassThroughMessage` can be used.
 
-However if a committable message leads to the production of no messages, then we have a problem: the producer flow is not currently able to pass through a committable offset without producing a message.
+Scala
+: @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToConditional }  
+
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceOneToMany.java) { #oneToConditional }
+
 
 ### Excluding Messages
 
@@ -76,7 +79,4 @@ Failure to deserialize a message is a particular case of conditional message pro
 
 Why can't we commit the offsets of bad messages as soon as we encounter them, instead of passing them downstream? Because the previous offsets, for messages that have deserialized successfully, may not have been committed yet. That's possible if the downstream flow includes a buffer, an asynchronous boundary or performs batching. It is then likely that some previous messages would concurrently be making their way downstream to a final committing stage.
 
-Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the commitable source. We can instead create a `ConsumerSettings` parametrized by byte arrays. A subsequent `collect` can deserialize and skip bad messages. Alternatively a `map` stage can be used should we wish to propagate downstream some information about the bad messages, such as their committable offsets.
-
-If bad messages are rare, it might be acceptable to never commit their offsets directly and instead rely on the commit of the next deserializable message to eventually advance the partition beyond the bad messages. This preserves at-least-once semantics, but can lead to more frequent duplicated handling of bad messages on restarts. However that handling may not have very important effects: it might simply be logging the message.
-
+Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the committable source. We can instead create a `ConsumerSettings` parametrized by byte arrays. A subsequent `map` can deserialize and use `ProducerMessage.PassThroughMessage` to skip bad messages.

@@ -186,14 +186,18 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
     //format: off
     // #consumerToProducerSink
     val control =
-      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+
         .map { msg =>
           ProducerMessage.Message(
             new ProducerRecord[String, Array[Byte]]("targetTopic", msg.record.value),
             msg.committableOffset
           )
         }
+
         .toMat(Producer.commitableSink(producerSettings))(Keep.both)
+
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -208,17 +212,21 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
     // #consumerToProducerFlow
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+
       .map { msg =>
         ProducerMessage.Message(
           new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
           passThrough = msg.committableOffset
         )
       }
+
       .via(Producer.flow2(producerSettings))
+
       .mapAsync(producerSettings.parallelism) { result =>
         val committable = result.passThrough
         committable.commitScaladsl()
       }
+
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
@@ -234,18 +242,22 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     // #consumerToProducerFlowBatch
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+
       .map(msg =>
         ProducerMessage.Message(
           new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
           msg.committableOffset
         )
       )
+
       .via(Producer.flow2(producerSettings))
+
       .map(_.passThrough)
       .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
         batch.updated(elem)
       }
       .mapAsync(3)(_.commitScaladsl())
+
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()

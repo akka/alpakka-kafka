@@ -249,7 +249,9 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
                     );
                 return prodMsg;
               })
+
               .via(Producer.flow2(producerSettings))
+
               .mapAsync(producerSettings.parallelism(), result -> {
                   ConsumerMessage.Committable committable = result.passThrough();
                   return committable.commitJavadsl();
