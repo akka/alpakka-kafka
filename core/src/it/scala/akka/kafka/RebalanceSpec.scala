@@ -38,7 +38,7 @@ class RebalanceSpec extends TestKit(ActorSystem("RebalanceSpec")) with WordSpecL
 
   "alpakka kafka" should {
 
-    "not loose any mesasges during rebalance" in {
+    "not lose any messages during a rebalance" in {
 
       val producerSettings = ProducerSettings(system, new StringSerializer, new IntegerSerializer)
         .withBootstrapServers(kafkaHost)
