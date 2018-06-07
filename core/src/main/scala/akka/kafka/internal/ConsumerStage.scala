@@ -34,17 +34,21 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
  * INTERNAL API
  */
 private[kafka] object ConsumerStage {
-  def plainSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None, onRevoke: Set[TopicPartition] => Unit = _ => ()) = {
+  def plainSubSource[K, V](settings: ConsumerSettings[K, V],
+                           subscription: AutoSubscription,
+                           getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
+                           onRevoke: Set[TopicPartition] => Unit = _ => ()) =
     new KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke) with PlainMessageBuilder[K, V] with MetricsControl
+        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
+        with PlainMessageBuilder[K, V] with MetricsControl
     }
-  }
 
-  def committableSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) = {
+  def committableSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) =
     new KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])] {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
+        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
+        with CommittableMessageBuilder[K, V] with MetricsControl {
 
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
@@ -53,26 +57,25 @@ private[kafka] object ConsumerStage {
           }
         }
     }
-  }
 
-  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) = {
+  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) =
     new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
       override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
         new SingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
     }
-  }
 
-  def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) = {
+  def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) =
     new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
       override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription) with PlainMessageBuilder[K, V] with MetricsControl
+        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription)
+        with PlainMessageBuilder[K, V] with MetricsControl
     }
-  }
 
-  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) = {
+  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) =
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription) with CommittableMessageBuilder[K, V] {
+        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
+        with CommittableMessageBuilder[K, V] {
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -80,12 +83,15 @@ private[kafka] object ConsumerStage {
           }
         }
     }
-  }
 
-  def externalCommittableSource[K, V](consumer: ActorRef, _groupId: String, commitTimeout: FiniteDuration, subscription: ManualSubscription) = {
+  def externalCommittableSource[K, V](consumer: ActorRef,
+                                      _groupId: String,
+                                      commitTimeout: FiniteDuration,
+                                      subscription: ManualSubscription) =
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription) with CommittableMessageBuilder[K, V] with MetricsControl {
+        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
+        with CommittableMessageBuilder[K, V] with MetricsControl {
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -93,10 +99,11 @@ private[kafka] object ConsumerStage {
           }
         }
     }
-  }
 
   def transactionalSource[K, V](consumerSettings: ConsumerSettings[K, V], subscription: Subscription) = {
-    require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
+    require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty,
+            "You must define a Consumer group.id.")
+
     /**
      * We set the isolation.level config to read_committed to make sure that any consumed messages are from
      * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
@@ -105,18 +112,22 @@ private[kafka] object ConsumerStage {
      * will still consume non-transactional messages.
      */
     val txConsumerSettings = consumerSettings.withProperty(
-      ConsumerConfig.ISOLATION_LEVEL_CONFIG, IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH))
+      ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+      IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
+    )
 
     new KafkaSourceStage[K, V, TransactionalMessage[K, V]] {
       override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]) =
-        new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription) with TransactionalMessageBuilder[K, V] {
+        new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
+        with TransactionalMessageBuilder[K, V] {
           override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
         }
     }
   }
 
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
-  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration)(implicit ec: ExecutionContext) extends Committer {
+  case class KafkaAsyncConsumerCommitterRef(ref: ActorRef, commitTimeout: FiniteDuration)(implicit ec: ExecutionContext)
+      extends Committer {
     import akka.pattern.ask
 
     import scala.collection.breakOut
@@ -127,7 +138,8 @@ private[kafka] object ConsumerStage {
       }(breakOut)
 
       (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done).recoverWith {
-        case _: AskTimeoutException => Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
+        case _: AskTimeoutException =>
+          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
         case other => Future.failed(other)
       }
     }
@@ -147,15 +159,15 @@ private[kafka] object ConsumerStage {
         }
         Future.sequence(futures).map(_ => Done)
 
-      case _ => throw new IllegalArgumentException(
-        s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
           s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
-      )
+        )
     }
   }
 
-  abstract class KafkaSourceStage[K, V, Msg]()
-    extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
+  abstract class KafkaSourceStage[K, V, Msg]() extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
     protected val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
     protected def logic(shape: SourceShape[Msg]): GraphStageLogic with Control
@@ -202,8 +214,9 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(val committer: Committer)
-    extends CommittableOffset {
+  final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset)(
+      val committer: Committer
+  ) extends CommittableOffset {
     override def commitScaladsl(): Future[Done] = committer.commit(immutable.Seq(partitionOffset))
     override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   }
@@ -214,8 +227,9 @@ private[kafka] object ConsumerStage {
     def commit(batch: CommittableOffsetBatch): Future[Done]
   }
 
-  final class CommittableOffsetBatchImpl(val offsets: Map[GroupTopicPartition, Long], val stages: Map[String, Committer])
-    extends CommittableOffsetBatch {
+  final class CommittableOffsetBatchImpl(val offsets: Map[GroupTopicPartition, Long],
+                                         val stages: Map[String, Committer])
+      extends CommittableOffsetBatch {
 
     override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
       val partitionOffset = committableOffset.partitionOffset
@@ -225,16 +239,18 @@ private[kafka] object ConsumerStage {
 
       val stage = committableOffset match {
         case c: CommittableOffsetImpl => c.committer
-        case _ => throw new IllegalArgumentException(
-          s"Unknown CommittableOffset, got [${committableOffset.getClass.getName}], " +
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Unknown CommittableOffset, got [${committableOffset.getClass.getName}], " +
             s"expected [${classOf[CommittableOffsetImpl].getName}]"
-        )
+          )
       }
 
       val newStages = stages.get(key.groupId) match {
         case Some(s) =>
-          require(s == stage, s"CommittableOffset [$committableOffset] origin stage must be same as other " +
-            s"stage with same groupId. Expected [$s], got [$stage]")
+          require(s == stage,
+                  s"CommittableOffset [$committableOffset] origin stage must be same as other " +
+                  s"stage with same groupId. Expected [$s], got [$stage]")
           stages
         case None =>
           stages.updated(key.groupId, stage)
@@ -243,20 +259,18 @@ private[kafka] object ConsumerStage {
       new CommittableOffsetBatchImpl(newOffsets, newStages)
     }
 
-    override def getOffsets(): JMap[GroupTopicPartition, Long] = {
+    override def getOffsets(): JMap[GroupTopicPartition, Long] =
       offsets.asJava
-    }
 
     override def toString(): String =
       s"CommittableOffsetBatch(${offsets.mkString("->")})"
 
-    override def commitScaladsl(): Future[Done] = {
+    override def commitScaladsl(): Future[Done] =
       if (offsets.isEmpty)
         Future.successful(Done)
       else {
         stages.head._2.commit(this)
       }
-    }
 
     override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
 
@@ -305,9 +319,8 @@ private[kafka] trait PromiseControl extends GraphStageLogic with Control {
     case ControlShutdown => performShutdown()
   })
 
-  def onStop() = {
+  def onStop() =
     stopPromise.trySuccess(Done)
-  }
 
   def onShutdown() = {
     stopPromise.trySuccess(Done)
@@ -334,7 +347,9 @@ private[kafka] trait MetricsControl extends Control {
     import akka.pattern.ask
 
     import scala.concurrent.duration._
-    consumer.?(RequestMetrics)(Timeout(1.minute)).mapTo[ConsumerMetrics]
+    consumer
+      .?(RequestMetrics)(Timeout(1.minute))
+      .mapTo[ConsumerMetrics]
       .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
   }
 }

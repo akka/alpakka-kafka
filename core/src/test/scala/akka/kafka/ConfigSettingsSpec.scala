@@ -14,14 +14,17 @@ class ConfigSettingsSpec extends WordSpecLike with Matchers {
   "ConfigSettings" must {
 
     "handle nested properties" in {
-      val conf = ConfigFactory.parseString(
-        """
+      val conf = ConfigFactory
+        .parseString(
+          """
         kafka-client.bootstrap.servers = "localhost:9092"
         kafka-client.bootstrap.foo = baz
         kafka-client.foo = bar
         kafka-client.client.id = client1
         """
-      ).withFallback(ConfigFactory.load()).getConfig("kafka-client")
+        )
+        .withFallback(ConfigFactory.load())
+        .getConfig("kafka-client")
       val settings = ConfigSettings.parseKafkaClientsProperties(conf)
       settings("bootstrap.servers") should ===("localhost:9092")
       settings("client.id") should ===("client1")

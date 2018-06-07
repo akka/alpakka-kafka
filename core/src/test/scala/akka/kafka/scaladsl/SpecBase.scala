@@ -31,12 +31,12 @@ import scala.language.postfixOps
 import scala.collection.immutable
 
 abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
-  extends TestKit(actorSystem)
-  with WordSpecLike
-  with Matchers
-  with BeforeAndAfterAll
-  with ScalaFutures
-  with Eventually {
+    extends TestKit(actorSystem)
+    with WordSpecLike
+    with Matchers
+    with BeforeAndAfterAll
+    with ScalaFutures
+    with Eventually {
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
@@ -99,9 +99,9 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
 
   def produceString(topic: String, range: immutable.Seq[String], partition: Int = partition0): Future[Done] =
     Source(range)
-      // NOTE: If no partition is specified but a key is present a partition will be chosen
-      // using a hash of the key. If neither key nor partition is present a partition
-      // will be assigned in a round-robin fashion.
+    // NOTE: If no partition is specified but a key is present a partition will be chosen
+    // using a hash of the key. If neither key nor partition is present a partition
+    // will be assigned in a round-robin fashion.
       .map(n => new ProducerRecord(topic, partition, DefaultKey, n))
       .runWith(Producer.plainSink(producerDefaults, testProducer))
 
@@ -114,7 +114,9 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
       .map(n => new ProducerRecord(topic, partition0, DefaultKey, n.toString))
       .runWith(Producer.plainSink(settings))
 
-  def produceTimestamped(topic: String, timestampedRange: immutable.Seq[(Int, Long)], partiion: Int = partition0): Future[Done] =
+  def produceTimestamped(topic: String,
+                         timestampedRange: immutable.Seq[(Int, Long)],
+                         partiion: Int = partition0): Future[Done] =
     Source(timestampedRange)
       .map {
         case (n, ts) => new ProducerRecord(topic, partition0, ts, DefaultKey, n.toString)
@@ -147,7 +149,8 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
     (expectedData, expectedCount.toLong)
   }
 
-  def createProbe(consumerSettings: ConsumerSettings[String, String], topic: String*): (Control, TestSubscriber.Probe[String]) =
+  def createProbe(consumerSettings: ConsumerSettings[String, String],
+                  topic: String*): (Control, TestSubscriber.Probe[String]) =
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
       .filterNot(_.value == InitialMsg)

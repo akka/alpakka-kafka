@@ -15,16 +15,18 @@ case class KafkaProducerTestFixture(topic: String, msgCount: Int, producer: Kafk
 object KafkaProducerFixtures extends PerfFixtureHelpers {
 
   def noopFixtureGen(c: RunTestCommand) = FixtureGen[KafkaProducerTestFixture](
-    c, msgCount => {
-    KafkaProducerTestFixture("topic", msgCount, null)
-  }
+    c,
+    msgCount => {
+      KafkaProducerTestFixture("topic", msgCount, null)
+    }
   )
 
   def initializedProducer(c: RunTestCommand) = FixtureGen[KafkaProducerTestFixture](
-    c, msgCount => {
-    val topic = randomId()
-    val rawProducer = initTopicAndProducer(c.kafkaHost, topic)
-    KafkaProducerTestFixture(topic, msgCount, rawProducer)
-  }
+    c,
+    msgCount => {
+      val topic = randomId()
+      val rawProducer = initTopicAndProducer(c.kafkaHost, topic)
+      KafkaProducerTestFixture(topic, msgCount, rawProducer)
+    }
   )
 }

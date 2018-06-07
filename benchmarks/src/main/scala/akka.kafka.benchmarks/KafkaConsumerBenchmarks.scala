@@ -8,7 +8,7 @@ package akka.kafka.benchmarks
 import java.util
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.kafka.clients.consumer.{OffsetCommitCallback, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{OffsetAndMetadata, OffsetCommitCallback}
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -23,7 +23,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   def consumePlainNoKafka(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
 
     @tailrec
-    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
       if (readSoFar >= readLimit)
         readSoFar
       else {
@@ -31,7 +31,6 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         meter.mark()
         pollInLoop(readLimit, readSoFar + 1)
       }
-    }
     meter.mark()
     pollInLoop(readLimit = fixture.msgCount)
   }
@@ -43,7 +42,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
     val consumer = fixture.consumer
 
     @tailrec
-    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
       if (readSoFar >= readLimit)
         readSoFar
       else {
@@ -55,7 +54,6 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
       }
-    }
     meter.mark()
     pollInLoop(readLimit = fixture.msgCount)
     fixture.close()
@@ -77,15 +75,17 @@ object KafkaConsumerBenchmarks extends LazyLogging {
       accumulatedMsgCount = 0
       val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
       logger.debug("Committing offset " + offsetMap.head._2.offset())
-      consumer.commitAsync(offsetMap.asJava, new OffsetCommitCallback {
-        override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-          commitInProgress = false
+      consumer.commitAsync(
+        offsetMap.asJava,
+        new OffsetCommitCallback {
+          override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit =
+            commitInProgress = false
         }
-      })
+      )
     }
 
     @tailrec
-    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
       if (readSoFar >= readLimit)
         readSoFar
       else {
@@ -101,8 +101,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
             if (!commitInProgress) {
               commitInProgress = true
               doCommit()
-            }
-            else // previous commit still in progress
+            } else // previous commit still in progress
               consumer.pause(assignment)
           }
         }
@@ -110,7 +109,6 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
       }
-    }
 
     pollInLoop(readLimit = fixture.msgCount)
     fixture.close()
@@ -123,7 +121,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
     val consumer = fixture.consumer
     val assignment = consumer.assignment()
     @tailrec
-    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
       if (readSoFar >= readLimit)
         readSoFar
       else {
@@ -136,18 +134,19 @@ object KafkaConsumerBenchmarks extends LazyLogging {
           val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(record.offset()))
           consumer.pause(assignment)
 
-          consumer.commitAsync(offsetMap.asJava, new OffsetCommitCallback {
-            override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = {
-              consumer.resume(assignment)
+          consumer.commitAsync(
+            offsetMap.asJava,
+            new OffsetCommitCallback {
+              override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit =
+                consumer.resume(assignment)
             }
-          })
+          )
         }
 
         val recordCount = records.count()
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
       }
-    }
 
     pollInLoop(readLimit = fixture.msgCount)
     fixture.close()

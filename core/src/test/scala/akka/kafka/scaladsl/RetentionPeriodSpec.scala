@@ -21,13 +21,13 @@ import scala.concurrent.duration._
 class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort, zooKeeperPort,
-      Map(
-        "offsets.topic.replication.factor" -> "1",
-        "offsets.retention.minutes" -> "1",
-        "offsets.retention.check.interval.ms" -> "100"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "offsets.topic.replication.factor" -> "1",
+                          "offsets.retention.minutes" -> "1",
+                          "offsets.retention.check.interval.ms" -> "100"
+                        ))
 
   "After retention period (1 min) consumer" must {
 
@@ -42,7 +42,8 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
 
       val consumerSettings = consumerDefaults.withGroupId(group1).withCommitRefreshInterval(5.seconds)
 
-      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+      val (control, probe1) = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
@@ -55,7 +56,8 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
 
       probe1
         .request(25)
-        .expectNextN(25).toSet should be(Set(Done))
+        .expectNextN(25)
+        .toSet should be(Set(Done))
 
       val longerThanRetentionPeriod = 70000L
       Thread.sleep(longerThanRetentionPeriod)
@@ -63,7 +65,8 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+      val probe2 = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
         .runWith(TestSink.probe)
 
@@ -82,7 +85,8 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
 
       probe2.cancel()
 
-      val probe3 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+      val probe3 = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
         .runWith(TestSink.probe)
 

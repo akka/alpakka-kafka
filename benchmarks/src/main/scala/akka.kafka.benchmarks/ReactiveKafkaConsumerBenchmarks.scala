@@ -29,10 +29,11 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   def consumePlainNoKafka(fixture: NonCommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     meter.mark()
-    val future = Source.repeat("dummy")
+    val future = Source
+      .repeat("dummy")
       .take(fixture.msgCount.toLong)
-      .map {
-        msg => meter.mark(); msg
+      .map { msg =>
+        meter.mark(); msg
       }
       .runWith(Sink.ignore)
     Await.result(future, atMost = streamingTimeout)
@@ -46,8 +47,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
     logger.debug("Creating and starting a stream")
     val future = fixture.source
       .take(fixture.msgCount.toLong)
-      .map {
-        msg => meter.mark(); msg
+      .map { msg =>
+        meter.mark(); msg
       }
       .runWith(Sink.ignore)
     Await.result(future, atMost = streamingTimeout)
@@ -58,12 +59,13 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
    * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
    * size is accumulated.
    */
-  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommitableFixture,
+                                                 meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
     val control = fixture.source
-      .map {
-        msg => msg.committableOffset
+      .map { msg =>
+        msg.committableOffset
       }
       .batch(batchSize.toLong, first => CommittableOffsetBatch(first)) { (batch, elem) =>
         meter.mark()

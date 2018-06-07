@@ -55,18 +55,17 @@ object ConsumerTest {
 }
 
 class ConsumerTest(_system: ActorSystem)
-  extends TestKit(_system)
-  with FlatSpecLike
-  with Matchers
-  with BeforeAndAfterAll {
+    extends TestKit(_system)
+    with FlatSpecLike
+    with Matchers
+    with BeforeAndAfterAll {
 
   import ConsumerTest._
 
   def this() = this(ActorSystem())
 
-  override def afterAll(): Unit = {
+  override def afterAll(): Unit =
     shutdown(system)
-  }
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
@@ -86,12 +85,28 @@ class ConsumerTest(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  def testSource(mock: ConsumerMock[K, V], groupId: String = "group1", topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
-    val settings = new ConsumerSettings(Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId), Some(new StringDeserializer), Some(new StringDeserializer),
-      1.milli, 1.milli, 1.second, closeTimeout, 1.second, 5.seconds, 3, Duration.Inf, "akka.kafka.default-dispatcher", 1.second, true, 5.seconds) {
-      override def createKafkaConsumer(): KafkaConsumer[K, V] = {
+  def testSource(mock: ConsumerMock[K, V],
+                 groupId: String = "group1",
+                 topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
+    val settings = new ConsumerSettings(
+      Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId),
+      Some(new StringDeserializer),
+      Some(new StringDeserializer),
+      1.milli,
+      1.milli,
+      1.second,
+      closeTimeout,
+      1.second,
+      5.seconds,
+      3,
+      Duration.Inf,
+      "akka.kafka.default-dispatcher",
+      1.second,
+      true,
+      5.seconds
+    ) {
+      override def createKafkaConsumer(): KafkaConsumer[K, V] =
         mock.mock
-      }
     }
     Consumer.committableSource(settings, Subscriptions.topics(topics))
   }
@@ -319,8 +334,12 @@ class ConsumerTest(_system: ActorSystem)
       mock.enqueue(msgsTopic2.map(toRecord))
 
       probe.request(100)
-      val batch = probe.expectNextN(6).map(_.committableOffset)
-        .foldLeft(CommittableOffsetBatch.empty) { (b, c) => b.updated(c) }
+      val batch = probe
+        .expectNextN(6)
+        .map(_.committableOffset)
+        .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
+          b.updated(c)
+        }
 
       val done = batch.commitScaladsl()
 
@@ -369,11 +388,19 @@ class ConsumerTest(_system: ActorSystem)
       probe1.request(100)
       probe2.request(100)
 
-      val batch1 = probe1.expectNextN(6).map(_.committableOffset)
-        .foldLeft(CommittableOffsetBatch.empty) { (b, c) => b.updated(c) }
+      val batch1 = probe1
+        .expectNextN(6)
+        .map(_.committableOffset)
+        .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
+          b.updated(c)
+        }
 
-      val batch2 = probe2.expectNextN(6).map(_.committableOffset)
-        .foldLeft(batch1) { (b, c) => b.updated(c) }
+      val batch2 = probe2
+        .expectNextN(6)
+        .map(_.committableOffset)
+        .foldLeft(batch1) { (b, c) =>
+          b.updated(c)
+        }
 
       val done2 = batch2.commitScaladsl()
 
@@ -580,9 +607,8 @@ object ConsumerMock {
 
   class LogHandler extends CommitHandler {
     var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
-    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = {
+    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) =
       calls :+= ((offsets, callback))
-    }
   }
 }
 
@@ -593,88 +619,108 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   private var messagesRequested = false
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
-    Mockito.when(result.poll(mockito.ArgumentMatchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
-      override def answer(invocation: InvocationOnMock) = ConsumerMock.this.synchronized {
-        pendingSubscriptions.foreach {
-          case (topics, callback) =>
-            val tps = topics.map { t => new TopicPartition(t, 1) }
-            assignment ++= tps
-            callback.onPartitionsAssigned(tps.asJavaCollection)
+    Mockito
+      .when(result.poll(mockito.ArgumentMatchers.any[Long]))
+      .thenAnswer(new Answer[ConsumerRecords[K, V]] {
+        override def answer(invocation: InvocationOnMock) = ConsumerMock.this.synchronized {
+          pendingSubscriptions.foreach {
+            case (topics, callback) =>
+              val tps = topics.map { t =>
+                new TopicPartition(t, 1)
+              }
+              assignment ++= tps
+              callback.onPartitionsAssigned(tps.asJavaCollection)
+          }
+          pendingSubscriptions = List.empty
+          val records = if (messagesRequested) {
+            responses.dequeueOption
+              .map {
+                case (element, remains) =>
+                  responses = remains
+                  element
+                    .groupBy(x => new TopicPartition(x.topic(), x.partition()))
+                    .map {
+                      case (topicPart, messages) => (topicPart, messages.asJava)
+                    }
+              }
+              .getOrElse(Map.empty)
+          } else Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
+          new ConsumerRecords[K, V](records.asJava)
         }
-        pendingSubscriptions = List.empty
-        val records = if (messagesRequested) {
-          responses.dequeueOption.map {
-            case (element, remains) =>
-              responses = remains
-              element
-                .groupBy(x => new TopicPartition(x.topic(), x.partition()))
-                .map {
-                  case (topicPart, messages) => (topicPart, messages.asJava)
-                }
-          }.getOrElse(Map.empty)
+      })
+    Mockito
+      .when(
+        result.commitAsync(mockito.ArgumentMatchers.any[JMap[TopicPartition, OffsetAndMetadata]],
+                           mockito.ArgumentMatchers.any[OffsetCommitCallback])
+      )
+      .thenAnswer(new Answer[Unit] {
+        override def answer(invocation: InvocationOnMock) = {
+          val offsets = invocation.getArgument[JMap[TopicPartition, OffsetAndMetadata]](0)
+          val callback = invocation.getArgument[OffsetCommitCallback](1)
+          handler(offsets.asScala.toMap, callback)
+          ()
         }
-        else Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
-        new ConsumerRecords[K, V](records.asJava)
-      }
-    })
-    Mockito.when(result.commitAsync(mockito.ArgumentMatchers.any[JMap[TopicPartition, OffsetAndMetadata]], mockito.ArgumentMatchers.any[OffsetCommitCallback])).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock) = {
-        val offsets = invocation.getArgument[JMap[TopicPartition, OffsetAndMetadata]](0)
-        val callback = invocation.getArgument[OffsetCommitCallback](1)
-        handler(offsets.asScala.toMap, callback)
-        ()
-      }
-    })
-    Mockito.when(result.subscribe(mockito.ArgumentMatchers.any[JList[String]], mockito.ArgumentMatchers.any[ConsumerRebalanceListener])).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock) = {
-        val topics = invocation.getArgument[JList[String]](0)
-        val callback = invocation.getArgument[ConsumerRebalanceListener](1)
-        pendingSubscriptions :+= (topics.asScala.toList -> callback)
-        ()
-      }
-    })
-    Mockito.when(result.resume(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock) = {
-        messagesRequested = true
-        ()
-      }
-    })
-    Mockito.when(result.pause(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]])).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock) = {
-        messagesRequested = false
-        ()
-      }
-    })
-    Mockito.when(result.assignment()).thenAnswer(new Answer[JSet[TopicPartition]] {
-      override def answer(invocation: InvocationOnMock) = assignment.asJava
-    })
+      })
+    Mockito
+      .when(
+        result.subscribe(mockito.ArgumentMatchers.any[JList[String]],
+                         mockito.ArgumentMatchers.any[ConsumerRebalanceListener])
+      )
+      .thenAnswer(new Answer[Unit] {
+        override def answer(invocation: InvocationOnMock) = {
+          val topics = invocation.getArgument[JList[String]](0)
+          val callback = invocation.getArgument[ConsumerRebalanceListener](1)
+          pendingSubscriptions :+= (topics.asScala.toList -> callback)
+          ()
+        }
+      })
+    Mockito
+      .when(result.resume(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]]))
+      .thenAnswer(new Answer[Unit] {
+        override def answer(invocation: InvocationOnMock) = {
+          messagesRequested = true
+          ()
+        }
+      })
+    Mockito
+      .when(result.pause(mockito.ArgumentMatchers.any[java.util.Collection[TopicPartition]]))
+      .thenAnswer(new Answer[Unit] {
+        override def answer(invocation: InvocationOnMock) = {
+          messagesRequested = false
+          ()
+        }
+      })
+    Mockito
+      .when(result.assignment())
+      .thenAnswer(new Answer[JSet[TopicPartition]] {
+        override def answer(invocation: InvocationOnMock) = assignment.asJava
+      })
     result
   }
 
-  def enqueue(records: Seq[ConsumerRecord[K, V]]) = {
+  def enqueue(records: Seq[ConsumerRecord[K, V]]) =
     synchronized {
       responses :+= records
     }
-  }
 
-  def verifyClosed(mode: VerificationMode = Mockito.times(1)) = {
+  def verifyClosed(mode: VerificationMode = Mockito.times(1)) =
     verify(mock, mode).close(ConsumerTest.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
-  }
 
-  def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) = {
+  def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
     verify(mock, mode).poll(mockito.ArgumentMatchers.any[Long])
-  }
 }
 
 class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
   var callNumber = 0
 
-  Mockito.when(mock.poll(mockito.ArgumentMatchers.any[Long])).thenAnswer(new Answer[ConsumerRecords[K, V]] {
-    override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
-      callNumber = callNumber + 1
-      if (failOnCallNumber.contains(callNumber))
-        throw throwable
-      else new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
-    }
-  })
+  Mockito
+    .when(mock.poll(mockito.ArgumentMatchers.any[Long]))
+    .thenAnswer(new Answer[ConsumerRecords[K, V]] {
+      override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
+        callNumber = callNumber + 1
+        if (failOnCallNumber.contains(callNumber))
+          throw throwable
+        else new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
+      }
+    })
 }

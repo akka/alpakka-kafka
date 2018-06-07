@@ -38,14 +38,13 @@ trait ProducerExample {
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer.create(system)
 
-  def terminateWhenDone(result: Future[Done]): Unit = {
+  def terminateWhenDone(result: Future[Done]): Unit =
     result.onComplete {
       case Failure(e) =>
         system.log.error(e, e.getMessage)
         system.terminate()
       case Success(_) => system.terminate()
     }
-  }
 }
 
 object PlainSinkExample extends ProducerExample {
@@ -90,38 +89,38 @@ object ObserveMetricsExample extends ProducerExample {
 object ProducerFlowExample extends ProducerExample {
 
   def createMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
-    {
-      // #singleMessage
-      new ProducerMessage.Message[KeyType, ValueType, PassThroughType](
+    // #singleMessage
+    new ProducerMessage.Message[KeyType, ValueType, PassThroughType](
+      new ProducerRecord("topicName", key, value),
+      passThrough
+    )
+  // #singleMessage
+
+  def createMultiMessage[KeyType, ValueType, PassThroughType](key: KeyType,
+                                                              value: ValueType,
+                                                              passThrough: PassThroughType) = {
+    import scala.collection.immutable
+    // #multiMessage
+    new ProducerMessage.MultiMessage[KeyType, ValueType, PassThroughType](
+      immutable.Seq(
         new ProducerRecord("topicName", key, value),
-        passThrough
-      )
-      // #singleMessage
-    }
+        new ProducerRecord("anotherTopic", key, value)
+      ),
+      passThrough
+    )
+    // #multiMessage
+  }
 
-  def createMultiMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
-    {
-      import scala.collection.immutable
-      // #multiMessage
-      new ProducerMessage.MultiMessage[KeyType, ValueType, PassThroughType](
-        immutable.Seq(
-          new ProducerRecord("topicName", key, value),
-          new ProducerRecord("anotherTopic", key, value)
-        ),
-        passThrough
-      )
-      // #multiMessage
-    }
-
-  def createPassThroughMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) = {
+  def createPassThroughMessage[KeyType, ValueType, PassThroughType](key: KeyType,
+                                                                    value: ValueType,
+                                                                    passThrough: PassThroughType) =
     // format:off
     // #passThroughMessage
     new ProducerMessage.PassThroughMessage(
       passThrough
     )
-    // #passThroughMessage
-    // format:on
-  }
+  // #passThroughMessage
+  // format:on
 
   def main(args: Array[String]): Unit = {
     // format:off
@@ -135,19 +134,19 @@ object ProducerFlowExample extends ProducerExample {
           number
         )
       }
-
       .via(Producer.flexiFlow(producerSettings))
-
       .map {
         case ProducerMessage.Result(metadata, message) =>
           val record = message.record
           s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
 
         case ProducerMessage.MultiResult(parts, passThrough) =>
-          parts.map {
-            case MultiResultPart(metadata, record) =>
-              s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
-          }.mkString(", ")
+          parts
+            .map {
+              case MultiResultPart(metadata, record) =>
+                s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
+            }
+            .mkString(", ")
 
         case ProducerMessage.PassThroughResult(passThrough) =>
           s"passed through"

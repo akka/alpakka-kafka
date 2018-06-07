@@ -36,8 +36,10 @@ import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class ProducerTest(_system: ActorSystem)
-  extends TestKit(_system) with FlatSpecLike
-  with Matchers with BeforeAndAfterAll {
+    extends TestKit(_system)
+    with FlatSpecLike
+    with Matchers
+    with BeforeAndAfterAll {
 
   def this() = this(ActorSystem())
 
@@ -58,15 +60,20 @@ class ProducerTest(_system: ActorSystem)
   type Msg = Message[String, String, NotUsed.type]
   type TxMsg = Message[K, V, ConsumerMessage.PartitionOffset]
 
-  def recordAndMetadata(seed: Int) = {
+  def recordAndMetadata(seed: Int) =
     new ProducerRecord("test", seed.toString, seed.toString) ->
-      new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed.toLong, System.currentTimeMillis(), checksum, -1, -1)
-  }
+    new RecordMetadata(new TopicPartition("test", seed),
+                       seed.toLong,
+                       seed.toLong,
+                       System.currentTimeMillis(),
+                       checksum,
+                       -1,
+                       -1)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
-  def toTxMessage(tuple: (Record, RecordMetadata)) = Message(
-    tuple._1,
-    ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset()))
+  def toTxMessage(tuple: (Record, RecordMetadata)) =
+    Message(tuple._1,
+            ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset()))
   def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
   val toResult = (result _).tupled
 
@@ -75,15 +82,28 @@ class ProducerTest(_system: ActorSystem)
       values.contains(r.value())
   }
 
-  val settings = ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitInterval(10.milliseconds)
+  val settings =
+    ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitInterval(10.milliseconds)
 
-  def testProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout, closeOnStop, () => mock.mock))
+  def testProducerFlow[P](mock: ProducerMock[K, V],
+                          closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
+    Flow
+      .fromGraph(
+        new ProducerStage.DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout,
+                                                                                           closeOnStop,
+                                                                                           () => mock.mock)
+      )
       .mapAsync(1)(identity)
 
-  def testTransactionProducerFlow[P](mock: ProducerMock[K, V], closeOnStop: Boolean = true): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] =
-    Flow.fromGraph(new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout, closeOnStop,
-      () => mock.mock, settings.eosCommitInterval))
+  def testTransactionProducerFlow[P](mock: ProducerMock[K, V],
+                                     closeOnStop: Boolean = true): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] =
+    Flow
+      .fromGraph(
+        new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout,
+                                                            closeOnStop,
+                                                            () => mock.mock,
+                                                            settings.eosCommitInterval)
+      )
       .mapAsync(1)(identity)
 
   "Producer" should "not send messages when source is empty" in {
@@ -221,7 +241,8 @@ class ProducerTest(_system: ActorSystem)
 
       input.map(toMessage).foreach(source.sendNext)
 
-      sink.request(100)
+      sink
+        .request(100)
         .expectNextN(input.filter(recordValues("1")).map(toResult))
         .expectError(error)
 
@@ -247,14 +268,17 @@ class ProducerTest(_system: ActorSystem)
       }
       val (source, sink) = TestSource
         .probe[Msg]
-        .via(testProducerFlow(client).withAttributes(ActorAttributes.withSupervisionStrategy(Supervision.resumingDecider)))
+        .via(
+          testProducerFlow(client).withAttributes(ActorAttributes.withSupervisionStrategy(Supervision.resumingDecider))
+        )
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
       input.map(toMessage).foreach(source.sendNext)
       source.sendComplete()
 
-      sink.request(100)
+      sink
+        .request(100)
         .expectNextN(input.filter(recordValues("1", "3")).map(toResult))
         .expectComplete()
 
@@ -273,7 +297,8 @@ class ProducerTest(_system: ActorSystem)
         .via(testProducerFlow(client))
         .runWith(TestSink.probe)
 
-      probe.request(10)
+      probe
+        .request(10)
         .expectError()
 
       client.verifyClosed()
@@ -337,7 +362,8 @@ class ProducerTest(_system: ActorSystem)
         .via(testTransactionProducerFlow(client))
         .runWith(TestSink.probe)
 
-      probe.request(1)
+      probe
+        .request(1)
         .expectComplete()
 
       client.verifyTxInitialized()
@@ -353,7 +379,8 @@ class ProducerTest(_system: ActorSystem)
         new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
       }
 
-      val (source, sink) = TestSource.probe[TxMsg]
+      val (source, sink) = TestSource
+        .probe[TxMsg]
         .via(testTransactionProducerFlow(client))
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -378,7 +405,8 @@ class ProducerTest(_system: ActorSystem)
         new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
       }
 
-      val (source, sink) = TestSource.probe[TxMsg]
+      val (source, sink) = TestSource
+        .probe[TxMsg]
         .map(msg => PassThroughMessage[K, V, PartitionOffset](msg.passThrough))
         .via(testTransactionProducerFlow(client))
         .toMat(TestSink.probe)(Keep.both)
@@ -403,7 +431,8 @@ class ProducerTest(_system: ActorSystem)
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
 
-    val (source, sink) = TestSource.probe[TxMsg]
+    val (source, sink) = TestSource
+      .probe[TxMsg]
       .via(testTransactionProducerFlow(client))
       .toMat(TestSink.probe)(Keep.both)
       .run()
@@ -429,7 +458,8 @@ class ProducerTest(_system: ActorSystem)
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
 
-    val (source, sink) = TestSource.probe[TxMsg]
+    val (source, sink) = TestSource
+      .probe[TxMsg]
       .via(testTransactionProducerFlow(client))
       .toMat(Sink.lastOption)(Keep.both)
       .run()
@@ -455,15 +485,16 @@ object ProducerMock {
   type Handler[K, V] = (ProducerRecord[K, V], Callback) => Future[RecordMetadata]
   object handlers {
     def fail[K, V]: Handler[K, V] = (_, _) => throw new Exception("Should not be called")
-    def delayedMap[K, V](delay: FiniteDuration)(f: ProducerRecord[K, V] => Try[RecordMetadata])(implicit as: ActorSystem): Handler[K, V] = {
-      (record, _) =>
-        implicit val ec = as.dispatcher
-        val promise = Promise[RecordMetadata]()
-        as.scheduler.scheduleOnce(delay) {
-          promise.complete(f(record))
-          ()
-        }
-        promise.future
+    def delayedMap[K, V](
+        delay: FiniteDuration
+    )(f: ProducerRecord[K, V] => Try[RecordMetadata])(implicit as: ActorSystem): Handler[K, V] = { (record, _) =>
+      implicit val ec = as.dispatcher
+      val promise = Promise[RecordMetadata]()
+      as.scheduler.scheduleOnce(delay) {
+        promise.complete(f(record))
+        ()
+      }
+      promise.future
     }
   }
 }
@@ -472,32 +503,36 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   var closed = false
   val mock = {
     val result = Mockito.mock(classOf[KafkaProducer[K, V]])
-    Mockito.when(result.send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback])).thenAnswer(new Answer[java.util.concurrent.Future[RecordMetadata]] {
-      override def answer(invocation: InvocationOnMock) = {
-        val record = invocation.getArguments()(0).asInstanceOf[ProducerRecord[K, V]]
-        val callback = invocation.getArguments()(1).asInstanceOf[Callback]
-        handler(record, callback).onComplete {
-          case Success(value) if !closed => callback.onCompletion(value, null)
-          case Success(value) if closed => callback.onCompletion(null, new Exception("Kafka producer already closed"))
-          case Failure(ex: Exception) => callback.onCompletion(null, ex)
-          case Failure(throwableUnsupported) => throw new Exception("Throwable failure are not supported")
+    Mockito
+      .when(result.send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback]))
+      .thenAnswer(new Answer[java.util.concurrent.Future[RecordMetadata]] {
+        override def answer(invocation: InvocationOnMock) = {
+          val record = invocation.getArguments()(0).asInstanceOf[ProducerRecord[K, V]]
+          val callback = invocation.getArguments()(1).asInstanceOf[Callback]
+          handler(record, callback).onComplete {
+            case Success(value) if !closed => callback.onCompletion(value, null)
+            case Success(value) if closed => callback.onCompletion(null, new Exception("Kafka producer already closed"))
+            case Failure(ex: Exception) => callback.onCompletion(null, ex)
+            case Failure(throwableUnsupported) => throw new Exception("Throwable failure are not supported")
+          }
+          val result = new CompletableFuture[RecordMetadata]()
+          result.completeExceptionally(new Exception("Not implemented yet"))
+          result
         }
-        val result = new CompletableFuture[RecordMetadata]()
-        result.completeExceptionally(new Exception("Not implemented yet"))
-        result
-      }
-    })
-    Mockito.when(result.close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])).thenAnswer(new Answer[Unit] {
-      override def answer(invocation: InvocationOnMock) = {
-        closed = true
-      }
-    })
+      })
+    Mockito
+      .when(result.close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit]))
+      .thenAnswer(new Answer[Unit] {
+        override def answer(invocation: InvocationOnMock) =
+          closed = true
+      })
     result
   }
 
-  def verifySend(mode: VerificationMode) = {
-    Mockito.verify(mock, mode).send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback])
-  }
+  def verifySend(mode: VerificationMode) =
+    Mockito
+      .verify(mock, mode)
+      .send(mockito.ArgumentMatchers.any[ProducerRecord[K, V]], mockito.ArgumentMatchers.any[Callback])
 
   def verifyClosed() = {
     Mockito.verify(mock).flush()
@@ -511,9 +546,8 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
   }
 
-  def verifyNoMoreInteractions() = {
+  def verifyNoMoreInteractions() =
     Mockito.verifyNoMoreInteractions(mock)
-  }
 
   def verifyTxInitialized() = {
     val inOrder = Mockito.inOrder(mock)

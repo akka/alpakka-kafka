@@ -73,7 +73,8 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T] private[javadsl] (control: Control, streamCompletion: CompletionStage[T]) extends Control {
+  final class DrainingControl[T] private[javadsl] (control: Control, streamCompletion: CompletionStage[T])
+      extends Control {
 
     override def stop(): CompletionStage[Done] = control.stop()
 
@@ -100,7 +101,8 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  def createDrainingControl[T](pair: Pair[Control, CompletionStage[T]]) = new DrainingControl[T](pair.first, pair.second)
+  def createDrainingControl[T](pair: Pair[Control, CompletionStage[T]]) =
+    new DrainingControl[T](pair.first, pair.second)
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
@@ -113,8 +115,10 @@ object Consumer {
    * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
-  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
-    scaladsl.Consumer.plainSource(settings, subscription)
+  def plainSource[K, V](settings: ConsumerSettings[K, V],
+                        subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
+    scaladsl.Consumer
+      .plainSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -131,8 +135,10 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[CommittableMessage[K, V], Control] =
-    scaladsl.Consumer.committableSource(settings, subscription)
+  def committableSource[K, V](settings: ConsumerSettings[K, V],
+                              subscription: Subscription): Source[CommittableMessage[K, V], Control] =
+    scaladsl.Consumer
+      .committableSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -140,8 +146,10 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
-    scaladsl.Consumer.atMostOnceSource(settings, subscription)
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
+                             subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
+    scaladsl.Consumer
+      .atMostOnceSource(settings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -150,14 +158,17 @@ object Consumer {
    * When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source
    * When topic-partition is revoked then corresponding source completes
    */
-  def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] = {
-    scaladsl.Consumer.plainPartitionedSource(settings, subscription)
+  def plainPartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .plainPartitionedSource(settings, subscription)
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
-  }
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
@@ -165,12 +176,19 @@ object Consumer {
    * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
    * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required.
    */
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+  def plainPartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[
+        java.util.Map[TopicPartition, Long]
+      ]]
+  ): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
     scaladsl.Consumer
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) =>
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         _ => ()
       )
       .map {
@@ -187,12 +205,20 @@ object Consumer {
    * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
    *
    */
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[java.util.Map[TopicPartition, Long]]], onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
+  def plainPartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[
+        java.util.Map[TopicPartition, Long]
+      ]],
+      onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]
+  ): Source[Pair[TopicPartition, Source[ConsumerRecord[K, V], NotUsed]], Control] =
     scaladsl.Consumer
       .plainPartitionedManualOffsetSource(
         settings,
         subscription,
-        (tps: Set[TopicPartition]) => getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) =>
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {
@@ -204,33 +230,40 @@ object Consumer {
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
    */
-  def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] = {
-    scaladsl.Consumer.committablePartitionedSource(settings, subscription)
+  def committablePartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .committablePartitionedSource(settings, subscription)
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
-  }
 
   /**
    * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
    * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
    */
-  def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
-    scaladsl.Consumer.plainExternalSource(consumer, subscription)
+  def plainExternalSource[K, V](consumer: ActorRef,
+                                subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
+    scaladsl.Consumer
+      .plainExternalSource(consumer, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
       .asInstanceOf[Source[ConsumerRecord[K, V], Control]]
-  }
 
   /**
    * The same as [[#plainExternalSource]] but with offset commit support
    */
-  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
-    scaladsl.Consumer.committableExternalSource(consumer, subscription, groupId, commitTimeout)
+  def committableExternalSource[K, V](consumer: ActorRef,
+                                      subscription: ManualSubscription,
+                                      groupId: String,
+                                      commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] =
+    scaladsl.Consumer
+      .committableExternalSource(consumer, subscription, groupId, commitTimeout)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
       .asInstanceOf[Source[CommittableMessage[K, V], Control]]
-  }
 }

@@ -107,6 +107,7 @@ object Consumer {
   }
 
   object DrainingControl {
+
     /**
      * Combine control and a stream completion signal materialized values into
      * one, so that the stream can be stopped in a controlled way without losing
@@ -126,7 +127,8 @@ object Consumer {
    * possible, but when it is, it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
-  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
+  def plainSource[K, V](settings: ConsumerSettings[K, V],
+                        subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     Source.fromGraph(ConsumerStage.plainSource[K, V](settings, subscription))
 
   /**
@@ -142,18 +144,19 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[CommittableMessage[K, V], Control] =
+  def committableSource[K, V](settings: ConsumerSettings[K, V],
+                              subscription: Subscription): Source[CommittableMessage[K, V], Control] =
     Source.fromGraph(ConsumerStage.committableSource[K, V](settings, subscription))
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before it is emitted downstream.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription): Source[ConsumerRecord[K, V], Control] = {
+  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
+                             subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
       m.committableOffset.commitScaladsl().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
     }
-  }
 
   /**
    * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
@@ -161,7 +164,10 @@ object Consumer {
    * source of `ConsumerRecord`s.
    * When a topic-partition is revoked, the corresponding source completes.
    */
-  def plainPartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
+  def plainPartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
     Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription))
 
   /**
@@ -171,29 +177,44 @@ object Consumer {
    * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
    * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
    */
-  def plainPartitionedManualOffsetSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription, getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]], onRevoke: Set[TopicPartition] => Unit = _ => ()): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
+  def plainPartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]],
+      onRevoke: Set[TopicPartition] => Unit = _ => ()
+  ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
     Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
 
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
    */
-  def committablePartitionedSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
+  def committablePartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
     Source.fromGraph(ConsumerStage.committableSubSource[K, V](settings, subscription))
 
   /**
    * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
    * a lot of manually assigned topic-partitions and want to keep only one kafka consumer.
    */
-  def plainExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] = {
+  def plainExternalSource[K, V](consumer: ActorRef,
+                                subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
     Source.fromGraph(ConsumerStage.externalPlainSource[K, V](consumer, subscription))
-  }
 
   /**
    * The same as [[#plainExternalSource]] but with offset commit support.
    */
-  def committableExternalSource[K, V](consumer: ActorRef, subscription: ManualSubscription, groupId: String, commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] = {
-    Source.fromGraph(ConsumerStage.externalCommittableSource[K, V](
-      consumer, groupId, commitTimeout, subscription
-    ))
-  }
+  def committableExternalSource[K, V](consumer: ActorRef,
+                                      subscription: ManualSubscription,
+                                      groupId: String,
+                                      commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] =
+    Source.fromGraph(
+      ConsumerStage.externalCommittableSource[K, V](
+        consumer,
+        groupId,
+        commitTimeout,
+        subscription
+      )
+    )
 }

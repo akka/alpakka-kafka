@@ -25,7 +25,10 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
     settings: ConsumerSettings[K, V],
     subscription: Subscription
-) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] with StageLogging {
+) extends GraphStageLogic(shape)
+    with PromiseControl
+    with MessageBuilder[K, V, Msg]
+    with StageLogging {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
 
@@ -55,8 +58,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
-        }
-        else {
+        } else {
           buffer = msg.messages
         }
         pump()
@@ -109,18 +111,16 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     subscription.rebalanceListener.foreach(ref ⇒ ref ! TopicPartitionsRevoked(subscription, set))
 
   @tailrec
-  private def pump(): Unit = {
+  private def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()
         push(shape.out, createMessage(msg))
         pump()
-      }
-      else if (!requested && tps.nonEmpty) {
+      } else if (!requested && tps.nonEmpty) {
         requestMessages()
       }
     }
-  }
 
   private def requestMessages(): Unit = {
     requested = true
@@ -130,13 +130,11 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   }
 
   setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit = {
+    override def onPull(): Unit =
       pump()
-    }
 
-    override def onDownstreamFinish(): Unit = {
+    override def onDownstreamFinish(): Unit =
       performShutdown()
-    }
   })
 
   override def postStop(): Unit = {
@@ -161,7 +159,10 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   override def metrics: Future[Map[MetricName, Metric]] = {
     import akka.pattern.ask
     import scala.concurrent.duration._
-    consumer.?(RequestMetrics)(Timeout(1.minute)).mapTo[ConsumerMetrics].map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+    consumer
+      .?(RequestMetrics)(Timeout(1.minute))
+      .mapTo[ConsumerMetrics]
+      .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
   }
 
 }

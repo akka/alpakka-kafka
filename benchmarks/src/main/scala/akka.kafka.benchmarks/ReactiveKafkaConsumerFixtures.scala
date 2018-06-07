@@ -25,26 +25,36 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
       .withClientId(randomId())
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
-  def plainSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](c, msgCount => {
-    val topic = randomId()
-    fillTopic(c.kafkaHost, topic, msgCount)
-    val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
-    ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
-  })
+  def plainSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
+    FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
+      c,
+      msgCount => {
+        val topic = randomId()
+        fillTopic(c.kafkaHost, topic, msgCount)
+        val settings = createConsumerSettings(c.kafkaHost)
+        val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
+        ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
+      }
+    )
 
-  def commitableSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]](c, msgCount => {
-    val topic = randomId()
-    fillTopic(c.kafkaHost, topic, msgCount)
-    val settings = createConsumerSettings(c.kafkaHost)
-    val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
-    ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
-  })
+  def commitableSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
+    FixtureGen[ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]](
+      c,
+      msgCount => {
+        val topic = randomId()
+        fillTopic(c.kafkaHost, topic, msgCount)
+        val settings = createConsumerSettings(c.kafkaHost)
+        val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
+        ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
+      }
+    )
 
-  def noopFixtureGen(c: RunTestCommand) = FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
-    c, msgCount => {
-    ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
-  }
-  )
+  def noopFixtureGen(c: RunTestCommand) =
+    FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
+      c,
+      msgCount => {
+        ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
+      }
+    )
 
 }

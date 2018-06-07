@@ -26,8 +26,10 @@ object Transactional {
    * Transactional source to setup a stream for Exactly Only Once (EoS) kafka message semantics.  To enable EoS it's
    * necessary to use the [[Transactional.sink]] or [[Transactional.flow]] (for passthrough).
    */
-  def source[K, V](consumerSettings: ConsumerSettings[K, V], subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
-    scaladsl.Transactional.source(consumerSettings, subscription)
+  def source[K, V](consumerSettings: ConsumerSettings[K, V],
+                   subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
+    scaladsl.Transactional
+      .source(consumerSettings, subscription)
       .mapMaterializedValue(new WrappedConsumerControl(_))
       .asJava
 
@@ -36,10 +38,11 @@ object Transactional {
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
   def sink[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
-    settings: ProducerSettings[K, V],
-    transactionalId: String
+      settings: ProducerSettings[K, V],
+      transactionalId: String
   ): Sink[IN, CompletionStage[Done]] =
-    scaladsl.Transactional.sink(settings, transactionalId)
+    scaladsl.Transactional
+      .sink(settings, transactionalId)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -48,7 +51,10 @@ object Transactional {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](settings: ProducerSettings[K, V], transactionalId: String): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+  def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Transactional.flow(settings, transactionalId).asJava
 
 }

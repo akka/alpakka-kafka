@@ -34,8 +34,8 @@ private[kafka] object ProducerStage {
       val closeTimeout: FiniteDuration,
       val closeProducerOnStop: Boolean,
       val producerProvider: () => Producer[K, V]
-  )
-    extends GraphStage[FlowShape[IN, Future[OUT]]] with ProducerStage[K, V, P, IN, OUT] {
+  ) extends GraphStage[FlowShape[IN, Future[OUT]]]
+      with ProducerStage[K, V, P, IN, OUT] {
 
     override def createLogic(inheritedAttributes: Attributes) =
       new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
@@ -46,8 +46,8 @@ private[kafka] object ProducerStage {
       val closeProducerOnStop: Boolean,
       val producerProvider: () => Producer[K, V],
       commitInterval: FiniteDuration
-  )
-    extends GraphStage[FlowShape[Envelope[K, V, P], Future[Results[K, V, P]]]] with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
+  ) extends GraphStage[FlowShape[Envelope[K, V, P], Future[Results[K, V, P]]]]
+      with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
 
     override def createLogic(inheritedAttributes: Attributes) =
       new TransactionProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
@@ -66,18 +66,24 @@ private[kafka] object ProducerStage {
   /**
    * Default Producer State Logic
    */
-  class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](stage: ProducerStage[K, V, P, IN, OUT], producer: Producer[K, V],
-      inheritedAttributes: Attributes)
-    extends TimerGraphStageLogic(stage.shape) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
+  class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
+      stage: ProducerStage[K, V, P, IN, OUT],
+      producer: Producer[K, V],
+      inheritedAttributes: Attributes
+  ) extends TimerGraphStageLogic(stage.shape)
+      with StageLogging
+      with MessageCallback[K, V, P]
+      with ProducerCompletionState {
 
-    lazy val decider: Decider = inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
+    lazy val decider: Decider =
+      inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
     val awaitingConfirmation = new AtomicInteger(0)
     @volatile var inIsClosed = false
     var completionState: Option[Try[Unit]] = None
 
     override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
-    def checkForCompletion(): Unit = {
+    def checkForCompletion(): Unit =
       if (isClosed(stage.in) && awaitingConfirmation.get == 0) {
         completionState match {
           case Some(Success(_)) => onCompletionSuccess()
@@ -85,7 +91,6 @@ private[kafka] object ProducerStage {
           case None => failStage(new IllegalStateException("Stage completed, but there is no info about status"))
         }
       }
-    }
 
     override def onCompletionSuccess(): Unit = completeStage()
 
@@ -99,29 +104,33 @@ private[kafka] object ProducerStage {
       failStage(ex)
     }
 
-    override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] = getAsyncCallback[Envelope[K, V, P]] { _ => }
+    override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] = getAsyncCallback[Envelope[K, V, P]] { _ =>
+      }
 
     setHandler(stage.out, new OutHandler {
       override def onPull(): Unit = tryPull(stage.in)
     })
 
-    setHandler(stage.in, new InHandler {
-      override def onPush(): Unit = produce(grab(stage.in))
+    setHandler(
+      stage.in,
+      new InHandler {
+        override def onPush(): Unit = produce(grab(stage.in))
 
-      override def onUpstreamFinish(): Unit = {
-        inIsClosed = true
-        completionState = Some(Success(()))
-        checkForCompletion()
+        override def onUpstreamFinish(): Unit = {
+          inIsClosed = true
+          completionState = Some(Success(()))
+          checkForCompletion()
+        }
+
+        override def onUpstreamFailure(ex: Throwable): Unit = {
+          inIsClosed = true
+          completionState = Some(Failure(ex))
+          checkForCompletion()
+        }
       }
+    )
 
-      override def onUpstreamFailure(ex: Throwable): Unit = {
-        inIsClosed = true
-        completionState = Some(Failure(ex))
-        checkForCompletion()
-      }
-    })
-
-    def produce(in: Envelope[K, V, P]): Unit = {
+    def produce(in: Envelope[K, V, P]): Unit =
       in match {
         case msg: Message[K, V, P] =>
           val r = Promise[Result[K, V, P]]
@@ -156,20 +165,20 @@ private[kafka] object ProducerStage {
           push(stage.out, future)
 
       }
-    }
 
     private def sendCallback(promise: Promise[_], onSuccess: RecordMetadata => Unit): Callback = new Callback {
       override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
         if (exception == null) onSuccess(metadata)
-        else decider(exception) match {
-          case Supervision.Stop =>
-            if (stage.closeProducerOnStop) {
-              producer.close(0, TimeUnit.MILLISECONDS)
-            }
-            failStageCb.invoke(exception)
-          case _ =>
-            promise.failure(exception)
-        }
+        else
+          decider(exception) match {
+            case Supervision.Stop =>
+              if (stage.closeProducerOnStop) {
+                producer.close(0, TimeUnit.MILLISECONDS)
+              }
+              failStageCb.invoke(exception)
+            case _ =>
+              promise.failure(exception)
+          }
         if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
           checkForCompletionCB.invoke(())
       }
@@ -184,8 +193,7 @@ private[kafka] object ProducerStage {
           producer.flush()
           producer.close(stage.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
           log.debug("Producer closed")
-        }
-        catch {
+        } catch {
           case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
         }
       }
@@ -197,9 +205,16 @@ private[kafka] object ProducerStage {
   /**
    * Transaction (Exactly-Once) Producer State Logic
    */
-  class TransactionProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]], producer: Producer[K, V],
-      inheritedAttributes: Attributes, commitInterval: FiniteDuration)
-    extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage, producer, inheritedAttributes) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
+  class TransactionProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]],
+                                               producer: Producer[K, V],
+                                               inheritedAttributes: Attributes,
+                                               commitInterval: FiniteDuration)
+      extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage,
+                                                                                      producer,
+                                                                                      inheritedAttributes)
+      with StageLogging
+      with MessageCallback[K, V, P]
+      with ProducerCompletionState {
     private val commitSchedulerKey = "commit"
     private val messageDrainInterval = 10.milliseconds
 
@@ -222,10 +237,14 @@ private[kafka] object ProducerStage {
       }
     }
 
-    private def suspendDemand(): Unit = setHandler(stage.out, new OutHandler {
-      // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
-      override def onPull(): Unit = ()
-    })
+    private def suspendDemand(): Unit =
+      setHandler(
+        stage.out,
+        new OutHandler {
+          // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
+          override def onPull(): Unit = ()
+        }
+      )
 
     override protected def onTimer(timerKey: Any): Unit =
       if (timerKey == commitSchedulerKey) {
@@ -313,13 +332,13 @@ private[kafka] object ProducerStage {
   }
 
   final class EmptyTransactionBatch extends TransactionBatch {
-    override def updated(partitionOffset: PartitionOffset): TransactionBatch = new NonemptyTransactionBatch(partitionOffset)
+    override def updated(partitionOffset: PartitionOffset): TransactionBatch =
+      new NonemptyTransactionBatch(partitionOffset)
   }
 
-  final class NonemptyTransactionBatch(
-      head: PartitionOffset,
-      tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
-    extends TransactionBatch {
+  final class NonemptyTransactionBatch(head: PartitionOffset,
+                                       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
+      extends TransactionBatch {
     private val offsets = tail + (head.key -> head.offset)
 
     def group: String = head.key.groupId
@@ -330,7 +349,8 @@ private[kafka] object ProducerStage {
     override def updated(partitionOffset: PartitionOffset): TransactionBatch = {
       require(
         group == partitionOffset.key.groupId,
-        s"Transaction batch must contain messages from exactly 1 consumer group. $group != ${partitionOffset.key.groupId}")
+        s"Transaction batch must contain messages from exactly 1 consumer group. $group != ${partitionOffset.key.groupId}"
+      )
       new NonemptyTransactionBatch(partitionOffset, offsets)
     }
   }

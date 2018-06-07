@@ -19,6 +19,7 @@ import scala.concurrent.Future
  * [[scaladsl.Consumer]].
  */
 object ConsumerMessage {
+
   /**
    * Output element of `committableSource`.
    * The offset can be committed via the included [[CommittableOffset]].
@@ -92,7 +93,9 @@ object ConsumerMessage {
      * Create an offset batch out of a list of offsets.
      */
     def apply(offsets: Seq[CommittableOffset]): CommittableOffsetBatch =
-      offsets.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) => batch.updated(elem) }
+      offsets.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) =>
+        batch.updated(elem)
+      }
   }
 
   val emptyCommittableOffsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
@@ -118,6 +121,7 @@ object ConsumerMessage {
    * the [[CommittableOffsetBatch#empty empty]] batch.
    */
   trait CommittableOffsetBatch extends Committable {
+
     /**
      * Add/overwrite an offset position for the given groupId, topic, partition.
      */

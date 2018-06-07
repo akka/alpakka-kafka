@@ -13,6 +13,7 @@ import scala.concurrent.duration._
 object KafkaProducerBenchmarks extends LazyLogging {
 
   val logStep = 100000
+
   /**
    * Streams generated numbers to a Kafka producer. Does not commit.
    */

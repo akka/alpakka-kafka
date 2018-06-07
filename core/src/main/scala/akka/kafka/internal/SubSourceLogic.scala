@@ -12,7 +12,7 @@ import akka.actor.{ActorRef, Cancellable, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
-import akka.pattern.{AskTimeoutException, ask}
+import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
@@ -32,7 +32,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => ()
-) extends GraphStageLogic(shape) with PromiseControl with MetricsControl with MessageBuilder[K, V, Msg] with StageLogging {
+) extends GraphStageLogic(shape)
+    with PromiseControl
+    with MetricsControl
+    with MessageBuilder[K, V, Msg]
+    with StageLogging {
   var consumer: ActorRef = _
   var self: StageActor = _
   // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
@@ -92,12 +96,19 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     getOffsetsOnAssign.fold(pumpCB.invoke(partitions)) { getOffsets =>
       getOffsets(partitions)
         .onComplete {
-          case Failure(ex) => stageFailCB.invoke(new ConsumerFailed(s"Failed to fetch offset for partitions: ${partitions.mkString(", ")}.", ex))
+          case Failure(ex) =>
+            stageFailCB.invoke(
+              new ConsumerFailed(s"Failed to fetch offset for partitions: ${partitions.mkString(", ")}.", ex)
+            )
           case Success(offsets) =>
-            consumer.ask(KafkaConsumerActor.Internal.Seek(offsets))
+            consumer
+              .ask(KafkaConsumerActor.Internal.Seek(offsets))
               .map(_ => pumpCB.invoke(partitions))
               .recover {
-                case _: AskTimeoutException => stageFailCB.invoke(new ConsumerFailed(s"Consumer failed during seek for partitions: ${partitions.mkString(", ")}."))
+                case _: AskTimeoutException =>
+                  stageFailCB.invoke(
+                    new ConsumerFailed(s"Consumer failed during seek for partitions: ${partitions.mkString(", ")}.")
+                  )
               }
         }
     }
@@ -141,28 +152,24 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         // Partition was revoked while
         // starting up.  Kill!
         control.shutdown()
-      }
-      else {
+      } else {
         subSources += (tp -> control)
         partitionsInStartup -= tp
       }
   }
 
   setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit = {
+    override def onPull(): Unit =
       pump()
-    }
-    override def onDownstreamFinish(): Unit = {
+    override def onDownstreamFinish(): Unit =
       performShutdown()
-    }
   })
 
-  def createSource(tp: TopicPartition): Source[Msg, NotUsed] = {
+  def createSource(tp: TopicPartition): Source[Msg, NotUsed] =
     Source.fromGraph(new SubSourceStage(tp, consumer))
-  }
 
   @tailrec
-  private def pump(): Unit = {
+  private def pump(): Unit =
     if (pendingPartitions.nonEmpty && isAvailable(shape.out)) {
       val tp = pendingPartitions.head
 
@@ -171,7 +178,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       push(shape.out, (tp, createSource(tp)))
       pump()
     }
-  }
 
   override def postStop(): Unit = {
     consumer ! KafkaConsumerActor.Internal.Stop
@@ -210,7 +216,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
 
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with PromiseControl with MetricsControl {
         def consumer = consumerRef
         val shape = stage.shape
@@ -228,8 +234,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
               // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
               if (buffer.hasNext) {
                 buffer = buffer ++ msg.messages
-              }
-              else {
+              } else {
                 buffer = msg.messages
               }
               pump()
@@ -245,9 +250,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         }
 
         setHandler(out, new OutHandler {
-          override def onPull(): Unit = {
+          override def onPull(): Unit =
             pump()
-          }
 
           override def onDownstreamFinish(): Unit = {
             subsourceCancelledCB.invoke(tp)
@@ -261,20 +265,17 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         }
 
         @tailrec
-        private def pump(): Unit = {
+        private def pump(): Unit =
           if (isAvailable(out)) {
             if (buffer.hasNext) {
               val msg = buffer.next()
               push(out, createMessage(msg))
               pump()
-            }
-            else if (!requested) {
+            } else if (!requested) {
               requested = true
               consumer.tell(requestMessages, self.ref)
             }
           }
-        }
       }
-    }
   }
 }
