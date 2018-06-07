@@ -15,7 +15,7 @@ jobs:
       env: mimaReportBinaryIssues
 
     - stage: integration tests
-      script: sbt -jvm-opts .jvmopts-travis core/dockerComposeTest it:test --scale kafka=3
+      script: sbt -jvm-opts .jvmopts-travis "core/dockerComposeTest it:test --scale kafka=3"
 
     - stage: whitesource
       script: sbt -jvm-opts .jvmopts-travis whitesourceCheckPolicies whitesourceUpdate
