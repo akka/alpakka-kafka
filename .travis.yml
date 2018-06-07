@@ -1,6 +1,9 @@
 language: scala
 sudo: false
 
+services:
+  - docker
+
 jobs:
   include:
     - stage: test
