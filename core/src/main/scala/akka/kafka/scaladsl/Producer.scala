@@ -63,7 +63,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Messages[K, V, ConsumerMessage.Committable], Future[Done]] =
+  def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flow2[K, V, ConsumerMessage.Committable](settings)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
@@ -90,7 +90,7 @@ object Producer {
   def commitableSink[K, V](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
-  ): Sink[Messages[K, V, ConsumerMessage.Committable], Future[Done]] =
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flow2[K, V, ConsumerMessage.Committable](settings, producer)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
@@ -129,14 +129,14 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
-  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Messages[K, V, PassThrough], Results[K, V, PassThrough]](
+  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
       settings.closeTimeout,
       closeProducerOnStop = true,
       () => settings.createKafkaProducer()
     )).mapAsync(settings.parallelism)(identity)
 
-    flowWithDispatcherMessages(settings, flow)
+    flowWithDispatcherEnvelope(settings, flow)
   }
 
   /**
@@ -183,14 +183,14 @@ object Producer {
   def flow2[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
-  ): Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
-    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Messages[K, V, PassThrough], Results[K, V, PassThrough]](
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
+    val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
       closeTimeout = settings.closeTimeout,
       closeProducerOnStop = false,
       producerProvider = () => producer
     )).mapAsync(settings.parallelism)(identity)
 
-    flowWithDispatcherMessages(settings, flow)
+    flowWithDispatcherEnvelope(settings, flow)
   }
 
   private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]) = {
@@ -198,7 +198,7 @@ object Producer {
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }
 
-  private def flowWithDispatcherMessages[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]) = {
+  private def flowWithDispatcherEnvelope[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }

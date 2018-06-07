@@ -17,7 +17,7 @@ import scala.collection.JavaConverters._
 object ProducerMessage {
 
   /**
-   * Type accepted by Producer.commitableSink and `Producer.flow2` with implementations
+   * Type accepted by `Producer.commitableSink` and `Producer.flow2` with implementations
    *
    * - [[Message]] publishes a single message to its topic, and continues in the stream as [[Result]]
    *
@@ -31,12 +31,12 @@ object ProducerMessage {
    * It can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]]
    * that can be committed later in the flow.
    */
-  sealed trait Messages[K, V, +PassThrough] {
+  sealed trait Envelope[K, V, +PassThrough] {
     def passThrough: PassThrough
   }
 
   /**
-   * [[Messages]] implementation that produces a single message to a Kafka topic, flows emit
+   * [[Envelope]] implementation that produces a single message to a Kafka topic, flows emit
    * a [[Result]] for every element processed.
    *
    * The `record` contains a topic name to which the record is being sent, an optional
@@ -51,10 +51,10 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  ) extends Messages[K, V, PassThrough]
+  ) extends Envelope[K, V, PassThrough]
 
   /**
-   * [[Messages]] implementation that produces multiple message to a Kafka topics, flows emit
+   * [[Envelope]] implementation that produces multiple message to a Kafka topics, flows emit
    *  a [[MultiResult]] for every element processed.
    *
    * Every element in `records` contains a topic name to which the record is being sent, an optional
@@ -69,7 +69,7 @@ object ProducerMessage {
   final case class MultiMessage[K, V, +PassThrough](
       records: immutable.Seq[ProducerRecord[K, V]],
       passThrough: PassThrough
-  ) extends Messages[K, V, PassThrough] {
+  ) extends Envelope[K, V, PassThrough] {
 
     /**
      * Java API:
@@ -81,7 +81,7 @@ object ProducerMessage {
   }
 
   /**
-   * [[Messages]] implementation that does not produce anything to Kafka, flows emit
+   * [[Envelope]] implementation that does not produce anything to Kafka, flows emit
    * a [[PassThroughResult]] for every element processed.
    *
    * The `passThrough` field may hold any element that is passed through the `Producer.flow`
@@ -92,7 +92,7 @@ object ProducerMessage {
    */
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
-  ) extends Messages[K, V, PassThrough]
+  ) extends Envelope[K, V, PassThrough]
 
   /**
    * Output type produced by `Producer.flow2` and `Transactional.flow`.

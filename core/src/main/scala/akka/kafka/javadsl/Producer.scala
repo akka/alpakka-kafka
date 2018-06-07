@@ -63,7 +63,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V, IN <: Messages[K, V, ConsumerMessage.Committable]](settings: ProducerSettings[K, V]): Sink[IN, CompletionStage[Done]] =
+  def commitableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](settings: ProducerSettings[K, V]): Sink[IN, CompletionStage[Done]] =
     scaladsl.Producer.commitableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
@@ -90,7 +90,7 @@ object Producer {
   def commitableSink[K, V](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
-  ): Sink[Messages[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
     scaladsl.Producer.commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
@@ -124,10 +124,10 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
-  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow2(settings)
       .asJava
-      .asInstanceOf[Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
+      .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
@@ -168,8 +168,8 @@ object Producer {
   def flow2[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
-  ): Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow2(settings, producer)
       .asJava
-      .asInstanceOf[Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
+      .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 }

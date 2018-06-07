@@ -1,7 +1,7 @@
 package sample.scaladsl
 // #oneToMany
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
-import akka.kafka.ProducerMessage.{Message, Messages, MultiMessage, PassThroughMessage}
+import akka.kafka.ProducerMessage.{Message, Envelope, MultiMessage, PassThroughMessage}
 import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.Sink
@@ -48,7 +48,7 @@ object AtLeastOnceOneToConditionalExample extends ConsumerExample {
       // #oneToConditional
       Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .map(msg => {
-          val out: Messages[String, Array[Byte], CommittableOffset] =
+          val out: Envelope[String, Array[Byte], CommittableOffset] =
             if (duplicate(msg.record.value))
               MultiMessage(
                 immutable.Seq(

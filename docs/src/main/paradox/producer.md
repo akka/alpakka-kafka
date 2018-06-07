@@ -51,7 +51,7 @@ Java
 
 ## Producing messages
 
-Sinks and flows accept implementations of `ProducerMessage.Messages` (@scaladoc[API](akka.kafka.ProducerMessage$$Messages)) as input. They contain an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the `ProducerMessage.Results`'s `passThrough()`. It can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` (from a `Consumer.committableSource`) that can be committed after publishing to Kafka. 
+Sinks and flows accept implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input. They contain an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the `ProducerMessage.Results`'s `passThrough()`. It can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` (from a `Consumer.committableSource`) that can be committed after publishing to Kafka. 
 
 
 ### Produce a single message to Kafka
@@ -107,7 +107,7 @@ For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage
 
 ## Producer as a Flow
 
-`Producer.flow2` allows the stream to continue after publishing messages to Kafka. It accepts implementations of `ProducerMessage.Messages` (@scaladoc[API](akka.kafka.ProducerMessage$$Messages)) as input, which continue in the flow as implementations of `ProducerMessage.Results` (@scaladoc[API](akka.kafka.ProducerMessage$$Results)). 
+`Producer.flow2` allows the stream to continue after publishing messages to Kafka. It accepts implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input, which continue in the flow as implementations of `ProducerMessage.Results` (@scaladoc[API](akka.kafka.ProducerMessage$$Results)). 
  
 
 Scala

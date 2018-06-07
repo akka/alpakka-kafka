@@ -35,7 +35,7 @@ object Transactional {
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
-  def sink[K, V, IN <: Messages[K, V, ConsumerMessage.PartitionOffset]](
+  def sink[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
     settings: ProducerSettings[K, V],
     transactionalId: String
   ): Sink[IN, CompletionStage[Done]] =
@@ -48,7 +48,7 @@ object Transactional {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def flow[K, V, IN <: Messages[K, V, ConsumerMessage.PartitionOffset]](settings: ProducerSettings[K, V], transactionalId: String): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+  def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](settings: ProducerSettings[K, V], transactionalId: String): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Transactional.flow(settings, transactionalId).asJava
 
 }

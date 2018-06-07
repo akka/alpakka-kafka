@@ -5,38 +5,23 @@
 package sample.javadsl;
 
 import akka.Done;
-import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.kafka.*;
-import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.OverflowStrategy;
-import akka.stream.javadsl.Flow;
-import akka.stream.javadsl.RestartFlow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.Metric;
-import org.apache.kafka.common.MetricName;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import scala.concurrent.duration.Duration;
 
 abstract class ProducerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -162,7 +147,7 @@ class ProducerFlowExample extends ProducerExample {
                       .map(number -> {
                           int partition = 0;
                           String value = String.valueOf(number);
-                          ProducerMessage.Messages<String, String, Integer> msg =
+                          ProducerMessage.Envelope<String, String, Integer> msg =
                                   new ProducerMessage.Message<String, String, Integer>(
                                           new ProducerRecord<>("topic1", partition, "key", value),
                                           number

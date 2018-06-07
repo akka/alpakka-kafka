@@ -36,7 +36,7 @@ object Transactional {
   def sink[K, V](
     settings: ProducerSettings[K, V],
     transactionalId: String
-  ): Sink[Messages[K, V, ConsumerMessage.PartitionOffset], Future[Done]] =
+  ): Sink[Envelope[K, V, ConsumerMessage.PartitionOffset], Future[Done]] =
     flow(settings, transactionalId).toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -44,7 +44,7 @@ object Transactional {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
    */
-  def flow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Messages[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
+  def flow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
     require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
 
     val txSettings = settings.withProperties(
@@ -63,7 +63,7 @@ object Transactional {
     flowWithDispatcher(txSettings, flow)
   }
 
-  private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Messages[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]) = {
+  private def flowWithDispatcher[PassThrough, V, K](settings: ProducerSettings[K, V], flow: Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]) = {
     if (settings.dispatcher.isEmpty) flow
     else flow.withAttributes(ActorAttributes.dispatcher(settings.dispatcher))
   }

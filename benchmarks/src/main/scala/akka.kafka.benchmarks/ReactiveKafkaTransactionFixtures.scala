@@ -8,7 +8,7 @@ package akka.kafka.benchmarks
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.TransactionalMessage
-import akka.kafka.ProducerMessage.{Messages, Results}
+import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.Transactional
@@ -28,7 +28,7 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
   type Val = String
   type PassThrough = ConsumerMessage.PartitionOffset
   type KTransactionMessage = TransactionalMessage[Key, Val]
-  type KProducerMessage = Messages[Key, Val, PassThrough]
+  type KProducerMessage = Envelope[Key, Val, PassThrough]
   type KResult = Results[Key, Val, PassThrough]
 
   private def createConsumerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem) =

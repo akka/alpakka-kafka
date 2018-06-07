@@ -5,7 +5,7 @@ package sample.javadsl;
             import akka.kafka.ConsumerMessage;
             import akka.kafka.ConsumerMessage.CommittableOffset;
             import akka.kafka.ConsumerMessage.CommittableOffsetBatch;
-            import akka.kafka.ProducerMessage.Messages;
+            import akka.kafka.ProducerMessage.Envelope;
             import akka.kafka.ProducerMessage.Message;
             import akka.kafka.ProducerMessage.MultiMessage;
             import akka.kafka.ProducerMessage.PassThroughMessage;
@@ -32,7 +32,7 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
             // #oneToMany
             Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
                 .map(msg -> {
-                    Messages<String, byte[], CommittableOffset> multiMsg =
+                    Envelope<String, byte[], CommittableOffset> multiMsg =
                         new MultiMessage<String, byte[], CommittableOffset>(
                             Arrays.asList(
                                 new ProducerRecord<>("topic2", msg.record().value()),
@@ -77,7 +77,7 @@ class AtLeastOnceOneToConditional extends ConsumerExample {
                 // #oneToConditional
                 Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
                         .map(msg -> {
-                            final Messages<String, byte[], CommittableOffset> produce;
+                            final Envelope<String, byte[], CommittableOffset> produce;
                             if (duplicate(msg.record().value())) {
                                 produce =
                                         new MultiMessage<>(

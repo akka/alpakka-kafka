@@ -13,7 +13,7 @@ the flow in a particular state, and that state could be unlikely to occur.
 
 When connecting a committable source to a producer flow, some applications may require each consumed message to produce more than one message. In that case, in order to preserve at-least-once semantics, the message offset should only be committed after all associated messages have been produced.
 
-To achieve this, use the `ProducerMessage.MultiMessage` implementation of `Messages`:
+To achieve this, use the `ProducerMessage.MultiMessage` implementation of `Envelope`:
 
 Scala
 : @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }  
