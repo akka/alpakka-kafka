@@ -126,16 +126,10 @@ private[kafka] object ProducerStage {
         case msg: Message[K, V, P] =>
           val r = Promise[Result[K, V, P]]
           awaitingConfirmation.incrementAndGet()
-          producer.send(msg.record, new Callback {
-            override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-              if (exception == null) {
-                onMessageAckCb.invoke(msg)
-                r.success(Result(metadata, msg))
-              }
-              else handle(exception, r)
-              completionCheck()
-            }
-          })
+          producer.send(msg.record, sendCallback(r, onSuccess = metadata => {
+            onMessageAckCb.invoke(msg)
+            r.success(Result(metadata, msg))
+          }))
           val future = r.future.asInstanceOf[Future[OUT]]
           push(stage.out, future)
 
@@ -145,15 +139,7 @@ private[kafka] object ProducerStage {
           } yield {
             val r = Promise[MultiResultPart[K, V]]
             awaitingConfirmation.incrementAndGet()
-            producer.send(msg, new Callback {
-              override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-                if (exception == null) {
-                  r.success(MultiResultPart(metadata, msg))
-                }
-                else handle(exception, r)
-                completionCheck()
-              }
-            })
+            producer.send(msg, sendCallback(r, onSuccess = metadata => r.success(MultiResultPart(metadata, msg))))
             r.future
           }
           implicit val ec: ExecutionContext = this.materializer.executionContext
@@ -172,21 +158,21 @@ private[kafka] object ProducerStage {
       }
     }
 
-    private def handle(exception: Exception, promise: Promise[_]): Unit = {
-      decider(exception) match {
-        case Supervision.Stop =>
-          if (stage.closeProducerOnStop) {
-            producer.close(0, TimeUnit.MILLISECONDS)
-          }
-          failStageCb.invoke(exception)
-        case _ =>
-          promise.failure(exception)
+    private def sendCallback(promise: Promise[_], onSuccess: RecordMetadata => Unit): Callback = new Callback {
+      override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+        if (exception == null) onSuccess(metadata)
+        else decider(exception) match {
+          case Supervision.Stop =>
+            if (stage.closeProducerOnStop) {
+              producer.close(0, TimeUnit.MILLISECONDS)
+            }
+            failStageCb.invoke(exception)
+          case _ =>
+            promise.failure(exception)
+        }
+        if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
+          checkForCompletionCB.invoke(())
       }
-    }
-
-    private def completionCheck(): Unit = {
-      if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-        checkForCompletionCB.invoke(())
     }
 
     override def postStop(): Unit = {
