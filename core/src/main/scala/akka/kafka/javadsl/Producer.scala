@@ -104,6 +104,7 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings)
       .asJava
@@ -124,8 +125,8 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
-  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow2(settings)
+  def flexiFlow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer.flexiFlow(settings)
       .asJava
       .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 
@@ -140,6 +141,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
@@ -165,11 +167,11 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  def flow2[K, V, PassThrough](
+  def flexiFlow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow2(settings, producer)
+    scaladsl.Producer.flexiFlow(settings, producer)
       .asJava
       .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 }

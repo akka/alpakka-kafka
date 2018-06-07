@@ -249,8 +249,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) {
               msg.committableOffset
             )
           })
-          .via(Producer.flow(producerDefaults))
-          .map(_.message.passThrough)
+          .via(Producer.flexiFlow(producerDefaults))
+          .map(_.passThrough)
           .batch(max = 10, first => CommittableOffsetBatch(first)) { (batch, elem) =>
             batch.updated(elem)
           }

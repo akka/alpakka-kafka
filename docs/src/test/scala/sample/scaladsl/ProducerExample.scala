@@ -136,7 +136,7 @@ object ProducerFlowExample extends ProducerExample {
         )
       }
 
-      .via(Producer.flow2(producerSettings))
+      .via(Producer.flexiFlow(producerSettings))
 
       .map {
         case ProducerMessage.Result(metadata, message) =>

@@ -42,7 +42,7 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
                         );
                     return multiMsg;
                 })
-                .via(Producer.flow2(producerSettings))
+                .via(Producer.flexiFlow(producerSettings))
                 .map(m -> m.passThrough())
                 .batch(
                     20,
@@ -97,7 +97,7 @@ class AtLeastOnceOneToConditional extends ConsumerExample {
                             }
                             return produce;
                         })
-                        .via(Producer.flow2(producerSettings))
+                        .via(Producer.flexiFlow(producerSettings))
                         .map(m -> m.passThrough())
                         .batch(
                                 20,

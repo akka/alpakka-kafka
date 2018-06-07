@@ -7,7 +7,7 @@ package akka.kafka.benchmarks
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.kafka.ProducerMessage.{Message, Result}
+import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.ProducerSettings
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Producer
@@ -21,8 +21,8 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
 
   type K = Array[Byte]
   type V = String
-  type In[PassThrough] = Message[K, V, PassThrough]
-  type Out[PassThrough] = Result[K, V, PassThrough]
+  type In[PassThrough] = Envelope[K, V, PassThrough]
+  type Out[PassThrough] = Results[K, V, PassThrough]
   type FlowType[PassThrough] = Flow[In[PassThrough], Out[PassThrough], NotUsed]
 
   case class ReactiveKafkaProducerTestFixture[PassThrough](topic: String, msgCount: Int, flow: FlowType[PassThrough])
@@ -33,7 +33,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
       .withParallelism(Parallelism)
 
   def flowFixture(c: RunTestCommand)(implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaProducerTestFixture[Int]](c, msgCount => {
-    val flow: FlowType[Int] = Producer.flow(createProducerSettings(c.kafkaHost))
+    val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
     val topic = randomId()
     initTopicAndProducer(c.kafkaHost, topic)
     ReactiveKafkaProducerTestFixture(topic, msgCount, flow)

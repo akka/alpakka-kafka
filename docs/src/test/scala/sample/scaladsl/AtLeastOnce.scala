@@ -27,7 +27,7 @@ object AtLeastOnceOneToManyExample extends ConsumerExample {
             msg.committableOffset
           )
         )
-        .via(Producer.flow2(producerSettings))
+        .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
         .batch(max = 20, CommittableOffsetBatch(_))(_.updated(_))
         .mapAsync(3)(_.commitScaladsl())
@@ -66,7 +66,7 @@ object AtLeastOnceOneToConditionalExample extends ConsumerExample {
               )
           out
         })
-        .via(Producer.flow2(producerSettings))
+        .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
         .batch(max = 20, CommittableOffsetBatch(_))(_.updated(_))
         .mapAsync(3)(_.commitScaladsl())

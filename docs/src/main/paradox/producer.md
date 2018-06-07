@@ -107,7 +107,7 @@ For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage
 
 ## Producer as a Flow
 
-`Producer.flow2` allows the stream to continue after publishing messages to Kafka. It accepts implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input, which continue in the flow as implementations of `ProducerMessage.Results` (@scaladoc[API](akka.kafka.ProducerMessage$$Results)). 
+`Producer.flexiFlow` allows the stream to continue after publishing messages to Kafka. It accepts implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input, which continue in the flow as implementations of `ProducerMessage.Results` (@scaladoc[API](akka.kafka.ProducerMessage$$Results)). 
  
 
 Scala

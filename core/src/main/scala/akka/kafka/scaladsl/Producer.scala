@@ -28,7 +28,7 @@ object Producer {
    */
   def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]].map(Message(_, NotUsed))
-      .via(flow(settings))
+      .via(flexiFlow(settings))
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -44,7 +44,7 @@ object Producer {
     producer: KProducer[K, V]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]].map(Message(_, NotUsed))
-      .via(flow(settings, producer))
+      .via(flexiFlow(settings, producer))
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -64,7 +64,7 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flow2[K, V, ConsumerMessage.Committable](settings)
+    flexiFlow[K, V, ConsumerMessage.Committable](settings)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
 
@@ -91,7 +91,7 @@ object Producer {
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flow2[K, V, ConsumerMessage.Committable](settings, producer)
+    flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
 
@@ -104,6 +104,7 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
       settings.closeTimeout,
@@ -129,7 +130,7 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
-  def flow2[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
+  def flexiFlow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
     val flow = Flow.fromGraph(new ProducerStage.DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
       settings.closeTimeout,
       closeProducerOnStop = true,
@@ -150,6 +151,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
@@ -180,7 +182,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  def flow2[K, V, PassThrough](
+  def flexiFlow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {

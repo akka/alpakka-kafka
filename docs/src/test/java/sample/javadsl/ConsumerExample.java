@@ -251,7 +251,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
                 return prodMsg;
               })
 
-              .via(Producer.flow2(producerSettings))
+              .via(Producer.flexiFlow(producerSettings))
 
               .mapAsync(producerSettings.parallelism(), result -> {
                   ConsumerMessage.Committable committable = result.passThrough();
@@ -282,7 +282,7 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
               );
           return prodMsg;
       })
-      .via(Producer.flow2(producerSettings))
+      .via(Producer.flexiFlow(producerSettings))
       .map(result -> result.passThrough());
 
     source
@@ -314,7 +314,7 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
               );
           return prodMsg;
       })
-      .via(Producer.flow2(producerSettings))
+      .via(Producer.flexiFlow(producerSettings))
       .map(result -> result.passThrough());
 
       // #groupedWithin

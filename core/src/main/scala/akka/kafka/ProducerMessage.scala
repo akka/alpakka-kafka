@@ -17,7 +17,7 @@ import scala.collection.JavaConverters._
 object ProducerMessage {
 
   /**
-   * Type accepted by `Producer.commitableSink` and `Producer.flow2` with implementations
+   * Type accepted by `Producer.commitableSink` and `Producer.flexiFlow` with implementations
    *
    * - [[Message]] publishes a single message to its topic, and continues in the stream as [[Result]]
    *
@@ -25,7 +25,7 @@ object ProducerMessage {
    *
    * - [[PassThroughMessage]] does not publish anything, and continues in the stream as [[PassThroughResult]]
    *
-   * The `passThrough` field may hold any element that is passed through the `Producer.flow2`
+   * The `passThrough` field may hold any element that is passed through the `Producer.flexiFlow`
    * and included in the [[Results]]. That is useful when some context is needed to be passed
    * on downstream operations. That could be done with unzip/zip, but this is more convenient.
    * It can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]]
@@ -95,7 +95,7 @@ object ProducerMessage {
   ) extends Envelope[K, V, PassThrough]
 
   /**
-   * Output type produced by `Producer.flow2` and `Transactional.flow`.
+   * Output type produced by `Producer.flexiFlow` and `Transactional.flow`.
    */
   sealed trait Results[K, V, PassThrough] {
     def passThrough: PassThrough

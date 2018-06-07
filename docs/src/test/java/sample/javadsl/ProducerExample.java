@@ -155,7 +155,7 @@ class ProducerFlowExample extends ProducerExample {
                           return msg;
                       })
 
-                      .via(Producer.flow2(producerSettings))
+                      .via(Producer.flexiFlow(producerSettings))
 
                       .map(result -> {
                           if (result instanceof ProducerMessage.Result) {
