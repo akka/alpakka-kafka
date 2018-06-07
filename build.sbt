@@ -7,6 +7,7 @@ name := "akka-stream-kafka"
 val akkaVersion = "2.5.13"
 val kafkaVersion = "1.0.1"
 val kafkaVersionForDocs = "10"
+val scalatestVersion = "3.0.4"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -17,7 +18,7 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "3.0.4" % Test,
+  "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
@@ -91,6 +92,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
+      dockerComposeIgnore := true,
       onLoadMessage :=
           """
             |** Welcome to the Alpakka Kafka connector! **
@@ -111,16 +113,22 @@ lazy val `alpakka-kafka` =
     .aggregate(core, benchmarks, docs)
 
 lazy val core = project
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     Test/fork := true,
     Test/parallelExecution := false,
-    libraryDependencies ++= commonDependencies ++ coreDependencies,
+    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+      "org.scalatest" %% "scalatest" % scalatestVersion % "it",
+      "com.spotify" % "docker-client" % "8.11.5" % "it",
+    ),
     mimaPreviousArtifacts := (20 to 20).map(minor => organization.value %% name.value % s"0.$minor").toSet,
   )
+  .settings(Defaults.itSettings)
+  .configs(IntegrationTest)
 
 lazy val docs = project.in(file("docs"))
   .enablePlugins(ParadoxPlugin)
