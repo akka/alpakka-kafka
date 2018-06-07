@@ -7,6 +7,7 @@ name := "akka-stream-kafka"
 val akkaVersion = "2.5.13"
 val kafkaVersion = "1.0.1"
 val kafkaVersionForDocs = "10"
+val scalatestVersion = "3.0.4"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -17,13 +18,12 @@ val commonDependencies = Seq(
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
-  "org.scalatest" %% "scalatest" % "3.0.4" % "test,it",
-  "com.spotify" % "docker-client" % "8.11.5" % "it",
+  "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test,it",
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
   "org.mockito" % "mockito-core" % "2.15.0" % Test,
@@ -120,7 +120,11 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     Test/fork := true,
     Test/parallelExecution := false,
-    libraryDependencies ++= commonDependencies ++ coreDependencies,
+    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+      "org.scalatest" %% "scalatest" % scalatestVersion % "it",
+      "com.spotify" % "docker-client" % "8.11.5" % "it",
+    ),
     mimaPreviousArtifacts := (20 to 20).map(minor => organization.value %% name.value % s"0.$minor").toSet,
   )
   .settings(Defaults.itSettings)
