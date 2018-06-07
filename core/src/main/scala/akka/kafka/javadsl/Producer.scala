@@ -7,13 +7,11 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.Done
-import akka.NotUsed
-import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.{Done, NotUsed}
 import akka.kafka.ProducerMessage._
-import akka.kafka.scaladsl
+import akka.kafka.{ConsumerMessage, ProducerSettings, scaladsl}
 import akka.stream.javadsl.{Flow, Sink}
-import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -23,8 +21,9 @@ import scala.compat.java8.FutureConverters.FutureOps
 object Producer {
 
   /**
-   * The `plainSink` can be used for publishing records to Kafka topics.
-   * The `record` contains a topic name to which the record is being sent, an optional
+   * Create a sink for publishing records to Kafka topics.
+   *
+   * The [[org.apache.kafka.clients.producer.ProducerRecord Kafka ProducerRecord]] contains the topic name to which the record is being sent, an optional
    * partition number, and an optional key and value.
    */
   def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
@@ -33,9 +32,12 @@ object Producer {
       .asJava
 
   /**
-   * The `plainSink` can be used for publishing records to Kafka topics.
-   * The `record` contains a topic name to which the record is being sent, an optional
+   * Create a sink for publishing records to Kafka topics.
+   *
+   * The [[org.apache.kafka.clients.producer.ProducerRecord Kafka ProducerRecord]] contains the topic name to which the record is being sent, an optional
    * partition number, and an optional key and value.
+   *
+   * Supports sharing a Kafka Producer instance.
    */
   def plainSink[K, V](
     settings: ProducerSettings[K, V],
@@ -46,68 +48,100 @@ object Producer {
       .asJava
 
   /**
-   * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
-   * from a [[Consumer]]. It will commit the consumer offset when the message has
+   * Create a sink that is aware of the [[ConsumerMessage.CommittableOffset committable offset]]
+   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
    *
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V](settings: ProducerSettings[K, V]): Sink[Message[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
+  def commitableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](settings: ProducerSettings[K, V]): Sink[IN, CompletionStage[Done]] =
     scaladsl.Producer.commitableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
+
   /**
-   * Sink that is aware of the [[ConsumerMessage#CommittableOffset committable offset]]
-   * from a [[Consumer]]. It will commit the consumer offset when the message has
+   * Create a sink that is aware of the [[ConsumerMessage.CommittableOffset committable offset]]
+   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
+   *
    *
    * Note that there is always a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
+   *
+   * Supports sharing a Kafka Producer instance.
    */
   def commitableSink[K, V](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
-  ): Sink[Message[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
     scaladsl.Producer.commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
   /**
-   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage#PartitionOffset]] from a [[Consumer]].  It will
-   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
-   */
-  def transactionalSink[K, V](
-    settings: ProducerSettings[K, V],
-    transactionalId: String
-  ): Sink[Message[K, V, ConsumerMessage.PartitionOffset], CompletionStage[Done]] =
-    scaladsl.Producer.transactionalSink(settings, transactionalId)
-      .mapMaterializedValue(_.toJava)
-      .asJava
-
-  /**
-   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Consumer]] that
-   * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
-   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
-   */
-  def transactionalFlow[K, V](settings: ProducerSettings[K, V], transactionalId: String): Flow[Message[K, V, ConsumerMessage.PartitionOffset], Result[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
-    scaladsl.Producer.transactionalFlow(settings, transactionalId).asJava
-
-  /**
-   * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
-   * can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]] that can
+   * Create a flow to publish records to Kafka topics and then pass it on.
+   *
+   * The records must be wrapped in a [[akka.kafka.ProducerMessage.Message Message]] and continue in the stream as [[akka.kafka.ProducerMessage.Result Result]].
+   *
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
+   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
     scaladsl.Producer.flow(settings)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 
   /**
-   * Publish records to Kafka topics and then continue the flow. Possibility to pass through a message, which
-   * can for example be a [[ConsumerMessage.CommittableOffset]] or [[ConsumerMessage.CommittableOffsetBatch]] that can
+   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
+   *
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
+   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
+  def flexiFlow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer.flexiFlow(settings)
+      .asJava
+      .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
+
+  /**
+   * Create a flow to publish records to Kafka topics and then pass it on.
+   *
+   * The records must be wrapped in a [[akka.kafka.ProducerMessage.Message Message]] and continue in the stream as [[akka.kafka.ProducerMessage.Result Result]].
+   *
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
+   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
+   * be committed later in the flow.
+   *
+   * Supports sharing a Kafka Producer instance.
+   */
+  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](
     settings: ProducerSettings[K, V],
     producer: KProducer[K, V]
@@ -115,4 +149,29 @@ object Producer {
     scaladsl.Producer.flow(settings, producer)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
+
+  /**
+   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
+   *
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
+   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
+   * be committed later in the flow.
+   *
+   * Supports sharing a Kafka Producer instance.
+   */
+  def flexiFlow[K, V, PassThrough](
+    settings: ProducerSettings[K, V],
+    producer: KProducer[K, V]
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer.flexiFlow(settings, producer)
+      .asJava
+      .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 }

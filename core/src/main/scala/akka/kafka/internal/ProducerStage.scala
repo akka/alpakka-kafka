@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
-import akka.kafka.ProducerMessage.{Message, Result}
+import akka.kafka.ProducerMessage._
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream._
@@ -21,7 +21,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -30,12 +30,12 @@ import scala.util.{Failure, Success, Try}
  */
 private[kafka] object ProducerStage {
 
-  class DefaultProducerStage[K, V, P](
+  class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
       val closeTimeout: FiniteDuration,
       val closeProducerOnStop: Boolean,
       val producerProvider: () => Producer[K, V]
   )
-    extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] with ProducerStage[K, V, P] {
+    extends GraphStage[FlowShape[IN, Future[OUT]]] with ProducerStage[K, V, P, IN, OUT] {
 
     override def createLogic(inheritedAttributes: Attributes) =
       new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
@@ -47,26 +47,26 @@ private[kafka] object ProducerStage {
       val producerProvider: () => Producer[K, V],
       commitInterval: FiniteDuration
   )
-    extends GraphStage[FlowShape[Message[K, V, P], Future[Result[K, V, P]]]] with ProducerStage[K, V, P] {
+    extends GraphStage[FlowShape[Envelope[K, V, P], Future[Results[K, V, P]]]] with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
 
     override def createLogic(inheritedAttributes: Attributes) =
       new TransactionProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
   }
 
-  trait ProducerStage[K, V, P] {
+  trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]] {
     val closeTimeout: FiniteDuration
     val closeProducerOnStop: Boolean
     val producerProvider: () => Producer[K, V]
 
-    val in: Inlet[Message[K, V, P]] = Inlet[Message[K, V, P]]("messages")
-    val out: Outlet[Future[Result[K, V, P]]] = Outlet[Future[Result[K, V, P]]]("result")
-    val shape = FlowShape(in, out)
+    val in: Inlet[IN] = Inlet[IN]("messages")
+    val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")
+    val shape: FlowShape[IN, Future[OUT]] = FlowShape(in, out)
   }
 
   /**
    * Default Producer State Logic
    */
-  class DefaultProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P], producer: Producer[K, V],
+  class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](stage: ProducerStage[K, V, P, IN, OUT], producer: Producer[K, V],
       inheritedAttributes: Attributes)
     extends TimerGraphStageLogic(stage.shape) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
 
@@ -75,7 +75,7 @@ private[kafka] object ProducerStage {
     @volatile var inIsClosed = false
     var completionState: Option[Try[Unit]] = None
 
-    override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _]]
+    override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
     def checkForCompletion(): Unit = {
       if (isClosed(stage.in) && awaitingConfirmation.get == 0) {
@@ -99,7 +99,7 @@ private[kafka] object ProducerStage {
       failStage(ex)
     }
 
-    override val onMessageAckCb: AsyncCallback[Message[K, V, P]] = getAsyncCallback[Message[K, V, P]] { _ => }
+    override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] = getAsyncCallback[Envelope[K, V, P]] { _ => }
 
     setHandler(stage.out, new OutHandler {
       override def onPull(): Unit = tryPull(stage.in)
@@ -121,32 +121,58 @@ private[kafka] object ProducerStage {
       }
     })
 
-    def produce(msg: Message[K, V, P]): Unit = {
-      val r = Promise[Result[K, V, P]]
-      awaitingConfirmation.incrementAndGet()
-      producer.send(msg.record, new Callback {
-        override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-          if (exception == null) {
+    def produce(in: Envelope[K, V, P]): Unit = {
+      in match {
+        case msg: Message[K, V, P] =>
+          val r = Promise[Result[K, V, P]]
+          awaitingConfirmation.incrementAndGet()
+          producer.send(msg.record, sendCallback(r, onSuccess = metadata => {
             onMessageAckCb.invoke(msg)
             r.success(Result(metadata, msg))
-          }
-          else {
-            decider(exception) match {
-              case Supervision.Stop =>
-                if (stage.closeProducerOnStop) {
-                  producer.close(0, TimeUnit.MILLISECONDS)
-                }
-                failStageCb.invoke(exception)
-              case _ =>
-                r.failure(exception)
-            }
-          }
+          }))
+          val future = r.future.asInstanceOf[Future[OUT]]
+          push(stage.out, future)
 
-          if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-            checkForCompletionCB.invoke(())
+        case multiMsg: MultiMessage[K, V, P] =>
+          val promises = for {
+            msg <- multiMsg.records
+          } yield {
+            val r = Promise[MultiResultPart[K, V]]
+            awaitingConfirmation.incrementAndGet()
+            producer.send(msg, sendCallback(r, onSuccess = metadata => r.success(MultiResultPart(metadata, msg))))
+            r.future
+          }
+          implicit val ec: ExecutionContext = this.materializer.executionContext
+          val res = Future.sequence(promises).map { parts =>
+            onMessageAckCb.invoke(multiMsg)
+            MultiResult(parts, multiMsg.passThrough)
+          }
+          val future = res.asInstanceOf[Future[OUT]]
+          push(stage.out, future)
+
+        case _: PassThroughMessage[K, V, P] =>
+          onMessageAckCb.invoke(in)
+          val future = Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]]
+          push(stage.out, future)
+
+      }
+    }
+
+    private def sendCallback(promise: Promise[_], onSuccess: RecordMetadata => Unit): Callback = new Callback {
+      override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
+        if (exception == null) onSuccess(metadata)
+        else decider(exception) match {
+          case Supervision.Stop =>
+            if (stage.closeProducerOnStop) {
+              producer.close(0, TimeUnit.MILLISECONDS)
+            }
+            failStageCb.invoke(exception)
+          case _ =>
+            promise.failure(exception)
         }
-      })
-      push(stage.out, r.future)
+        if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
+          checkForCompletionCB.invoke(())
+      }
     }
 
     override def postStop(): Unit = {
@@ -171,9 +197,9 @@ private[kafka] object ProducerStage {
   /**
    * Transaction (Exactly-Once) Producer State Logic
    */
-  class TransactionProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P], producer: Producer[K, V],
+  class TransactionProducerStageLogic[K, V, P](stage: ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]], producer: Producer[K, V],
       inheritedAttributes: Attributes, commitInterval: FiniteDuration)
-    extends DefaultProducerStageLogic(stage, producer, inheritedAttributes) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
+    extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage, producer, inheritedAttributes) with StageLogging with MessageCallback[K, V, P] with ProducerCompletionState {
     private val commitSchedulerKey = "commit"
     private val messageDrainInterval = 10.milliseconds
 
@@ -219,8 +245,8 @@ private[kafka] object ProducerStage {
       }
     }
 
-    override val onMessageAckCb: AsyncCallback[Message[K, V, P]] =
-      getAsyncCallback[Message[K, V, P]](_.passThrough match {
+    override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] =
+      getAsyncCallback[Envelope[K, V, P]](_.passThrough match {
         case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
         case _ =>
       })
@@ -268,29 +294,29 @@ private[kafka] object ProducerStage {
     }
   }
 
-  trait ProducerCompletionState {
+  sealed trait ProducerCompletionState {
     def onCompletionSuccess(): Unit
     def onCompletionFailure(ex: Throwable): Unit
   }
 
-  trait MessageCallback[K, V, P] {
+  sealed trait MessageCallback[K, V, P] {
     def awaitingConfirmation: AtomicInteger
-    def onMessageAckCb: AsyncCallback[Message[K, V, P]]
+    def onMessageAckCb: AsyncCallback[Envelope[K, V, P]]
   }
 
   object TransactionBatch {
     def empty: TransactionBatch = new EmptyTransactionBatch()
   }
 
-  trait TransactionBatch {
+  sealed trait TransactionBatch {
     def updated(partitionOffset: PartitionOffset): TransactionBatch
   }
 
-  class EmptyTransactionBatch extends TransactionBatch {
+  final class EmptyTransactionBatch extends TransactionBatch {
     override def updated(partitionOffset: PartitionOffset): TransactionBatch = new NonemptyTransactionBatch(partitionOffset)
   }
 
-  class NonemptyTransactionBatch(
+  final class NonemptyTransactionBatch(
       head: PartitionOffset,
       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
     extends TransactionBatch {

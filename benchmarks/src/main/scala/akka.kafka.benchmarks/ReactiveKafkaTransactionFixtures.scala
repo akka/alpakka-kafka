@@ -8,10 +8,10 @@ package akka.kafka.benchmarks
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.TransactionalMessage
-import akka.kafka.ProducerMessage.{Message, Result}
+import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl.Transactional
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscriptions}
 import akka.stream.scaladsl.{Flow, Source}
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -26,9 +26,10 @@ case class ReactiveKafkaTransactionTestFixture[SOut, FIn, FOut](sourceTopic: Str
 object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
   type Key = Array[Byte]
   type Val = String
+  type PassThrough = ConsumerMessage.PartitionOffset
   type KTransactionMessage = TransactionalMessage[Key, Val]
-  type KProducerMessage = Message[Key, Val, ConsumerMessage.PartitionOffset]
-  type KResult = Result[Key, Val, ConsumerMessage.PartitionOffset]
+  type KProducerMessage = Envelope[Key, Val, PassThrough]
+  type KResult = Results[Key, Val, PassThrough]
 
   private def createConsumerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem) =
     ConsumerSettings(actorSystem, new ByteArrayDeserializer, new StringDeserializer)
@@ -48,10 +49,10 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
       val sinkTopic = randomId()
 
       val consumerSettings = createConsumerSettings(c.kafkaHost)
-      val source: Source[KTransactionMessage, Control] = Consumer.transactionalSource(consumerSettings, Subscriptions.topics(sourceTopic))
+      val source: Source[KTransactionMessage, Control] = Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
 
       val producerSettings = createProducerSettings(c.kafkaHost).withEosCommitInterval(commitInterval)
-      val flow: Flow[KProducerMessage, KResult, NotUsed] = Producer.transactionalFlow(producerSettings, randomId())
+      val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings, randomId())
 
       ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult](sourceTopic, sinkTopic, msgCount, source, flow)
     })

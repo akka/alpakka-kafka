@@ -18,6 +18,7 @@ import akka.stream.scaladsl.Sink
 
 import scala.concurrent.Future
 import akka.Done
+import akka.kafka.ProducerMessage.MultiResultPart
 
 import scala.util.{Failure, Success}
 
@@ -87,6 +88,41 @@ object ObserveMetricsExample extends ProducerExample {
 }
 
 object ProducerFlowExample extends ProducerExample {
+
+  def createMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
+    {
+      // #singleMessage
+      new ProducerMessage.Message[KeyType, ValueType, PassThroughType](
+        new ProducerRecord("topicName", key, value),
+        passThrough
+      )
+      // #singleMessage
+    }
+
+  def createMultiMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
+    {
+      import scala.collection.immutable
+      // #multiMessage
+      new ProducerMessage.MultiMessage[KeyType, ValueType, PassThroughType](
+        immutable.Seq(
+          new ProducerRecord("topicName", key, value),
+          new ProducerRecord("anotherTopic", key, value)
+        ),
+        passThrough
+      )
+      // #multiMessage
+    }
+
+  def createPassThroughMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) = {
+    // format:off
+    // #passThroughMessage
+    new ProducerMessage.PassThroughMessage(
+      passThrough
+    )
+    // #passThroughMessage
+    // format:on
+  }
+
   def main(args: Array[String]): Unit = {
     // format:off
     // #flow
@@ -99,11 +135,22 @@ object ProducerFlowExample extends ProducerExample {
           number
         )
       }
-      .via(Producer.flow(producerSettings))
-      .map { result =>
-        val record = result.message.record
-        val meta = result.metadata
-        s"${meta.topic}/${meta.partition} ${result.offset}: ${record.value}"
+
+      .via(Producer.flexiFlow(producerSettings))
+
+      .map {
+        case ProducerMessage.Result(metadata, message) =>
+          val record = message.record
+          s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
+
+        case ProducerMessage.MultiResult(parts, passThrough) =>
+          parts.map {
+            case MultiResultPart(metadata, record) =>
+              s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
+          }.mkString(", ")
+
+        case ProducerMessage.PassThroughResult(passThrough) =>
+          s"passed through"
       }
       .runWith(Sink.foreach(println(_)))
     // #flow

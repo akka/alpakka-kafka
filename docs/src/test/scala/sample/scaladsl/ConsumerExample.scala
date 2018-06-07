@@ -163,11 +163,13 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
       Consumer
         .committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
-          business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
+          business(msg.record.key, msg.record.value)
+            .map(_ => msg.committableOffset)
         }
-        .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-          batch.updated(elem)
-        }
+        .batch(
+          max = 20,
+          CommittableOffsetBatch.apply
+        )(_.updated(_))
         .mapAsync(3)(_.commitScaladsl())
         .toMat(Sink.ignore)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
@@ -186,14 +188,18 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
     //format: off
     // #consumerToProducerSink
     val control =
-      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+
         .map { msg =>
-          ProducerMessage.Message(
-            new ProducerRecord[String, Array[Byte]]("targetTopic", msg.record.value),
+          ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
+            new ProducerRecord("targetTopic", msg.record.value),
             msg.committableOffset
           )
         }
+
         .toMat(Producer.commitableSink(producerSettings))(Keep.both)
+
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -208,17 +214,21 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
     // #consumerToProducerFlow
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+
       .map { msg =>
-        ProducerMessage.Message(
-          new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
+        ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
+          new ProducerRecord("topic2", msg.record.value),
           passThrough = msg.committableOffset
         )
       }
-      .via(Producer.flow(producerSettings))
+
+      .via(Producer.flexiFlow(producerSettings))
+
       .mapAsync(producerSettings.parallelism) { result =>
-        val committable = result.message.passThrough
+        val committable = result.passThrough
         committable.commitScaladsl()
       }
+
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
@@ -234,18 +244,20 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     // #consumerToProducerFlowBatch
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+
       .map(msg =>
-        ProducerMessage.Message(
-          new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
+        ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
+          new ProducerRecord("topic2", msg.record.value),
           msg.committableOffset
         )
       )
-      .via(Producer.flow(producerSettings))
-      .map(_.message.passThrough)
-      .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-        batch.updated(elem)
-      }
+
+      .via(Producer.flexiFlow(producerSettings))
+
+      .map(_.passThrough)
+      .batch(max = 20, CommittableOffsetBatch.apply)(_.updated(_))
       .mapAsync(3)(_.commitScaladsl())
+
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
@@ -266,8 +278,8 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
           msg.committableOffset
         )
       )
-      .via(Producer.flow(producerSettings))
-      .map(_.message.passThrough)
+      .via(Producer.flexiFlow(producerSettings))
+      .map(_.passThrough)
     val done =
       // #groupedWithin
       source
@@ -289,9 +301,8 @@ object ConsumerWithPerPartitionBackpressure extends ConsumerExample {
       .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
       .flatMapMerge(maxPartitions, _._2)
       .via(business)
-      .batch(max = 100, first => CommittableOffsetBatch(first.committableOffset)) { (batch, elem) =>
-        batch.updated(elem.committableOffset)
-      }
+      .map(_.committableOffset)
+      .batch(max = 100, CommittableOffsetBatch.apply)(_.updated(_))
       .mapAsync(3)(_.commitScaladsl())
       .to(Sink.ignore)
       .run()

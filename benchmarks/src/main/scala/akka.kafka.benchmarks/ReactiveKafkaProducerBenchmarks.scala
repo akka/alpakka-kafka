@@ -6,7 +6,7 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.ConsumerMessage.CommittableMessage
-import akka.kafka.ProducerMessage.Message
+import akka.kafka.ProducerMessage.{Message, Result, Results}
 import akka.kafka.benchmarks.ReactiveKafkaProducerFixtures.ReactiveKafkaProducerTestFixture
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -35,7 +35,7 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
       .map(number => Message(new ProducerRecord[Array[Byte], String](fixture.topic, number.toString), number))
       .via(fixture.flow)
       .map {
-        msg =>
+        case msg: Result[Array[Byte], String, Int] =>
           meter.mark()
           if (msg.offset % logStep == 0) {
             val lastPartEnd = System.nanoTime()
@@ -45,6 +45,9 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
           }
           msg
 
+        case other: Results[Array[Byte], String, Int] =>
+          meter.mark()
+          other
       }
       .runWith(Sink.ignore)
     Await.result(future, atMost = streamingTimeout)

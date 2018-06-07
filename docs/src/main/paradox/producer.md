@@ -28,6 +28,7 @@ When creating `ProducerSettings` with the `ActorSystem` (@scaladoc[API](akka.act
 
 See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for more details regarding settings.
 
+
 ## Producer as a Sink
 
 `Producer.plainSink` 
@@ -36,8 +37,8 @@ is the easiest way to publish messages. The sink consumes the Kafka type `Produc
 
 1. a topic name to which the record is being sent, 
 1. an optional partition number, 
-1. an optional key, 
-1. and a value.
+1. an optional key, and
+1. a value.
 
 Scala
 : @@ snip [plainSink](../../test/scala/sample/scaladsl/ProducerExample.scala) { #plainSink }
@@ -47,19 +48,67 @@ Java
 : @@ snip [plainSink](../../test/java/sample/javadsl/ProducerExample.java) { #plainSink }
   The materialized value of the sink is a `CompletionStage<Done>` which is completed with `Done` when the stream completes, or with an exception in case an error occurs.
 
-### Connecting a Producer to a Consumer
 
-See the @ref[Consumer page](consumer.md#connecting-producer-and-consumer).
+## Producing messages
+
+Sinks and flows accept implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input. They contain an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the `ProducerMessage.Results`'s `passThrough()`. It can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` (from a `Consumer.committableSource`) that can be committed after publishing to Kafka. 
+
+
+### Produce a single message to Kafka
+
+To create one message to a Kafka topic, use the `ProducerMessage.Message` type as in
+
+Scala
+: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #singleMessage }
+
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #singleMessage }
+
+
+For flows the `ProducerMessage.Message`s continue as `ProducerMessage.Result` elements containing: 
+ 
+ 1. the original input message,
+ 1. the record metadata (@javadoc[Kafka RecordMetadata API](org.apache.kafka.clients.producer.RecordMetadata)), and
+ 1. access to the `passThrough` within the message.  
+
+
+### Let one stream element produce multiple messages to Kafka
+
+The `ProducerMessage.MultiMessage` contains a list of `ProducerRecords` to produce multiple messages to Kafka topics.
+
+Scala
+: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #multiMessage }
+
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #multiMessage }
+
+For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.MultiResult` elements containing: 
+ 
+ 1. a list of `MultiResultPart` with
+    1. the original input message,
+    1. the record metadata (@javadoc[Kafka RecordMetadata API](org.apache.kafka.clients.producer.RecordMetadata)), and
+ 1. the `passThrough` data.  
+
+
+
+### Let a stream element pass through, without producing a message to Kafka
+
+The `ProducerMessage.PassThroughMessage` allows to let an element pass through a Kafka flow without producing a new message to a Kafka topic. This is primarily useful with Kafka commit offsets and transactions, so that these can be committed without producing new messages.
+
+Scala
+: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #passThroughMessage }
+
+Java
+: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #passThroughMessage }
+
+
+For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage.PassThroughResult` elements containing the `passThrough` data.  
 
 
 ## Producer as a Flow
 
-`Producer.flow` allows the stream to continue after publishing messages to Kafka. It uses type `ProducerMessage.Message` (@scaladoc[API](akka.kafka.ProducerMessage$$Message)) as input, and type `ProducerMessage.Result` (@scaladoc[API](akka.kafka.ProducerMessage$$Result)) as output. 
-
-The `ProducerMessage.Result` contains
+`Producer.flexiFlow` allows the stream to continue after publishing messages to Kafka. It accepts implementations of `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) as input, which continue in the flow as implementations of `ProducerMessage.Results` (@scaladoc[API](akka.kafka.ProducerMessage$$Results)). 
  
- 1. the original input message, and
- 1. the record metadata (@javadoc[Kafka RecordMetadata API](org.apache.kafka.clients.producer.RecordMetadata)).  
 
 Scala
 : @@ snip [flow](../../test/scala/sample/scaladsl/ProducerExample.scala) { #flow }
@@ -67,17 +116,19 @@ Scala
 Java
 : @@ snip [flow](../../test/java/sample/javadsl/ProducerExample.java) { #flow }
 
-### Passing data past a producer
 
-The `ProducerMessage.Message` (@scaladoc[API](akka.kafka.ProducerMessage$$Message)) contains an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the `ProducerMessage.Result`'s `message().passThrough()` as the result contains the whole incoming message.
-  
-It can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` that can be committed after publishing to Kafka. 
+The `passThrough` can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` that can be committed after publishing to Kafka. 
 
 Scala
 : @@ snip [consumerToProducerFlow](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
 
 Java
 : @@ snip [consumerToProducerFlow](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
+
+
+## Connecting a Producer to a Consumer
+
+See the @ref[Consumer page](consumer.md#connecting-producer-and-consumer).
 
 
 ## Sharing the KafkaProducer instance
