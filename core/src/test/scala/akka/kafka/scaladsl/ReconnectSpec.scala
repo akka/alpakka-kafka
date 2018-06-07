@@ -21,12 +21,11 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
   val proxyPort = KafkaPorts.ReconnectSpecProxy
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort,
-      zooKeeperPort,
-      Map(
-        "offsets.topic.replication.factor" -> "1"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "offsets.topic.replication.factor" -> "1"
+                        ))
 
   "A Producer" must {
 
@@ -47,8 +46,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       val producer: SourceQueueWithComplete[String] = Source
         .queue[String](messagesProduced, OverflowStrategy.backpressure)
         .map(msg => new ProducerRecord(topic1, partition0, DefaultKey, msg))
-        .to(Producer.plainSink(
-          producerDefaults.withBootstrapServers(s"localhost:$proxyPort")))
+        .to(Producer.plainSink(producerDefaults.withBootstrapServers(s"localhost:$proxyPort")))
         .run()
 
       def offerInOrder(msgs: Seq[String]): Future[_] =

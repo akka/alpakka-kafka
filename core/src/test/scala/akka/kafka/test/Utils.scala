@@ -17,7 +17,8 @@ import scala.util.control.NoStackTrace
 object Utils {
 
   /** Sets the default-mailbox to the usual [[akka.dispatch.UnboundedMailbox]] instead of [[StreamTestDefaultMailbox]]. */
-  val UnboundedMailboxConfig = ConfigFactory.parseString("""akka.actor.default-mailbox.mailbox-type = "akka.dispatch.UnboundedMailbox"""")
+  val UnboundedMailboxConfig =
+    ConfigFactory.parseString("""akka.actor.default-mailbox.mailbox-type = "akka.dispatch.UnboundedMailbox"""")
 
   case class TE(message: String) extends RuntimeException(message) with NoStackTrace
   final case class StageStoppingTimeout(time: FiniteDuration)
@@ -37,8 +38,7 @@ object Utils {
           children.isEmpty,
           s"expected no StreamSupervisor children, but got [${children.mkString(", ")}]"
         )
-      }
-      catch {
+      } catch {
         case ex: Throwable ⇒
           children.foreach(_ ! StreamSupervisor.PrintDebugDump)
           throw ex
@@ -50,7 +50,9 @@ object Utils {
   def assertDispatcher(ref: ActorRef, dispatcher: String): Unit = ref match {
     case r: ActorRefWithCell ⇒
       if (r.underlying.props.dispatcher != dispatcher)
-        throw new AssertionError(s"Expected $ref to use dispatcher [$dispatcher], yet used: [${r.underlying.props.dispatcher}]")
+        throw new AssertionError(
+          s"Expected $ref to use dispatcher [$dispatcher], yet used: [${r.underlying.props.dispatcher}]"
+        )
     case _ ⇒
       throw new Exception(s"Unable to determine dispatcher of $ref")
   }

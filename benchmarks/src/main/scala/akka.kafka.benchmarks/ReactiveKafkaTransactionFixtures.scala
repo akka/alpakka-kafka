@@ -15,13 +15,20 @@ import akka.kafka.scaladsl.Transactional
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscriptions}
 import akka.stream.scaladsl.{Flow, Source}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{
+  ByteArrayDeserializer,
+  ByteArraySerializer,
+  StringDeserializer,
+  StringSerializer
+}
 
 import scala.concurrent.duration.FiniteDuration
 
-case class ReactiveKafkaTransactionTestFixture[SOut, FIn, FOut](sourceTopic: String, sinkTopic: String, msgCount: Int,
-    source: Source[SOut, Control],
-    flow: Flow[FIn, FOut, NotUsed])
+case class ReactiveKafkaTransactionTestFixture[SOut, FIn, FOut](sourceTopic: String,
+                                                                sinkTopic: String,
+                                                                msgCount: Int,
+                                                                source: Source[SOut, Control],
+                                                                flow: Flow[FIn, FOut, NotUsed])
 
 object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
   type Key = Array[Byte]
@@ -38,24 +45,34 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
       .withClientId(randomId())
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
-  private def createProducerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem): ProducerSettings[Array[Byte], String] =
+  private def createProducerSettings(
+      kafkaHost: String
+  )(implicit actorSystem: ActorSystem): ProducerSettings[Array[Byte], String] =
     ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
       .withBootstrapServers(kafkaHost)
 
   def transactionalSourceAndSink(c: RunTestCommand, commitInterval: FiniteDuration)(implicit actorSystem: ActorSystem) =
-    FixtureGen[ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult]](c, msgCount => {
-      val sourceTopic = randomId()
-      fillTopic(c.kafkaHost, sourceTopic, msgCount)
-      val sinkTopic = randomId()
+    FixtureGen[ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult]](
+      c,
+      msgCount => {
+        val sourceTopic = randomId()
+        fillTopic(c.kafkaHost, sourceTopic, msgCount)
+        val sinkTopic = randomId()
 
-      val consumerSettings = createConsumerSettings(c.kafkaHost)
-      val source: Source[KTransactionMessage, Control] = Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
+        val consumerSettings = createConsumerSettings(c.kafkaHost)
+        val source: Source[KTransactionMessage, Control] =
+          Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
 
-      val producerSettings = createProducerSettings(c.kafkaHost).withEosCommitInterval(commitInterval)
-      val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings, randomId())
+        val producerSettings = createProducerSettings(c.kafkaHost).withEosCommitInterval(commitInterval)
+        val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings, randomId())
 
-      ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult](sourceTopic, sinkTopic, msgCount, source, flow)
-    })
+        ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult](sourceTopic,
+                                                                                            sinkTopic,
+                                                                                            msgCount,
+                                                                                            source,
+                                                                                            flow)
+      }
+    )
 
   def noopFixtureGen(c: RunTestCommand) =
     FixtureGen[ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult]](c, msgCount => {

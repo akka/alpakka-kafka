@@ -16,22 +16,19 @@ import scala.concurrent.{Await, Future}
 class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort, zooKeeperPort,
-      Map(
-        "broker.id" -> "1",
-        "num.partitions" -> "3",
-        "offsets.topic.replication.factor" -> "1",
-        "offsets.topic.num.partitions" -> "3"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "broker.id" -> "1",
+                          "num.partitions" -> "3",
+                          "offsets.topic.replication.factor" -> "1",
+                          "offsets.topic.num.partitions" -> "3"
+                        ))
 
   "Multiple consumer in a single consumer group" must {
 
     "together read all data from multiple topics" in assertAllStagesStopped {
-      val topics = List(
-        createTopic(0),
-        createTopic(1),
-        createTopic(2))
+      val topics = List(createTopic(0), createTopic(1), createTopic(2))
       val group1 = createGroup(1)
 
       // produce 10 batches of 10 elements to all topics
@@ -67,10 +64,7 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
   "Consumer in different consumer groups" must {
 
     "read all data from multiple topics" in assertAllStagesStopped {
-      val topics = List(
-        createTopic(0),
-        createTopic(1),
-        createTopic(2))
+      val topics = List(createTopic(0), createTopic(1), createTopic(2))
       val group1 = createGroup(1)
       val group2 = createGroup(2)
 
@@ -98,10 +92,7 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
     }
 
     "read all data from multiple topics in multiple partitions" in assertAllStagesStopped {
-      val topics = List(
-        createTopic(0),
-        createTopic(1),
-        createTopic(2))
+      val topics = List(createTopic(0), createTopic(1), createTopic(2))
       val group1 = createGroup(1)
       val group2 = createGroup(2)
 

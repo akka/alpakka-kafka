@@ -23,11 +23,11 @@ import scala.concurrent.duration._
 class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort, zooKeeperPort,
-      Map(
-        "offsets.topic.replication.factor" -> "1"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "offsets.topic.replication.factor" -> "1"
+                        ))
 
   "A consume-transform-produce cycle" must {
 
@@ -44,21 +44,24 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
-        val control = Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+        val control = Transactional
+          .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
-            ProducerMessage.Message(
-              new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
+            ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value),
+                                    msg.partitionOffset)
           }
           .via(Transactional.flow(producerDefaults, group))
           .toMat(Sink.ignore)(Keep.left)
           .run()
 
         val probeConsumerGroup = createGroup(2)
-        val probeConsumerSettings = consumerDefaults.withGroupId(probeConsumerGroup)
+        val probeConsumerSettings = consumerDefaults
+          .withGroupId(probeConsumerGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
+        val probeConsumer = Consumer
+          .plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
@@ -84,15 +87,15 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
-      val control = Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+      val control = Transactional
+        .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
         .filterNot(_.record.value() == InitialMsg)
         .map { msg =>
           if (msg.record.value.toInt % 10 == 0) {
             ProducerMessage.PassThroughMessage[String, String, ConsumerMessage.PartitionOffset](msg.partitionOffset)
-          }
-          else {
-            ProducerMessage.Message(
-              new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
+          } else {
+            ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value),
+                                    msg.partitionOffset)
           }
         }
         .via(Transactional.flow(producerDefaults, group))
@@ -100,10 +103,12 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         .run()
 
       val probeConsumerGroup = createGroup(2)
-      val probeConsumerSettings = consumerDefaults.withGroupId(probeConsumerGroup)
+      val probeConsumerSettings = consumerDefaults
+        .withGroupId(probeConsumerGroup)
         .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-      val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
+      val probeConsumer = Consumer
+        .plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
         .filterNot(_.value == InitialMsg)
         .map(_.value())
         .runWith(TestSink.probe)
@@ -138,7 +143,8 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           randomFactor = 0.2
         ) { () =>
           restartCount += 1
-          Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+          Transactional
+            .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
             .filterNot(_.record.value() == InitialMsg)
             .map { msg =>
               if (msg.record.value().toInt == 500 && restartCount < 2) {
@@ -148,10 +154,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
               }
               if (msg.record.value().toInt == 501 && restartCount < 2) {
                 throw new RuntimeException("Uh oh..")
-              }
-              else {
-                ProducerMessage.Message(
-                  new ProducerRecord[String, String](sinkTopic, msg.record.value()), msg.partitionOffset)
+              } else {
+                ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value()),
+                                        msg.partitionOffset)
               }
             }
             // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
@@ -162,10 +167,12 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         restartSource.runWith(Sink.ignore)
 
         val probeGroup = createGroup(2)
-        val probeConsumerSettings = consumerDefaults.withGroupId(probeGroup)
+        val probeConsumerSettings = consumerDefaults
+          .withGroupId(probeGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-        val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
+        val probeConsumer = Consumer
+          .plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
@@ -200,7 +207,8 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         randomFactor = 0.2
       ) { () =>
         restartCount += 1
-        Transactional.source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+        Transactional
+          .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
             if (msg.record.value().toInt == 50 && restartCount < 2) {
@@ -210,17 +218,16 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
             }
             if (msg.record.value().toInt == 51 && restartCount < 2) {
               throw new RuntimeException("Uh oh..")
-            }
-            else {
-              ProducerMessage.Message[String, String, PartitionOffset](
-                new ProducerRecord(sinkTopic, msg.record.value()), msg.partitionOffset)
+            } else {
+              ProducerMessage.Message[String, String, PartitionOffset](new ProducerRecord(sinkTopic,
+                                                                                          msg.record.value()),
+                                                                       msg.partitionOffset)
             }
           }
           .map { msg =>
             if (msg.record.value.toInt % 10 == 0) {
               PassThroughMessage[String, String, PartitionOffset](msg.passThrough)
-            }
-            else msg
+            } else msg
           }
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
           .mapMaterializedValue(innerControl = _)
@@ -230,10 +237,12 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       restartSource.runWith(Sink.ignore)
 
       val probeGroup = createGroup(2)
-      val probeConsumerSettings = consumerDefaults.withGroupId(probeGroup)
+      val probeConsumerSettings = consumerDefaults
+        .withGroupId(probeGroup)
         .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
 
-      val probeConsumer = Consumer.plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
+      val probeConsumer = Consumer
+        .plainSource(probeConsumerSettings, TopicSubscription(Set(sinkTopic), None))
         .filterNot(_.value == InitialMsg)
         .map(_.value())
         .runWith(TestSink.probe)

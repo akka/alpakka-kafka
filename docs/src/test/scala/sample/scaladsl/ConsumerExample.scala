@@ -15,7 +15,12 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{
+  ByteArrayDeserializer,
+  ByteArraySerializer,
+  StringDeserializer,
+  StringSerializer
+}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -53,14 +58,13 @@ trait ConsumerExample {
   def business[T] = Flow[T]
   def businessLogic(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = ???
 
-  def terminateWhenDone(result: Future[Done]): Unit = {
+  def terminateWhenDone(result: Future[Done]): Unit =
     result.onComplete {
       case Failure(e) =>
         system.log.error(e, e.getMessage)
         system.terminate()
       case Success(_) => system.terminate()
     }
-  }
 }
 
 // Consume messages and store a representation, including offset, in DB
@@ -70,16 +74,16 @@ object ExternalOffsetStorageExample extends ConsumerExample {
     val db = new OffsetStore
     val control = db.loadOffset().map { fromOffset =>
       Consumer
-        .plainSource(consumerSettings, Subscriptions.assignmentWithOffset(
-          new TopicPartition("topic1", /* partition = */ 0) -> fromOffset
-        ))
+        .plainSource(consumerSettings,
+                     Subscriptions.assignmentWithOffset(
+                       new TopicPartition("topic1", /* partition = */ 0) -> fromOffset
+                     ))
         .mapAsync(1)(db.businessLogicAndStoreOffset)
         .to(Sink.ignore)
         .run()
     }
     // #plainSource
-    control.foreach(c =>
-      terminateWhenDone(c.shutdown()))
+    control.foreach(c => terminateWhenDone(c.shutdown()))
   }
 
   // #plainSource
@@ -134,7 +138,8 @@ object AtLeastOnceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #atLeastOnce
     val control =
-      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(10) { msg =>
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
@@ -190,16 +195,13 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
     val control =
       Consumer
         .committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
-
         .map { msg =>
           ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
             new ProducerRecord("targetTopic", msg.record.value),
             msg.committableOffset
           )
         }
-
         .toMat(Producer.commitableSink(producerSettings))(Keep.both)
-
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -214,21 +216,17 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
     // #consumerToProducerFlow
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
-
       .map { msg =>
         ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
           new ProducerRecord("topic2", msg.record.value),
           passThrough = msg.committableOffset
         )
       }
-
       .via(Producer.flexiFlow(producerSettings))
-
       .mapAsync(producerSettings.parallelism) { result =>
         val committable = result.passThrough
         committable.commitScaladsl()
       }
-
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
@@ -244,20 +242,17 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     // #consumerToProducerFlowBatch
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
-
-      .map(msg =>
-        ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
-          new ProducerRecord("topic2", msg.record.value),
-          msg.committableOffset
+      .map(
+        msg =>
+          ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
+            new ProducerRecord("topic2", msg.record.value),
+            msg.committableOffset
         )
       )
-
       .via(Producer.flexiFlow(producerSettings))
-
       .map(_.passThrough)
       .batch(max = 20, CommittableOffsetBatch.apply)(_.updated(_))
       .mapAsync(3)(_.commitScaladsl())
-
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
@@ -272,10 +267,11 @@ object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     val source = Consumer
       .committableSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map(msg =>
-        ProducerMessage.Message(
-          new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
-          msg.committableOffset
+      .map(
+        msg =>
+          ProducerMessage.Message(
+            new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
+            msg.committableOffset
         )
       )
       .via(Producer.flexiFlow(producerSettings))
@@ -342,7 +338,8 @@ object ConsumerWithOtherSource extends ConsumerExample {
 
     def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
 
-    Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
+    Consumer
+      .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
       .map {
         case (topicPartition, source) =>
           // get corresponding partition from other topic
@@ -356,19 +353,20 @@ object ConsumerWithOtherSource extends ConsumerExample {
       .batch(
         max = 20,
         seed = {
-          case (left, right) => (
-            CommittableOffsetBatch(left.committableOffset),
-            CommittableOffsetBatch(right.committableOffset)
-          )
+          case (left, right) =>
+            (
+              CommittableOffsetBatch(left.committableOffset),
+              CommittableOffsetBatch(right.committableOffset)
+            )
         }
       )(
-          aggregate = {
-            case ((batchL, batchR), (l, r)) =>
-              batchL.updated(l.committableOffset)
-              batchR.updated(r.committableOffset)
-              (batchL, batchR)
-          }
-        )
+        aggregate = {
+          case ((batchL, batchR), (l, r)) =>
+            batchL.updated(l.committableOffset)
+            batchR.updated(r.committableOffset)
+            (batchL, batchR)
+        }
+      )
       .mapAsync(1) { case (l, r) => l.commitScaladsl().map(_ => r) }
       .mapAsync(1)(_.commitScaladsl())
       .runWith(Sink.ignore)
@@ -426,28 +424,31 @@ object ConsumerMetrics extends ConsumerExample {
 
 class RestartingStream extends ConsumerExample {
 
-  def createStream(): Unit = {
+  def createStream(): Unit =
     //#restartSource
-    RestartSource.withBackoff(
-      minBackoff = 3.seconds,
-      maxBackoff = 30.seconds,
-      randomFactor = 0.2
-    ) { () =>
-      Source.fromFuture {
-        val source = Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
-        source
-          .via(business)
-          .watchTermination() {
-            case (consumerControl, futureDone) =>
-              futureDone
-                .flatMap { _ => consumerControl.shutdown() }
-                .recoverWith { case _ => consumerControl.shutdown() }
-          }
-          .runWith(Sink.ignore)
+    RestartSource
+      .withBackoff(
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      ) { () =>
+        Source.fromFuture {
+          val source = Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
+          source
+            .via(business)
+            .watchTermination() {
+              case (consumerControl, futureDone) =>
+                futureDone
+                  .flatMap { _ =>
+                    consumerControl.shutdown()
+                  }
+                  .recoverWith { case _ => consumerControl.shutdown() }
+            }
+            .runWith(Sink.ignore)
+        }
       }
-    }.runWith(Sink.ignore)
-    //#restartSource
-  }
+      .runWith(Sink.ignore)
+  //#restartSource
 }
 
 object RebalanceListenerExample extends ConsumerExample {
@@ -471,7 +472,8 @@ object RebalanceListenerExample extends ConsumerExample {
     //#withRebalanceListenerActor
     val rebalanceListener = system.actorOf(Props[RebalanceListener])
 
-    val subscription = Subscriptions.topics(Set("topic"))
+    val subscription = Subscriptions
+      .topics(Set("topic"))
       // additionally, pass the actor reference:
       .withRebalanceListener(rebalanceListener)
 
@@ -491,9 +493,10 @@ object ShutdownPlainSourceExample extends ConsumerExample {
     // #shutdownPlainSource
     val (consumerControl, streamComplete) =
       Consumer
-        .plainSource(consumerSettings, Subscriptions.assignmentWithOffset(
-          new TopicPartition("topic1", 0) -> offset
-        ))
+        .plainSource(consumerSettings,
+                     Subscriptions.assignmentWithOffset(
+                       new TopicPartition("topic1", 0) -> offset
+                     ))
         .mapAsync(1)(businessLogic)
         .toMat(Sink.ignore)(Keep.both)
         .run()
@@ -510,7 +513,8 @@ object ShutdownCommitableSourceExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #shutdownCommitableSource
     val drainingControl =
-      Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
         .mapAsync(1) { msg =>
           businessLogic(msg.record).map(_ => msg.committableOffset)
         }

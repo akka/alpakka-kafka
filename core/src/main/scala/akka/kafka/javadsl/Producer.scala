@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.{Done, NotUsed}
 import akka.kafka.ProducerMessage._
-import akka.kafka.{ConsumerMessage, ProducerSettings, scaladsl}
+import akka.kafka.{scaladsl, ConsumerMessage, ProducerSettings}
 import akka.stream.javadsl.{Flow, Sink}
 import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 
@@ -27,7 +27,8 @@ object Producer {
    * partition number, and an optional key and value.
    */
   def plainSink[K, V](settings: ProducerSettings[K, V]): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
-    scaladsl.Producer.plainSink(settings)
+    scaladsl.Producer
+      .plainSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -40,10 +41,11 @@ object Producer {
    * Supports sharing a Kafka Producer instance.
    */
   def plainSink[K, V](
-    settings: ProducerSettings[K, V],
-    producer: KProducer[K, V]
+      settings: ProducerSettings[K, V],
+      producer: KProducer[K, V]
   ): Sink[ProducerRecord[K, V], CompletionStage[Done]] =
-    scaladsl.Producer.plainSink(settings, producer)
+    scaladsl.Producer
+      .plainSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -63,8 +65,11 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](settings: ProducerSettings[K, V]): Sink[IN, CompletionStage[Done]] =
-    scaladsl.Producer.commitableSink(settings)
+  def commitableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
+      settings: ProducerSettings[K, V]
+  ): Sink[IN, CompletionStage[Done]] =
+    scaladsl.Producer
+      .commitableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -88,10 +93,11 @@ object Producer {
    * Supports sharing a Kafka Producer instance.
    */
   def commitableSink[K, V](
-    settings: ProducerSettings[K, V],
-    producer: KProducer[K, V]
+      settings: ProducerSettings[K, V],
+      producer: KProducer[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], CompletionStage[Done]] =
-    scaladsl.Producer.commitableSink(settings, producer)
+    scaladsl.Producer
+      .commitableSink(settings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -105,8 +111,11 @@ object Producer {
    * be committed later in the flow.
    */
   @deprecated("prefer flexiFlow over this flow implementation", "0.21")
-  def flow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow(settings)
+  def flow[K, V, PassThrough](
+      settings: ProducerSettings[K, V]
+  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer
+      .flow(settings)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 
@@ -125,8 +134,11 @@ object Producer {
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */
-  def flexiFlow[K, V, PassThrough](settings: ProducerSettings[K, V]): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flexiFlow(settings)
+  def flexiFlow[K, V, PassThrough](
+      settings: ProducerSettings[K, V]
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    scaladsl.Producer
+      .flexiFlow(settings)
       .asJava
       .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 
@@ -143,10 +155,11 @@ object Producer {
    */
   @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](
-    settings: ProducerSettings[K, V],
-    producer: KProducer[K, V]
+      settings: ProducerSettings[K, V],
+      producer: KProducer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flow(settings, producer)
+    scaladsl.Producer
+      .flow(settings, producer)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
 
@@ -168,10 +181,11 @@ object Producer {
    * Supports sharing a Kafka Producer instance.
    */
   def flexiFlow[K, V, PassThrough](
-    settings: ProducerSettings[K, V],
-    producer: KProducer[K, V]
+      settings: ProducerSettings[K, V],
+      producer: KProducer[K, V]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer.flexiFlow(settings, producer)
+    scaladsl.Producer
+      .flexiFlow(settings, producer)
       .asJava
       .asInstanceOf[Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]]
 }

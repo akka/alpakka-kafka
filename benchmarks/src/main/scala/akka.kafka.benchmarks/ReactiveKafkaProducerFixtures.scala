@@ -32,17 +32,23 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
       .withBootstrapServers(kafkaHost)
       .withParallelism(Parallelism)
 
-  def flowFixture(c: RunTestCommand)(implicit actorSystem: ActorSystem) = FixtureGen[ReactiveKafkaProducerTestFixture[Int]](c, msgCount => {
-    val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
-    val topic = randomId()
-    initTopicAndProducer(c.kafkaHost, topic)
-    ReactiveKafkaProducerTestFixture(topic, msgCount, flow)
-  })
+  def flowFixture(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
+    FixtureGen[ReactiveKafkaProducerTestFixture[Int]](
+      c,
+      msgCount => {
+        val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
+        val topic = randomId()
+        initTopicAndProducer(c.kafkaHost, topic)
+        ReactiveKafkaProducerTestFixture(topic, msgCount, flow)
+      }
+    )
 
-  def noopFixtureGen(c: RunTestCommand) = FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
-    c, msgCount => {
-    ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
-  }
-  )
+  def noopFixtureGen(c: RunTestCommand) =
+    FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
+      c,
+      msgCount => {
+        ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
+      }
+    )
 
 }

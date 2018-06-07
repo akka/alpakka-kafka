@@ -141,6 +141,6 @@ object ProducerMessage {
    * through the flow.
    */
   final case class PassThroughResult[K, V, PassThrough] private (passThrough: PassThrough)
-    extends Results[K, V, PassThrough]
+      extends Results[K, V, PassThrough]
 
 }

@@ -17,7 +17,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object ControlSpec {
-  class ControlImpl(stopFuture: Future[Done] = Future.successful(Done), shutdownFuture: Future[Done] = Future.successful(Done)) extends Consumer.Control {
+  class ControlImpl(stopFuture: Future[Done] = Future.successful(Done),
+                    shutdownFuture: Future[Done] = Future.successful(Done))
+      extends Consumer.Control {
     val shutdownCalled = new AtomicBoolean(false)
 
     override def stop(): Future[Done] = stopFuture
@@ -37,8 +39,8 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
     "drain to stream result" in {
       val control = new ControlImpl
       val drainingControl = DrainingControl.apply((control, Future.successful("expected")))
-      drainingControl.drainAndShutdown().futureValue should be ("expected")
-      control.shutdownCalled.get() should be (true)
+      drainingControl.drainAndShutdown().futureValue should be("expected")
+      control.shutdownCalled.get() should be(true)
     }
 
     "drain to stream failure" in {
@@ -49,7 +51,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12
       value.getMessage should endWith("expected")
-      control.shutdownCalled.get() should be (true)
+      control.shutdownCalled.get() should be(true)
     }
 
     "drain to stream failure even if shutdown fails" in {
@@ -60,7 +62,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12
       value.getMessage should endWith("expected")
-      control.shutdownCalled.get() should be (true)
+      control.shutdownCalled.get() should be(true)
     }
 
     "drain to shutdown failure when stream succeeds" in {
@@ -71,7 +73,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12
       value.getMessage should endWith("expected")
-      control.shutdownCalled.get() should be (true)
+      control.shutdownCalled.get() should be(true)
     }
   }
 }

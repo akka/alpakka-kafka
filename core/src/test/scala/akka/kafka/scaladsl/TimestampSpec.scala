@@ -21,12 +21,11 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
   implicit val patience = PatienceConfig(5.second, 100.millis)
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort,
-      zooKeeperPort,
-      Map(
-        "offsets.topic.replication.factor" -> "1"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "offsets.topic.replication.factor" -> "1"
+                        ))
 
   "Kafka connector" must {
     "begin consuming from the given timestamp of the topic" in {
@@ -41,10 +40,13 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
         val consumerSettings = consumerDefaults.withGroupId(group)
         val consumer = consumerSettings.createKafkaConsumer()
-        val partitions = consumer.partitionsFor(topic).asScala.map { t => new TopicPartition(t.topic(), t.partition()) }
+        val partitions = consumer.partitionsFor(topic).asScala.map { t =>
+          new TopicPartition(t.topic(), t.partition())
+        }
         val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)): _*)
 
-        val probe = Consumer.plainSource(consumerSettings, topicsAndTs)
+        val probe = Consumer
+          .plainSource(consumerSettings, topicsAndTs)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
@@ -68,10 +70,13 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
         val consumerSettings = consumerDefaults.withGroupId(group)
         val consumer = consumerSettings.createKafkaConsumer()
-        val partitions = consumer.partitionsFor(topic).asScala.map { t => new TopicPartition(t.topic(), t.partition()) }
+        val partitions = consumer.partitionsFor(topic).asScala.map { t =>
+          new TopicPartition(t.topic(), t.partition())
+        }
         val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)): _*)
 
-        val probe = Consumer.plainSource(consumerSettings, topicsAndTs)
+        val probe = Consumer
+          .plainSource(consumerSettings, topicsAndTs)
           .runWith(TestSink.probe)
 
         probe.ensureSubscription()
@@ -89,7 +94,8 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
         val consumerSettings = consumerDefaults.withGroupId(group)
         val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(new TopicPartition("non-existing-topic", 0) -> now)
 
-        val probe = Consumer.plainSource(consumerSettings, topicsAndTs)
+        val probe = Consumer
+          .plainSource(consumerSettings, topicsAndTs)
           .runWith(TestSink.probe)
 
         probe.ensureSubscription()

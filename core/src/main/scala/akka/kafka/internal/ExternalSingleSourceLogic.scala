@@ -20,7 +20,9 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
     val consumer: ActorRef,
     subscription: ManualSubscription
-) extends GraphStageLogic(shape) with PromiseControl with MessageBuilder[K, V, Msg] {
+) extends GraphStageLogic(shape)
+    with PromiseControl
+    with MessageBuilder[K, V, Msg] {
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
@@ -38,8 +40,7 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
         if (buffer.hasNext) {
           buffer = buffer ++ msg.messages
-        }
-        else {
+        } else {
           buffer = msg.messages
         }
         pump()
@@ -71,18 +72,16 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   }
 
   @tailrec
-  private def pump(): Unit = {
+  private def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()
         push(shape.out, createMessage(msg))
         pump()
-      }
-      else if (!requested && tps.nonEmpty) {
+      } else if (!requested && tps.nonEmpty) {
         requestMessages()
       }
     }
-  }
 
   private def requestMessages(): Unit = {
     requested = true
@@ -91,14 +90,12 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   }
 
   setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit = {
+    override def onPull(): Unit =
       pump()
-    }
   })
 
-  override def performShutdown() = {
+  override def performShutdown() =
     completeStage()
-  }
 
   override def postStop(): Unit = {
     onShutdown()

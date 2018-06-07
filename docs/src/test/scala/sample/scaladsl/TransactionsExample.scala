@@ -13,11 +13,12 @@ class TransactionsSink extends ConsumerExample {
   def main(args: Array[String]): Unit = {
     // #transactionalSink
     val control =
-      Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
+      Transactional
+        .source(consumerSettings, Subscriptions.topics("source-topic"))
         .via(business)
         .map { msg =>
-          ProducerMessage.Message(
-            new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
+          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value),
+                                  msg.partitionOffset)
         }
         .to(Transactional.sink(producerSettings, "transactional-id"))
         .run()
@@ -40,11 +41,12 @@ class TransactionsFailureRetryExample extends ConsumerExample {
       maxBackoff = 30.seconds,
       randomFactor = 0.2
     ) { () =>
-      Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
+      Transactional
+        .source(consumerSettings, Subscriptions.topics("source-topic"))
         .via(business)
         .map { msg =>
-          ProducerMessage.Message(
-            new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value), msg.partitionOffset)
+          ProducerMessage.Message(new ProducerRecord[String, Array[Byte]]("sink-topic", msg.record.value),
+                                  msg.partitionOffset)
         }
         // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
         .mapMaterializedValue(innerControl = _)
@@ -62,4 +64,3 @@ class TransactionsFailureRetryExample extends ConsumerExample {
     terminateWhenDone(innerControl.shutdown())
   }
 }
-

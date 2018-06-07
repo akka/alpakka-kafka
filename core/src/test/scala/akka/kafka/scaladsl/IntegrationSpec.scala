@@ -29,12 +29,11 @@ import scala.util.Success
 class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(
-      kafkaPort,
-      zooKeeperPort,
-      Map(
-        "offsets.topic.replication.factor" -> "1"
-      ))
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "offsets.topic.replication.factor" -> "1"
+                        ))
 
   "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
@@ -75,7 +74,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val (control, probe1) = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+      val (control, probe1) = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
@@ -88,12 +88,14 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
       probe1
         .request(25)
-        .expectNextN(25).toSet should be(Set(Done))
+        .expectNextN(25)
+        .toSet should be(Set(Done))
 
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
 
-      val probe2 = Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
+      val probe2 = Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
         .runWith(TestSink.probe)
 
@@ -112,7 +114,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       probe2.cancel()
 
       // another consumer should see all
-      val probe3 = Consumer.committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(topic1))
+      val probe3 = Consumer
+        .committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .map(_.record.value)
         .runWith(TestSink.probe)
@@ -133,7 +136,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val listener = TestProbe()
 
       val sub = Subscriptions.topics(topic1).withRebalanceListener(listener.ref)
-      val (control, probe1) = Consumer.committableSource(consumerSettings, sub)
+      val (control, probe1) = Consumer
+        .committableSource(consumerSettings, sub)
         .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl()
@@ -167,7 +171,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       // to trigger the intended scenario
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-      val (control, probe1) = Consumer.committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
+      val (control, probe1) = Consumer
+        .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
         .filterNot(_.record.value == InitialMsg)
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -205,18 +210,21 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       Await.result(produce(topic1, 1 to 100), remainingOrDefault)
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      def consumeAndBatchCommit(topic: String) = {
-        Consumer.committableSource(
-          consumerSettings,
-          Subscriptions.topics(topic)
-        )
-          .map { msg => msg.committableOffset }
-          .batch(max = 10, first => CommittableOffsetBatch(first)) {
-            (batch, elem) => batch.updated(elem)
+      def consumeAndBatchCommit(topic: String) =
+        Consumer
+          .committableSource(
+            consumerSettings,
+            Subscriptions.topics(topic)
+          )
+          .map { msg =>
+            msg.committableOffset
+          }
+          .batch(max = 10, first => CommittableOffsetBatch(first)) { (batch, elem) =>
+            batch.updated(elem)
           }
           .mapAsync(1)(_.commitScaladsl())
-          .toMat(TestSink.probe)(Keep.both).run()
-      }
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
 
       val (control, probe) = consumeAndBatchCommit(topic1)
 
@@ -245,7 +253,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
-        val source = Consumer.committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
+        val source = Consumer
+          .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
           .map(msg => {
             ProducerMessage.Message(
               // Produce to topic2
@@ -299,14 +308,13 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val (control, res) =
         Consumer
           .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
-          .mapAsync(1)(msg =>
-            msg.committableOffset.commitScaladsl().map(_ => msg.record.value))
+          .mapAsync(1)(msg => msg.committableOffset.commitScaladsl().map(_ => msg.record.value))
           .take(5)
           .toMat(Sink.seq)(Keep.both)
           .run()
 
       Await.result(control.isShutdown, remainingOrDefault) should be(Done)
-      res.futureValue should be ((1 to 5).map(_.toString))
+      res.futureValue should be((1 to 5).map(_.toString))
     }
 
     "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
@@ -324,7 +332,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
           .run()
 
       Await.result(control.isShutdown, remainingOrDefault) should be(Done)
-      res.futureValue should be ((1 to 5).map(_.toString))
+      res.futureValue should be((1 to 5).map(_.toString))
     }
 
     "begin consuming from the beginning of the topic" in {
@@ -336,7 +344,10 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), _ => Future.successful(Map.empty))
+        val probe = Consumer
+          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
+                                              Subscriptions.topics(topic),
+                                              _ => Future.successful(Map.empty))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -359,7 +370,10 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val probe = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), tp => Future.successful(tp.map(_ -> 51L).toMap))
+        val probe = Consumer
+          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
+                                              Subscriptions.topics(topic),
+                                              tp => Future.successful(tp.map(_ -> 51L).toMap))
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -384,7 +398,11 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         var revoked = false
 
-        val source = Consumer.plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic), _ => Future.successful(Map.empty), _ => revoked = true)
+        val source = Consumer
+          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
+                                              Subscriptions.topics(topic),
+                                              _ => Future.successful(Map.empty),
+                                              _ => revoked = true)
           .flatMapMerge(1, _._2)
           .filterNot(_.value == InitialMsg)
           .map(_.value())
@@ -470,7 +488,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         }
 
         // verify that consumption still works
-        val probe = Consumer.plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
+        val probe = Consumer
+          .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
           .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
@@ -488,61 +507,63 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
   "Consumer control" must {
 
     "complete source when stopped" in
-      assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+    assertAllStagesStopped {
+      val topic = createTopic(1)
+      val group = createGroup(1)
 
-        givenInitializedTopic(topic)
+      givenInitializedTopic(topic)
 
-        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+      Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val (control, probe) = Consumer.plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+      val (control, probe) = Consumer
+        .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .filterNot(_.value == InitialMsg)
+        .map(_.value())
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-        probe
-          .request(100)
-          .expectNextN(100)
+      probe
+        .request(100)
+        .expectNextN(100)
 
-        val stopped = control.stop()
-        probe.expectComplete()
+      val stopped = control.stop()
+      probe.expectComplete()
 
-        Await.result(stopped, remainingOrDefault)
+      Await.result(stopped, remainingOrDefault)
 
-        control.shutdown()
-        probe.cancel()
-      }
+      control.shutdown()
+      probe.cancel()
+    }
 
     "complete partition sources when stopped" in
-      assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+    assertAllStagesStopped {
+      val topic = createTopic(1)
+      val group = createGroup(1)
 
-        givenInitializedTopic(topic)
+      givenInitializedTopic(topic)
 
-        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+      Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
-        val (control, probe) = Consumer.plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
-          .flatMapMerge(1, _._2)
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+      val (control, probe) = Consumer
+        .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .flatMapMerge(1, _._2)
+        .filterNot(_.value == InitialMsg)
+        .map(_.value())
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-        probe
-          .request(100)
-          .expectNextN(100)
+      probe
+        .request(100)
+        .expectNextN(100)
 
-        val stopped = control.stop()
-        probe.expectComplete()
+      val stopped = control.stop()
+      probe.expectComplete()
 
-        Await.result(stopped, remainingOrDefault)
+      Await.result(stopped, remainingOrDefault)
 
-        control.shutdown()
-        probe.cancel()
-      }
+      control.shutdown()
+      probe.cancel()
+    }
 
   }
 }

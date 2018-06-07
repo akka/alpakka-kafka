@@ -18,24 +18,27 @@ case class KafkaConsumerTestFixture(topic: String, msgCount: Int, consumer: Kafk
 object KafkaConsumerFixtures extends PerfFixtureHelpers {
 
   def noopFixtureGen(c: RunTestCommand) = FixtureGen[KafkaConsumerTestFixture](
-    c, msgCount => {
-    KafkaConsumerTestFixture("topic", msgCount, null)
-  }
+    c,
+    msgCount => {
+      KafkaConsumerTestFixture("topic", msgCount, null)
+    }
   )
 
   def filledTopics(c: RunTestCommand) = FixtureGen[KafkaConsumerTestFixture](
-    c, msgCount => {
-    val topic = randomId()
-    fillTopic(c.kafkaHost, topic, msgCount)
-    val consumerJavaProps = new java.util.Properties
-    consumerJavaProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, c.kafkaHost)
-    consumerJavaProps.put(ConsumerConfig.CLIENT_ID_CONFIG, randomId())
-    consumerJavaProps.put(ConsumerConfig.GROUP_ID_CONFIG, randomId())
-    consumerJavaProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+    c,
+    msgCount => {
+      val topic = randomId()
+      fillTopic(c.kafkaHost, topic, msgCount)
+      val consumerJavaProps = new java.util.Properties
+      consumerJavaProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, c.kafkaHost)
+      consumerJavaProps.put(ConsumerConfig.CLIENT_ID_CONFIG, randomId())
+      consumerJavaProps.put(ConsumerConfig.GROUP_ID_CONFIG, randomId())
+      consumerJavaProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
-    val consumer = new KafkaConsumer[Array[Byte], String](consumerJavaProps, new ByteArrayDeserializer, new StringDeserializer)
-    consumer.subscribe(Set(topic).asJava)
-    KafkaConsumerTestFixture(topic, msgCount, consumer)
-  }
+      val consumer =
+        new KafkaConsumer[Array[Byte], String](consumerJavaProps, new ByteArrayDeserializer, new StringDeserializer)
+      consumer.subscribe(Set(topic).asJava)
+      KafkaConsumerTestFixture(topic, msgCount, consumer)
+    }
   )
 }

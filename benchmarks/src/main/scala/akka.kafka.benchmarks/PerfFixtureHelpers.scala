@@ -28,27 +28,29 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
   def initTopicAndProducer(kafkaHost: String, topic: String, msgCount: Int = 1): KafkaProducer[Array[Byte], String] = {
     val producerJavaProps = new java.util.Properties
     producerJavaProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
-    val producer = new KafkaProducer[Array[Byte], String](producerJavaProps, new ByteArraySerializer, new StringSerializer)
+    val producer =
+      new KafkaProducer[Array[Byte], String](producerJavaProps, new ByteArraySerializer, new StringSerializer)
     val lastElementStoredPromise = Promise[Unit]
     val loggedStep = if (msgCount > logPercentStep) msgCount / (100 / logPercentStep) else 1
     for (i <- 0L to msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
-        producer.send(new ProducerRecord[Array[Byte], String](topic, i.toString), new Callback {
-          override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit = {
-            if (e == null) {
-              if (i % loggedStep == 0)
-                logger.info(s"Written $i elements to Kafka (${100 * i / msgCount}%)")
-              if (recordMetadata.offset() == msgCount - 1 && !lastElementStoredPromise.isCompleted)
-                lastElementStoredPromise.success(())
-            }
-            else {
-              if (!lastElementStoredPromise.isCompleted) {
-                e.printStackTrace()
-                lastElementStoredPromise.failure(e)
+        producer.send(
+          new ProducerRecord[Array[Byte], String](topic, i.toString),
+          new Callback {
+            override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit =
+              if (e == null) {
+                if (i % loggedStep == 0)
+                  logger.info(s"Written $i elements to Kafka (${100 * i / msgCount}%)")
+                if (recordMetadata.offset() == msgCount - 1 && !lastElementStoredPromise.isCompleted)
+                  lastElementStoredPromise.success(())
+              } else {
+                if (!lastElementStoredPromise.isCompleted) {
+                  e.printStackTrace()
+                  lastElementStoredPromise.failure(e)
+                }
               }
-            }
           }
-        })
+        )
       }
     }
     val lastElementStoredFuture = lastElementStoredPromise.future

@@ -18,13 +18,12 @@ object Timed extends LazyLogging {
 
   implicit val ec = ExecutionContext.fromExecutor(new ForkJoinPool)
 
-  def reporter(metricRegistry: MetricRegistry): ScheduledReporter = {
+  def reporter(metricRegistry: MetricRegistry): ScheduledReporter =
     Slf4jReporter
       .forRegistry(metricRegistry)
       .convertRatesTo(TimeUnit.SECONDS)
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build()
-  }
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
     val name = command.testName

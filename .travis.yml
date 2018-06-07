@@ -6,6 +6,12 @@ services:
 
 jobs:
   include:
+    - stage: check
+      script: sbt scalafmtCheck || { echo "[error] Unformatted code found. Please run 'test:compile' and commit the reformatted code."; false; }
+      env: SCALAFMT_CHECK
+    - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
+      env: SCALAFMT_SBT_CHECK
+
     - stage: test
       script: sbt -jvm-opts .jvmopts-travis +test
       jdk: oraclejdk8
@@ -29,6 +35,10 @@ jobs:
       jdk: oraclejdk8
 
 stages:
+  # runs on master commits and PRs
+  - name: check
+    if: NOT tag =~ ^v
+
   # runs on master commits and PRs
   - name: test
     if: NOT tag =~ ^v

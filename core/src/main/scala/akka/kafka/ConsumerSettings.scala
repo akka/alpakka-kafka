@@ -26,9 +26,9 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def apply[K, V](
-    system: ActorSystem,
-    keyDeserializer: Option[Deserializer[K]],
-    valueDeserializer: Option[Deserializer[V]]
+      system: ActorSystem,
+      keyDeserializer: Option[Deserializer[K]],
+      valueDeserializer: Option[Deserializer[V]]
   ): ConsumerSettings[K, V] = {
     val config = system.settings.config.getConfig("akka.kafka.consumer")
     apply(config, keyDeserializer, valueDeserializer)
@@ -40,19 +40,19 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def apply[K, V](
-    config: Config,
-    keyDeserializer: Option[Deserializer[K]],
-    valueDeserializer: Option[Deserializer[V]]
+      config: Config,
+      keyDeserializer: Option[Deserializer[K]],
+      valueDeserializer: Option[Deserializer[V]]
   ): ConsumerSettings[K, V] = {
     val properties = ConfigSettings.parseKafkaClientsProperties(config.getConfig("kafka-clients"))
     require(
       keyDeserializer != null &&
-        (keyDeserializer.isDefined || properties.contains(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)),
+      (keyDeserializer.isDefined || properties.contains(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)),
       "Key deserializer should be defined or declared in configuration"
     )
     require(
       valueDeserializer != null &&
-        (valueDeserializer.isDefined || properties.contains(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)),
+      (valueDeserializer.isDefined || properties.contains(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)),
       "Value deserializer should be defined or declared in configuration"
     )
     val pollInterval = config.getDuration("poll-interval", TimeUnit.MILLISECONDS).millis
@@ -67,9 +67,23 @@ object ConsumerSettings {
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
-    new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout, maxWakeups,
-      commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug, waitClosePartition)
+    new ConsumerSettings[K, V](
+      properties,
+      keyDeserializer,
+      valueDeserializer,
+      pollInterval,
+      pollTimeout,
+      stopTimeout,
+      closeTimeout,
+      commitTimeout,
+      wakeupTimeout,
+      maxWakeups,
+      commitRefreshInterval,
+      dispatcher,
+      commitTimeWarning,
+      wakeupDebug,
+      waitClosePartition
+    )
   }
 
   /**
@@ -78,12 +92,11 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def apply[K, V](
-    system: ActorSystem,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V]
-  ): ConsumerSettings[K, V] = {
+      system: ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] =
     apply(system, Option(keyDeserializer), Option(valueDeserializer))
-  }
 
   /**
    * Create settings from a configuration with the same layout as
@@ -91,12 +104,11 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def apply[K, V](
-    config: Config,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V]
-  ): ConsumerSettings[K, V] = {
+      config: Config,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] =
     apply(config, Option(keyDeserializer), Option(valueDeserializer))
-  }
 
   /**
    * Java API: Create settings from the default configuration
@@ -104,9 +116,9 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def create[K, V](
-    system: ActorSystem,
-    keyDeserializer: Optional[Deserializer[K]],
-    valueDeserializer: Optional[Deserializer[V]]
+      system: ActorSystem,
+      keyDeserializer: Optional[Deserializer[K]],
+      valueDeserializer: Optional[Deserializer[V]]
   ): ConsumerSettings[K, V] =
     apply(system, keyDeserializer.asScala, valueDeserializer.asScala)
 
@@ -116,9 +128,9 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def create[K, V](
-    config: Config,
-    keyDeserializer: Optional[Deserializer[K]],
-    valueDeserializer: Optional[Deserializer[V]]
+      config: Config,
+      keyDeserializer: Optional[Deserializer[K]],
+      valueDeserializer: Optional[Deserializer[V]]
   ): ConsumerSettings[K, V] =
     apply(config, keyDeserializer.asScala, valueDeserializer.asScala)
 
@@ -128,9 +140,9 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def create[K, V](
-    system: ActorSystem,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V]
+      system: ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
     apply(system, keyDeserializer, valueDeserializer)
 
@@ -140,9 +152,9 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def create[K, V](
-    config: Config,
-    keyDeserializer: Deserializer[K],
-    valueDeserializer: Deserializer[V]
+      config: Config,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
     apply(config, keyDeserializer, valueDeserializer)
 }
@@ -250,25 +262,39 @@ class ConsumerSettings[K, V](
     copy(waitClosePartition = waitClosePartition)
 
   private def copy(
-    properties: Map[String, String] = properties,
-    keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
-    valueDeserializer: Option[Deserializer[V]] = valueDeserializerOpt,
-    pollInterval: FiniteDuration = pollInterval,
-    pollTimeout: FiniteDuration = pollTimeout,
-    stopTimeout: FiniteDuration = stopTimeout,
-    closeTimeout: FiniteDuration = closeTimeout,
-    commitTimeout: FiniteDuration = commitTimeout,
-    commitTimeWarning: FiniteDuration = commitTimeWarning,
-    wakeupTimeout: FiniteDuration = wakeupTimeout,
-    maxWakeups: Int = maxWakeups,
-    commitRefreshInterval: Duration = commitRefreshInterval,
-    dispatcher: String = dispatcher,
-    wakeupDebug: Boolean = wakeupDebug,
-    waitClosePartition: FiniteDuration = waitClosePartition
+      properties: Map[String, String] = properties,
+      keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
+      valueDeserializer: Option[Deserializer[V]] = valueDeserializerOpt,
+      pollInterval: FiniteDuration = pollInterval,
+      pollTimeout: FiniteDuration = pollTimeout,
+      stopTimeout: FiniteDuration = stopTimeout,
+      closeTimeout: FiniteDuration = closeTimeout,
+      commitTimeout: FiniteDuration = commitTimeout,
+      commitTimeWarning: FiniteDuration = commitTimeWarning,
+      wakeupTimeout: FiniteDuration = wakeupTimeout,
+      maxWakeups: Int = maxWakeups,
+      commitRefreshInterval: Duration = commitRefreshInterval,
+      dispatcher: String = dispatcher,
+      wakeupDebug: Boolean = wakeupDebug,
+      waitClosePartition: FiniteDuration = waitClosePartition
   ): ConsumerSettings[K, V] =
-    new ConsumerSettings[K, V](properties, keyDeserializer, valueDeserializer,
-      pollInterval, pollTimeout, stopTimeout, closeTimeout, commitTimeout, wakeupTimeout,
-      maxWakeups, commitRefreshInterval, dispatcher, commitTimeWarning, wakeupDebug, waitClosePartition)
+    new ConsumerSettings[K, V](
+      properties,
+      keyDeserializer,
+      valueDeserializer,
+      pollInterval,
+      pollTimeout,
+      stopTimeout,
+      closeTimeout,
+      commitTimeout,
+      wakeupTimeout,
+      maxWakeups,
+      commitRefreshInterval,
+      dispatcher,
+      commitTimeWarning,
+      wakeupDebug,
+      waitClosePartition
+    )
 
   /**
    * Create a `KafkaConsumer` instance from the settings.

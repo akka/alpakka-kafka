@@ -21,7 +21,8 @@ object KafkaTransactionBenchmarks extends LazyLogging {
   /**
    * Process records in a consume-transform-produce transacational workflow and commit every interval.
    */
-  def consumeTransformProduceTransaction(commitInterval: FiniteDuration)(fixture: KafkaTransactionTestFixture, meter: Meter): Unit = {
+  def consumeTransformProduceTransaction(commitInterval: FiniteDuration)(fixture: KafkaTransactionTestFixture,
+                                                                         meter: Meter): Unit = {
     val consumer = fixture.consumer
     val producer = fixture.producer
     val msgCount = fixture.msgCount
@@ -49,12 +50,11 @@ object KafkaTransactionBenchmarks extends LazyLogging {
     }
 
     @tailrec
-    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int = {
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
       if (readSoFar >= readLimit) {
         doCommit()
         readSoFar
-      }
-      else {
+      } else {
         logger.debug("Polling")
         val records = consumer.poll(pollTimeoutMs)
         for (record <- records.iterator().asScala) {
@@ -64,7 +64,9 @@ object KafkaTransactionBenchmarks extends LazyLogging {
           val producerRecord = new ProducerRecord(fixture.sinkTopic, record.partition(), record.key(), record.value())
           producer.send(producerRecord)
           if (lastProcessedOffset % loggedStep == 0)
-            logger.info(s"Transformed $lastProcessedOffset elements to Kafka (${100 * lastProcessedOffset / msgCount}%)")
+            logger.info(
+              s"Transformed $lastProcessedOffset elements to Kafka (${100 * lastProcessedOffset / msgCount}%)"
+            )
 
           if (System.nanoTime() >= lastCommit + commitInterval.toNanos) {
             doCommit()
@@ -75,7 +77,6 @@ object KafkaTransactionBenchmarks extends LazyLogging {
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)
       }
-    }
 
     meter.mark()
     logger.debug("Initializing transactions")

@@ -26,7 +26,8 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
   /**
    * Process records in a consume-transform-produce transactional workflow and commit every interval.
    */
-  def consumeTransformProduceTransaction(fixture: TransactionFixture, meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumeTransformProduceTransaction(fixture: TransactionFixture,
+                                         meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val msgCount = fixture.msgCount
     val sinkTopic = fixture.sinkTopic
@@ -38,21 +39,20 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
 
     val control = source
       .map { msg =>
-        ProducerMessage.Message(
-          new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value()), msg.partitionOffset)
+        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value()),
+                                msg.partitionOffset)
       }
       .via(fixture.flow)
-      .toMat(
-        Sink.foreach {
-          case result: Result[Key, Val, PassThrough] =>
-            val offset = result.offset
-            if (result.offset % loggedStep == 0)
-              logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
-            if (result.offset >= fixture.msgCount - 1)
-              promise.complete(Success(()))
-          case other: Results[Key, Val, PassThrough] =>
+      .toMat(Sink.foreach {
+        case result: Result[Key, Val, PassThrough] =>
+          val offset = result.offset
+          if (result.offset % loggedStep == 0)
+            logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
+          if (result.offset >= fixture.msgCount - 1)
             promise.complete(Success(()))
-        })(Keep.left)
+        case other: Results[Key, Val, PassThrough] =>
+          promise.complete(Success(()))
+      })(Keep.left)
       .run()
 
     Await.result(promise.future, streamingTimeout)
