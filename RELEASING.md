@@ -16,10 +16,14 @@
 # Publishing docs
 
 1. Checkout the newly released tag.
-1. SCP docs to *gustav*:
+1. Build paradox and API documentation:
     ```
-    scp -r docs/target/paradox/site/main/* gustav.akka.io:www/docs/akka-stream-kafka/<new-version>/
-    scp -r core/target/api/* gustav.akka.io:www/api/akka-stream-kafka/<new-version>/
+    sbt docs/paradox core/doc
+    ```
+1. Upload docs to *gustav*:
+    ```
+    rsync -azP docs/target/paradox/site/main/ gustav.akka.io:www/docs/akka-stream-kafka/<new-version>/
+    rsync -azP core/target/scala-2.12/api/ gustav.akka.io:www/api/akka-stream-kafka/<new-version>/
     ```
 1. Update the current links on *gustav*:
     ```
