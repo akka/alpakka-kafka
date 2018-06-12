@@ -23,7 +23,7 @@ jobs:
       jdk: oraclejdk8
       env: mimaReportBinaryIssues
 
-    - stage: integration tests
+    - stage: integration
       script: sbt -jvm-opts .jvmopts-travis "core/dockerComposeTest it:test --scale kafka=3"
 
     - stage: whitesource
@@ -41,6 +41,10 @@ stages:
 
   # runs on master commits and PRs
   - name: test
+    if: NOT tag =~ ^v
+    
+  # runs on master commits and PRs
+  - stage: integration
     if: NOT tag =~ ^v
 
   # runs on main repo master commits and version-tagged commits
