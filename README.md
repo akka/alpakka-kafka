@@ -5,10 +5,10 @@ Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][
 [scaladex-badge]:      https://index.scala-lang.org/akka/reactive-kafka/latest.svg
 [maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12
 [maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12/badge.svg
-[travis]:              https://travis-ci.org/akka/reactive-kafka
-[travis-badge]:        https://travis-ci.org/akka/reactive-kafka.svg?branch=master
-[gitter]:              https://gitter.im/akka/reactive-kafka
-[gitter-badge]:        https://badges.gitter.im/akka/reactive-kafka.svg
+[travis]:              https://travis-ci.org/akka/alpakka-kafka
+[travis-badge]:        https://travis-ci.org/akka/alpakka-kafka.svg?branch=master
+[gitter]:              https://gitter.im/akka/alpakka-kafka
+[gitter-badge]:        https://badges.gitter.im/akka/alpakka-kafka.svg
 
 
 Systems don't come alone. In the modern world of microservices and cloud deployment, new components must interact with legacy systems, making integration an important key to success. Reactive Streams give us a technology-independent tool to let these heterogeneous systems communicate without overwhelming each other.
@@ -27,7 +27,7 @@ Documentation
 
 - **[Alpakka Kafka connector reference](https://doc.akka.io/docs/akka-stream-kafka/current/) documentation**
 
-To keep up with the latest Alpakka releases check out [Alpakka releases](https://github.com/akka/alpakka/releases) and [Alpakka Kafka connector releases](https://github.com/akka/reactive-kafka/releases).
+To keep up with the latest Alpakka releases check out [Alpakka releases](https://github.com/akka/alpakka/releases) and [Alpakka Kafka connector releases](https://github.com/akka/alpakka-kafka/releases).
 
 
 Community
@@ -37,15 +37,15 @@ You can join these groups and chats to discuss and ask Akka and Alpakka related 
 
 - Forums: [discuss.lightbend.com](https://discuss.lightbend.com/c/akka/streams-and-alpakka)
 - Chat room about **Akka and Alpakka**: [![gitter: akka/akka](https://img.shields.io/badge/gitter%3A-akka%2Fakka-blue.svg?style=flat-square)](https://gitter.im/akka/akka)
-- Chat room about **Alpakka Kafka connector**: [![gitter: akka/reactive-kafka](https://img.shields.io/badge/gitter%3A-akka%2Freactivekafka-blue.svg?style=flat-square)](https://gitter.im/akka/reactive-kafka)
-- Issue tracker: [![github: akka/reactive-kafka](https://img.shields.io/badge/github%3A-issues-blue.svg?style=flat-square)](https://github.com/akka/reactive-kafka/issues)
+- Chat room about **Alpakka Kafka connector**: [![gitter: akka/alpakka-kafka](https://img.shields.io/badge/gitter%3A-akka%2Freactivekafka-blue.svg?style=flat-square)](https://gitter.im/akka/alpakka-kafka)
+- Issue tracker: [![github: akka/alpakka-kafka](https://img.shields.io/badge/github%3A-issues-blue.svg?style=flat-square)](https://github.com/akka/alpakka-kafka/issues)
 
 In addition to that, you may enjoy following:
 
 - The [Akka Team Blog](https://akka.io/blog/)
 - [@akkateam](https://twitter.com/akkateam) on Twitter
 - Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
-- Questions tagged [**#reactive-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/reactive-kafka)
+- Questions tagged [**#alpakka-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka-kafka)
 
 The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://softwaremill.com/images/header-main-logo.3449d6a3.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
 
