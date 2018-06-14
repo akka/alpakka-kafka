@@ -7,7 +7,7 @@ services:
 jobs:
   include:
     - stage: check
-      script: sbt scalafmtCheck || { echo "[error] Unformatted code found. Please run 'test:compile' and commit the reformatted code."; false; }
+      script: sbt scalafmtCheck || { echo "[error] Unformatted code found. Please run 'Test/compile' and commit the reformatted code."; false; }
       env: SCALAFMT_CHECK
     - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
       env: SCALAFMT_SBT_CHECK
@@ -49,11 +49,11 @@ stages:
 
   # runs on main repo master commits and version-tagged commits
   - name: whitesource
-    if: repo = akka/reactive-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
+    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
   # runs on main repo master commits and version-tagged commits
   - name: publish
-    if: repo = akka/reactive-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
+    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
 before_cache:
   - find $HOME/.ivy2/ -name "ivydata-*.properties" -print -delete
