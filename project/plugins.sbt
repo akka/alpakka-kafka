@@ -1,4 +1,4 @@
-addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.0.0")
+addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.0.0+4-1be64920")
 addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.6")
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.0.0")
