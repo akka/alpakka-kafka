@@ -121,6 +121,7 @@ lazy val core = project
       "com.spotify" % "docker-client" % "8.11.5" % "it",
     ),
     mimaPreviousArtifacts := (20 to 20).map(minor => organization.value %% name.value % s"0.$minor").toSet,
+    makePomConfiguration := makePomConfiguration.value.withConfigurations(Configurations.defaultMavenConfigurations),
   )
   .settings(Defaults.itSettings)
   .configs(IntegrationTest)
