@@ -44,7 +44,7 @@ stages:
     if: NOT tag =~ ^v
     
   # runs on master commits and PRs
-  - stage: integration
+  - name: integration
     if: NOT tag =~ ^v
 
   # runs on main repo master commits and version-tagged commits
