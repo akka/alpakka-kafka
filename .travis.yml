@@ -4,6 +4,9 @@ sudo: false
 services:
   - docker
 
+script:
+  - sbt -jvm-opts .jvmopts-travis "$CMD"
+
 jobs:
   include:
     - stage: check
@@ -11,27 +14,29 @@ jobs:
       env: SCALAFMT_CHECK
     - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
       env: SCALAFMT_SBT_CHECK
+    - env: CMD="Test/compile"
+    - env: CMD="docs/paradox"
 
     - stage: test
-      script: sbt -jvm-opts .jvmopts-travis +test
+      env: CMD="+test"
       jdk: oraclejdk8
 
-    - script: sbt -jvm-opts .jvmopts-travis +test
+    - env: CMD="+test"
       jdk: oraclejdk9
 
-    - script: sbt -jvm-opts .jvmopts-travis mimaReportBinaryIssues
+    - env: CMD="mimaReportBinaryIssues"
       jdk: oraclejdk8
-      env: mimaReportBinaryIssues
 
     - stage: integration
-      script: sbt -jvm-opts .jvmopts-travis "core/dockerComposeTest it:test --scale kafka=3"
+      env: CMD="core/dockerComposeTest it:test --scale kafka=3"
+      jdk: oraclejdk8
 
     - stage: whitesource
-      script: sbt -jvm-opts .jvmopts-travis whitesourceCheckPolicies whitesourceUpdate
+      env: CMD="whitesourceCheckPolicies whitesourceUpdate"
       jdk: oraclejdk8
 
     - stage: publish
-      script: sbt -jvm-opts .jvmopts-travis +publish
+      env: CMD="+publish"
       jdk: oraclejdk8
 
 stages:
