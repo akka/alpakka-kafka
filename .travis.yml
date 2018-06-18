@@ -15,6 +15,7 @@ jobs:
     - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
       env: SCALAFMT_SBT_CHECK
     - env: CMD="Test/compile"
+    - env: CMD="Compile/doc"
     - env: CMD="docs/paradox"
 
     - stage: test
