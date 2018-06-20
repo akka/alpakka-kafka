@@ -48,7 +48,7 @@ abstract class ConsumerExample {
   }
 
   // #settings
-  final Config config = system.settings().config();
+  final Config config = system.settings().config().getConfig("akka.kafka.consumer");
   final ConsumerSettings<String, byte[]> consumerSettings =
       ConsumerSettings.create(config, new StringDeserializer(), new ByteArrayDeserializer())
           .withBootstrapServers("localhost:9092")

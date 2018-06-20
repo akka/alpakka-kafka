@@ -30,7 +30,7 @@ abstract class ProducerExample {
 
   // #producer
   // #settings
-  final Config config = system.settings().config();
+  final Config config = system.settings().config().getConfig("akka.kafka.producer");
   final ProducerSettings<String, String> producerSettings =
       ProducerSettings
           .create(config, new StringSerializer(), new StringSerializer())
