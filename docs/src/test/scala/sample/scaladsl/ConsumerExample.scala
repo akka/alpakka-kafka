@@ -37,7 +37,7 @@ trait ConsumerExample {
   val maxPartitions = 100
 
   // #settings
-  val config = system.settings.config
+  val config = system.settings.config.getConfig("akka.kafka.consumer")
   val consumerSettings =
     ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
       .withBootstrapServers("localhost:9092")

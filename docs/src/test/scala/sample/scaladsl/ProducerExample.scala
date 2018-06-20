@@ -27,7 +27,7 @@ trait ProducerExample {
 
   // #producer
   // #settings
-  val config = system.settings.config
+  val config = system.settings.config.getConfig("akka.kafka.producer")
   val producerSettings =
     ProducerSettings(config, new StringSerializer, new StringSerializer)
       .withBootstrapServers("localhost:9092")
