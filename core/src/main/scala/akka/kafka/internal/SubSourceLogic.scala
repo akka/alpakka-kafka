@@ -123,6 +123,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       partitionsInStartup --= partitionsToRevoke
       partitionsToRevoke.flatMap(subSources.get).foreach(_.shutdown())
       subSources --= partitionsToRevoke
+      partitionsToRevoke = Set.empty
+      pendingRevokeCall = None
     }
 
     log.debug("Waiting {} for pending requests before close partitions", settings.waitClosePartition)
@@ -130,10 +132,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       materializer.scheduleOnce(
         settings.waitClosePartition,
         new Runnable {
-          override def run(): Unit = {
+          override def run(): Unit =
             cb.invoke(())
-            pendingRevokeCall = None
-          }
         }
       )
     )

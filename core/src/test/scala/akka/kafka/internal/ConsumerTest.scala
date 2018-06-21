@@ -5,10 +5,12 @@
 
 package akka.kafka.internal
 
+import java.{lang, util}
 import java.util.concurrent.TimeUnit
-import java.util.{List ⇒ JList, Map ⇒ JMap, Set ⇒ JSet}
+import java.util.regex.Pattern
+import java.util.{List => JList, Map => JMap, Set => JSet}
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
 import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
@@ -20,7 +22,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.kafka.test.Utils._
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito
@@ -30,7 +32,6 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -85,10 +86,8 @@ class ConsumerTest(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  def testSource(mock: ConsumerMock[K, V],
-                 groupId: String = "group1",
-                 topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] = {
-    val settings = new ConsumerSettings(
+  def testSettings(mock: Consumer[K, V], groupId: String = "group1") =
+    new ConsumerSettings(
       Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId),
       Some(new StringDeserializer),
       Some(new StringDeserializer),
@@ -103,13 +102,23 @@ class ConsumerTest(_system: ActorSystem)
       "akka.kafka.default-dispatcher",
       1.second,
       true,
-      5.seconds
+      100.millis
     ) {
-      override def createKafkaConsumer(): KafkaConsumer[K, V] =
-        mock.mock
+      override def createKafkaConsumer(): Consumer[K, V] =
+        mock
     }
-    Consumer.committableSource(settings, Subscriptions.topics(topics))
-  }
+
+  def testSource(mock: ConsumerMock[K, V],
+                 groupId: String = "group1",
+                 topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
+    Consumer.committableSource(testSettings(mock.mock, groupId), Subscriptions.topics(topics))
+
+  def testPartitionedSource(
+      mock: Consumer[K, V],
+      groupId: String = "group1",
+      topics: Set[String] = Set("topic")
+  ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
+    Consumer.committablePartitionedSource(testSettings(mock, groupId), Subscriptions.topics(topics))
 
   it should "fail stream when poll() fails with unhandled exception" in {
     assertAllStagesStopped {
@@ -598,6 +607,74 @@ class ConsumerTest(_system: ActorSystem)
       mock.verifyClosed()
     }
   }
+
+  behavior of "partitioned source"
+
+  it should "correctly handle partition assignments and revokes" in {
+    trait TpState
+    object Paused extends TpState
+    object Resumed extends TpState
+
+    val mock = new Consumer[K, V] {
+      var tps: Map[TopicPartition, TpState] = Map.empty
+      var callbacks: ConsumerRebalanceListener = null
+
+      override def assignment(): JSet[TopicPartition] = tps.keySet.asJava
+      override def subscription(): JSet[K] = ???
+      override def subscribe(topics: util.Collection[K]): Unit = ???
+      override def subscribe(topics: util.Collection[K], callback: ConsumerRebalanceListener): Unit =
+        callbacks = callback
+      override def assign(partitions: util.Collection[TopicPartition]): Unit = {
+        callbacks.onPartitionsRevoked(tps.keySet.asJavaCollection)
+        Thread.sleep(1000) // Wait for revoke asyncCB to happen
+        tps = partitions.asScala.map(_ -> Resumed).toMap
+        callbacks.onPartitionsAssigned(partitions)
+        Thread.sleep(1000) // Wait for assignment to propagate to KafkaConsumerActor
+      }
+      override def subscribe(pattern: Pattern, callback: ConsumerRebalanceListener): Unit = ???
+      override def subscribe(pattern: Pattern): Unit = ???
+      override def unsubscribe(): Unit = ???
+      override def poll(timeout: Long): ConsumerRecords[K, V] =
+        new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
+      override def commitSync(): Unit = ???
+      override def commitSync(offsets: JMap[TopicPartition, OffsetAndMetadata]): Unit = ???
+      override def commitAsync(): Unit = ???
+      override def commitAsync(callback: OffsetCommitCallback): Unit = ???
+      override def commitAsync(offsets: JMap[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit =
+        ???
+      override def seek(partition: TopicPartition, offset: Long): Unit = ???
+      override def seekToBeginning(partitions: util.Collection[TopicPartition]): Unit = ???
+      override def seekToEnd(partitions: util.Collection[TopicPartition]): Unit = ???
+      override def position(partition: TopicPartition): Long = 0
+      override def committed(partition: TopicPartition): OffsetAndMetadata = ???
+      override def metrics(): JMap[MetricName, _ <: Metric] = ???
+      override def partitionsFor(topic: K): JList[PartitionInfo] = ???
+      override def listTopics(): JMap[K, JList[PartitionInfo]] = ???
+      override def paused(): JSet[TopicPartition] = tps.filter(_._2 == Paused).keySet.asJava
+      override def pause(partitions: util.Collection[TopicPartition]): Unit =
+        tps = tps ++ partitions.asScala.map(_ -> Paused)
+      override def resume(partitions: util.Collection[TopicPartition]): Unit =
+        tps = tps ++ partitions.asScala.map(_ -> Resumed)
+      override def offsetsForTimes(
+          timestampsToSearch: JMap[TopicPartition, lang.Long]
+      ): JMap[TopicPartition, OffsetAndTimestamp] = ???
+      override def beginningOffsets(partitions: util.Collection[TopicPartition]): JMap[TopicPartition, lang.Long] = ???
+      override def endOffsets(partitions: util.Collection[TopicPartition]): JMap[TopicPartition, lang.Long] = ???
+      override def close(): Unit = {}
+      override def close(timeout: Long, unit: TimeUnit): Unit = {}
+      override def wakeup(): Unit = ???
+    }
+    val topic = "test"
+    val queue = testPartitionedSource(mock, "group", Set(topic))
+      .flatMapMerge(breadth = 10, _._2)
+      .runWith(Sink.queue())
+    Thread.sleep(1000) // Wait for stream to materialize
+    mock.paused().asScala should be('empty)
+    mock.assign(Set(new TopicPartition(topic, 0), new TopicPartition(topic, 1)).asJavaCollection)
+    mock.paused().asScala should be('empty)
+    mock.assign(Set(new TopicPartition(topic, 0)).asJavaCollection)
+    mock.paused().asScala should be('empty)
+  }
 }
 
 object ConsumerMock {
@@ -708,6 +785,18 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
     verify(mock, mode).poll(mockito.ArgumentMatchers.any[Long])
+
+  def assignPartitions(tps: Set[TopicPartition]) =
+    tps.groupBy(_.topic()).foreach {
+      case (topic, localTps) =>
+        pendingSubscriptions.find(_._1 == topic).get._2.onPartitionsAssigned(localTps.asJavaCollection)
+    }
+
+  def revokePartitions(tps: Set[TopicPartition]) =
+    tps.groupBy(_.topic()).foreach {
+      case (topic, localTps) =>
+        pendingSubscriptions.find(_._1 == topic).get._2.onPartitionsRevoked(localTps.asJavaCollection)
+    }
 }
 
 class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
