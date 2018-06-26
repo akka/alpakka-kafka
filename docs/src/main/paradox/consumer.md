@@ -106,7 +106,6 @@ Scala
 Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #groupedWithin }
 
-
 If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
 
 Scala
@@ -116,6 +115,26 @@ Java
 : @@ snip [dummy](../../test/java/sample/javadsl/ConsumerExample.java) { #atMostOnce }
 
 Maintaining at-least-once delivery semantics requires care, many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
+
+## Passing data through another flow
+
+When streaming documents from Kafka, you might want to commit to Kafka AFTER the document has been passed to another flow.
+For example if you want to write document to HBase or SolR you can use the corresponding Alpakka connectors.
+In these scenarios you may want to implement a graph like this:
+
+````
+                                 msg=>hbaseWrite=>msg
+                                /                    \
+                               /                      \
+consumer=>(msg, offset)=>unzip-                        -zip=>(msg, offset)=>commit
+                               \                      /
+                                \_______offset_______/
+````
+
+This can be implemented by the following code:
+
+Scala
+: @@ snip [passThroughFlow](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #passThroughFlow }
 
 
 ## Connecting Producer and Consumer
