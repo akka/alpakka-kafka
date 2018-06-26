@@ -322,7 +322,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
       log.warning(
         "KafkaConsumer poll has exceeded wake up timeout ({}). Waking up consumer to avoid thread starvation.",
-        settings.wakeupTimeout
+        settings.wakeupTimeout.toCoarsest
       )
       if (settings.wakeupDebug && wakeups > settings.maxWakeups / 2) {
         val stacks =
@@ -357,7 +357,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
               "WakeupException limit exceeded during poll({}), stopping (max-wakeups = {}, wakeup-timeout = {}).",
               timeout,
               settings.maxWakeups,
-              settings.wakeupTimeout
+              settings.wakeupTimeout.toCoarsest
             )
             context.stop(self)
           } else {
@@ -367,7 +367,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
                 timeout,
                 wakeups,
                 settings.maxWakeups,
-                settings.wakeupTimeout
+                settings.wakeupTimeout.toCoarsest
               )
               if (initialPoll) {
                 log.error(
