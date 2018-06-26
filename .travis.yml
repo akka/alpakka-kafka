@@ -33,7 +33,7 @@ jobs:
       jdk: oraclejdk8
 
     - stage: whitesource
-      env: CMD="whitesourceCheckPolicies whitesourceUpdate"
+      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
       jdk: oraclejdk8
 
     - stage: publish
