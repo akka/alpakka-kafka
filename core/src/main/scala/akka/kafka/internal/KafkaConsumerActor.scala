@@ -363,8 +363,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           } else {
             if (log.isWarningEnabled && wakeups > settings.maxWakeups / 2) {
               log.warning(
-                "Consumer poll({}) interrupted with WakeupException (#{} of max-wakeups = {}, wakeup-timeout = {}). " +
-                (if (w.getMessage != null) s"Message: ${w.getMessage}. " else ""),
+                "Consumer poll({}) interrupted with WakeupException (#{} of max-wakeups = {}, wakeup-timeout = {}).",
                 timeout,
                 wakeups,
                 settings.maxWakeups,
