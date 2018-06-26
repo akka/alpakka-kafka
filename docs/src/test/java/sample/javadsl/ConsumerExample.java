@@ -57,11 +57,11 @@ abstract class ConsumerExample {
   // #settings
 
   final ConsumerSettings<String, byte[]> consumerSettingsWithAutoCommit =
-  // #settings-autocommit
+          // #settings-autocommit
           consumerSettings
                   .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
                   .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5000");
-  // #settings-autocommit
+          // #settings-autocommit
 
   protected final ProducerSettings<String, byte[]> producerSettings =
       ProducerSettings.create(system, new StringSerializer(), new ByteArraySerializer())
@@ -111,14 +111,14 @@ class ExternalOffsetStorageExample extends ConsumerExample {
       return CompletableFuture.completedFuture(Done.getInstance());
     }
 
-    // #plainSource
+  // #plainSource
     public CompletionStage<Long> loadOffset() { // ... }
-    // #plainSource
+  // #plainSource
 
       return CompletableFuture.completedFuture(offsetStore.get());
     }
 
-    // #plainSource
+  // #plainSource
   }
   // #plainSource
 
@@ -143,7 +143,7 @@ class AtMostOnceExample extends ConsumerExample {
     // #atMostOnce
   }
 
-   // #atMostOnce
+  // #atMostOnce
   CompletionStage<String> business(String key, byte[] value) { // .... }
   // #atMostOnce
     return CompletableFuture.completedFuture("");
@@ -170,10 +170,10 @@ class AtLeastOnceExample extends ConsumerExample {
     // #atLeastOnce
   }
 
-    // #atLeastOnce
+  // #atLeastOnce
 
   CompletionStage<String> business(String key, byte[] value) { // .... }
-    // #atLeastOnce
+  // #atLeastOnce
     return CompletableFuture.completedFuture("");
   }
 
@@ -239,7 +239,7 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
   }
 
   public void demo() {
-    // #consumerToProducerFlow
+      // #consumerToProducerFlow
       Consumer.DrainingControl<Done> control =
           Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
               .map(msg -> {
