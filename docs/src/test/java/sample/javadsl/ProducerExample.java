@@ -95,7 +95,7 @@ class ObserveMetricsExample extends ProducerExample {
         // #producerMetrics
         Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
                 kafkaProducer.metrics();// observe metrics
-// #producerMetrics
+        // #producerMetrics
     }
 }
 
@@ -111,7 +111,7 @@ class ProducerFlowExample extends ProducerExample {
                         new ProducerRecord<>("topicName", key, value),
                         passThrough
                 );
-        // #singleMessage
+                // #singleMessage
 
     }
 
@@ -125,23 +125,23 @@ class ProducerFlowExample extends ProducerExample {
                         ),
                         passThrough
                 );
-        // #multiMessage
+                // #multiMessage
 
     }
 
     <KeyType, ValueType, PassThroughType> ProducerMessage.PassThroughMessage<KeyType, ValueType, PassThroughType> createPassThroughMessage(KeyType key, ValueType value, PassThroughType passThrough) {
 
         ProducerMessage.PassThroughMessage<KeyType, ValueType, PassThroughType> ptm =
-                // #passThroughMessage
-        new ProducerMessage.PassThroughMessage<>(
-                passThrough
-        );
-        // #passThroughMessage
+          // #passThroughMessage
+          new ProducerMessage.PassThroughMessage<>(
+                  passThrough
+          );
+          // #passThroughMessage
         return ptm;
     }
 
   public void demo() {
-    // #flow
+      // #flow
       CompletionStage<Done> done =
               Source.range(1, 100)
                       .map(number -> {

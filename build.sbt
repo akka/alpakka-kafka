@@ -138,6 +138,7 @@ lazy val docs = project
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
+      "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
       "version" -> version.value,
       "akkaVersion" -> akkaVersion,
       "kafkaVersion" -> kafkaVersion,

@@ -70,14 +70,17 @@ trait ConsumerExample {
 // Consume messages and store a representation, including offset, in DB
 object ExternalOffsetStorageExample extends ConsumerExample {
   def main(args: Array[String]): Unit = {
+    // format: off
     // #plainSource
     val db = new OffsetStore
     val control = db.loadOffset().map { fromOffset =>
       Consumer
-        .plainSource(consumerSettings,
-                     Subscriptions.assignmentWithOffset(
-                       new TopicPartition("topic1", /* partition = */ 0) -> fromOffset
-                     ))
+        .plainSource(
+          consumerSettings,
+          Subscriptions.assignmentWithOffset(
+            new TopicPartition("topic1", /* partition = */ 0) -> fromOffset
+          )
+        )
         .mapAsync(1)(db.businessLogicAndStoreOffset)
         .to(Sink.ignore)
         .run()
@@ -93,7 +96,7 @@ object ExternalOffsetStorageExample extends ConsumerExample {
 
     private val offset = new AtomicLong
 
-    // #plainSource
+  // #plainSource
     def businessLogicAndStoreOffset(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = // ...
       // #plainSource
       {
@@ -102,14 +105,15 @@ object ExternalOffsetStorageExample extends ConsumerExample {
         Future.successful(Done)
       }
 
-    // #plainSource
+  // #plainSource
     def loadOffset(): Future[Long] = // ...
       // #plainSource
       Future.successful(offset.get)
 
-    // #plainSource
+  // #plainSource
   }
   // #plainSource
+  // format: on
 
 }
 

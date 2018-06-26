@@ -1,15 +1,14 @@
 package sample.javadsl;
 
 // #metadata
-        import akka.actor.ActorRef;
-        import akka.kafka.KafkaConsumerActor;
-        import akka.kafka.Metadata;
-        import akka.pattern.PatternsCS;
-        import akka.util.Timeout;
-        import org.apache.kafka.common.TopicPartition;
+import akka.actor.ActorRef;
+import akka.kafka.KafkaConsumerActor;
+import akka.kafka.Metadata;
+import akka.pattern.PatternsCS;
+import akka.util.Timeout;
 
-        import java.util.concurrent.CompletionStage;
-        import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 // #metadata
 
