@@ -22,12 +22,14 @@ import org.apache.kafka.common.serialization.{
   StringSerializer
 }
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import sample.DocKafkaPorts
 
 trait ConsumerExample {
   val system = ActorSystem("example")
@@ -68,8 +70,16 @@ trait ConsumerExample {
 }
 
 // Consume messages and store a representation, including offset, in DB
-object ExternalOffsetStorageExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
+  def createKafkaConfig: EmbeddedKafkaConfig =
+    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+
+  private def waitAfterProduce(): Unit = sleep(6.seconds)
+  private def waitBeforeValidation(): Unit = sleep(4.seconds)
+
+  "ExternalOffsetStorage" should "work" in {
+    val topic = createTopic()
+    val consumerSettings = consumerDefaults.withClientId("externalOffsetStorage")
     // format: off
     // #plainSource
     val db = new OffsetStore
@@ -78,15 +88,18 @@ object ExternalOffsetStorageExample extends ConsumerExample {
         .plainSource(
           consumerSettings,
           Subscriptions.assignmentWithOffset(
-            new TopicPartition("topic1", /* partition = */ 0) -> fromOffset
+            new TopicPartition(topic, /* partition = */ 0) -> fromOffset
           )
         )
         .mapAsync(1)(db.businessLogicAndStoreOffset)
-        .to(Sink.ignore)
+        .toMat(Sink.seq)(Keep.both)
         .run()
     }
     // #plainSource
-    control.foreach(c => terminateWhenDone(c.shutdown()))
+    produce(topic, 1 to 10)
+    sleep(2.seconds)
+    Await.result(control.flatMap(_._1.shutdown()), 10.seconds) should be (Done)
+    control.futureValue._2.futureValue should have size(10)
   }
 
   // #plainSource
@@ -97,7 +110,7 @@ object ExternalOffsetStorageExample extends ConsumerExample {
     private val offset = new AtomicLong
 
   // #plainSource
-    def businessLogicAndStoreOffset(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = // ...
+    def businessLogicAndStoreOffset(record: ConsumerRecord[String, String]): Future[Done] = // ...
       // #plainSource
       {
         println(s"DB.save: ${record.value}")
@@ -115,45 +128,51 @@ object ExternalOffsetStorageExample extends ConsumerExample {
   // #plainSource
   // format: on
 
-}
-
-// Consume messages at-most-once
-object AtMostOnceExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Consume messages at-most-once" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
     // #atMostOnce
-    val control =
+    val (control, result) =
       Consumer
-        .atMostOnceSource(consumerSettings, Subscriptions.topics("topic1"))
+        .atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1)(record => business(record.key, record.value()))
-        .to(Sink.foreach(it => println(s"Done with $it")))
+        .map(it => {
+          println(s"Done with $it")
+          it
+        })
+        .toMat(Sink.seq)(Keep.both)
         .run()
     // #atMostOnce
 
-    terminateWhenDone(control.shutdown())
+    produce(topic, 1 to 10)
+    waitBeforeValidation()
+    Await.result(control.shutdown(), 10.seconds) should be(Done)
+    result.futureValue should have size (10)
   }
   // #atMostOnce
 
-  def business(key: String, value: Array[Byte]): Future[Done] = ???
-  // #atMostOnce
-}
+  def business(key: String, value: String): Future[Done] = // ???
+    // #atMostOnce
+    Future.successful(Done)
 
-// Consume messages at-least-once
-object AtLeastOnceExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Consume messages at-least-once" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
     // #atLeastOnce
     val control =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .committableSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(10) { msg =>
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
         .mapAsync(5)(offset => offset.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
+        .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnce
-
-    terminateWhenDone(control.drainAndShutdown())
+    produce(topic, 1 to 10)
+    waitBeforeValidation()
+    Await.result(control.drainAndShutdown(), 10.seconds) should have size (10)
   }
   // format: off
   // #atLeastOnce
@@ -161,47 +180,46 @@ object AtLeastOnceExample extends ConsumerExample {
   def business(key: String, value: Array[Byte]): Future[Done] = ???
   // #atLeastOnce
   // format: on
-}
 
-// Consume messages at-least-once, and commit in batches
-object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-
+  "Consume messages at-least-once, and commit in batches" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
     // #atLeastOnceBatch
     val control =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .committableSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1) { msg =>
           business(msg.record.key, msg.record.value)
             .map(_ => msg.committableOffset)
         }
         .batch(
           max = 20,
-          CommittableOffsetBatch.apply
+          CommittableOffsetBatch(_)
         )(_.updated(_))
         .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
+        .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnceBatch
-
-    terminateWhenDone(control.drainAndShutdown())
+    produce(topic, 1 to 10)
+    waitBeforeValidation()
+    Await.result(control.drainAndShutdown(), 10.seconds) should have size (5)
   }
 
-  def business(key: String, value: Array[Byte]): Future[Done] = ???
-}
-
-// Connect a Consumer to Producer
-object ConsumerToProducerSinkExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Connect a Consumer to Producer" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val targetTopic = createTopic(3)
+    val producerSettings = producerDefaults
     //format: off
     // #consumerToProducerSink
     val control =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
+        .committableSource(consumerSettings, Subscriptions.topics(topic1, topic2))
         .map { msg =>
-          ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
-            new ProducerRecord("targetTopic", msg.record.value),
+          ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
+            new ProducerRecord(targetTopic, msg.record.value),
             msg.committableOffset
           )
         }
@@ -210,19 +228,32 @@ object ConsumerToProducerSinkExample extends ConsumerExample {
         .run()
     // #consumerToProducerSink
     //format: on
-    control.drainAndShutdown()
-  }
-}
+    produce(topic1, 1 to 10)
+    produce(topic2, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.drainAndShutdown(), 10.seconds)
+    val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
+    val receiveControl = Consumer
+      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+    waitBeforeValidation()
+    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (20)
 
-// Connect a Consumer to Producer
-object ConsumerToProducerFlowExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  }
+
+  "Connect a Consumer to Producer" should "support flows" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic(1)
+    val targetTopic = createTopic(2)
+    val producerSettings = producerDefaults
     // #consumerToProducerFlow
     val control = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+      .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map { msg =>
-        ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
-          new ProducerRecord("topic2", msg.record.value),
+        ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
+          new ProducerRecord(targetTopic, msg.record.value),
           passThrough = msg.committableOffset
         )
       }
@@ -235,21 +266,31 @@ object ConsumerToProducerFlowExample extends ConsumerExample {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlow
-
-    terminateWhenDone(control.drainAndShutdown())
+    produce(topic, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.drainAndShutdown(), 10.seconds)
+    val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer flow validation")
+    val receiveControl = Consumer
+      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+    waitBeforeValidation()
+    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
   }
-}
 
-// Connect a Consumer to Producer, and commit in batches
-object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Connect a Consumer to Producer, and commit in batches" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic(1)
+    val targetTopic = createTopic(2)
+    val producerSettings = producerDefaults
     // #consumerToProducerFlowBatch
     val control = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+      .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map(
         msg =>
-          ProducerMessage.Message[String, Array[Byte], ConsumerMessage.CommittableOffset](
-            new ProducerRecord("topic2", msg.record.value),
+          ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
+            new ProducerRecord(targetTopic, msg.record.value),
             msg.committableOffset
         )
       )
@@ -261,76 +302,98 @@ object ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlowBatch
-
-    terminateWhenDone(control.drainAndShutdown())
+    produce(topic, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.drainAndShutdown(), 10.seconds)
+    val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
+    val receiveControl = Consumer
+      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+    waitBeforeValidation()
+    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
   }
-}
 
-// Connect a Consumer to Producer, and commit in batches
-object ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic(1)
+    val targetTopic = createTopic(2)
+    val producerSettings = producerDefaults
     val source = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+      .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map(
         msg =>
           ProducerMessage.Message(
-            new ProducerRecord[String, Array[Byte]]("topic2", msg.record.value),
+            new ProducerRecord[String, String](targetTopic, msg.record.value),
             msg.committableOffset
         )
       )
       .via(Producer.flexiFlow(producerSettings))
       .map(_.passThrough)
-    val done =
+    val (control, done) =
       // #groupedWithin
       source
         .groupedWithin(10, 5.seconds)
         .map(CommittableOffsetBatch(_))
         .mapAsync(3)(_.commitScaladsl())
         // #groupedWithin
-        .runWith(Sink.ignore)
-
-    terminateWhenDone(done)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+    produce(topic, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.shutdown(), 10.seconds)
+    val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
+    val receiveControl = Consumer
+      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+    waitBeforeValidation()
+    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
   }
-}
 
-// Backpressure per partition with batch commit
-object ConsumerWithPerPartitionBackpressure extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
+  "Backpressure per partition with batch commit" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
     // #committablePartitionedSource
-    val control = Consumer
-      .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
+    val (control, result) = Consumer
+      .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
       .flatMapMerge(maxPartitions, _._2)
-      .via(business)
+      .via(businessFlow)
       .map(_.committableOffset)
       .batch(max = 100, CommittableOffsetBatch.apply)(_.updated(_))
       .mapAsync(3)(_.commitScaladsl())
-      .to(Sink.ignore)
+      .toMat(Sink.seq)(Keep.both)
       .run()
     // #committablePartitionedSource
-
-    terminateWhenDone(control.shutdown())
+    produce(topic, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.shutdown(), 10.seconds)
+    result.futureValue should have size 4
   }
-}
 
-// Flow per partition
-object ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-    //Process each assigned partition separately
+  "Flow per partition" should "Process each assigned partition separately" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
     // #committablePartitionedSource-stream-per-partition
-    val control = Consumer
-      .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
+    val (control, result) = Consumer
+      .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
       .map {
         case (topicPartition, source) =>
           source
-            .via(business)
+            .via(businessFlow)
             .mapAsync(1)(_.committableOffset.commitScaladsl())
             .runWith(Sink.ignore)
       }
       .mapAsyncUnordered(maxPartitions)(identity)
-      .to(Sink.ignore)
+      .toMat(Sink.ignore)(Keep.both)
       .run()
     // #committablePartitionedSource-stream-per-partition
-    terminateWhenDone(control.shutdown())
+    produce(topic, 1 to 10)
+    waitAfterProduce()
+    Await.result(control.shutdown(), 10.seconds)
+    result.futureValue should be(Done)
   }
 }
 
