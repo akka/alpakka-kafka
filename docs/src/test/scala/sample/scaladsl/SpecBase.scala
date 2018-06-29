@@ -27,7 +27,7 @@ import org.scalatest.concurrent.{Eventually, ScalaFutures}
 
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
 abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
@@ -77,6 +77,14 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
   }
 
   def sleep(time: FiniteDuration): Unit = Thread.sleep(time.toMillis)
+
+  def awaitMutiple[T](d: FiniteDuration, futures: Future[T]*): Seq[T] =
+    Await.result(Future.sequence(futures), d)
+
+  def awaitProduce(futures: Future[Done]*): Unit = {
+    awaitMutiple(4.seconds, futures: _*)
+    sleep(4.seconds)
+  }
 
   val maxPartitions = 100
   def businessFlow[T] = Flow[T]

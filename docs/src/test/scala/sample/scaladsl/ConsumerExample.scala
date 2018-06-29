@@ -22,7 +22,7 @@ import org.apache.kafka.common.serialization.{
   StringSerializer
 }
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.util.concurrent.atomic.AtomicLong
@@ -74,7 +74,6 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
-  private def waitAfterProduce(): Unit = sleep(6.seconds)
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
 
   "ExternalOffsetStorage" should "work" in {
@@ -96,10 +95,9 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
     }
     // #plainSource
-    produce(topic, 1 to 10)
-    sleep(2.seconds)
-    Await.result(control.flatMap(_._1.shutdown()), 10.seconds) should be (Done)
-    control.futureValue._2.futureValue should have size(10)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.flatMap(_._1.shutdown()), 1.seconds) should be(Done)
+    control.futureValue._2.futureValue should have size (10)
   }
 
   // #plainSource
@@ -144,9 +142,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
     // #atMostOnce
 
-    produce(topic, 1 to 10)
-    waitBeforeValidation()
-    Await.result(control.shutdown(), 10.seconds) should be(Done)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.shutdown(), 5.seconds) should be(Done)
     result.futureValue should have size (10)
   }
   // #atMostOnce
@@ -170,14 +167,14 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnce
-    produce(topic, 1 to 10)
-    waitBeforeValidation()
-    Await.result(control.drainAndShutdown(), 10.seconds) should have size (10)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds) should have size (10)
   }
   // format: off
   // #atLeastOnce
 
   def business(key: String, value: Array[Byte]): Future[Done] = ???
+
   // #atLeastOnce
   // format: on
 
@@ -201,9 +198,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnceBatch
-    produce(topic, 1 to 10)
-    waitBeforeValidation()
-    Await.result(control.drainAndShutdown(), 10.seconds) should have size (5)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
   }
 
   "Connect a Consumer to Producer" should "work" in {
@@ -228,10 +224,11 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
     // #consumerToProducerSink
     //format: on
-    produce(topic1, 1 to 10)
-    produce(topic2, 1 to 10)
-    waitAfterProduce()
-    Await.result(control.drainAndShutdown(), 10.seconds)
+    awaitProduce(
+      produce(topic1, 1 to 10),
+      produce(topic2, 1 to 10)
+    )
+    Await.result(control.drainAndShutdown(), 1.seconds)
     val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
@@ -239,7 +236,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (20)
+    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (20)
 
   }
 
@@ -266,9 +263,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlow
-    produce(topic, 1 to 10)
-    waitAfterProduce()
-    Await.result(control.drainAndShutdown(), 10.seconds)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 1.seconds)
     val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer flow validation")
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
@@ -276,7 +272,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
+    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
   }
 
   "Connect a Consumer to Producer, and commit in batches" should "work" in {
@@ -302,9 +298,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlowBatch
-    produce(topic, 1 to 10)
-    waitAfterProduce()
-    Await.result(control.drainAndShutdown(), 10.seconds)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds)
     val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
@@ -312,7 +307,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
+    Await.result(receiveControl.drainAndShutdown(), 1.seconds) should have size (10)
   }
 
   "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
@@ -340,8 +335,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         // #groupedWithin
         .toMat(Sink.ignore)(Keep.both)
         .run()
-    produce(topic, 1 to 10)
-    waitAfterProduce()
+    awaitProduce(produce(topic, 1 to 10))
     Await.result(control.shutdown(), 10.seconds)
     val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
     val receiveControl = Consumer
@@ -350,7 +344,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 4.seconds) should have size (10)
+    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
   }
 
   "Backpressure per partition with batch commit" should "work" in {
@@ -367,9 +361,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .toMat(Sink.seq)(Keep.both)
       .run()
     // #committablePartitionedSource
-    produce(topic, 1 to 10)
-    waitAfterProduce()
-    Await.result(control.shutdown(), 10.seconds)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.shutdown(), 5.seconds)
     result.futureValue should have size 4
   }
 
@@ -390,11 +383,149 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
       .toMat(Sink.ignore)(Keep.both)
       .run()
     // #committablePartitionedSource-stream-per-partition
-    produce(topic, 1 to 10)
-    waitAfterProduce()
-    Await.result(control.shutdown(), 10.seconds)
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.shutdown(), 5.seconds)
     result.futureValue should be(Done)
   }
+
+  "Rebalance Listener" should "get messages" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    val assignedPromise = Promise[Done]
+    val revokedPromise = Promise[Done]
+    // format: off
+    //#withRebalanceListenerActor
+    import akka.kafka.TopicPartitionsAssigned
+    import akka.kafka.TopicPartitionsRevoked
+
+    class RebalanceListener extends Actor with ActorLogging {
+      def receive: Receive = {
+        case TopicPartitionsAssigned(sub, assigned) ⇒
+          log.info("Assigned: {}", assigned)
+          //#withRebalanceListenerActor
+          assignedPromise.success(Done)
+    //#withRebalanceListenerActor
+
+        case TopicPartitionsRevoked(sub, revoked) ⇒
+          log.info("Revoked: {}", revoked)
+          //#withRebalanceListenerActor
+          revokedPromise.success(Done)
+    //#withRebalanceListenerActor
+      }
+    }
+
+    val rebalanceListener = system.actorOf(Props(new RebalanceListener))
+    val subscription = Subscriptions
+      .topics(topic)
+      // additionally, pass the actor reference:
+      .withRebalanceListener(rebalanceListener)
+
+    // use the subscription as usual:
+    //#withRebalanceListenerActor
+    // format: on
+    val (control, result) =
+      //#withRebalanceListenerActor
+      Consumer
+        .plainSource(consumerSettings, subscription)
+        //#withRebalanceListenerActor
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.shutdown(), 5.seconds)
+    result.futureValue should have size 10
+    assignedPromise.future.futureValue should be(Done)
+    revokedPromise.future.futureValue should be(Done)
+  }
+
+}
+
+class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
+  def createKafkaConfig: EmbeddedKafkaConfig =
+    EmbeddedKafkaConfig(kafkaPort,
+                        zooKeeperPort,
+                        Map(
+                          "broker.id" -> "1",
+                          "num.partitions" -> "3",
+                          "offsets.topic.replication.factor" -> "1",
+                          "offsets.topic.num.partitions" -> "3"
+                        ))
+
+  "Externally controlled kafka consumer" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    val partition1 = 1
+    val partition2 = 2
+    // #consumerActor
+    //Consumer is represented by actor
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+    //Manually assign topic partition to it
+    val (controlPartition1, result1) = Consumer
+      .plainExternalSource[String, Array[Byte]](
+        consumer,
+        Subscriptions.assignment(new TopicPartition(topic, partition1))
+      )
+      .via(businessFlow)
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    //Manually assign another topic partition
+    val (controlPartition2, result2) = Consumer
+      .plainExternalSource[String, Array[Byte]](
+        consumer,
+        Subscriptions.assignment(new TopicPartition(topic, partition2))
+      )
+      .via(businessFlow)
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    // ....
+
+    // #consumerActor
+    awaitProduce(
+      produce(topic, 1 to 10, partition1),
+      produce(topic, 1 to 10, partition2)
+    )
+    awaitMutiple(2.seconds,
+                 // #consumerActor
+                 controlPartition1.shutdown()
+                 // #consumerActor
+                 ,
+                 // #consumerActor
+                 controlPartition2.shutdown()
+                 // #consumerActor
+    )
+    // #consumerActor
+    consumer ! KafkaConsumerActor.Stop
+    // #consumerActor
+
+    result1.futureValue should have size 10
+    result2.futureValue should have size 10
+  }
+
+  "Consumer Metrics" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    val partition = 1
+    // #consumerMetrics
+    val control: Consumer.Control = Consumer
+      .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition)))
+      .via(businessFlow)
+      .to(Sink.ignore)
+      .run()
+
+    // #consumerMetrics
+    // can be removed when https://github.com/akka/alpakka-kafka/issues/528 is fixed
+    sleep(500.millis)
+    // #consumerMetrics
+
+    val metrics: Future[Map[MetricName, Metric]] = control.metrics
+    metrics.foreach(map => println(s"metrics: ${map.mkString("\n")}"))
+    // #consumerMetrics
+    Await.result(metrics, 5.seconds) should not be 'empty
+    control.shutdown()
+  }
+
 }
 
 // Join flows based on automatically assigned partitions
@@ -441,54 +572,6 @@ object ConsumerWithOtherSource extends ConsumerExample {
   }
 }
 
-//externally controlled kafka consumer
-object ExternallyControlledKafkaConsumer extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-    // #consumerActor
-    //Consumer is represented by actor
-    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-    //Manually assign topic partition to it
-    val controlPartition1 = Consumer
-      .plainExternalSource[String, Array[Byte]](
-        consumer,
-        Subscriptions.assignment(new TopicPartition("topic1", 1))
-      )
-      .via(business)
-      .to(Sink.ignore)
-      .run()
-
-    //Manually assign another topic partition
-    val controlPartition2 = Consumer
-      .plainExternalSource[String, Array[Byte]](
-        consumer,
-        Subscriptions.assignment(new TopicPartition("topic1", 2))
-      )
-      .via(business)
-      .to(Sink.ignore)
-      .run()
-
-    consumer ! KafkaConsumerActor.Stop
-    // #consumerActor
-    terminateWhenDone(controlPartition1.shutdown().flatMap(_ => controlPartition2.shutdown()))
-  }
-}
-
-object ConsumerMetrics extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-    // #consumerMetrics
-    val control: Consumer.Control = Consumer
-      .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition("topic1", 1)))
-      .via(business)
-      .to(Sink.ignore)
-      .run()
-
-    val metrics: Future[Map[MetricName, Metric]] = control.metrics
-    metrics.foreach(map => println(s"metrics: ${map}"))
-    // #consumerMetrics
-  }
-}
-
 class RestartingStream extends ConsumerExample {
 
   def createStream(): Unit =
@@ -516,40 +599,6 @@ class RestartingStream extends ConsumerExample {
       }
       .runWith(Sink.ignore)
   //#restartSource
-}
-
-object RebalanceListenerExample extends ConsumerExample {
-  //#withRebalanceListenerActor
-  import akka.kafka.TopicPartitionsAssigned
-  import akka.kafka.TopicPartitionsRevoked
-
-  class RebalanceListener extends Actor with ActorLogging {
-    def receive: Receive = {
-      case TopicPartitionsAssigned(sub, assigned) ⇒
-        log.info("Assigned: {}", assigned)
-
-      case TopicPartitionsRevoked(sub, revoked) ⇒
-        log.info("Revoked: {}", revoked)
-    }
-  }
-
-  //#withRebalanceListenerActor
-
-  def createActor(implicit system: ActorSystem): Source[ConsumerRecord[String, Array[Byte]], Consumer.Control] = {
-    //#withRebalanceListenerActor
-    val rebalanceListener = system.actorOf(Props[RebalanceListener])
-
-    val subscription = Subscriptions
-      .topics(Set("topic"))
-      // additionally, pass the actor reference:
-      .withRebalanceListener(rebalanceListener)
-
-    // use the subscription as usual:
-    Consumer
-      .plainSource(consumerSettings, subscription)
-    //#withRebalanceListenerActor
-  }
-
 }
 
 // Shutdown via Consumer.Control

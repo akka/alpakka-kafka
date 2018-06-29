@@ -12,5 +12,6 @@ package sample
 object DocKafkaPorts {
 
   val ConsumerExamples = 8002
+  val PartitionExamples = 8004
 
 }
