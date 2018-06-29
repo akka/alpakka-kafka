@@ -152,6 +152,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
     // #atMostOnce
     Future.successful(Done)
 
+  def business(rec: ConsumerRecord[String, String]): Future[Done] = Future.successful(Done)
+
   "Consume messages at-least-once" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroup())
     val topic = createTopic()
@@ -437,6 +439,49 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
     revokedPromise.future.futureValue should be(Done)
   }
 
+  "Shutdown via Consumer.Control" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    val offset = 123456L
+    // #shutdownPlainSource
+    val (consumerControl, streamComplete) =
+      Consumer
+        .plainSource(consumerSettings,
+                     Subscriptions.assignmentWithOffset(
+                       new TopicPartition(topic, 0) -> offset
+                     ))
+        .via(businessFlow)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+
+    consumerControl.shutdown()
+    // #shutdownPlainSource
+    Await.result(consumerControl.shutdown(), 5.seconds) should be(Done)
+  }
+
+  "Shutdown when batching commits" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    // #shutdownCommitableSource
+    val drainingControl =
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic))
+        .mapAsync(1) { msg =>
+          business(msg.record).map(_ => msg.committableOffset)
+        }
+        .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
+          batch.updated(elem)
+        }
+        .mapAsync(3)(_.commitScaladsl())
+        .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+    val streamComplete = drainingControl.drainAndShutdown()
+
+    // #shutdownCommitableSource
+    Await.result(streamComplete, 5.seconds) should be(Done)
+  }
 }
 
 class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
@@ -599,53 +644,4 @@ class RestartingStream extends ConsumerExample {
       }
       .runWith(Sink.ignore)
   //#restartSource
-}
-
-// Shutdown via Consumer.Control
-object ShutdownPlainSourceExample extends ConsumerExample {
-
-  def main(args: Array[String]): Unit = {
-    val offset = 123456L
-    // #shutdownPlainSource
-    val (consumerControl, streamComplete) =
-      Consumer
-        .plainSource(consumerSettings,
-                     Subscriptions.assignmentWithOffset(
-                       new TopicPartition("topic1", 0) -> offset
-                     ))
-        .mapAsync(1)(businessLogic)
-        .toMat(Sink.ignore)(Keep.both)
-        .run()
-
-    consumerControl.shutdown()
-    // #shutdownPlainSource
-    terminateWhenDone(streamComplete)
-  }
-
-}
-
-// Shutdown when batching commits
-object ShutdownCommitableSourceExample extends ConsumerExample {
-  def main(args: Array[String]): Unit = {
-    // #shutdownCommitableSource
-    val drainingControl =
-      Consumer
-        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
-        .mapAsync(1) { msg =>
-          businessLogic(msg.record).map(_ => msg.committableOffset)
-        }
-        .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-          batch.updated(elem)
-        }
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
-
-    val streamComplete = drainingControl.drainAndShutdown()
-
-    // #shutdownCommitableSource
-
-    terminateWhenDone(streamComplete)
-  }
 }
