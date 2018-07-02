@@ -9,19 +9,21 @@ val scalatestVersion = "3.0.4"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
-val commonDependencies = Seq(
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test
-)
-
 val coreDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   kafkaClients,
+)
+
+val testkitDependencies = Seq(
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
+)
+
+val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
   "org.mockito" % "mockito-core" % "2.15.0" % Test,
@@ -105,7 +107,7 @@ lazy val `alpakka-kafka` =
             |  test - runs all the tests
           """.stripMargin
     )
-    .aggregate(core, benchmarks, docs)
+    .aggregate(core, testkit, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin, DockerCompose)
@@ -113,18 +115,39 @@ lazy val core = project
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
-    Test / fork := true,
-    Test / parallelExecution := false,
-    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+    libraryDependencies ++= coreDependencies,
+    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet
+  )
+
+lazy val testkit = project
+  .dependsOn(core)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-testkit",
+    AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
+    libraryDependencies ++= testkitDependencies,
+    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet
+  )
+
+lazy val tests = project
+  .dependsOn(core, testkit)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-tests",
+    libraryDependencies ++= testDependencies ++ Seq(
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
       "org.scalatest" %% "scalatest" % scalatestVersion % "it",
       "com.spotify" % "docker-client" % "8.11.5" % "it",
     ),
-    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet,
-    makePomConfiguration := makePomConfiguration.value.withConfigurations(Configurations.defaultMavenConfigurations),
+    publish / skip := true,
+    Test / fork := true,
+    Test / parallelExecution := false
   )
   .settings(Defaults.itSettings)
   .configs(IntegrationTest)
+
 
 lazy val docs = project
   .in(file("docs"))
@@ -164,10 +187,10 @@ lazy val benchmarks = project
   .enablePlugins(DockerPlugin)
   .settings(commonSettings)
   .settings(
-    skip in publish := true,
     name := "akka-stream-kafka-benchmarks",
+    skip in publish := true,
     parallelExecution in Benchmark := false,
-    libraryDependencies ++= commonDependencies ++ coreDependencies ++ Seq(
+    libraryDependencies ++= coreDependencies ++ Seq(
       "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
       "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
       "ch.qos.logback" % "logback-classic" % "1.2.3",

@@ -12,31 +12,25 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.test.Utils._
 import akka.stream.scaladsl.{Keep, Source}
-import akka.stream.testkit.TestSubscriber
-import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalatest._
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.collection.immutable
 
-abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
-    extends TestKit(actorSystem)
-    with WordSpecLike
-    with Matchers
-    with BeforeAndAfterAll
-    with ScalaFutures
-    with Eventually {
+object KafkaTestKit {
+  final case class StageStoppingTimeout(time: FiniteDuration)
+}
+
+abstract class KafkaTestKit(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
+    extends TestKit(actorSystem) {
+  import KafkaTestKit._
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
