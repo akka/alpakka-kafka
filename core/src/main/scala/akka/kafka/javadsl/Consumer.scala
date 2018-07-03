@@ -105,6 +105,12 @@ object Consumer {
     new DrainingControl[T](pair.first, pair.second)
 
   /**
+   * An implementation of Control to be used as an empty value, all methods return
+   * a failed `CompletionStage`.
+   */
+  def createNoopControl(): Control = new WrappedConsumerControl(scaladsl.Consumer.NoopControl)
+
+  /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
    * It has not support for committing offsets to Kafka. It can be used when offset is stored externally
    * or with auto-commit (note that auto-commit is by default disabled).

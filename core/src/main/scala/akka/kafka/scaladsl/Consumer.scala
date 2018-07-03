@@ -117,6 +117,19 @@ object Consumer {
   }
 
   /**
+   * An implementation of Control to be used as an empty value, all methods return
+   * a failed future.
+   */
+  object NoopControl extends Control {
+    private def exception = new RuntimeException("The correct Consumer.Control has not been assigned, yet.")
+
+    override def stop(): Future[Done] = Future.failed(exception)
+    override def shutdown(): Future[Done] = Future.failed(exception)
+    override def isShutdown: Future[Done] = Future.failed(exception)
+    override def metrics: Future[Map[MetricName, Metric]] = Future.failed(exception)
+  }
+
+  /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
    * It has no support for committing offsets to Kafka. It can be used when the offset is stored externally
    * or with auto-commit (note that auto-commit is by default disabled).

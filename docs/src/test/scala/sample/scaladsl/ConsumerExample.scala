@@ -4,37 +4,36 @@
  */
 package sample.scaladsl
 
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.{ActorMaterializer, KillSwitches}
 import akka.{Done, NotUsed}
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.apache.kafka.common.serialization.{
   ByteArrayDeserializer,
   ByteArraySerializer,
   StringDeserializer,
   StringSerializer
 }
-
-import scala.concurrent.{Await, Future, Promise}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-import java.util.concurrent.atomic.AtomicLong
-
-import akka.kafka.scaladsl.Consumer.DrainingControl
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import sample.DocKafkaPorts
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 trait ConsumerExample {
   val system = ActorSystem("example")
-  implicit val ec = system.dispatcher
-  implicit val m = ActorMaterializer.create(system)
+  implicit val ec: ExecutionContext = system.dispatcher
+  implicit val m: Materializer = ActorMaterializer.create(system)
 
   val maxPartitions = 100
 
@@ -397,8 +396,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
     val revokedPromise = Promise[Done]
     // format: off
     //#withRebalanceListenerActor
-    import akka.kafka.TopicPartitionsAssigned
-    import akka.kafka.TopicPartitionsRevoked
+    import akka.kafka.{TopicPartitionsAssigned, TopicPartitionsRevoked}
 
     class RebalanceListener extends Actor with ActorLogging {
       def receive: Receive = {
@@ -482,28 +480,31 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
     Await.result(streamComplete, 5.seconds) should be(Done)
   }
 
-  "Restartinging Stream" should "work" in {
+  "Restarting Stream" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroup())
     val topic = createTopic()
     //#restartSource
-    val (killSwitch, result) = RestartSource
-      .withBackoff(
+    val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
+
+    val result = RestartSource
+      .onFailuresWithBackoff(
         minBackoff = 3.seconds,
         maxBackoff = 30.seconds,
         randomFactor = 0.2
       ) { () =>
         Consumer
           .plainSource(consumerSettings, Subscriptions.topics(topic))
+          // this is a hack to get access to the Consumer.Control
+          // instances of the latest Kafka Consumer source
+          .mapMaterializedValue(c => control.set(c))
+          .via(businessFlow)
       }
-      .viaMat(KillSwitches.single)(Keep.right)
-      .via(businessFlow)
-      .toMat(Sink.seq)(Keep.both)
-      .run()
+      .runWith(Sink.seq)
 
     //#restartSource
     awaitProduce(produce(topic, 1 to 10))
     //#restartSource
-    killSwitch.shutdown()
+    control.get().shutdown()
     //#restartSource
     Await.result(result, 5.seconds) should have size 10
   }

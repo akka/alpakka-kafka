@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 abstract class ConsumerExample {
@@ -424,18 +425,21 @@ class RestartingConsumer extends ConsumerExample {
 
   public void demo() {
     //#restartSource
-    RestartSource.withBackoff(
-        java.time.Duration.of(3, ChronoUnit.SECONDS),
-        java.time.Duration.of(30, ChronoUnit.SECONDS),
+    AtomicReference<Consumer.Control> control = new AtomicReference<>(Consumer.createNoopControl());
+
+    RestartSource.onFailuresWithBackoff(
+        java.time.Duration.ofSeconds(3),
+        java.time.Duration.ofSeconds(30),
         0.2,
         () ->
-             Source.fromCompletionStage(
-                  Consumer
-                    .plainSource(consumerSettings, Subscriptions.topics("topic1"))
-                    .via(business())
-                    .runWith(Sink.ignore(), materializer)
-             )
-    );
+            Consumer
+              .plainSource(consumerSettings, Subscriptions.topics("topic1"))
+              .mapMaterializedValue(c -> { control.set(c); return c; })
+              .via(business())
+    )
+    .runWith(Sink.ignore(), materializer);
+
+    control.get().shutdown();
     //#restartSource
   }
 }
