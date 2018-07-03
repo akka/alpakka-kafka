@@ -10,7 +10,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, KillSwitches}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -402,14 +402,14 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
 
     class RebalanceListener extends Actor with ActorLogging {
       def receive: Receive = {
-        case TopicPartitionsAssigned(sub, assigned) ⇒
-          log.info("Assigned: {}", assigned)
+        case TopicPartitionsAssigned(subscription, topicPartitions) =>
+          log.info("Assigned: {}", topicPartitions)
           //#withRebalanceListenerActor
           assignedPromise.success(Done)
     //#withRebalanceListenerActor
 
-        case TopicPartitionsRevoked(sub, revoked) ⇒
-          log.info("Revoked: {}", revoked)
+        case TopicPartitionsRevoked(subscription, topicPartitions) =>
+          log.info("Revoked: {}", topicPartitions)
           //#withRebalanceListenerActor
           revokedPromise.success(Done)
     //#withRebalanceListenerActor
@@ -478,10 +478,36 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
 
     val streamComplete = drainingControl.drainAndShutdown()
-
     // #shutdownCommitableSource
     Await.result(streamComplete, 5.seconds) should be(Done)
   }
+
+  "Restartinging Stream" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val topic = createTopic()
+    //#restartSource
+    val (killSwitch, result) = RestartSource
+      .withBackoff(
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      ) { () =>
+        Consumer
+          .plainSource(consumerSettings, Subscriptions.topics(topic))
+      }
+      .viaMat(KillSwitches.single)(Keep.right)
+      .via(businessFlow)
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    //#restartSource
+    awaitProduce(produce(topic, 1 to 10))
+    //#restartSource
+    killSwitch.shutdown()
+    //#restartSource
+    Await.result(result, 5.seconds) should have size 10
+  }
+
 }
 
 class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
@@ -615,33 +641,4 @@ object ConsumerWithOtherSource extends ConsumerExample {
       .runWith(Sink.ignore)
     // #committablePartitionedSource3
   }
-}
-
-class RestartingStream extends ConsumerExample {
-
-  def createStream(): Unit =
-    //#restartSource
-    RestartSource
-      .withBackoff(
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2
-      ) { () =>
-        Source.fromFuture {
-          val source = Consumer.plainSource(consumerSettings, Subscriptions.topics("topic1"))
-          source
-            .via(business)
-            .watchTermination() {
-              case (consumerControl, futureDone) =>
-                futureDone
-                  .flatMap { _ =>
-                    consumerControl.shutdown()
-                  }
-                  .recoverWith { case _ => consumerControl.shutdown() }
-            }
-            .runWith(Sink.ignore)
-        }
-      }
-      .runWith(Sink.ignore)
-  //#restartSource
 }

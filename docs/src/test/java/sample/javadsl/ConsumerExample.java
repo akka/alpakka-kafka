@@ -433,10 +433,6 @@ class RestartingConsumer extends ConsumerExample {
                   Consumer
                     .plainSource(consumerSettings, Subscriptions.topics("topic1"))
                     .via(business())
-                    .watchTermination(
-                             (control, completionStage) ->
-                                 completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
-                     )
                     .runWith(Sink.ignore(), materializer)
              )
     );
