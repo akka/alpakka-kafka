@@ -6,20 +6,17 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
-import akka.dispatch.ExecutionContexts
 import akka.event.Logging
-import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.Subscriptions._
 import akka.kafka._
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
-import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
+import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
@@ -27,11 +24,15 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     subscription: Subscription
 ) extends GraphStageLogic(shape)
     with PromiseControl
+    with MetricsControl
     with MessageBuilder[K, V, Msg]
     with StageLogging {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
 
+  val consumerPromise = Promise[ActorRef]
+  override def executionContext: ExecutionContext = materializer.executionContext
+  override def consumerFuture: Future[ActorRef] = consumerPromise.future
   var consumer: ActorRef = _
   var self: StageActor = _
   var tps = Set.empty[TopicPartition]
@@ -49,6 +50,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
     }
+    consumerPromise.success(consumer)
 
     self = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
@@ -154,15 +156,6 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         completeStage()
     }
     consumer ! KafkaConsumerActor.Internal.Stop
-  }
-
-  override def metrics: Future[Map[MetricName, Metric]] = {
-    import akka.pattern.ask
-    import scala.concurrent.duration._
-    consumer
-      .?(RequestMetrics)(Timeout(1.minute))
-      .mapTo[ConsumerMetrics]
-      .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
   }
 
 }

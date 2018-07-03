@@ -15,6 +15,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, Future}
 
 private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
@@ -22,7 +23,10 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     subscription: ManualSubscription
 ) extends GraphStageLogic(shape)
     with PromiseControl
+    with MetricsControl
     with MessageBuilder[K, V, Msg] {
+  override def executionContext: ExecutionContext = materializer.executionContext
+  override val consumerFuture: Future[ActorRef] = Future.successful(consumer)
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false

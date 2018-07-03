@@ -18,7 +18,7 @@ import akka.testkit.TestProbe
 import akka.util.Timeout
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
 import scala.collection.JavaConverters._
@@ -563,6 +563,22 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
       control.shutdown()
       probe.cancel()
+    }
+
+    "access metrics" in assertAllStagesStopped {
+      val topic = createTopic(1)
+      val group = createGroup(1)
+
+      val control = Consumer
+        .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .map(_.value())
+        .to(TestSink.probe)
+        .run()
+
+      val metrics: Future[Map[MetricName, Metric]] = control.metrics
+      metrics.futureValue should not be 'empty
+
+      Await.result(control.shutdown(), remainingOrDefault)
     }
 
   }

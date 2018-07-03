@@ -91,7 +91,7 @@ private[kafka] object ConsumerStage {
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
         new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
-        with CommittableMessageBuilder[K, V] with MetricsControl {
+        with CommittableMessageBuilder[K, V] {
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -341,15 +341,18 @@ private[kafka] trait PromiseControl extends GraphStageLogic with Control {
 
 private[kafka] trait MetricsControl extends Control {
 
-  protected def consumer: ActorRef
+  protected def executionContext: ExecutionContext
+  protected def consumerFuture: Future[ActorRef]
 
   def metrics: Future[Map[MetricName, Metric]] = {
     import akka.pattern.ask
-
     import scala.concurrent.duration._
-    consumer
-      .?(RequestMetrics)(Timeout(1.minute))
-      .mapTo[ConsumerMetrics]
-      .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+    consumerFuture
+      .flatMap { consumer =>
+        consumer
+          .ask(RequestMetrics)(Timeout(1.minute))
+          .mapTo[ConsumerMetrics]
+          .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+      }(executionContext)
   }
 }
