@@ -139,8 +139,10 @@ lazy val testkit = project
 lazy val tests = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
+  .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= testDependencies ++ integrationTestDependencies,
@@ -149,7 +151,6 @@ lazy val tests = project
     Test / parallelExecution := false,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath
   )
-  .configs(IntegrationTest)
 
 lazy val docs = project
   .in(file("docs"))

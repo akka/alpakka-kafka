@@ -30,8 +30,8 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
   "A Producer" must {
 
     "continue to work when there is another Kafka port available" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
 
@@ -76,8 +76,8 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
 
     "pick up again when the Kafka server comes back up" ignore /* because it is flaky */ {
       assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val group1 = createGroup(1)
+        val topic1 = createTopicName(1)
+        val group1 = createGroupId(1)
 
         givenInitializedTopic(topic1)
 
@@ -145,8 +145,8 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
   "A Consumer" must {
 
     "continue to work when there is another Kafka port available" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
 
@@ -175,8 +175,8 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
     }
 
     "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
 

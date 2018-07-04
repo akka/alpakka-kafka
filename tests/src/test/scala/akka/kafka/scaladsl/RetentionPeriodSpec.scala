@@ -32,8 +32,8 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
   "After retention period (1 min) consumer" must {
 
     "resume from committed offset" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
       produce(topic1, 1 to 100)
