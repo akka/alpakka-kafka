@@ -6,6 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.Done
+import akka.kafka.KafkaPorts
 import akka.kafka.test.Utils._
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
@@ -13,7 +14,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
+class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,

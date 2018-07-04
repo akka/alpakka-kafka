@@ -15,7 +15,9 @@ val coreDependencies = Seq(
 )
 
 val testkitDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
+  "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" exclude ("log4j", "log4j"),
+  "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 
 val testDependencies = Seq(
@@ -26,9 +28,13 @@ val testDependencies = Seq(
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
-  "org.mockito" % "mockito-core" % "2.15.0" % Test,
-  "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" % Test exclude ("log4j", "log4j"),
-  "org.apache.kafka" %% "kafka" % kafkaVersion % Test exclude ("org.slf4j", "slf4j-log4j12")
+  "org.mockito" % "mockito-core" % "2.15.0" % Test
+)
+
+val integrationTestDependencies = Seq(
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+  "org.scalatest" %% "scalatest" % scalatestVersion % "it",
+  "com.spotify" % "docker-client" % "8.11.5" % "it"
 )
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
@@ -110,7 +116,7 @@ lazy val `alpakka-kafka` =
     .aggregate(core, testkit, tests, benchmarks, docs)
 
 lazy val core = project
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
@@ -132,22 +138,18 @@ lazy val testkit = project
 
 lazy val tests = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
   .settings(commonSettings)
+  .settings(Defaults.itSettings)
   .settings(
     name := "akka-stream-kafka-tests",
-    libraryDependencies ++= testDependencies ++ Seq(
-      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-      "org.scalatest" %% "scalatest" % scalatestVersion % "it",
-      "com.spotify" % "docker-client" % "8.11.5" % "it",
-    ),
+    libraryDependencies ++= testDependencies ++ integrationTestDependencies,
     publish / skip := true,
     Test / fork := true,
-    Test / parallelExecution := false
+    Test / parallelExecution := false,
+    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath
   )
-  .settings(Defaults.itSettings)
   .configs(IntegrationTest)
-
 
 lazy val docs = project
   .in(file("docs"))

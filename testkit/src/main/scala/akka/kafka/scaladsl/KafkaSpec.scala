@@ -13,8 +13,11 @@ import akka.actor.ActorSystem
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.testkit.TestSubscriber
+import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
@@ -24,25 +27,34 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-object KafkaTestKit {
-  final case class StageStoppingTimeout(time: FiniteDuration)
+trait EmbeddedKafkaLike extends KafkaSpec {
+
+  lazy val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
+  def createKafkaConfig: EmbeddedKafkaConfig
+
+  override def bootstrapServers =
+    s"localhost:${embeddedKafkaConfig.kafkaPort}"
+
+  override def setUp(): Unit = {
+    EmbeddedKafka.start()(embeddedKafkaConfig)
+    super.setUp()
+  }
+
+  override def cleanUp(): Unit = {
+    EmbeddedKafka.stop()
+    super.cleanUp()
+  }
 }
 
-abstract class KafkaTestKit(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
+abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
     extends TestKit(actorSystem) {
-  import KafkaTestKit._
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
-  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
 
-  implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
-
-  def createKafkaConfig: EmbeddedKafkaConfig
-
-  def bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
+  def bootstrapServers: String
 
   var testProducer: KafkaProducer[String, String] = _
 
@@ -60,15 +72,12 @@ abstract class KafkaTestKit(val kafkaPort: Int, val zooKeeperPort: Int, actorSys
     .withWakeupTimeout(10 seconds)
     .withMaxWakeups(10)
 
-  override protected def beforeAll(): Unit = {
-    EmbeddedKafka.start()(embeddedKafkaConfig)
+  def setUp(): Unit =
     testProducer = producerDefaults.createKafkaProducer()
-  }
 
-  override def afterAll(): Unit = {
+  def cleanUp(): Unit = {
     testProducer.close(60, TimeUnit.SECONDS)
     TestKit.shutdownActorSystem(system)
-    EmbeddedKafka.stop()
   }
 
   def sleep(time: FiniteDuration): Unit = Thread.sleep(time.toMillis)

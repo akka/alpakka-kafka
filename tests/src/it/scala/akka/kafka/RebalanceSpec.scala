@@ -4,7 +4,7 @@ import java.util
 import java.util.{Arrays, Properties, UUID}
 
 import akka.actor.ActorSystem
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl.{Consumer, Producer, ScalatestKafkaSpec}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
@@ -28,7 +28,7 @@ object RebalanceSpec {
     AdminClient.create(config)
   }
 
-  def createTopic(hosts: String, partitions: Int, replication: Int): String = {
+  def createRealTopic(hosts: String, partitions: Int, replication: Int): String = {
     val topicName = UUID.randomUUID().toString
 
     val configs = new util.HashMap[String, String]()
@@ -57,22 +57,18 @@ object RebalanceSpec {
 
     checkCluster(MaxTries)
   }
+
+  val KafkaHosts = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
+  val Kafka1Port = sys.props("kafka_1_9094_port").toInt
+  val Kafka2ContainerId = sys.props("kafka_2_9094_id")
 }
 
-class RebalanceSpec extends TestKit(ActorSystem("RebalanceSpec")) with WordSpecLike with BeforeAndAfterAll with ScalaFutures with Matchers {
+class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
   import RebalanceSpec._
-
-  val kafkaHosts = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
-  val containerId = sys.props("kafka_2_9094_id")
 
   val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
 
   implicit val pc = PatienceConfig(30.seconds, 100.millis)
-  implicit val mat = ActorMaterializer()
-
-  override def afterAll() = {
-    TestKit.shutdownActorSystem(system)
-  }
 
   "alpakka kafka" should {
 
@@ -80,20 +76,20 @@ class RebalanceSpec extends TestKit(ActorSystem("RebalanceSpec")) with WordSpecL
 
       val totalMessages = 1000 * 10
 
-      waitUntilCluster(kafkaHosts) {
+      waitUntilCluster(KafkaHosts) {
         _.nodes().get().size == 3
       }
 
-      val topic = createTopic(kafkaHosts, partitions = 1, replication = 3)
+      val topic = createRealTopic(KafkaHosts, partitions = 1, replication = 3)
 
       val producerSettings = ProducerSettings(system, new StringSerializer, new IntegerSerializer)
-        .withBootstrapServers(kafkaHosts)
+        .withBootstrapServers(KafkaHosts)
 
       val groupId = UUID.randomUUID().toString
       val clientId = UUID.randomUUID().toString
 
       val consumerSettings = ConsumerSettings(system, new StringDeserializer, new IntegerDeserializer)
-        .withBootstrapServers(kafkaHosts)
+        .withBootstrapServers(KafkaHosts)
         .withGroupId(groupId)
         .withClientId(clientId)
 
@@ -118,7 +114,7 @@ class RebalanceSpec extends TestKit(ActorSystem("RebalanceSpec")) with WordSpecL
         .map { c =>
           if (c.value() == totalMessages / 2) {
             system.log.info("Stopping one Kafka container")
-            docker.stopContainer(containerId, 0)
+            docker.stopContainer(Kafka2ContainerId, 0)
           }
           c
         }
