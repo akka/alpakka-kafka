@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import java.util
-import java.util.{Arrays, Properties, UUID}
+import java.util.{Arrays, Properties}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -34,7 +34,7 @@ import scala.language.postfixOps
 
 trait EmbeddedKafkaLike extends KafkaSpec {
 
-  lazy val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
+  lazy implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
   def createKafkaConfig: EmbeddedKafkaConfig
 
   override def bootstrapServers =
