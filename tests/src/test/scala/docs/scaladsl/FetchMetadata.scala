@@ -7,20 +7,30 @@ package docs.scaladsl
 
 // #metadata
 import akka.actor.ActorRef
-import akka.kafka.KafkaConsumerActor
-import akka.kafka.Metadata
+import akka.kafka.{KafkaConsumerActor, KafkaPorts, Metadata}
 import akka.pattern.ask
 import akka.util.Timeout
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.scalatest.TryValues
+import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
 // #metadata
 
-// Connect a Consumer to Producer, mapping messages one-to-many, and commit in batches
-object FetchMetadata extends ConsumerExample {
+class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) with TryValues {
 
-  def main(args: Array[String]): Unit = {
+  def createKafkaConfig: EmbeddedKafkaConfig =
+    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))
+
+  "Consumer metadata" should "be available" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic1 = createTopic(1)
+    sleep(2.seconds)
     // #metadata
     implicit val timeout = Timeout(5.seconds)
 
@@ -31,14 +41,16 @@ object FetchMetadata extends ConsumerExample {
     val topicsFuture: Future[Metadata.Topics] = (consumer ? Metadata.ListTopics).mapTo[Metadata.Topics]
 
     topicsFuture.map(_.response.foreach { map =>
+      println("Found topics:")
       map.foreach {
         case (topic, partitionInfo) =>
           partitionInfo.foreach { info =>
-            println(s"$topic: $info")
+            println(s"  $topic: $info")
           }
       }
     })
     // #metadata
-
+    topicsFuture.futureValue.response should be a 'success
+    topicsFuture.futureValue.response.get(topic1) should not be 'empty
   }
 }
