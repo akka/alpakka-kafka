@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+import java.util
+import java.util.{Arrays, Properties, UUID}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -12,43 +14,52 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.test.Utils._
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
+import kafka.admin.{AdminClient => OldAdminClient}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, DescribeClusterResult, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalatest._
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
 
+import scala.annotation.tailrec
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.collection.immutable
 
-abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
-    extends TestKit(actorSystem)
-    with WordSpecLike
-    with Matchers
-    with BeforeAndAfterAll
-    with ScalaFutures
-    with Eventually {
+trait EmbeddedKafkaLike extends KafkaSpec {
+
+  lazy val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
+  def createKafkaConfig: EmbeddedKafkaConfig
+
+  override def bootstrapServers =
+    s"localhost:${embeddedKafkaConfig.kafkaPort}"
+
+  override def setUp(): Unit = {
+    EmbeddedKafka.start()(embeddedKafkaConfig)
+    super.setUp()
+  }
+
+  override def cleanUp(): Unit = {
+    EmbeddedKafka.stop()
+    super.cleanUp()
+  }
+}
+
+abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
+    extends TestKit(actorSystem) {
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
-  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
 
-  implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
-
-  def createKafkaConfig: EmbeddedKafkaConfig
-
-  def bootstrapServers = s"localhost:${embeddedKafkaConfig.kafkaPort}"
+  def bootstrapServers: String
 
   var testProducer: KafkaProducer[String, String] = _
 
@@ -66,29 +77,108 @@ abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem:
     .withWakeupTimeout(10 seconds)
     .withMaxWakeups(10)
 
-  override protected def beforeAll(): Unit = {
-    EmbeddedKafka.start()(embeddedKafkaConfig)
-    testProducer = producerDefaults.createKafkaProducer()
+  val adminDefaults = {
+    val config = new Properties()
+    config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+    config
   }
 
-  override def afterAll(): Unit = {
+  def setUp(): Unit =
+    testProducer = producerDefaults.createKafkaProducer()
+
+  def cleanUp(): Unit = {
     testProducer.close(60, TimeUnit.SECONDS)
     TestKit.shutdownActorSystem(system)
-    EmbeddedKafka.stop()
   }
 
   def sleep(time: FiniteDuration): Unit = Thread.sleep(time.toMillis)
 
   private val topicCounter = new AtomicInteger()
 
-  def createTopic(number: Int) = s"topic-$number-${topicCounter.incrementAndGet()}"
+  def createTopicName(number: Int) = s"topic-$number-${topicCounter.incrementAndGet()}"
 
-  def createGroup(number: Int) = s"group-$number-${topicCounter.incrementAndGet()}"
+  def createGroupId(number: Int) = s"group-$number-${topicCounter.incrementAndGet()}"
 
   val partition0 = 0
 
   def givenInitializedTopic(topic: String): Unit =
     testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
+
+  def adminClient(): AdminClient =
+    AdminClient.create(adminDefaults)
+
+  /**
+   * Get an old admin client which is deprecated. However only this client allows access
+   * to consumer group summaries
+   *
+   */
+  def oldAdminClient(): OldAdminClient =
+    OldAdminClient.create(adminDefaults)
+
+  /**
+   * Periodically checks if a given predicate on cluster state holds.
+   *
+   * If the predicate does not hold after `maxTries`, throws an exception.
+   */
+  def waitUntilCluster(maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
+      predicate: DescribeClusterResult => Boolean
+  ): Unit = {
+    @tailrec def checkCluster(triesLeft: Int): Unit = {
+      val cluster = adminClient().describeCluster()
+      if (!predicate(cluster)) {
+        if (triesLeft > 0) {
+          sleep(sleepInBetween)
+          checkCluster(triesLeft - 1)
+        } else {
+          throw new Error("Failure while waiting for desired cluster state")
+        }
+      }
+    }
+
+    checkCluster(maxTries)
+  }
+
+  /**
+   * Periodically checks if a given predicate on consumer group state holds.
+   *
+   * If the predicate does not hold after `maxTries`, throws an exception.
+   */
+  def waitUntilConsumerGroup(
+      groupId: String,
+      timeout: Duration = 1.second,
+      maxTries: Int = 10,
+      sleepInBetween: FiniteDuration = 100.millis
+  )(predicate: kafka.admin.AdminClient#ConsumerGroupSummary => Boolean) = {
+    @tailrec def checkConsumerGroup(triesLeft: Int): Unit = {
+      val consumerGroup = oldAdminClient().describeConsumerGroup(groupId, timeout.toMillis)
+      if (!predicate(consumerGroup)) {
+        if (triesLeft > 0) {
+          sleep(sleepInBetween)
+          checkConsumerGroup(triesLeft - 1)
+        } else {
+          throw new Error("Failure while waiting for desired consumer group state")
+        }
+      }
+    }
+
+    checkConsumerGroup(maxTries)
+  }
+
+  /**
+   * Create a topic with given partinion number and replication factor.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(number: Int, partitions: Int, replication: Int): String = {
+    val topicName = createTopicName(number)
+
+    val configs = new util.HashMap[String, String]()
+    val createResult = adminClient().createTopics(
+      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
+    )
+    createResult.all()
+    topicName
+  }
 
   /**
    * Produce messages to topic using specified range and return

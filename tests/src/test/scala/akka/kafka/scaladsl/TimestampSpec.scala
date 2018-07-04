@@ -30,8 +30,8 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
   "Kafka connector" must {
     "begin consuming from the given timestamp of the topic" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -61,8 +61,8 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
     "handle topic that has no messages by timestamp" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -87,7 +87,7 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
     "handle non existing topic" in {
       assertAllStagesStopped {
-        val group = createGroup(1)
+        val group = createGroupId(1)
 
         val now = System.currentTimeMillis()
 

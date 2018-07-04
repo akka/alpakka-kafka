@@ -38,8 +38,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
   "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
       assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val group1 = createGroup(1)
+        val topic1 = createTopicName(1)
+        val group1 = createGroupId(1)
 
         givenInitializedTopic(topic1)
 
@@ -56,9 +56,9 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "resume consumer from committed offset" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
-      val group2 = createGroup(2)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
+      val group2 = createGroupId(2)
 
       givenInitializedTopic(topic1)
 
@@ -128,8 +128,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "be able to set rebalance listener" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
@@ -162,8 +162,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "handle commit without demand" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
 
@@ -202,8 +202,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "consume and commit in batches" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       givenInitializedTopic(topic1)
 
@@ -245,9 +245,9 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "connect consumer to producer and commit in batches" in {
       assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val topic2 = createTopic(2)
-        val group1 = createGroup(1)
+        val topic1 = createTopicName(1)
+        val topic2 = createTopicName(2)
+        val group1 = createGroupId(1)
 
         givenInitializedTopic(topic1)
 
@@ -279,8 +279,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "not produce any records after send-failure if stage is stopped" in {
       assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val group1 = createGroup(1)
+        val topic1 = createTopicName(1)
+        val group1 = createGroupId(1)
         // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
         // effectively failing the production of the first messages
         val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
@@ -300,8 +300,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for committableSource used with take" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
 
@@ -318,8 +318,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
-      val group1 = createGroup(1)
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
 
@@ -337,8 +337,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "begin consuming from the beginning of the topic" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -363,8 +363,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "begin consuming from the middle of the topic" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -389,8 +389,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "call the onRevoked hook" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -426,8 +426,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "support metadata fetching on ConsumerActor" in {
       assertAllStagesStopped {
-        val topic = createTopic(1)
-        val group = createGroup(1)
+        val topic = createTopicName(1)
+        val group = createGroupId(1)
 
         givenInitializedTopic(topic)
 
@@ -508,8 +508,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete source when stopped" in
     assertAllStagesStopped {
-      val topic = createTopic(1)
-      val group = createGroup(1)
+      val topic = createTopicName(1)
+      val group = createGroupId(1)
 
       givenInitializedTopic(topic)
 
@@ -537,8 +537,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete partition sources when stopped" in
     assertAllStagesStopped {
-      val topic = createTopic(1)
-      val group = createGroup(1)
+      val topic = createTopicName(1)
+      val group = createGroupId(1)
 
       givenInitializedTopic(topic)
 

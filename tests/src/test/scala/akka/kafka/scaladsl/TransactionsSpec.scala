@@ -33,9 +33,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
     "complete" in {
       assertAllStagesStopped {
-        val sourceTopic = createTopic(1)
-        val sinkTopic = createTopic(2)
-        val group = createGroup(1)
+        val sourceTopic = createTopicName(1)
+        val sinkTopic = createTopicName(2)
+        val group = createGroupId(1)
 
         givenInitializedTopic(sourceTopic)
         givenInitializedTopic(sinkTopic)
@@ -55,7 +55,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           .toMat(Sink.ignore)(Keep.left)
           .run()
 
-        val probeConsumerGroup = createGroup(2)
+        val probeConsumerGroup = createGroupId(2)
         val probeConsumerSettings = consumerDefaults
           .withGroupId(probeConsumerGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
@@ -76,9 +76,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
 
     "complete when messages are filtered out" in assertAllStagesStopped {
-      val sourceTopic = createTopic(1)
-      val sinkTopic = createTopic(2)
-      val group = createGroup(1)
+      val sourceTopic = createTopicName(1)
+      val sinkTopic = createTopicName(2)
+      val group = createGroupId(1)
 
       givenInitializedTopic(sourceTopic)
       givenInitializedTopic(sinkTopic)
@@ -102,7 +102,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         .toMat(Sink.ignore)(Keep.left)
         .run()
 
-      val probeConsumerGroup = createGroup(2)
+      val probeConsumerGroup = createGroupId(2)
       val probeConsumerSettings = consumerDefaults
         .withGroupId(probeConsumerGroup)
         .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
@@ -123,9 +123,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
     "complete with transient failure causing an abort with restartable source" in {
       assertAllStagesStopped {
-        val sourceTopic = createTopic(1)
-        val sinkTopic = createTopic(2)
-        val group = createGroup(1)
+        val sourceTopic = createTopicName(1)
+        val sinkTopic = createTopicName(2)
+        val group = createGroupId(1)
 
         givenInitializedTopic(sourceTopic)
         givenInitializedTopic(sinkTopic)
@@ -166,7 +166,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
         restartSource.runWith(Sink.ignore)
 
-        val probeGroup = createGroup(2)
+        val probeGroup = createGroupId(2)
         val probeConsumerSettings = consumerDefaults
           .withGroupId(probeGroup)
           .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
@@ -187,9 +187,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
 
     "complete with messages filtered out and transient failure causing an abort with restartable source" in assertAllStagesStopped {
-      val sourceTopic = createTopic(1)
-      val sinkTopic = createTopic(2)
-      val group = createGroup(1)
+      val sourceTopic = createTopicName(1)
+      val sinkTopic = createTopicName(2)
+      val group = createGroupId(1)
 
       givenInitializedTopic(sourceTopic)
       givenInitializedTopic(sinkTopic)
@@ -236,7 +236,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       restartSource.runWith(Sink.ignore)
 
-      val probeGroup = createGroup(2)
+      val probeGroup = createGroupId(2)
       val probeConsumerSettings = consumerDefaults
         .withGroupId(probeGroup)
         .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")

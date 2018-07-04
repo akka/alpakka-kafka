@@ -6,6 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.Done
+import akka.kafka.KafkaPorts
 import akka.kafka.test.Utils._
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
@@ -13,7 +14,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
+class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
@@ -28,8 +29,8 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
   "Multiple consumer in a single consumer group" must {
 
     "together read all data from multiple topics" in assertAllStagesStopped {
-      val topics = List(createTopic(0), createTopic(1), createTopic(2))
-      val group1 = createGroup(1)
+      val topics = List(createTopicName(0), createTopicName(1), createTopicName(2))
+      val group1 = createGroupId(1)
 
       // produce 10 batches of 10 elements to all topics
       val batches = 10
@@ -64,9 +65,9 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
   "Consumer in different consumer groups" must {
 
     "read all data from multiple topics" in assertAllStagesStopped {
-      val topics = List(createTopic(0), createTopic(1), createTopic(2))
-      val group1 = createGroup(1)
-      val group2 = createGroup(2)
+      val topics = List(createTopicName(0), createTopicName(1), createTopicName(2))
+      val group1 = createGroupId(1)
+      val group2 = createGroupId(2)
 
       // produce 10 batches of 10 elements to all topics
       val batches = 10
@@ -92,9 +93,9 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = 9032) {
     }
 
     "read all data from multiple topics in multiple partitions" in assertAllStagesStopped {
-      val topics = List(createTopic(0), createTopic(1), createTopic(2))
-      val group1 = createGroup(1)
-      val group2 = createGroup(2)
+      val topics = List(createTopicName(0), createTopicName(1), createTopicName(2))
+      val group1 = createGroupId(1)
+      val group2 = createGroupId(2)
 
       // produce 10 batches of 10 elements to all topics on different partitions
       val batches = 10
