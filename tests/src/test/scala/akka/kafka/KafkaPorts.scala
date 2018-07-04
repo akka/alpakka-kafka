@@ -20,5 +20,6 @@ object KafkaPorts {
   val MultiConsumerSpec = 9052
   val ScalaConsumerExamples = 9062
   val ScalaPartitionExamples = 9072
+  val ScalaAtLeastOnceExamples = 9082
 
 }
