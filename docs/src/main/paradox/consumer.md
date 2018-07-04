@@ -185,7 +185,7 @@ If you have many streams it can be more efficient to share the underlying `Kafka
  factory methods.
 
 Scala
-: @@ snip [consumerToProducerSink](../../../../tests/src/test/scala/docs//scaladsl/ConsumerExample.scala) { #consumerActor }
+: @@ snip [consumerToProducerSink](../../../../tests/src/test/scala/docs//scaladsl/PartitionExamples.scala) { #consumerActor }
 
 Java
 : @@ snip [consumerToProducerSink](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerActor }
@@ -196,7 +196,7 @@ Java
 You can access the underlying consumer metrics via the materialized `Control` instance: 
 
 Scala
-: @@ snip [consumerMetrics](../../../../tests/src/test/scala/docs//scaladsl/ConsumerExample.scala) { #consumerMetrics }
+: @@ snip [consumerMetrics](../../../../tests/src/test/scala/docs//scaladsl/PartitionExamples.scala) { #consumerMetrics }
 
 Java
 : @@ snip [consumerMetrics](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerMetrics }

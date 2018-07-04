@@ -74,7 +74,7 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
-  override def sleepAfterProduce(): FiniteDuration = 4.seconds
+  override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
 
   "ExternalOffsetStorage" should "work" in {
@@ -508,93 +508,6 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     control.get().shutdown()
     //#restartSource
     Await.result(result, 5.seconds) should have size 10
-  }
-
-}
-
-class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) {
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "broker.id" -> "1",
-                          "num.partitions" -> "3",
-                          "offsets.topic.replication.factor" -> "1",
-                          "offsets.topic.num.partitions" -> "3"
-                        ))
-
-  "Externally controlled kafka consumer" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
-    val partition1 = 1
-    val partition2 = 2
-    // #consumerActor
-    //Consumer is represented by actor
-    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-    //Manually assign topic partition to it
-    val (controlPartition1, result1) = Consumer
-      .plainExternalSource[String, Array[Byte]](
-        consumer,
-        Subscriptions.assignment(new TopicPartition(topic, partition1))
-      )
-      .via(businessFlow)
-      .toMat(Sink.seq)(Keep.both)
-      .run()
-
-    //Manually assign another topic partition
-    val (controlPartition2, result2) = Consumer
-      .plainExternalSource[String, Array[Byte]](
-        consumer,
-        Subscriptions.assignment(new TopicPartition(topic, partition2))
-      )
-      .via(businessFlow)
-      .toMat(Sink.seq)(Keep.both)
-      .run()
-
-    // ....
-
-    // #consumerActor
-    awaitProduce(produce(topic, 1 to 10, partition1), produce(topic, 1 to 10, partition2))
-    awaitMultiple(2.seconds,
-                  // #consumerActor
-                  controlPartition1.shutdown()
-                  // #consumerActor
-                  ,
-                  // #consumerActor
-                  controlPartition2.shutdown()
-                  // #consumerActor
-    )
-    // #consumerActor
-    consumer ! KafkaConsumerActor.Stop
-    // #consumerActor
-
-    result1.futureValue should have size 10
-    result2.futureValue should have size 10
-  }
-
-  "Consumer Metrics" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
-    val partition = 1
-    // #consumerMetrics
-    val control: Consumer.Control = Consumer
-      .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition)))
-      .via(businessFlow)
-      .to(Sink.ignore)
-      .run()
-
-    // #consumerMetrics
-    // can be removed when https://github.com/akka/alpakka-kafka/issues/528 is fixed
-    sleep(500.millis)
-    // #consumerMetrics
-
-    val metrics: Future[Map[MetricName, Metric]] = control.metrics
-    metrics.foreach(map => println(s"metrics: ${map.mkString("\n")}"))
-    // #consumerMetrics
-    Await.result(metrics, 5.seconds) should not be 'empty
-    control.shutdown()
   }
 
 }
