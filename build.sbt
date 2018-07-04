@@ -128,6 +128,7 @@ lazy val core = project
 lazy val testkit = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-testkit",
@@ -139,6 +140,7 @@ lazy val testkit = project
 lazy val tests = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .disablePlugins(MimaPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
