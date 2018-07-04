@@ -1,4 +1,10 @@
-package sample.scaladsl
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ */
+
+package docs.scaladsl
+
 // #oneToMany
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage.{Envelope, Message, MultiMessage, PassThroughMessage}

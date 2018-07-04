@@ -25,11 +25,12 @@ import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, DescribeC
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
 trait EmbeddedKafkaLike extends KafkaSpec {
@@ -55,6 +56,8 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     extends TestKit(actorSystem) {
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
+
+  def log: Logger = LoggerFactory.getLogger(getClass)
 
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
@@ -91,13 +94,26 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     TestKit.shutdownActorSystem(system)
   }
 
-  def sleep(time: FiniteDuration): Unit = Thread.sleep(time.toMillis)
+  def sleep(time: FiniteDuration): Unit = {
+    log.debug(s"sleeping $time")
+    Thread.sleep(time.toMillis)
+  }
+
+  def awaitMultiple[T](d: FiniteDuration, futures: Future[T]*): Seq[T] =
+    Await.result(Future.sequence(futures), d)
+
+  def sleepAfterProduce: FiniteDuration = 4.seconds
+
+  def awaitProduce(futures: Future[Done]*): Unit = {
+    awaitMultiple(4.seconds, futures: _*)
+    sleep(sleepAfterProduce)
+  }
 
   private val topicCounter = new AtomicInteger()
 
   def createTopicName(number: Int) = s"topic-$number-${topicCounter.incrementAndGet()}"
 
-  def createGroupId(number: Int) = s"group-$number-${topicCounter.incrementAndGet()}"
+  def createGroupId(number: Int = 0) = s"group-$number-${topicCounter.incrementAndGet()}"
 
   val partition0 = 0
 
@@ -169,7 +185,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(number: Int, partitions: Int, replication: Int): String = {
+  def createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
     val topicName = createTopicName(number)
 
     val configs = new util.HashMap[String, String]()

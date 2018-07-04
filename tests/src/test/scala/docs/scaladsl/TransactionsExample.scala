@@ -1,4 +1,9 @@
-package sample.scaladsl
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ */
+
+package docs.scaladsl
 
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.Transactional

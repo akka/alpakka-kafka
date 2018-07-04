@@ -3,7 +3,7 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package sample.scaladsl
+package docs.scaladsl
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -30,7 +30,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
-abstract class SpecBase(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
+abstract class SpecBaseOLD(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
     extends TestKit(actorSystem)
     with FlatSpecLike
     with Matchers

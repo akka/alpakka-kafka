@@ -18,5 +18,7 @@ object KafkaPorts {
   val ReconnectSpecProxy = 9034
   val TimestampSpec = 9042
   val MultiConsumerSpec = 9052
+  val ScalaConsumerExamples = 9062
+  val ScalaPartitionExamples = 9072
 
 }

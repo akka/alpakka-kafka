@@ -35,7 +35,7 @@ To gracefully shutdown the stream and commit the current transaction you must ca
 ### Simple Example
 
 Scala
-: @@ snip [transactionalSink](../../test/scala/sample/scaladsl/TransactionsExample.scala) { #transactionalSink }
+: @@ snip [transactionalSink](../../../../tests/src/test/scala/docs//scaladsl/TransactionsExample.scala) { #transactionalSink }
 
 Java
 : @@ snip [transactionalSink](../../test/java/sample/javadsl/TransactionsExample.java) { #transactionalSink }
@@ -47,7 +47,7 @@ When any stage in the stream fails the whole stream will be torn down.  In the g
 For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the `RestartSource` (@extref[Akka docs](akka-docs:/stream/stream-error.html#delayed-restarts-with-a-backoff-stage)) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
 
 Scala
-: @@ snip [transactionalFailureRetry](../../test/scala/sample/scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
+: @@ snip [transactionalFailureRetry](../../../../tests/src/test/scala/docs//scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
 
 Java
 : @@ snip [transactionalFailureRetry](../../test/java/sample/javadsl/TransactionsExample.java) { #transactionalFailureRetry }

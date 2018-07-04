@@ -41,12 +41,7 @@ val integrationTestDependencies = Seq(
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
 val docDependencies = Seq(
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-  "org.scalatest" %% "scalatest" % scalatestVersion,
-  "net.manub" %% "scalatest-embedded-kafka" % "1.0.0" exclude ("log4j", "log4j")
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 ).map(_ % Test)
 
 val commonSettings = Seq(

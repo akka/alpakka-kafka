@@ -1,8 +1,9 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package sample.scaladsl
+
+package docs.scaladsl
 
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
@@ -10,7 +11,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl._
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
@@ -24,7 +25,6 @@ import org.apache.kafka.common.serialization.{
   StringSerializer
 }
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import sample.DocKafkaPorts
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -69,10 +69,12 @@ trait ConsumerExample {
 }
 
 // Consume messages and store a representation, including offset, in DB
-class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
+class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
+
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
+  override def sleepAfterProduce(): FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
 
   "ExternalOffsetStorage" should "work" in {
@@ -126,7 +128,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   // format: on
 
   "Consume messages at-most-once" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #atMostOnce
     val (control, result) =
@@ -154,7 +156,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   def business(rec: ConsumerRecord[String, String]): Future[Done] = Future.successful(Done)
 
   "Consume messages at-least-once" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #atLeastOnce
     val control =
@@ -180,7 +182,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   // format: on
 
   "Consume messages at-least-once, and commit in batches" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #atLeastOnceBatch
     val control =
@@ -204,7 +206,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Connect a Consumer to Producer" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic1 = createTopic(1)
     val topic2 = createTopic(2)
     val targetTopic = createTopic(3)
@@ -225,10 +227,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
     // #consumerToProducerSink
     //format: on
-    awaitProduce(
-      produce(topic1, 1 to 10),
-      produce(topic2, 1 to 10)
-    )
+    awaitProduce(produce(topic1, 1 to 10), produce(topic2, 1 to 10))
     Await.result(control.drainAndShutdown(), 1.seconds)
     val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
     val receiveControl = Consumer
@@ -242,7 +241,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Connect a Consumer to Producer" should "support flows" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic(1)
     val targetTopic = createTopic(2)
     val producerSettings = producerDefaults
@@ -277,7 +276,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Connect a Consumer to Producer, and commit in batches" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic(1)
     val targetTopic = createTopic(2)
     val producerSettings = producerDefaults
@@ -301,7 +300,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
     // #consumerToProducerFlowBatch
     awaitProduce(produce(topic, 1 to 10))
     Await.result(control.drainAndShutdown(), 5.seconds)
-    val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings2 = consumerDefaults.withGroupId(createGroupId())
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
       .toMat(Sink.seq)(Keep.both)
@@ -312,7 +311,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic(1)
     val targetTopic = createTopic(2)
     val producerSettings = producerDefaults
@@ -338,7 +337,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
         .run()
     awaitProduce(produce(topic, 1 to 10))
     Await.result(control.shutdown(), 10.seconds)
-    val consumerSettings2 = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings2 = consumerDefaults.withGroupId(createGroupId())
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
       .toMat(Sink.seq)(Keep.both)
@@ -349,8 +348,9 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Backpressure per partition with batch commit" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
+    val maxPartitions = 100
     // #committablePartitionedSource
     val (control, result) = Consumer
       .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
@@ -368,8 +368,9 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Flow per partition" should "Process each assigned partition separately" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
+    val maxPartitions = 100
     // #committablePartitionedSource-stream-per-partition
     val (control, result) = Consumer
       .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
@@ -390,7 +391,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Rebalance Listener" should "get messages" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val assignedPromise = Promise[Done]
     val revokedPromise = Promise[Done]
@@ -438,7 +439,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Shutdown via Consumer.Control" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val offset = 123456L
     // #shutdownPlainSource
@@ -458,7 +459,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Shutdown when batching commits" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #shutdownCommitableSource
     val drainingControl =
@@ -481,7 +482,7 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
   }
 
   "Restarting Stream" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     //#restartSource
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
@@ -511,7 +512,8 @@ class ConsumerExamples extends SpecBase(DocKafkaPorts.ConsumerExamples) {
 
 }
 
-class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
+class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) {
+
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
@@ -523,7 +525,7 @@ class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
                         ))
 
   "Externally controlled kafka consumer" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val partition1 = 1
     val partition2 = 2
@@ -554,18 +556,15 @@ class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
     // ....
 
     // #consumerActor
-    awaitProduce(
-      produce(topic, 1 to 10, partition1),
-      produce(topic, 1 to 10, partition2)
-    )
-    awaitMutiple(2.seconds,
-                 // #consumerActor
-                 controlPartition1.shutdown()
-                 // #consumerActor
-                 ,
-                 // #consumerActor
-                 controlPartition2.shutdown()
-                 // #consumerActor
+    awaitProduce(produce(topic, 1 to 10, partition1), produce(topic, 1 to 10, partition2))
+    awaitMultiple(2.seconds,
+                  // #consumerActor
+                  controlPartition1.shutdown()
+                  // #consumerActor
+                  ,
+                  // #consumerActor
+                  controlPartition2.shutdown()
+                  // #consumerActor
     )
     // #consumerActor
     consumer ! KafkaConsumerActor.Stop
@@ -576,7 +575,7 @@ class PartitionExamples extends SpecBase(DocKafkaPorts.PartitionExamples) {
   }
 
   "Consumer Metrics" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroup())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val partition = 1
     // #consumerMetrics
