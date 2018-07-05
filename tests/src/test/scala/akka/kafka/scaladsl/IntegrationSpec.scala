@@ -566,8 +566,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "access metrics" in assertAllStagesStopped {
-      val topic = createTopic(1)
-      val group = createGroup(1)
+      val topic = createTopic(number = 1, partitions = 1, replication = 1)
+      val group = createGroupId(1)
 
       val control = Consumer
         .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
