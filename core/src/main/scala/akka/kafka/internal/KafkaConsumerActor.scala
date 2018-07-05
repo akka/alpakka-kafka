@@ -482,7 +482,6 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   private def commit(offsets: Map[TopicPartition, Long], reply: ActorRef): Unit = {
     commitRefreshDeadline = nextCommitRefreshDeadline()
     val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
-    val reply = sender()
     commitsInProgress += 1
     val startTime = System.nanoTime()
     consumer.commitAsync(
