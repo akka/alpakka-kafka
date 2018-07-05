@@ -79,8 +79,9 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
 
   "Consumer Metrics" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
+    val topic = createTopic(partitions = 3)
     val partition = 1
+    def println(s: String): Unit = {}
     // #consumerMetrics
     val control: Consumer.Control = Consumer
       .plainSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition)))
@@ -96,7 +97,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
     val metrics: Future[Map[MetricName, Metric]] = control.metrics
     metrics.foreach(map => println(s"metrics: ${map.mkString("\n")}"))
     // #consumerMetrics
-    Await.result(metrics, 10.seconds) should not be 'empty
+    Await.result(metrics, 4.seconds) should not be 'empty
     control.shutdown()
   }
 
