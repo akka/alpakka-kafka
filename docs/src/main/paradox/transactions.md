@@ -30,7 +30,7 @@ Transactions are committed on an interval which can be controlled with the produ
 
 When the stream is materialized the producer will initialize the transaction for the provided `transactional.id` and a transaction will begin.  Every commit interval (`eos-commit-interval`) we check if there are any offsets available to commit.  If offsets exist then we suspend backpressured demand while we drain all outstanding messages that have not yet been successfully acknowledged (if any) and then commit the transaction.  After the commit succeeds a new transaction is begun and we re-initialize demand for upstream messages.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.docs.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 

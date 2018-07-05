@@ -32,7 +32,7 @@ See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer)
 ## Producer as a Sink
 
 `Producer.plainSink` 
-(@scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer$)]@java[@scaladoc[Producer API](akka.kafka.docs.javadsl.Producer$)]) 
+(@scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer$)]@java[@scaladoc[Producer API](akka.kafka.javadsl.Producer$)]) 
 is the easiest way to publish messages. The sink consumes the Kafka type `ProducerRecord` (@javadoc[Kafka API](org.apache.kafka.clients.producer.ProducerRecord)) which contains 
 
 1. a topic name to which the record is being sent, 
