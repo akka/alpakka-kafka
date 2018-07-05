@@ -31,9 +31,7 @@ class AtLeastOnceOneToManyExample extends DocsSpecBase(KafkaPorts.ScalaAtLeastOn
 
   "Connect a Consumer to Producer" should "map messages one-to-many, and commit in batches" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic1 = createTopic(1)
-    val topic2 = createTopic(2)
-    val topic3 = createTopic(3)
+    val immutable.Seq(topic1, topic2, topic3) = createTopics(1, 2, 3)
     val producerSettings = producerDefaults
     val control =
       // #oneToMany
@@ -74,10 +72,7 @@ class AtLeastOnceOneToManyExample extends DocsSpecBase(KafkaPorts.ScalaAtLeastOn
     def ignore(value: String): Boolean = "2" == value
 
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic1 = createTopic(1)
-    val topic2 = createTopic(2)
-    val topic3 = createTopic(3)
-    val topic4 = createTopic(4)
+    val immutable.Seq(topic1, topic2, topic3, topic4) = createTopics(1, 2, 3, 4)
     val producerSettings = producerDefaults
     val control =
       // #oneToConditional

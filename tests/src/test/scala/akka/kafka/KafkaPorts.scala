@@ -22,5 +22,6 @@ object KafkaPorts {
   val ScalaPartitionExamples = 9072
   val ScalaAtLeastOnceExamples = 9082
   val ScalaFetchMetadataExamples = 9092
+  val ScalaTransactionsExamples = 9102
 
 }

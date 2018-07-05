@@ -26,6 +26,7 @@ import org.apache.kafka.common.serialization.{
 }
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
@@ -207,9 +208,7 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic1 = createTopic(1)
-    val topic2 = createTopic(2)
-    val targetTopic = createTopic(3)
+    val immutable.Seq(topic1, topic2, targetTopic) = createTopics(1, 2, 3)
     val producerSettings = producerDefaults
     //format: off
     // #consumerToProducerSink
@@ -242,8 +241,7 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer" should "support flows" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(1)
-    val targetTopic = createTopic(2)
+    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
     // #consumerToProducerFlow
     val control = Consumer
@@ -277,8 +275,7 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer, and commit in batches" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(1)
-    val targetTopic = createTopic(2)
+    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
     // #consumerToProducerFlowBatch
     val control = Consumer
@@ -312,8 +309,7 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(1)
-    val targetTopic = createTopic(2)
+    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
     val source = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(topic))

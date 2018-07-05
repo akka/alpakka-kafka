@@ -12,7 +12,6 @@ import akka.pattern.ask
 import akka.util.Timeout
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.scalatest.TryValues
-import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -24,13 +23,9 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
-  override implicit def patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))
-
   "Consumer metadata" should "be available" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic1 = createTopic(1)
-    sleep(2.seconds)
+    val topic = createTopic()
     // #metadata
     implicit val timeout = Timeout(5.seconds)
 
@@ -51,6 +46,6 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
     })
     // #metadata
     topicsFuture.futureValue.response should be a 'success
-    topicsFuture.futureValue.response.get(topic1) should not be 'empty
+    topicsFuture.futureValue.response.get(topic) should not be 'empty
   }
 }
