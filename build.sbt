@@ -32,9 +32,12 @@ val testDependencies = Seq(
 )
 
 val integrationTestDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-  "org.scalatest" %% "scalatest" % scalatestVersion % "it",
-  "com.spotify" % "docker-client" % "8.11.5" % "it"
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
+  "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
+  "com.spotify" % "docker-client" % "8.11.5" % IntegrationTest,
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
 )
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
@@ -101,9 +104,12 @@ lazy val `alpakka-kafka` =
             |** Welcome to the Alpakka Kafka connector! **
             |
             |The build has three modules
-            |  core - the Kafka connector sources and tests
+            |  core - the Kafka connector sources
+            |  tests - tests, Docker based integration tests, code for the documentation
+            |  testkit - framework for testing the connector
+            |
             |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
-            |  benchmarks - for instrunctions read benchmarks/README.md
+            |  benchmarks - for instructions read benchmarks/README.md
             |
             |Useful sbt tasks:
             |
@@ -111,6 +117,8 @@ lazy val `alpakka-kafka` =
             |    docs/target/paradox/site/local/home.html
             |
             |  test - runs all the tests
+            |  tests/dockerComposeTest it:test --scale kafka=3
+            |    - run integration test backed by Docker containers
           """.stripMargin
     )
     .aggregate(core, testkit, tests, benchmarks, docs)
