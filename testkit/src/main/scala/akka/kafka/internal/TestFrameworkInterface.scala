@@ -18,7 +18,9 @@ object TestFrameworkInterface {
     this: Suite ⇒
 
     abstract override protected def beforeAll(): Unit = {
+      println("will call setup")
       setUp()
+      println("after setup")
       super.beforeAll()
     }
 

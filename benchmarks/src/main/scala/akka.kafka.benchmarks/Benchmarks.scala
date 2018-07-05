@@ -16,39 +16,39 @@ object Benchmarks {
 
   def run(cmd: RunTestCommand)(implicit actorSystem: ActorSystem, mat: Materializer): Unit =
     cmd.testName match {
-      case "plain-consumer-nokafka" =>
+      case "apache-kafka-plain-consumer-nokafka" =>
         runPerfTest(cmd, KafkaConsumerFixtures.noopFixtureGen(cmd), KafkaConsumerBenchmarks.consumePlainNoKafka)
-      case "akka-plain-consumer-nokafka" =>
+      case "alpakka-kafka-plain-consumer-nokafka" =>
         runPerfTest(cmd,
                     ReactiveKafkaConsumerFixtures.noopFixtureGen(cmd),
                     ReactiveKafkaConsumerBenchmarks.consumePlainNoKafka)
-      case "plain-consumer" =>
+      case "apache-kafka-plain-consumer" =>
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
-      case "akka-plain-consumer" =>
+      case "alpakka-kafka-plain-consumer" =>
         runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
-      case "batched-consumer" =>
+      case "apache-kafka-batched-consumer" =>
         runPerfTest(cmd,
                     KafkaConsumerFixtures.filledTopics(cmd),
                     KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-      case "akka-batched-consumer" =>
+      case "alpakka-kafka-batched-consumer" =>
         runPerfTest(cmd,
                     ReactiveKafkaConsumerFixtures.commitableSources(cmd),
                     ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-      case "at-most-once-consumer" =>
+      case "apache-kafka-at-most-once-consumer" =>
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumeCommitAtMostOnce)
-      case "akka-at-most-once-consumer" =>
+      case "alpakka-kafka-at-most-once-consumer" =>
         runPerfTest(cmd,
                     ReactiveKafkaConsumerFixtures.commitableSources(cmd),
                     ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
-      case "plain-producer" =>
+      case "apache-kafka-plain-producer" =>
         runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
-      case "akka-plain-producer" =>
+      case "alpakka-kafka-plain-producer" =>
         runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
-      case "transactions" =>
+      case "apache-kafka-transactions" =>
         runPerfTest(cmd,
                     KafkaTransactionFixtures.initialize(cmd),
                     KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
-      case "akka-transactions" =>
+      case "alpakka-kafka-transactions" =>
         runPerfTest(
           cmd,
           ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),

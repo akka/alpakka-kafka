@@ -10,6 +10,6 @@ import org.scalatest.{Suite, WordSpecLike}
 
 abstract class ScalatestKafkaSpec(override val kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
-    with WordSpecLike
+    with Suite
     with TestFrameworkInterface.Scalatest { this: Suite ⇒
 }
