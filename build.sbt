@@ -40,10 +40,6 @@ val integrationTestDependencies = Seq(
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
-val docDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
-).map(_ % Test)
-
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
@@ -156,7 +152,6 @@ lazy val tests = project
 lazy val docs = project
   .in(file("docs"))
   .enablePlugins(ParadoxPlugin)
-  .dependsOn(core)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
@@ -181,9 +176,6 @@ lazy val docs = project
     ),
     paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
     paradoxLocalApiDir := (core / Compile / doc).value,
-    Test / fork := true,
-    Test / parallelExecution := false,
-    libraryDependencies ++= docDependencies
   )
 
 lazy val Benchmark = config("bench") extend Test
