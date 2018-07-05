@@ -23,7 +23,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
@@ -37,6 +37,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     with MetricsControl
     with MessageBuilder[K, V, Msg]
     with StageLogging {
+  val consumerPromise = Promise[ActorRef]
+  override def executionContext: ExecutionContext = materializer.executionContext
+  override def consumerFuture: Future[ActorRef] = consumerPromise.future
   var consumer: ActorRef = _
   var self: StageActor = _
   // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
@@ -54,6 +57,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
     }
+    consumerPromise.success(consumer)
 
     self = getStageActor {
       case (_, Terminated(ref)) if ref == consumer =>
@@ -212,13 +216,14 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     consumer ! KafkaConsumerActor.Internal.Stop
   }
 
-  class SubSourceStage(tp: TopicPartition, consumerRef: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
+  class SubSourceStage(tp: TopicPartition, consumer: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
     val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with PromiseControl with MetricsControl {
-        def consumer = consumerRef
+        override def executionContext: ExecutionContext = materializer.executionContext
+        override def consumerFuture: Future[ActorRef] = Future.successful(consumer)
         val shape = stage.shape
         val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
         var requested = false
