@@ -96,7 +96,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
     val metrics: Future[Map[MetricName, Metric]] = control.metrics
     metrics.foreach(map => println(s"metrics: ${map.mkString("\n")}"))
     // #consumerMetrics
-    Await.result(metrics, 5.seconds) should not be 'empty
+    Await.result(metrics, 10.seconds) should not be 'empty
     control.shutdown()
   }
 
