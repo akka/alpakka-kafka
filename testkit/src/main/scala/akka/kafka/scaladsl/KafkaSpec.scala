@@ -29,6 +29,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
@@ -115,6 +116,8 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
 
   def createGroupId(number: Int = 0) = s"group-$number-${topicCounter.incrementAndGet()}"
 
+  def createTransactionalId(number: Int = 0) = s"transactionalId-$number-${topicCounter.incrementAndGet()}"
+
   val partition0 = 0
 
   def givenInitializedTopic(topic: String): Unit =
@@ -192,8 +195,21 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     val createResult = adminClient().createTopics(
       Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
     )
-    createResult.all()
+    createResult.all().get(10, TimeUnit.SECONDS)
     topicName
+  }
+
+  def createTopics(topics: Int*): immutable.Seq[String] = {
+    val topicNames = topics.toList.map { number =>
+      createTopicName(number)
+    }
+    val configs = new util.HashMap[String, String]()
+    val newTopics = topicNames.map { topicName =>
+      new NewTopic(topicName, 1, 1.toShort).configs(configs)
+    }
+    val createResult = adminClient().createTopics(newTopics.asJava)
+    createResult.all().get(10, TimeUnit.SECONDS)
+    topicNames
   }
 
   /**
