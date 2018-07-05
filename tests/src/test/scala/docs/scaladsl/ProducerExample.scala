@@ -5,89 +5,95 @@
 
 package docs.scaladsl
 
-import java.util
-
-import akka.actor.ActorSystem
-import akka.kafka.ProducerMessage
-import akka.kafka.ProducerSettings
-import akka.kafka.scaladsl.Producer
-import akka.stream.scaladsl.Source
+import akka.kafka.{KafkaPorts, ProducerMessage, ProducerSettings, Subscriptions}
+import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
 
 import scala.concurrent.Future
 import akka.Done
 import akka.kafka.ProducerMessage.MultiResultPart
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
-import scala.util.{Failure, Success}
+import scala.concurrent.duration._
+import scala.concurrent.duration.FiniteDuration
 
-trait ProducerExample {
-  val system = ActorSystem("example")
+class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) {
+  def createKafkaConfig: EmbeddedKafkaConfig =
+    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
-  // #producer
-  // #settings
-  val config = system.settings.config.getConfig("akka.kafka.producer")
-  val producerSettings =
-    ProducerSettings(config, new StringSerializer, new StringSerializer)
-      .withBootstrapServers("localhost:9092")
-  // #settings
-  val kafkaProducer = producerSettings.createKafkaProducer()
-  // #producer
+  override def sleepAfterProduce: FiniteDuration = 4.seconds
+  private def waitBeforeValidation(): Unit = sleep(6.seconds)
 
-  implicit val ec = system.dispatcher
-  implicit val materializer = ActorMaterializer.create(system)
-
-  def terminateWhenDone(result: Future[Done]): Unit =
-    result.onComplete {
-      case Failure(e) =>
-        system.log.error(e, e.getMessage)
-        system.terminate()
-      case Success(_) => system.terminate()
-    }
-}
-
-object PlainSinkExample extends ProducerExample {
-  def main(args: Array[String]): Unit = {
+  "PlainSink" should "work" in {
+    // #settings
+    val config = system.settings.config.getConfig("akka.kafka.producer")
+    val producerSettings =
+      ProducerSettings(config, new StringSerializer, new StringSerializer)
+        .withBootstrapServers(bootstrapServers)
+    // #settings
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
     // #plainSink
     val done: Future[Done] =
       Source(1 to 100)
         .map(_.toString)
-        .map(value => new ProducerRecord[String, String]("topic1", value))
+        .map(value => new ProducerRecord[String, String](topic, value))
         .runWith(Producer.plainSink(producerSettings))
     // #plainSink
-
-    terminateWhenDone(done)
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+    waitBeforeValidation()
+    done.futureValue should be(Done)
+    control2.shutdown().futureValue should be(Done)
+    result.futureValue should have size (100)
   }
-}
 
-object PlainSinkWithProducerExample extends ProducerExample {
-  def main(args: Array[String]): Unit = {
+  "PlainSink with shared producer" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val producerSettings = producerDefaults
+    val kafkaProducer = producerSettings.createKafkaProducer()
+    val topic = createTopic()
     // #plainSinkWithProducer
     val done = Source(1 to 100)
       .map(_.toString)
-      .map(value => new ProducerRecord[String, String]("topic1", value))
+      .map(value => new ProducerRecord[String, String](topic, value))
       .runWith(Producer.plainSink(producerSettings, kafkaProducer))
     // #plainSinkWithProducer
-
-    terminateWhenDone(done)
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+    done.futureValue should be(Done)
+    waitBeforeValidation()
+    control2.shutdown().futureValue should be(Done)
+    result.futureValue should have size (100)
+    kafkaProducer.close()
   }
-}
 
-object ObserveMetricsExample extends ProducerExample {
-  def main(args: Array[String]): Unit = {
-    // format:off
+  "Metrics" should "be observed" in {
+    // #producer
+    val config = system.settings.config.getConfig("akka.kafka.producer")
+    val producerSettings =
+      ProducerSettings(config, new StringSerializer, new StringSerializer)
+        .withBootstrapServers(bootstrapServers)
+    val kafkaProducer = producerSettings.createKafkaProducer()
+    // #producer
     // #producerMetrics
-    val metrics: util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
+    val metrics: java.util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
       kafkaProducer.metrics() // observe metrics
     // #producerMetrics
-    // format:on
-    metrics.clear()
-  }
-}
+    metrics.isEmpty should be(false)
+    // #producer
 
-object ProducerFlowExample extends ProducerExample {
+    // using the kafkaProducer
+
+    kafkaProducer.close()
+    // #producer
+  }
 
   def createMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
     // #singleMessage
@@ -123,7 +129,10 @@ object ProducerFlowExample extends ProducerExample {
   // #passThroughMessage
   // format:on
 
-  def main(args: Array[String]): Unit = {
+  "flexiFlow" should "work" in {
+    val producerSettings = producerDefaults
+    val topic = createTopic()
+    def println(s: String): Unit = {}
     // format:off
     // #flow
     val done = Source(1 to 100)
@@ -131,7 +140,7 @@ object ProducerFlowExample extends ProducerExample {
         val partition = 0
         val value = number.toString
         ProducerMessage.Message(
-          new ProducerRecord("topic1", partition, "key", value),
+          new ProducerRecord(topic, partition, "key", value),
           number
         )
       }
@@ -155,7 +164,14 @@ object ProducerFlowExample extends ProducerExample {
       .runWith(Sink.foreach(println(_)))
     // #flow
     // format:on
-
-    terminateWhenDone(done)
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+    done.futureValue should be(Done)
+    waitBeforeValidation()
+    control2.shutdown().futureValue should be(Done)
+    result.futureValue should have size (100)
   }
 }

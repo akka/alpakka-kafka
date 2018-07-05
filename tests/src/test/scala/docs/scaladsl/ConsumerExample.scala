@@ -7,7 +7,7 @@ package docs.scaladsl
 
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -24,53 +24,14 @@ import org.apache.kafka.common.serialization.{
   StringDeserializer,
   StringSerializer
 }
-import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
+import org.apache.kafka.common.TopicPartition
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
-
-trait ConsumerExample {
-  val system = ActorSystem("example")
-  implicit val ec: ExecutionContext = system.dispatcher
-  implicit val m: Materializer = ActorMaterializer.create(system)
-
-  val maxPartitions = 100
-
-  // #settings
-  val config = system.settings.config.getConfig("akka.kafka.consumer")
-  val consumerSettings =
-    ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
-      .withBootstrapServers("localhost:9092")
-      .withGroupId("group1")
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-  //#settings
-
-  val consumerSettingsWithAutoCommit =
-    // #settings-autocommit
-    consumerSettings
-      .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
-      .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5000")
-  // #settings-autocommit
-
-  val producerSettings = ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
-    .withBootstrapServers("localhost:9092")
-
-  def business[T] = Flow[T]
-  def businessLogic(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = ???
-
-  def terminateWhenDone(result: Future[Done]): Unit =
-    result.onComplete {
-      case Failure(e) =>
-        system.log.error(e, e.getMessage)
-        system.terminate()
-      case Success(_) => system.terminate()
-    }
-}
 
 // Consume messages and store a representation, including offset, in DB
-class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
+class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
@@ -128,8 +89,31 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   // #plainSource
   // format: on
 
+  def createSettings(): ConsumerSettings[String, Array[Byte]] = {
+    // #settings
+    val config = system.settings.config.getConfig("akka.kafka.consumer")
+    val consumerSettings =
+      ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
+        .withBootstrapServers(bootstrapServers)
+        .withGroupId("group1")
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+    //#settings
+    consumerSettings
+  }
+
+  def createAutoCommitSettings(): ConsumerSettings[String, Array[Byte]] = {
+    val consumerSettings = createSettings()
+    val consumerSettingsWithAutoCommit =
+      // #settings-autocommit
+      consumerSettings
+        .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
+        .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5000")
+    // #settings-autocommit
+    consumerSettingsWithAutoCommit
+  }
+
   "Consume messages at-most-once" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()
     // #atMostOnce
     val (control, result) =
@@ -177,9 +161,10 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   // format: off
   // #atLeastOnce
 
-  def business(key: String, value: Array[Byte]): Future[Done] = ???
+  def business(key: String, value: Array[Byte]): Future[Done] = // ???
 
   // #atLeastOnce
+    Future.successful(Done)
   // format: on
 
   "Consume messages at-least-once, and commit in batches" should "work" in {
@@ -509,7 +494,25 @@ class ConsumerExamples extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 }
 
 // Join flows based on automatically assigned partitions
-object ConsumerWithOtherSource extends ConsumerExample {
+object ConsumerWithOtherSource {
+  val system = ActorSystem("example")
+  implicit val ec: ExecutionContext = system.dispatcher
+  implicit val m: Materializer = ActorMaterializer.create(system)
+
+  val maxPartitions = 100
+
+  val config = system.settings.config.getConfig("akka.kafka.consumer")
+  val consumerSettings =
+    ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
+      .withBootstrapServers("localhost:9092")
+      .withGroupId("group1")
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+
+  val producerSettings = ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
+    .withBootstrapServers("localhost:9092")
+
+  def businessFlow[T] = Flow[T]
+
   def main(args: Array[String]): Unit = {
     // #committablePartitionedSource3
     type Msg = CommittableMessage[String, Array[Byte]]
@@ -526,7 +529,7 @@ object ConsumerWithOtherSource extends ConsumerExample {
           zipper(source, otherSource)
       }
       .flatMapMerge(maxPartitions, identity)
-      .via(business)
+      .via(businessFlow)
       //build commit offsets
       .batch(
         max = 20,
