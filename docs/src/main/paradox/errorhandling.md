@@ -15,10 +15,10 @@ Akka streams @extref[provides graph stages](akka-docs:stream/stream-error.html#d
 to gracefully restart a stream on failure, with a configurable backoff. This can be taken advantage of to restart a failing consumer with an exponential backoff, by wrapping it in a `RestartSource`:
 
 Scala
-: @@ snip [restartsource](../../../../tests/src/test/scala/docs//scaladsl/ConsumerExample.scala) { #restartSource }
+: @@ snip [restartsource](../../../../tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #restartSource }
 
 Java
-: @@ snip [restartsource](../../test/java/sample/javadsl/ConsumerExample.java) { #restartSource }
+: @@ snip [restartsource](../../../../tests/src/test/java/docs/javadsl/ConsumerExample.java) { #restartSource }
 
 When a stream fails, library internals will handle all underlying resources.
 

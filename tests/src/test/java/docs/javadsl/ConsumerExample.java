@@ -1,13 +1,17 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package sample.javadsl;
+
+package docs.javadsl;
 
 
 import akka.Done;
 import akka.NotUsed;
-import akka.actor.*;
+import akka.actor.AbstractLoggingActor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
@@ -29,13 +33,12 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -455,10 +458,10 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
     @Override
     public Receive createReceive() {
       return receiveBuilder()
-          .match(akka.kafka.TopicPartitionsAssigned.class, assigned -> {
+          .match(TopicPartitionsAssigned.class, assigned -> {
             log().info("Assigned: {}", assigned);
           })
-          .match(akka.kafka.TopicPartitionsRevoked.class, revoked -> {
+          .match(TopicPartitionsRevoked.class, revoked -> {
             log().info("Revoked: {}", revoked);
           })
           .build();

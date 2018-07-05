@@ -22,7 +22,7 @@ import scala.concurrent.duration._
 
 // #oneToMany
 
-class AtLeastOnceOneToManyExample extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
+class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)

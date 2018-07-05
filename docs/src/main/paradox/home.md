@@ -44,7 +44,7 @@ This connector depends on Akka 2.5.x and note that it is important that all `akk
 
 ## Scala and Java APIs
 
-There are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.javadsl`
+There are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.docs.javadsl`
 with the API for Scala and Java. These packages contain `Producer` and `Consumer`
 classes with factory methods for the various Akka Streams `Flow`, `Sink` and `Source`
 that are producing or consuming messages to/from Kafka.

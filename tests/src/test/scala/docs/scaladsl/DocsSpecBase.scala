@@ -7,7 +7,7 @@ package docs.scaladsl
 
 import akka.NotUsed
 import akka.kafka.internal.TestFrameworkInterface
-import akka.kafka.scaladsl.{EmbeddedKafkaLike, KafkaSpec, ScalatestKafkaSpec}
+import akka.kafka.scaladsl.{EmbeddedKafkaLike, KafkaSpec}
 import akka.kafka.test.Utils.StageStoppingTimeout
 import akka.stream.scaladsl.Flow
 import org.scalatest.{FlatSpecLike, Matchers, Suite}

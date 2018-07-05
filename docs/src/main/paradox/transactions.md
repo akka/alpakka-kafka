@@ -30,15 +30,15 @@ Transactions are committed on an interval which can be controlled with the produ
 
 When the stream is materialized the producer will initialize the transaction for the provided `transactional.id` and a transaction will begin.  Every commit interval (`eos-commit-interval`) we check if there are any offsets available to commit.  If offsets exist then we suspend backpressured demand while we drain all outstanding messages that have not yet been successfully acknowledged (if any) and then commit the transaction.  After the commit succeeds a new transaction is begun and we re-initialize demand for upstream messages.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.docs.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
 Scala
-: @@ snip [transactionalSink](../../../../tests/src/test/scala/docs//scaladsl/TransactionsExample.scala) { #transactionalSink }
+: @@ snip [transactionalSink](../../../../tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #transactionalSink }
 
 Java
-: @@ snip [transactionalSink](../../test/java/sample/javadsl/TransactionsExample.java) { #transactionalSink }
+: @@ snip [transactionalSink](../../../../tests/src/test/java/docs/javadsl/TransactionsExample.java) { #transactionalSink }
 
 ### Recovery From Failure
 
@@ -47,10 +47,10 @@ When any stage in the stream fails the whole stream will be torn down.  In the g
 For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the `RestartSource` (@extref[Akka docs](akka-docs:/stream/stream-error.html#delayed-restarts-with-a-backoff-stage)) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
 
 Scala
-: @@ snip [transactionalFailureRetry](../../../../tests/src/test/scala/docs//scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
+: @@ snip [transactionalFailureRetry](../../../../tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
 
 Java
-: @@ snip [transactionalFailureRetry](../../test/java/sample/javadsl/TransactionsExample.java) { #transactionalFailureRetry }
+: @@ snip [transactionalFailureRetry](../../../../tests/src/test/java/docs/javadsl/TransactionsExample.java) { #transactionalFailureRetry }
 
 ## Caveats
 
