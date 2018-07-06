@@ -4,23 +4,17 @@
  */
 package sample.scaladsl
 
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch}
 import akka.kafka._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import akka.stream.ActorMaterializer
+import akka.stream.scaladsl._
+import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import org.apache.kafka.common.serialization.{
-  ByteArrayDeserializer,
-  ByteArraySerializer,
-  StringDeserializer,
-  StringSerializer
-}
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -189,6 +183,57 @@ object AtLeastOnceWithBatchCommitExample extends ConsumerExample {
   }
 
   def business(key: String, value: Array[Byte]): Future[Done] = ???
+}
+
+// Consume messages at-least-once, and commit in batches
+object PassThroughFlowCommitExample extends ConsumerExample {
+  def main(args: Array[String]): Unit = {
+
+    // #passThroughFlow
+    var writeFlow = Flow[ConsumerRecord[String, Array[Byte]]].map(_ => ???)
+
+    val control =
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics("topic1"))
+        .map(msg => (msg.record, msg.committableOffset))
+        .via(PassThroughFlow(
+          writeFlow, // Here you can replace a module
+          Flow[CommittableOffset].map(x => x) // just pass through the offset
+        ))
+        .map(_._2)
+        .groupedWithin(10, 5.seconds)
+        .map(CommittableOffsetBatch(_))
+        .mapAsync(3)(_.commitScaladsl())
+        .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    // #passThroughFlow
+
+    terminateWhenDone(control.drainAndShutdown())
+  }
+
+  // #passThroughFlow
+  object PassThroughFlow {
+    def apply[inA, outA, inB, outB](
+      passThroughA: Flow[inA, outA, NotUsed],
+      passThroughB: Flow[inB, outB, NotUsed]): Graph[FlowShape[(inA, inB), (outA, outB)], NotUsed] = {
+
+      Flow.fromGraph(GraphDSL.create() {
+        implicit builder => {
+          import GraphDSL.Implicits._
+
+          val unzip = builder.add(Unzip[inA, inB]())
+          val zip = builder.add(Zip[outA, outB]())
+
+          unzip.out0 ~> passThroughA ~> zip.in0
+          unzip.out1 ~> passThroughB ~> zip.in1
+
+          FlowShape(unzip.in, zip.out)
+        }
+      })
+    }
+  }
+  // #passThroughFlow
 }
 
 // Connect a Consumer to Producer
