@@ -11,7 +11,7 @@ import java.util.{Locale, Map => JMap}
 import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage._
-import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, Committed, ConsumerMetrics, RequestMetrics}
+import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, ConsumerMetrics, RequestMetrics}
 import akka.kafka.scaladsl.Consumer._
 import akka.kafka.{javadsl, scaladsl, _}
 import akka.pattern.AskTimeoutException
@@ -131,17 +131,19 @@ private[kafka] object ConsumerStage {
     import akka.pattern.ask
 
     import scala.collection.breakOut
-    implicit val to = Timeout(commitTimeout)
     override def commit(offsets: immutable.Seq[PartitionOffset]): Future[Done] = {
       val offsetsMap: Map[TopicPartition, Long] = offsets.map { offset =>
         new TopicPartition(offset.key.topic, offset.key.partition) -> (offset.offset + 1)
       }(breakOut)
 
-      (ref ? Commit(offsetsMap)).mapTo[Committed].map(_ => Done).recoverWith {
-        case _: AskTimeoutException =>
-          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
-        case other => Future.failed(other)
-      }
+      ref
+        .ask(Commit(offsetsMap))(Timeout(commitTimeout))
+        .map(_ => Done)
+        .recoverWith {
+          case _: AskTimeoutException =>
+            Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
+          case other => Future.failed(other)
+        }
     }
 
     override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
