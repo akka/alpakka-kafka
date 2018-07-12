@@ -6,6 +6,7 @@ val akkaVersion = "2.5.13"
 val kafkaVersion = "1.0.1"
 val kafkaVersionForDocs = "10"
 val scalatestVersion = "3.0.4"
+val slf4jVersion = "1.7.25"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -27,7 +28,7 @@ val testDependencies = Seq(
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % Test,
+  "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
   "org.mockito" % "mockito-core" % "2.15.0" % Test
 )
 
@@ -41,12 +42,6 @@ val integrationTestDependencies = Seq(
 )
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
-
-val docDependencies = Seq(
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.25"
-).map(_ % Test)
 
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
@@ -165,7 +160,6 @@ lazy val tests = project
 lazy val docs = project
   .in(file("docs"))
   .enablePlugins(ParadoxPlugin)
-  .dependsOn(core)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
@@ -190,7 +184,6 @@ lazy val docs = project
     ),
     paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
     paradoxLocalApiDir := (core / Compile / doc).value,
-    libraryDependencies ++= docDependencies
   )
 
 lazy val Benchmark = config("bench") extend Test
@@ -207,7 +200,7 @@ lazy val benchmarks = project
       "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
       "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
+      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-stream" % akkaVersion
     ),

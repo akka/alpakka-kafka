@@ -16,10 +16,10 @@ When connecting a committable source to a producer flow, some applications may r
 To achieve this, use the `ProducerMessage.MultiMessage` implementation of `Envelope`:
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToMany }  
+: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToMany }  
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceOneToMany.java) { #oneToMany }
+: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/AtLeastOnceOneToMany.java) { #oneToMany }
 
 
 ### Batches
@@ -67,10 +67,10 @@ Since `ProducerRecord` contains the destination topic, it is possible to use a s
 In case a committable message should lead to the production of multiple messages, the `ProducerMessage.MultiMessage` is available. If no messages should be produced, the `ProducerMessage.PassThroughMessage` can be used.
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/AtLeastOnce.scala) { #oneToConditional }  
+: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToConditional }  
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/AtLeastOnceOneToMany.java) { #oneToConditional }
+: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/AtLeastOnceOneToMany.java) { #oneToConditional }
 
 
 ### Excluding Messages

@@ -1,13 +1,17 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package sample.javadsl;
+
+package docs.javadsl;
 
 
 import akka.Done;
 import akka.NotUsed;
-import akka.actor.*;
+import akka.actor.AbstractLoggingActor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
@@ -29,12 +33,12 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicReference;
 
 abstract class ConsumerExample {
   protected final ActorSystem system = ActorSystem.create("example");
@@ -424,22 +428,21 @@ class RestartingConsumer extends ConsumerExample {
 
   public void demo() {
     //#restartSource
-    RestartSource.withBackoff(
-        java.time.Duration.of(3, ChronoUnit.SECONDS),
-        java.time.Duration.of(30, ChronoUnit.SECONDS),
+    AtomicReference<Consumer.Control> control = new AtomicReference<>(Consumer.createNoopControl());
+
+    RestartSource.onFailuresWithBackoff(
+        java.time.Duration.ofSeconds(3),
+        java.time.Duration.ofSeconds(30),
         0.2,
         () ->
-             Source.fromCompletionStage(
-                  Consumer
-                    .plainSource(consumerSettings, Subscriptions.topics("topic1"))
-                    .via(business())
-                    .watchTermination(
-                             (control, completionStage) ->
-                                 completionStage.handle((res, ex) -> control.shutdown()).thenCompose(Function.identity())
-                     )
-                    .runWith(Sink.ignore(), materializer)
-             )
-    );
+            Consumer
+              .plainSource(consumerSettings, Subscriptions.topics("topic1"))
+              .mapMaterializedValue(c -> { control.set(c); return c; })
+              .via(business())
+    )
+    .runWith(Sink.ignore(), materializer);
+
+    control.get().shutdown();
     //#restartSource
   }
 }
@@ -455,10 +458,10 @@ class RebalanceListenerCallbacksExample extends ConsumerExample {
     @Override
     public Receive createReceive() {
       return receiveBuilder()
-          .match(akka.kafka.TopicPartitionsAssigned.class, assigned -> {
+          .match(TopicPartitionsAssigned.class, assigned -> {
             log().info("Assigned: {}", assigned);
           })
-          .match(akka.kafka.TopicPartitionsRevoked.class, revoked -> {
+          .match(TopicPartitionsRevoked.class, revoked -> {
             log().info("Revoked: {}", revoked);
           })
           .build();

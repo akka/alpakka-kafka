@@ -1,27 +1,28 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package sample.javadsl;
+
+package docs.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
-import akka.kafka.*;
+import akka.kafka.ProducerMessage;
+import akka.kafka.ProducerSettings;
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.CompletionStage;
-
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
+
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.CompletionStage;
 
 abstract class ProducerExample {
   protected final ActorSystem system = ActorSystem.create("example");

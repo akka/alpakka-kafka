@@ -665,7 +665,7 @@ class ConsumerTest(_system: ActorSystem)
       override def wakeup(): Unit = ???
     }
     val topic = "test"
-    val queue = testPartitionedSource(mock, "group", Set(topic))
+    testPartitionedSource(mock, "group", Set(topic))
       .flatMapMerge(breadth = 10, _._2)
       .runWith(Sink.queue())
     Thread.sleep(1000) // Wait for stream to materialize

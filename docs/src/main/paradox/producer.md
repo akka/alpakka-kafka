@@ -13,10 +13,10 @@ When creating a producer stream you need to pass in `ProducerSettings` (@scalado
 * tuning parameters
 
 Scala
-: @@ snip [flow](../../test/scala/sample/scaladsl/ProducerExample.scala) { #settings }
+: @@ snip [flow](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #settings }
 
 Java
-: @@ snip [flow](../../test/java/sample/javadsl/ProducerExample.java) { #settings }
+: @@ snip [flow](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #settings }
 
 In addition to programmatic construction of the `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) it can also be created from configuration (`application.conf`). 
 
@@ -41,11 +41,11 @@ is the easiest way to publish messages. The sink consumes the Kafka type `Produc
 1. a value.
 
 Scala
-: @@ snip [plainSink](../../test/scala/sample/scaladsl/ProducerExample.scala) { #plainSink }
+: @@ snip [plainSink](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSink }
   The materialized value of the sink is a `Future[Done]` which is completed with `Done` when the stream completes, or with with an exception in case an error occurs.
 
 Java
-: @@ snip [plainSink](../../test/java/sample/javadsl/ProducerExample.java) { #plainSink }
+: @@ snip [plainSink](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #plainSink }
   The materialized value of the sink is a `CompletionStage<Done>` which is completed with `Done` when the stream completes, or with an exception in case an error occurs.
 
 
@@ -59,10 +59,10 @@ Sinks and flows accept implementations of `ProducerMessage.Envelope` (@scaladoc[
 To create one message to a Kafka topic, use the `ProducerMessage.Message` type as in
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #singleMessage }
+: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #singleMessage }
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #singleMessage }
+: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #singleMessage }
 
 
 For flows the `ProducerMessage.Message`s continue as `ProducerMessage.Result` elements containing: 
@@ -77,10 +77,10 @@ For flows the `ProducerMessage.Message`s continue as `ProducerMessage.Result` el
 The `ProducerMessage.MultiMessage` contains a list of `ProducerRecords` to produce multiple messages to Kafka topics.
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #multiMessage }
+: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #multiMessage }
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #multiMessage }
+: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #multiMessage }
 
 For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.MultiResult` elements containing: 
  
@@ -96,10 +96,10 @@ For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.Multi
 The `ProducerMessage.PassThroughMessage` allows to let an element pass through a Kafka flow without producing a new message to a Kafka topic. This is primarily useful with Kafka commit offsets and transactions, so that these can be committed without producing new messages.
 
 Scala
-: @@ snip [dummy](../../test/scala/sample/scaladsl/ProducerExample.scala) { #passThroughMessage }
+: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #passThroughMessage }
 
 Java
-: @@ snip [dummy](../../test/java/sample/javadsl/ProducerExample.java) { #passThroughMessage }
+: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #passThroughMessage }
 
 
 For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage.PassThroughResult` elements containing the `passThrough` data.  
@@ -111,19 +111,19 @@ For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage
  
 
 Scala
-: @@ snip [flow](../../test/scala/sample/scaladsl/ProducerExample.scala) { #flow }
+: @@ snip [flow](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #flow }
 
 Java
-: @@ snip [flow](../../test/java/sample/javadsl/ProducerExample.java) { #flow }
+: @@ snip [flow](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #flow }
 
 
 The `passThrough` can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` that can be committed after publishing to Kafka. 
 
 Scala
-: @@ snip [consumerToProducerFlow](../../test/scala/sample/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
+: @@ snip [consumerToProducerFlow](../../../../tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
 
 Java
-: @@ snip [consumerToProducerFlow](../../test/java/sample/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
+: @@ snip [consumerToProducerFlow](../../../../tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
 
 
 ## Connecting a Producer to a Consumer
@@ -138,18 +138,18 @@ The underlying `KafkaProducer` (@javadoc[Kafka API](org.apache.kafka.clients.pro
 To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contain a factory method `createKafkaProducer`.
 
 Scala
-: @@ snip [producer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #producer }
+: @@ snip [producer](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producer }
 
 Java
-: @@ snip [producer](../../test/java/sample/javadsl/ProducerExample.java) { #producer }
+: @@ snip [producer](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #producer }
 
 The `KafkaProducer` instance is passed as a parameter to the `Producer` factory methods.
 
 Scala
-: @@ snip [plainSinkWithProducer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
+: @@ snip [plainSinkWithProducer](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
 
 Java
-: @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #plainSinkWithProducer }
+: @@ snip [plainSinkWithProducer](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #plainSinkWithProducer }
 
 
 ## Accessing KafkaProducer metrics
@@ -157,7 +157,7 @@ Java
 By passing an explicit reference to a `KafkaProducer` (as shown in the previous section) its metrics become accessible. Refer to the @javadoc[Kafka MetricName API](org.apache.kafka.common.MetricName) for more details.
 
 Scala
-: @@ snip [plainSinkWithProducer](../../test/scala/sample/scaladsl/ProducerExample.scala) { #producerMetrics }
+: @@ snip [plainSinkWithProducer](../../../../tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producerMetrics }
 
 Java
-: @@ snip [plainSinkWithProducer](../../test/java/sample/javadsl/ProducerExample.java) { #producerMetrics }
+: @@ snip [plainSinkWithProducer](../../../../tests/src/test/java/docs/javadsl/ProducerExample.java) { #producerMetrics }
