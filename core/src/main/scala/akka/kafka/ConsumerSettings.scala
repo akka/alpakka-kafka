@@ -305,4 +305,23 @@ class ConsumerSettings[K, V](
     }
     new KafkaConsumer[K, V](javaProps, keyDeserializerOpt.orNull, valueDeserializerOpt.orNull)
   }
+
+  override def toString: String =
+    s"akka.kafka.ConsumerSettings(" +
+    s"properties=${properties.mkString(",")}," +
+    s"keyDeserializer=$keyDeserializerOpt," +
+    s"valueDeserializer=$valueDeserializerOpt," +
+    s"pollInterval=${pollInterval.toCoarsest}," +
+    s"pollTimeout=${pollTimeout.toCoarsest}," +
+    s"stopTimeout=${stopTimeout.toCoarsest}," +
+    s"closeTimeout=${closeTimeout.toCoarsest}," +
+    s"commitTimeout=${commitTimeout.toCoarsest}," +
+    s"wakeupTimeout=${wakeupTimeout.toCoarsest}," +
+    s"maxWakeups=$maxWakeups," +
+    s"commitRefreshInterval=${commitRefreshInterval.toCoarsest}," +
+    s"dispatcher=$dispatcher," +
+    s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
+    s"wakeupDebug=$wakeupDebug," +
+    s"waitClosePartition=${waitClosePartition.toCoarsest}" +
+    ")"
 }
