@@ -216,7 +216,8 @@ class ProducerSettings[K, V](
                                dispatcher,
                                eosCommitInterval)
 
-  override def toString: String = "akka.kafka.ProducerSettings(" +
+  override def toString: String =
+    "akka.kafka.ProducerSettings(" +
     s"properties=${properties.mkString(",")}," +
     s"keySerializer=$keySerializerOpt," +
     s"valueSerializer=$valueSerializerOpt," +
@@ -224,7 +225,7 @@ class ProducerSettings[K, V](
     s"parallelism=$parallelism," +
     s"dispatcher=$dispatcher," +
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}" +
-  ")"
+    ")"
 
   /**
    * Create a `KafkaProducer` instance from the settings.
