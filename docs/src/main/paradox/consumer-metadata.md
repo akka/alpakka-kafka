@@ -24,7 +24,7 @@ However, calling these during consuming might affect performance and even cause 
 @@@   
 
 Scala
-: @@ snip [dummy](../../../../tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadata }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadata }
 
 Java
-: @@ snip [dummy](../../../../tests/src/test/java/docs/javadsl/FetchMetadata.java) { #metadata }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/FetchMetadata.java) { #metadata }
