@@ -24,4 +24,5 @@ object KafkaPorts {
   val SerializationTest = 9092
   val JavaTransactionsExamples = 9102
   val ProducerExamplesTest = 9112
+  val SlowConsumptionSpec = 9122
 }
