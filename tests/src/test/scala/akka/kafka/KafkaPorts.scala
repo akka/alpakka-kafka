@@ -24,5 +24,6 @@ object KafkaPorts {
   val ScalaFetchMetadataExamples = 9092
   val ScalaTransactionsExamples = 9102
   val ScalaProducerExamples = 9112
+  val SlowConsumptionSpec = 9122
 
 }
