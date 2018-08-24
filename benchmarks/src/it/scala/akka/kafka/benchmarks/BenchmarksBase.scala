@@ -12,7 +12,6 @@ abstract class BenchmarksBase(name: String) extends ScalatestKafkaSpec(0) with F
   override def bootstrapServers: String = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
 
   override def setUp(): Unit = {
-    println("waiting for the sun")
     waitUntilCluster() {
       _.nodes().get().size == 3
     }

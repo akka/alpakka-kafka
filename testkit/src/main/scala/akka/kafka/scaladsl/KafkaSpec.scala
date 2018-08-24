@@ -43,7 +43,6 @@ trait EmbeddedKafkaLike extends KafkaSpec {
     s"localhost:${embeddedKafkaConfig.kafkaPort}"
 
   override def setUp(): Unit = {
-    println("starting up embedded kafka")
     EmbeddedKafka.start()(embeddedKafkaConfig)
     super.setUp()
   }
@@ -89,7 +88,6 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   }
 
   def setUp(): Unit = {
-    println("in kafkaspec setup")
     testProducer = producerDefaults.createKafkaProducer()
   }
 
