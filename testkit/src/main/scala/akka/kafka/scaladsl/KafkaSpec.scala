@@ -87,9 +87,8 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     config
   }
 
-  def setUp(): Unit = {
+  def setUp(): Unit =
     testProducer = producerDefaults.createKafkaProducer()
-  }
 
   def cleanUp(): Unit = {
     testProducer.close(60, TimeUnit.SECONDS)
