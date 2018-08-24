@@ -16,11 +16,11 @@ import akka.actor.{
   Actor,
   ActorLogging,
   ActorRef,
-  Cancellable,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
   Status,
-  Terminated
+  Terminated,
+  Timers
 }
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
@@ -117,7 +117,7 @@ object KafkaConsumerActor {
   }
 }
 
-class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging {
+class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -126,7 +126,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
 
-  var currentPollTask: Cancellable = _
+  val pollTask = "PollTask"
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -280,8 +280,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   override def postStop(): Unit = {
-    if (currentPollTask != null)
-      currentPollTask.cancel()
+    timers.cancelAll()
 
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
@@ -293,10 +292,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   def scheduleFirstPollTask(): Unit =
-    if (currentPollTask == null) currentPollTask = schedulePollTask()
+    if (!timers.isTimerActive(pollTask)) schedulePollTask()
 
-  def schedulePollTask(): Cancellable =
-    context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
+  def schedulePollTask(): Unit =
+    timers.startSingleTimer(pollTask, pollMsg, pollInterval())
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
@@ -310,7 +309,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
       poll()
       if (p.periodic)
-        currentPollTask = schedulePollTask()
+        schedulePollTask()
       else
         delayedPollInFlight = false
     } else {
