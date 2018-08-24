@@ -82,6 +82,9 @@ object KafkaConsumerActor {
         partition: TopicPartition
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
+
+    private[KafkaConsumerActor] case object PollTask
+
     private val number = new AtomicInteger()
     def nextNumber(): Int =
       number.incrementAndGet()
@@ -125,8 +128,6 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   val delayedPollMsg = Poll(this, periodic = false)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
-
-  val pollTask = "PollTask"
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -280,8 +281,6 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   override def postStop(): Unit = {
-    timers.cancelAll()
-
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
       case (ref, req) =>
@@ -292,10 +291,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   def scheduleFirstPollTask(): Unit =
-    if (!timers.isTimerActive(pollTask)) schedulePollTask()
+    if (!timers.isTimerActive(PollTask)) schedulePollTask()
 
   def schedulePollTask(): Unit =
-    timers.startSingleTimer(pollTask, pollMsg, pollInterval())
+    timers.startSingleTimer(PollTask, pollMsg, pollInterval())
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
