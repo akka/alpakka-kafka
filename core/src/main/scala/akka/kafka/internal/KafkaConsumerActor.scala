@@ -334,13 +334,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
       consumer.wakeup()
     }(context.system.dispatcher)
-    //set partitions to fetch
-    val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
-    val currentAssignments = consumer.assignment().asScala
-    currentAssignments.foreach { tp =>
-      if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
-      else consumer.pause(java.util.Collections.singleton(tp))
-    }
+    val currentAssignmentsJava = consumer.assignment()
 
     def tryPoll(timeout: Long): ConsumerRecords[K, V] =
       try {
@@ -386,7 +380,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
             // Note: in case of manual partition assignment this is not needed since rebalance doesn't take place.
             if (subscriptions.nonEmpty) {
               val newAssignments = consumer.assignment().asScala
-              reconcileAssignments(currentAssignments.toSet, newAssignments.toSet)
+              reconcileAssignments(currentAssignmentsJava.asScala.toSet, newAssignments.toSet)
             }
           }
           throw new NoPollResult
@@ -405,6 +399,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
+        consumer.pause(currentAssignmentsJava)
         checkNoResult(tryPoll(0))
 
         // For commits we try to avoid blocking poll because a commit normally succeeds after a few
@@ -419,6 +414,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           i -= 1
         }
       } else {
+        // resume partitions to fetch
+        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
+        val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
+        consumer.pause(pauseThese.asJava)
+        consumer.resume(resumeThese.asJava)
         processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
       }
     } catch {
