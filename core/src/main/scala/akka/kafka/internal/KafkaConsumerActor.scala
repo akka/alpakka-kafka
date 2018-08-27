@@ -16,11 +16,11 @@ import akka.actor.{
   Actor,
   ActorLogging,
   ActorRef,
-  Cancellable,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
   Status,
-  Terminated
+  Terminated,
+  Timers
 }
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
@@ -82,6 +82,9 @@ object KafkaConsumerActor {
         partition: TopicPartition
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
+
+    private[KafkaConsumerActor] case object PollTask
+
     private val number = new AtomicInteger()
     def nextNumber(): Int =
       number.incrementAndGet()
@@ -117,7 +120,7 @@ object KafkaConsumerActor {
   }
 }
 
-class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging {
+class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -125,8 +128,6 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   val delayedPollMsg = Poll(this, periodic = false)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
-
-  var currentPollTask: Cancellable = _
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -280,9 +281,6 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   override def postStop(): Unit = {
-    if (currentPollTask != null)
-      currentPollTask.cancel()
-
     // reply to outstanding requests is important if the actor is restarted
     requests.foreach {
       case (ref, req) =>
@@ -293,10 +291,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   }
 
   def scheduleFirstPollTask(): Unit =
-    if (currentPollTask == null) currentPollTask = schedulePollTask()
+    if (!timers.isTimerActive(PollTask)) schedulePollTask()
 
-  def schedulePollTask(): Cancellable =
-    context.system.scheduler.scheduleOnce(pollInterval(), self, pollMsg)(context.dispatcher)
+  def schedulePollTask(): Unit =
+    timers.startSingleTimer(PollTask, pollMsg, pollInterval())
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
@@ -310,7 +308,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
       poll()
       if (p.periodic)
-        currentPollTask = schedulePollTask()
+        schedulePollTask()
       else
         delayedPollInFlight = false
     } else {
@@ -335,13 +333,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
       consumer.wakeup()
     }(context.system.dispatcher)
-    //set partitions to fetch
-    val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
-    val currentAssignments = consumer.assignment().asScala
-    currentAssignments.foreach { tp =>
-      if (partitionsToFetch.contains(tp)) consumer.resume(java.util.Collections.singleton(tp))
-      else consumer.pause(java.util.Collections.singleton(tp))
-    }
+    val currentAssignmentsJava = consumer.assignment()
 
     def tryPoll(timeout: Long): ConsumerRecords[K, V] =
       try {
@@ -387,7 +379,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
             // Note: in case of manual partition assignment this is not needed since rebalance doesn't take place.
             if (subscriptions.nonEmpty) {
               val newAssignments = consumer.assignment().asScala
-              reconcileAssignments(currentAssignments.toSet, newAssignments.toSet)
+              reconcileAssignments(currentAssignmentsJava.asScala.toSet, newAssignments.toSet)
             }
           }
           throw new NoPollResult
@@ -406,6 +398,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
 
+        consumer.pause(currentAssignmentsJava)
         checkNoResult(tryPoll(0))
 
         // For commits we try to avoid blocking poll because a commit normally succeeds after a few
@@ -420,6 +413,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           i -= 1
         }
       } else {
+        // resume partitions to fetch
+        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
+        val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
+        consumer.pause(pauseThese.asJava)
+        consumer.resume(resumeThese.asJava)
         processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
       }
     } catch {

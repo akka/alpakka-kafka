@@ -28,6 +28,8 @@ import scala.util.Success
 
 class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
 
+  implicit val patience = PatienceConfig(500.millis, 50.millis)
+
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
@@ -575,6 +577,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         .to(TestSink.probe)
         .run()
 
+      // Wait a tiny bit to avoid a race on "not yet initialized: only setHandler is allowed in GraphStageLogic constructor"
+      sleep(1.milli)
       val metrics: Future[Map[MetricName, Metric]] = control.metrics
       metrics.futureValue should not be 'empty
 
