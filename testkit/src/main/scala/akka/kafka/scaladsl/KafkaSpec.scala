@@ -143,8 +143,14 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       predicate: DescribeClusterResult => Boolean
   ): Unit = {
     @tailrec def checkCluster(triesLeft: Int): Unit = {
-      val cluster = adminClient().describeCluster()
-      if (!predicate(cluster)) {
+      val wait = try {
+        val cluster = adminClient().describeCluster()
+        !predicate(cluster)
+      } catch {
+        case e: org.apache.kafka.common.errors.TimeoutException =>
+          true
+      }
+      if (wait) {
         if (triesLeft > 0) {
           sleep(sleepInBetween)
           checkCluster(triesLeft - 1)
