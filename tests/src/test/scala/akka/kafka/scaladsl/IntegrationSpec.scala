@@ -28,6 +28,8 @@ import scala.util.Success
 
 class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
 
+  implicit val patience = PatienceConfig(500.millis, 50.millis)
+
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,

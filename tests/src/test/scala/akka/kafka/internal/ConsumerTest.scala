@@ -71,7 +71,7 @@ class ConsumerTest(_system: ActorSystem)
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
-  val messages = (1 to 10000).map(createMessage)
+  val messages = (1 to 1000).map(createMessage)
 
   def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
     val mock = new ConsumerMock[K, V]()
@@ -91,8 +91,8 @@ class ConsumerTest(_system: ActorSystem)
       Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId),
       Some(new StringDeserializer),
       Some(new StringDeserializer),
-      1.milli,
-      1.milli,
+      pollInterval = 10.millis,
+      pollTimeout = 10.millis,
       1.second,
       closeTimeout,
       1.second,
