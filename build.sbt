@@ -214,6 +214,7 @@ lazy val benchmarks = project
     skip in publish := true,
     parallelExecution in IntegrationTest := false,
     libraryDependencies ++= benchmarkDependencies,
+    dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
