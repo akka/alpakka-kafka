@@ -41,6 +41,16 @@ val integrationTestDependencies = Seq(
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
 )
 
+val benchmarkDependencies = Seq(
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+  "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+  "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+)
+
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
 val commonSettings = Seq(
@@ -154,7 +164,12 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath
+    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
+    dockerComposeTestCommandOptions := {
+      import com.github.ehsanyou.sbt.docker.compose.commands.test._
+      DockerComposeTestCmd(DockerComposeTest.ItTest)
+        .withOption("--scale", "kafka=3")
+    }
   )
 
 lazy val docs = project
@@ -186,24 +201,25 @@ lazy val docs = project
     paradoxLocalApiDir := (core / Compile / doc).value,
   )
 
-lazy val Benchmark = config("bench") extend Test
-
 lazy val benchmarks = project
-  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(core, testkit)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
   .enablePlugins(DockerPlugin)
+  .configs(IntegrationTest)
   .settings(commonSettings)
+  .settings(Defaults.itSettings)
+  .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     skip in publish := true,
-    parallelExecution in Benchmark := false,
-    libraryDependencies ++= coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
-      "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion
-    ),
+    parallelExecution in IntegrationTest := false,
+    libraryDependencies ++= benchmarkDependencies,
+    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
+    dockerComposeTestCommandOptions := {
+      import com.github.ehsanyou.sbt.docker.compose.commands.test._
+      DockerComposeTestCmd(DockerComposeTest.ItTest)
+        .withOption("--scale", "kafka=3")
+    },
     dockerfile in docker := {
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"
@@ -216,6 +232,3 @@ lazy val benchmarks = project
       }
     }
   )
-  .configs(Benchmark)
-  .settings(inConfig(Benchmark)(Defaults.testSettings): _*)
-  .dependsOn(core)

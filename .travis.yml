@@ -29,7 +29,9 @@ jobs:
       jdk: oraclejdk8
 
     - stage: integration
-      env: CMD="tests/dockerComposeTest it:test --scale kafka=3"
+      env: CMD="tests/dockerComposeTest it:test"
+      jdk: oraclejdk8
+    - env: CMD="benchmarks/dockerComposeTest it:test"
       jdk: oraclejdk8
 
     - stage: whitesource
