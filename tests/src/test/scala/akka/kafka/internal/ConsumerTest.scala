@@ -46,9 +46,13 @@ object ConsumerTest {
 
   def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
-  def createMessage(seed: Int, topic: String, groupId: String = "group1"): CommittableMessage[K, V] = {
-    val offset = PartitionOffset(GroupTopicPartition(groupId, topic, 1), seed.toLong)
-    val record = new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, seed.toString, seed.toString)
+  def createMessage(seed: Int,
+                    topic: String,
+                    groupId: String = "group1",
+                    metadata: String = ""): CommittableMessage[K, V] = {
+    val offset = PartitionOffset(GroupTopicPartition(groupId, topic, 1), new OffsetAndMetadata(seed.toLong, metadata))
+    val record =
+      new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset.offset, seed.toString, seed.toString)
     CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset)(null))
   }
 
@@ -112,6 +116,14 @@ class ConsumerTest(_system: ActorSystem)
                  groupId: String = "group1",
                  topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
     Consumer.committableSource(testSettings(mock.mock, groupId), Subscriptions.topics(topics))
+
+  def testSourceWithMetadata(mock: ConsumerMock[K, V],
+                             metadataFromRecord: ConsumerRecord[K, V] => String,
+                             groupId: String = "group1",
+                             topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
+    Consumer.committableSourceWithMetadata(testSettings(mock.mock, groupId),
+                                           Subscriptions.topics(topics),
+                                           metadataFromRecord)
 
   def testPartitionedSource(
       mock: Consumer[K, V],
@@ -233,6 +245,42 @@ class ConsumerTest(_system: ActorSystem)
           .flatten
           .to[Seq]
       )
+    }
+  }
+
+  it should "commit metadata in message" in {
+    assertAllStagesStopped {
+      val commitLog = new ConsumerMock.LogHandler()
+      val mock = new ConsumerMock[K, V](commitLog)
+
+      val (control, probe) = testSourceWithMetadata(mock, (rec: ConsumerRecord[K, V]) => rec.offset.toString)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val msg = createMessage(1)
+      mock.enqueue(List(toRecord(msg)))
+
+      probe.request(100)
+      val done = probe.expectNext().committableOffset.commitScaladsl()
+
+      awaitAssert {
+        commitLog.calls should have size (1)
+      }
+
+      val (topicPartition, offsetMeta) = commitLog.calls.head._1.head
+      topicPartition.topic should ===(msg.record.topic())
+      topicPartition.partition should ===(msg.record.partition())
+      // committed offset should be the next message the application will consume, i.e. +1
+      offsetMeta.offset should ===(msg.record.offset() + 1)
+      offsetMeta.metadata should ===(msg.record.offset.toString)
+
+      //emulate commit
+      commitLog.calls.head match {
+        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+      }
+
+      Await.result(done, remainingOrDefault)
+      Await.result(control.shutdown(), remainingOrDefault)
     }
   }
 
