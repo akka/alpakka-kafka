@@ -337,13 +337,15 @@ private[kafka] object ProducerStage {
   }
 
   final class NonemptyTransactionBatch(head: PartitionOffset,
-                                       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
+                                       tail: Map[GroupTopicPartition, OffsetAndMetadata] =
+                                         Map[GroupTopicPartition, OffsetAndMetadata]())
       extends TransactionBatch {
     private val offsets = tail + (head.key -> head.offset)
 
     def group: String = head.key.groupId
     def offsetMap(): Map[TopicPartition, OffsetAndMetadata] = offsets.map {
-      case (gtp, offset) => new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
+      case (gtp, offset) =>
+        new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset.offset() + 1, offset.metadata())
     }
 
     override def updated(partitionOffset: PartitionOffset): TransactionBatch = {

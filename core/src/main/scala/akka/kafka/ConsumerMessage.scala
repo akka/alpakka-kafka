@@ -10,7 +10,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 
 import scala.concurrent.Future
 
@@ -68,7 +68,7 @@ object ConsumerMessage {
   /**
    * Offset position for a groupId, topic, partition.
    */
-  final case class PartitionOffset(key: GroupTopicPartition, offset: Long)
+  final case class PartitionOffset(key: GroupTopicPartition, offset: OffsetAndMetadata)
 
   /**
    * groupId, topic, partition key for an offset position.
@@ -130,12 +130,12 @@ object ConsumerMessage {
     /**
      * Scala API: Get current offset positions
      */
-    def offsets(): Map[GroupTopicPartition, Long]
+    def offsets(): Map[GroupTopicPartition, OffsetAndMetadata]
 
     /**
      * Java API: Get current offset positions
      */
-    def getOffsets(): JMap[GroupTopicPartition, Long]
+    def getOffsets(): JMap[GroupTopicPartition, OffsetAndMetadata]
   }
 
 }

@@ -157,16 +157,32 @@ object Consumer {
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
    */
-  def committableSource[K, V](settings: ConsumerSettings[K, V],
-                              subscription: Subscription): Source[CommittableMessage[K, V], Control] =
+  def committableSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+  ): Source[CommittableMessage[K, V], Control] =
     Source.fromGraph(ConsumerStage.committableSource[K, V](settings, subscription))
+
+  /**
+   * The `committableSourceWithMetadata` makes it possible to add additional metadata (in the form of a string)
+   * when an offset is committed based on the record. This can be useful (for example) to store information about which
+   * node made the commit, what time the commit was made, the timestamp of the record etc.
+   */
+  def committableSourceWithMetadata[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      metadataFromRecord: ConsumerRecord[K, V] => String
+  ): Source[CommittableMessage[K, V], Control] =
+    Source.fromGraph(ConsumerStage.committableSourceWithMetadata[K, V](settings, subscription, metadataFromRecord))
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before it is emitted downstream.
    */
-  def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
-                             subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
+  def atMostOnceSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+  ): Source[ConsumerRecord[K, V], Control] =
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
       m.committableOffset.commitScaladsl().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
     }

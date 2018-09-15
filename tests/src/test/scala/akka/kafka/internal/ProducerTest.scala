@@ -73,7 +73,8 @@ class ProducerTest(_system: ActorSystem)
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   def toTxMessage(tuple: (Record, RecordMetadata)) =
     Message(tuple._1,
-            ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset()))
+            ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1),
+                                            new OffsetAndMetadata(tuple._2.offset())))
   def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
   val toResult = (result _).tupled
 
@@ -557,7 +558,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
 
   def verifyTxCommit(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
-    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
+    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset.offset + 1)).asJava
     inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
     inOrder.verify(mock).commitTransaction()
     inOrder.verify(mock).beginTransaction()
@@ -565,7 +566,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
 
   def verifyTxCommitWhenShutdown(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
-    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
+    val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset.offset + 1)).asJava
     inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
     inOrder.verify(mock).commitTransaction()
   }
