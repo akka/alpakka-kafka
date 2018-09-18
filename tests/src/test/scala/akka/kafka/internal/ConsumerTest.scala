@@ -120,9 +120,9 @@ class ConsumerTest(_system: ActorSystem)
                              metadataFromRecord: ConsumerRecord[K, V] => String,
                              groupId: String = "group1",
                              topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.committableSourceWithMetadata(testSettings(mock.mock, groupId),
-                                           Subscriptions.topics(topics),
-                                           metadataFromRecord)
+    Consumer.commitWithMetadataSource(testSettings(mock.mock, groupId),
+                                      Subscriptions.topics(topics),
+                                      metadataFromRecord)
 
   def testPartitionedSource(
       mock: Consumer[K, V],

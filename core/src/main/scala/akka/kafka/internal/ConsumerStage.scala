@@ -49,6 +49,7 @@ private[kafka] object ConsumerStage {
       override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
         new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
         with CommittableMessageBuilder[K, V] with MetricsControl {
+          override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -70,26 +71,15 @@ private[kafka] object ConsumerStage {
         with PlainMessageBuilder[K, V] with MetricsControl
     }
 
-  def committableSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) =
+  def committableSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      _metadataFromRecord: ConsumerRecord[K, V] => String = (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA
+  ) =
     new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
         new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
         with CommittableMessageBuilder[K, V] {
-          override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-          lazy val committer: Committer = {
-            val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
-          }
-        }
-    }
-
-  def committableSourceWithMetadata[K, V](settings: ConsumerSettings[K, V],
-                                          subscription: Subscription,
-                                          _metadataFromRecord: ConsumerRecord[K, V] => String) =
-    new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
-      override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-        with CommittableMessageWithMetadataBuilder[K, V] {
           override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
           override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
           lazy val committer: Committer = {
@@ -107,6 +97,7 @@ private[kafka] object ConsumerStage {
       override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
         new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
         with CommittableMessageBuilder[K, V] {
+          override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
           override def groupId: String = _groupId
           lazy val committer: Committer = {
             val ec = materializer.executionContext
@@ -218,23 +209,6 @@ private[kafka] object ConsumerStage {
   private trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
     def groupId: String
     def committer: Committer
-
-    override def createMessage(rec: ConsumerRecord[K, V]) = {
-      val offset = ConsumerMessage.PartitionOffset(
-        GroupTopicPartition(
-          groupId = groupId,
-          topic = rec.topic,
-          partition = rec.partition
-        ),
-        offset = rec.offset
-      )
-      ConsumerMessage.CommittableMessage(rec, CommittableOffsetImpl(offset)(committer))
-    }
-  }
-
-  private trait CommittableMessageWithMetadataBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
-    def groupId: String
-    def committer: Committer
     def metadataFromRecord(record: ConsumerRecord[K, V]): String
 
     override def createMessage(rec: ConsumerRecord[K, V]) = {
@@ -251,7 +225,7 @@ private[kafka] object ConsumerStage {
   }
 
   final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset,
-                                         override val metadata: String = "")(
+                                         override val metadata: String)(
       val committer: Committer
   ) extends CommittableOffsetMetadata {
     override def commitScaladsl(): Future[Done] =
