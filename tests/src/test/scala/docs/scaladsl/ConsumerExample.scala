@@ -167,7 +167,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Future.successful(Done)
   // format: on
 
-  "Consume messages at-least-once, and commit in batches" should "work" in {
+  "Consume messages at-least-once, and commit in batches with metadata" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #atLeastOnceBatch
@@ -187,6 +187,33 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atLeastOnceBatch
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
+  }
+
+  "Consume messages at-least-once, and commit in batches" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    // #commitWithMetadata
+    def metadataFromRecord(record: ConsumerRecord[String, String]): String =
+      record.timestamp().toString
+
+    val control =
+      Consumer
+        .commitWithMetadataSource(consumerSettings, Subscriptions.topics(topic), metadataFromRecord)
+        .mapAsync(1) { msg =>
+          business(msg.record.key, msg.record.value)
+            .map(_ => msg.committableOffset)
+        }
+        .batch(
+          max = 20,
+          CommittableOffsetBatch(_)
+        )(_.updated(_))
+        .mapAsync(3)(_.commitScaladsl())
+        .toMat(Sink.seq)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    // #commitWithMetadata
     awaitProduce(produce(topic, 1 to 10))
     Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
   }

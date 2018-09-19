@@ -106,6 +106,15 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #groupedWithin }
 
+The `Consumer.commitWithMetadataSource` allows you to add metadata to the committed offset based on the last consumed record.
+
+Note that the first offset provided to the consumer during a partition assignment will not contain metadata. This offset can get committed due to a periodic commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parmeters) and the commit will not contain metadata.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #commitWithMetadata }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #commitWithMetadata }
 
 If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
 
