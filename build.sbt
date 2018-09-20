@@ -1,3 +1,4 @@
+import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
@@ -119,7 +120,7 @@ lazy val `alpakka-kafka` =
             |Useful sbt tasks:
             |
             |  docs/Local/paradox - builds documentation, which is generated at
-            |    docs/target/paradox/site/local/home.html
+            |    docs/target/paradox/site/local/index.html
             |
             |  test - runs all the tests
             |  tests/dockerComposeTest it:test --scale kafka=3
@@ -174,21 +175,17 @@ lazy val tests = project
 
 lazy val docs = project
   .in(file("docs"))
-  .enablePlugins(ParadoxPlugin)
+  .enablePlugins(AkkaParadoxPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
     skip in publish := true,
-    paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
-      "version" -> version.value,
-      "akkaVersion" -> akkaVersion,
-      "kafkaVersion" -> kafkaVersion,
-      "scalaVersion" -> scalaVersion.value,
-      "scalaBinaryVersion" -> scalaBinaryVersion.value,
+      "akka.version" -> akkaVersion,
+      "kafka.version" -> kafkaVersion,
       "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
       "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
@@ -197,6 +194,7 @@ lazy val docs = project
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
+    resolvers += Resolver.jcenterRepo,
     paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
     paradoxLocalApiDir := (core / Compile / doc).value,
   )
