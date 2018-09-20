@@ -4,7 +4,7 @@ Debugging setups with the Alpakka Kafka Connector will be required at times. Thi
 
 ## Logging with SLF4J
 
-Akka, Akka Streams and thus the Alpakka Kafka Connector support to use the [SLF4J logging API](https://www.slf4j.org/) by adding Akka's SLF4J module and an SLF4J compatible logging framework, eg. [Logback](http://logback.qos.ch/).
+Akka, Akka Streams and thus the Alpakka Kafka Connector support [SLF4J logging API](https://www.slf4j.org/) by adding Akka's SLF4J module and an SLF4J compatible logging framework, eg. [Logback](http://logback.qos.ch/).
 
 The Kafka client library used by the Alpakka Kafka connector uses SLF4J, as well.
 
@@ -29,7 +29,7 @@ akka {
 
 ## Receive logging
 
-In case you're debugging the internals in the Kafka Consumer actor, you might want to enable receive logging to see all messages it receives. To lower the log message volume, change the Kafka poll interval to  something larger, eg. 300 ms.
+In case you're debugging the internals in the Kafka Consumer actor, you might want to enable receive logging to see all messages it receives. To lower the log message volume, change the Kafka poll interval to something larger, eg. 300 ms.
 
 ```hocon
 akka {
