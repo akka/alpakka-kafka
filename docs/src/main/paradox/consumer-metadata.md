@@ -4,6 +4,8 @@ To access the Kafka consumer metadata you need to create the `KafkaConsumerActor
 
 The metadata the Kafka Consumer provides is documented in the @javadoc[Kafka Consumer API](org.apache.kafka.clients.consumer.KafkaConsumer).
 
+## Supported metadata
+
 The supported metadata are
 
 | Request | Reply | 
@@ -22,6 +24,8 @@ Processing of these requests blocks the actor loop. The KafkaConsumerActor is co
 However, calling these during consuming might affect performance and even cause timeouts in extreme cases.
 
 @@@   
+
+## Example
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadata }

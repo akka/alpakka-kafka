@@ -5,6 +5,8 @@
 
 Snapshots are published after every merged PR to a repository in bintray. Add the following to your project build definition to resolve Alpakka Kafka connector snapshots:
 
+## Configure repository
+
 Maven
 :   ```xml
     <project>
