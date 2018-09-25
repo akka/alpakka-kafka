@@ -5,29 +5,26 @@
 
 package akka.kafka.internal
 
-import java.{lang, time, util}
 import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
-import java.util.{List => JList, Map => JMap, Set => JSet}
 
-import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
-import Consumer.Control
+import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito
-import mockito.Mockito
-import Mockito._
+import org.mockito.Mockito
+import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
@@ -78,7 +75,7 @@ class ConsumerTest(_system: ActorSystem)
 
   def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
     val mock = new ConsumerMock[K, V]()
-    val (control, probe) = testSource(mock)
+    val (control, probe) = createCommittableSource(mock.mock)
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
@@ -111,20 +108,18 @@ class ConsumerTest(_system: ActorSystem)
         mock
     }
 
-  def testSource(mock: ConsumerMock[K, V],
-                 groupId: String = "group1",
-                 topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.committableSource(testSettings(mock.mock, groupId), Subscriptions.topics(topics))
+  def createCommittableSource(mock: Consumer[K, V],
+                              groupId: String = "group1",
+                              topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
+    Consumer.committableSource(testSettings(mock, groupId), Subscriptions.topics(topics))
 
-  def testSourceWithMetadata(mock: ConsumerMock[K, V],
-                             metadataFromRecord: ConsumerRecord[K, V] => String,
-                             groupId: String = "group1",
-                             topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.commitWithMetadataSource(testSettings(mock.mock, groupId),
-                                      Subscriptions.topics(topics),
-                                      metadataFromRecord)
+  def createSourceWithMetadata(mock: Consumer[K, V],
+                               metadataFromRecord: ConsumerRecord[K, V] => String,
+                               groupId: String = "group1",
+                               topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
+    Consumer.commitWithMetadataSource(testSettings(mock, groupId), Subscriptions.topics(topics), metadataFromRecord)
 
-  def testPartitionedSource(
+  def createCommittablePartitionedSource(
       mock: Consumer[K, V],
       groupId: String = "group1",
       topics: Set[String] = Set("topic")
@@ -135,7 +130,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val mock = new FailingConsumerMock[K, V](new Exception("Fatal Kafka error"), failOnCallNumber = 1)
 
-      val probe = testSource(mock)
+      val probe = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.right)
         .run()
 
@@ -149,7 +144,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2)
 
-      val probe = testSource(mock)
+      val probe = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.right)
         .run()
 
@@ -163,7 +158,7 @@ class ConsumerTest(_system: ActorSystem)
   it should "not fail stream when poll() fails twice, then succeeds, then fails twice with WakeupException" in assertAllStagesStopped {
     val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 4, 5)
 
-    val probe = testSource(mock)
+    val probe = createCommittableSource(mock.mock)
       .toMat(TestSink.probe)(Keep.right)
       .run()
 
@@ -177,7 +172,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
 
-      val probe = testSource(mock)
+      val probe = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.right)
         .run()
 
@@ -190,7 +185,7 @@ class ConsumerTest(_system: ActorSystem)
   it should "complete stage when stream control.stop called" in {
     assertAllStagesStopped {
       val mock = new ConsumerMock[K, V]()
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -205,7 +200,7 @@ class ConsumerTest(_system: ActorSystem)
   it should "complete stage when processing flow canceled" in {
     assertAllStagesStopped {
       val mock = new ConsumerMock[K, V]()
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -231,7 +226,7 @@ class ConsumerTest(_system: ActorSystem)
 
   it should "emit messages received as one message per chunk" in {
     assertAllStagesStopped {
-      checkMessagesReceiving(messages.grouped(1).to[Seq])
+      checkMessagesReceiving((1 to 100).map(createMessage).grouped(1).to[Seq])
     }
   }
 
@@ -252,7 +247,7 @@ class ConsumerTest(_system: ActorSystem)
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
 
-      val (control, probe) = testSourceWithMetadata(mock, (rec: ConsumerRecord[K, V]) => rec.offset.toString)
+      val (control, probe) = createSourceWithMetadata(mock.mock, (rec: ConsumerRecord[K, V]) => rec.offset.toString)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -287,7 +282,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -321,7 +316,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -352,7 +347,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -380,7 +375,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock, topics = Set("topic1", "topic2"))
+      val (control, probe) = createCommittableSource(mock.mock, topics = Set("topic1", "topic2"))
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -421,9 +416,9 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSourceWithMetadata(mock,
-                                                    (rec: ConsumerRecord[K, V]) => rec.offset.toString,
-                                                    topics = Set("topic1", "topic2"))
+      val (control, probe) = createSourceWithMetadata(mock.mock,
+                                                      (rec: ConsumerRecord[K, V]) => rec.offset.toString,
+                                                      topics = Set("topic1", "topic2"))
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -469,10 +464,10 @@ class ConsumerTest(_system: ActorSystem)
       val commitLog2 = new ConsumerMock.LogHandler()
       val mock1 = new ConsumerMock[K, V](commitLog1)
       val mock2 = new ConsumerMock[K, V](commitLog2)
-      val (control1, probe1) = testSource(mock1, "group1", Set("topic1", "topic2"))
+      val (control1, probe1) = createCommittableSource(mock1.mock, "group1", Set("topic1", "topic2"))
         .toMat(TestSink.probe)(Keep.both)
         .run()
-      val (control2, probe2) = testSource(mock2, "group2", Set("topic1", "topic3"))
+      val (control2, probe2) = createCommittableSource(mock2.mock, "group2", Set("topic1", "topic3"))
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -536,7 +531,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -558,7 +553,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -575,7 +570,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -589,7 +584,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -609,7 +604,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -645,7 +640,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -670,7 +665,7 @@ class ConsumerTest(_system: ActorSystem)
     assertAllStagesStopped {
       val commitLog = new ConsumerMock.LogHandler()
       val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = testSource(mock)
+      val (control, probe) = createCommittableSource(mock.mock)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -707,71 +702,53 @@ class ConsumerTest(_system: ActorSystem)
     object Paused extends TpState
     object Resumed extends TpState
 
-    val mock = new Consumer[K, V] {
+    val mock = new ConsumerDummy[K, V] {
       var tps: Map[TopicPartition, TpState] = Map.empty
       var callbacks: ConsumerRebalanceListener = null
 
-      override def assignment(): JSet[TopicPartition] = tps.keySet.asJava
-      override def subscription(): JSet[K] = ???
-      override def subscribe(topics: util.Collection[K]): Unit = ???
-      override def subscribe(topics: util.Collection[K], callback: ConsumerRebalanceListener): Unit =
+      override def assignment(): java.util.Set[TopicPartition] = tps.keySet.asJava
+      override def subscribe(topics: java.util.Collection[String], callback: ConsumerRebalanceListener): Unit =
         callbacks = callback
-      override def assign(partitions: util.Collection[TopicPartition]): Unit = {
+      override def assign(partitions: java.util.Collection[TopicPartition]): Unit = {
         callbacks.onPartitionsRevoked(tps.keySet.asJavaCollection)
         Thread.sleep(1000) // Wait for revoke asyncCB to happen
         tps = partitions.asScala.map(_ -> Resumed).toMap
         callbacks.onPartitionsAssigned(partitions)
         Thread.sleep(1000) // Wait for assignment to propagate to KafkaConsumerActor
       }
-      override def subscribe(pattern: Pattern, callback: ConsumerRebalanceListener): Unit = ???
-      override def subscribe(pattern: Pattern): Unit = ???
-      override def unsubscribe(): Unit = ???
       override def poll(timeout: Long): ConsumerRecords[K, V] =
         new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
-      override def commitSync(): Unit = ???
-      override def commitSync(offsets: JMap[TopicPartition, OffsetAndMetadata]): Unit = ???
-      override def commitAsync(): Unit = ???
-      override def commitAsync(callback: OffsetCommitCallback): Unit = ???
-      override def commitAsync(offsets: JMap[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit =
-        ???
-      override def seek(partition: TopicPartition, offset: Long): Unit = ???
-      override def seekToBeginning(partitions: util.Collection[TopicPartition]): Unit = ???
-      override def seekToEnd(partitions: util.Collection[TopicPartition]): Unit = ???
       override def position(partition: TopicPartition): Long = 0
-      override def committed(partition: TopicPartition): OffsetAndMetadata = ???
-      override def metrics(): JMap[MetricName, _ <: Metric] = ???
-      override def partitionsFor(topic: K): JList[PartitionInfo] = ???
-      override def listTopics(): JMap[K, JList[PartitionInfo]] = ???
-      override def paused(): JSet[TopicPartition] = tps.filter(_._2 == Paused).keySet.asJava
-      override def pause(partitions: util.Collection[TopicPartition]): Unit =
+      override def paused(): java.util.Set[TopicPartition] = tps.filter(_._2 == Paused).keySet.asJava
+      override def pause(partitions: java.util.Collection[TopicPartition]): Unit =
         tps = tps ++ partitions.asScala.map(_ -> Paused)
-      override def resume(partitions: util.Collection[TopicPartition]): Unit =
+      override def resume(partitions: java.util.Collection[TopicPartition]): Unit =
         tps = tps ++ partitions.asScala.map(_ -> Resumed)
       override def offsetsForTimes(
-          timestampsToSearch: JMap[TopicPartition, lang.Long]
-      ): JMap[TopicPartition, OffsetAndTimestamp] = ???
-      override def beginningOffsets(partitions: util.Collection[TopicPartition]): JMap[TopicPartition, lang.Long] = ???
-      override def endOffsets(partitions: util.Collection[TopicPartition]): JMap[TopicPartition, lang.Long] = ???
+          timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]
+      ): java.util.Map[TopicPartition, OffsetAndTimestamp] = ???
+      override def beginningOffsets(partitions: java.util.Collection[TopicPartition]): java.util.Map[TopicPartition, java.lang.Long] = ???
+      override def endOffsets(partitions: java.util.Collection[TopicPartition]): java.util.Map[TopicPartition, java.lang.Long] = ???
       override def close(): Unit = {}
       override def close(timeout: Long, unit: TimeUnit): Unit = {}
       override def wakeup(): Unit = ???
-      override def poll(timeout: time.Duration): ConsumerRecords[K, V] = ???
-      override def commitSync(timeout: time.Duration): Unit = ???
-      override def commitSync(offsets: JMap[TopicPartition, OffsetAndMetadata], timeout: time.Duration): Unit = ???
-      override def position(partition: TopicPartition, timeout: time.Duration): Long = ???
-      override def committed(partition: TopicPartition, timeout: time.Duration): OffsetAndMetadata = ???
-      override def partitionsFor(topic: K, timeout: time.Duration): JList[PartitionInfo] = ???
-      override def listTopics(timeout: time.Duration): JMap[K, JList[PartitionInfo]] = ???
-      override def offsetsForTimes(timestampsToSearch: JMap[TopicPartition, lang.Long],
-                                   timeout: time.Duration): JMap[TopicPartition, OffsetAndTimestamp] = ???
-      override def beginningOffsets(partitions: util.Collection[TopicPartition],
-                                    timeout: time.Duration): JMap[TopicPartition, lang.Long] = ???
-      override def endOffsets(partitions: util.Collection[TopicPartition],
-                              timeout: time.Duration): JMap[TopicPartition, lang.Long] = ???
-      override def close(timeout: time.Duration): Unit = ???
+      override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
+      override def commitSync(timeout: java.time.Duration): Unit = ???
+      override def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata], timeout: java.time.Duration): Unit = ???
+      override def position(partition: TopicPartition, timeout: java.time.Duration): Long = ???
+      override def committed(partition: TopicPartition, timeout: java.time.Duration): OffsetAndMetadata = ???
+      override def partitionsFor(topic: K, timeout: java.time.Duration): java.util.List[PartitionInfo] = ???
+      override def listTopics(timeout: java.time.Duration): java.util.Map[K, java.util.List[PartitionInfo]] = ???
+      override def offsetsForTimes(timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long],
+                                   timeout: java.time.Duration): java.util.Map[TopicPartition, OffsetAndTimestamp] = ???
+      override def beginningOffsets(partitions: java.util.Collection[TopicPartition],
+                                    timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
+      override def endOffsets(partitions: java.util.Collection[TopicPartition],
+                              timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
+      override def close(timeout: java.time.Duration): Unit = ???
     }
     val topic = "test"
-    testPartitionedSource(mock, "group", Set(topic))
+    createCommittablePartitionedSource(mock, "group", Set(topic))
       .flatMapMerge(breadth = 10, _._2)
       .runWith(Sink.queue())
     Thread.sleep(1000) // Wait for stream to materialize
@@ -833,12 +810,12 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
       })
     Mockito
       .when(
-        result.commitAsync(mockito.ArgumentMatchers.any[JMap[TopicPartition, OffsetAndMetadata]],
+        result.commitAsync(mockito.ArgumentMatchers.any[java.util.Map[TopicPartition, OffsetAndMetadata]],
                            mockito.ArgumentMatchers.any[OffsetCommitCallback])
       )
       .thenAnswer(new Answer[Unit] {
         override def answer(invocation: InvocationOnMock) = {
-          val offsets = invocation.getArgument[JMap[TopicPartition, OffsetAndMetadata]](0)
+          val offsets = invocation.getArgument[java.util.Map[TopicPartition, OffsetAndMetadata]](0)
           val callback = invocation.getArgument[OffsetCommitCallback](1)
           handler(offsets.asScala.toMap, callback)
           ()
@@ -846,12 +823,12 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
       })
     Mockito
       .when(
-        result.subscribe(mockito.ArgumentMatchers.any[JList[String]],
+        result.subscribe(mockito.ArgumentMatchers.any[java.util.List[String]],
                          mockito.ArgumentMatchers.any[ConsumerRebalanceListener])
       )
       .thenAnswer(new Answer[Unit] {
         override def answer(invocation: InvocationOnMock) = {
-          val topics = invocation.getArgument[JList[String]](0)
+          val topics = invocation.getArgument[java.util.List[String]](0)
           val callback = invocation.getArgument[ConsumerRebalanceListener](1)
           pendingSubscriptions :+= (topics.asScala.toList -> callback)
           ()
@@ -875,7 +852,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
       })
     Mockito
       .when(result.assignment())
-      .thenAnswer(new Answer[JSet[TopicPartition]] {
+      .thenAnswer(new Answer[java.util.Set[TopicPartition]] {
         override def answer(invocation: InvocationOnMock) = assignment.asJava
       })
     result
