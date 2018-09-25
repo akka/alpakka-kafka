@@ -34,79 +34,86 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
  * INTERNAL API
  */
 private[kafka] object ConsumerStage {
-  def plainSubSource[K, V](settings: ConsumerSettings[K, V],
-                           subscription: AutoSubscription,
-                           getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
-                           onRevoke: Set[TopicPartition] => Unit = _ => ()) =
-    new KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])] {
-      override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
-        with PlainMessageBuilder[K, V] with MetricsControl
-    }
+  private[kafka] final class PlainSubSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]],
+      onRevoke: Set[TopicPartition] => Unit
+  ) extends KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])](
+        s"PlainSubSource $subscription"
+      ) {
+    override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
+      new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
+      with PlainMessageBuilder[K, V] with MetricsControl
+  }
 
-  def committableSubSource[K, V](settings: ConsumerSettings[K, V], subscription: AutoSubscription) =
-    new KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])] {
-      override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
-        new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-        with CommittableMessageBuilder[K, V] with MetricsControl {
-          override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
-          override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-          lazy val committer: Committer = {
-            val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
-          }
+  private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings[K, V],
+                                                        subscription: AutoSubscription)
+      extends KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])](
+        s"CommittableSubSource $subscription"
+      ) {
+    override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
+      new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
+      with CommittableMessageBuilder[K, V] with MetricsControl {
+        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
+        override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+        lazy val committer: Committer = {
+          val ec = materializer.executionContext
+          KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
         }
-    }
+      }
+  }
 
-  def plainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription) =
-    new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
-      override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
-        new SingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
-    }
+  private[kafka] final class PlainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription)
+      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](s"PlainSource $subscription") {
+    override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
+      new SingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
+  }
 
-  def externalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription) =
-    new KafkaSourceStage[K, V, ConsumerRecord[K, V]] {
-      override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription)
-        with PlainMessageBuilder[K, V] with MetricsControl
-    }
+  private[kafka] final class ExternalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription)
+      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](s"ExternalPlainSubSource $subscription") {
+    override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
+      new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription)
+      with PlainMessageBuilder[K, V] with MetricsControl
+  }
 
-  def committableSource[K, V](
+  private[kafka] final class CommittableSource[K, V](
       settings: ConsumerSettings[K, V],
       subscription: Subscription,
       _metadataFromRecord: ConsumerRecord[K, V] => String = (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA
-  ) =
-    new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
-      override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-        with CommittableMessageBuilder[K, V] {
-          override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
-          override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-          lazy val committer: Committer = {
-            val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
-          }
+  ) extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"CommittableSource $subscription") {
+    override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
+      new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
+      with CommittableMessageBuilder[K, V] {
+        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
+        override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+        lazy val committer: Committer = {
+          val ec = materializer.executionContext
+          KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
         }
-    }
+      }
+  }
 
-  def externalCommittableSource[K, V](consumer: ActorRef,
-                                      _groupId: String,
-                                      commitTimeout: FiniteDuration,
-                                      subscription: ManualSubscription) =
-    new KafkaSourceStage[K, V, CommittableMessage[K, V]] {
-      override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
-        new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
-        with CommittableMessageBuilder[K, V] {
-          override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
-          override def groupId: String = _groupId
-          lazy val committer: Committer = {
-            val ec = materializer.executionContext
-            KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
-          }
+  private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
+                                                             _groupId: String,
+                                                             commitTimeout: FiniteDuration,
+                                                             subscription: ManualSubscription)
+      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"ExternalCommittableSource $subscription") {
+    override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
+      new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
+      with CommittableMessageBuilder[K, V] {
+        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
+        override def groupId: String = _groupId
+        lazy val committer: Committer = {
+          val ec = materializer.executionContext
+          KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
         }
-    }
+      }
+  }
 
-  def transactionalSource[K, V](consumerSettings: ConsumerSettings[K, V], subscription: Subscription) = {
+  private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerSettings[K, V],
+                                                       subscription: Subscription)
+      extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](s"TransactionalSource $subscription") {
     require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty,
             "You must define a Consumer group.id.")
 
@@ -117,18 +124,16 @@ private[kafka] object ConsumerStage {
      * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
      * will still consume non-transactional messages.
      */
-    val txConsumerSettings = consumerSettings.withProperty(
+    private val txConsumerSettings = consumerSettings.withProperty(
       ConsumerConfig.ISOLATION_LEVEL_CONFIG,
       IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
     )
 
-    new KafkaSourceStage[K, V, TransactionalMessage[K, V]] {
-      override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]) =
-        new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
-        with TransactionalMessageBuilder[K, V] {
-          override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-        }
-    }
+    override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]) =
+      new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
+      with TransactionalMessageBuilder[K, V] {
+        override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+      }
   }
 
   // This should be case class to be comparable based on ref and timeout. This comparison is used in CommittableOffsetBatchImpl
@@ -176,9 +181,13 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  abstract class KafkaSourceStage[K, V, Msg]() extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
+  abstract class KafkaSourceStage[K, V, Msg](stageName: String)
+      extends GraphStageWithMaterializedValue[SourceShape[Msg], Control] {
     protected val out = Outlet[Msg]("out")
     val shape = new SourceShape(out)
+
+    override protected def initialAttributes: Attributes = Attributes.name(stageName)
+
     protected def logic(shape: SourceShape[Msg]): GraphStageLogic with Control
     override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
       val result = logic(shape)
@@ -186,11 +195,11 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  private trait PlainMessageBuilder[K, V] extends MessageBuilder[K, V, ConsumerRecord[K, V]] {
+  private[kafka] trait PlainMessageBuilder[K, V] extends MessageBuilder[K, V, ConsumerRecord[K, V]] {
     override def createMessage(rec: ConsumerRecord[K, V]) = rec
   }
 
-  private trait TransactionalMessageBuilder[K, V] extends MessageBuilder[K, V, TransactionalMessage[K, V]] {
+  private[kafka] trait TransactionalMessageBuilder[K, V] extends MessageBuilder[K, V, TransactionalMessage[K, V]] {
     def groupId: String
 
     override def createMessage(rec: ConsumerRecord[K, V]) = {
@@ -206,7 +215,7 @@ private[kafka] object ConsumerStage {
     }
   }
 
-  private trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
+  private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
     def groupId: String
     def committer: Committer
     def metadataFromRecord(record: ConsumerRecord[K, V]): String

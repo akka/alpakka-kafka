@@ -40,6 +40,14 @@ object Subscriptions {
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
       TopicSubscription(tps, Some(ref))
+
+    override def toString: String = {
+      val listener = rebalanceListener match {
+        case Some(ref) => s",rebalanceListener=$ref"
+        case None => ""
+      }
+      s"TopicSubscription(${tps.mkString(",")}$listener)"
+    }
   }
 
   /** INTERNAL API */
@@ -48,6 +56,14 @@ object Subscriptions {
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
       TopicSubscriptionPattern(pattern, Some(ref))
+
+    override def toString: String = {
+      val listener = rebalanceListener match {
+        case Some(ref) => s",rebalanceListener=$ref"
+        case None => ""
+      }
+      s"TopicSubscriptionPattern($pattern$listener)"
+    }
   }
 
   /** INTERNAL API */
@@ -56,6 +72,15 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): Assignment =
       Assignment(tps, Some(ref))
+
+    override def toString: String = {
+      val listener = rebalanceListener match {
+        case Some(ref) => s",rebalanceListener=$ref"
+        case None => ""
+      }
+      s"Assignment(${tps.mkString(",")}$listener)"
+    }
+
   }
 
   /** INTERNAL API */
@@ -65,6 +90,14 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentWithOffset =
       AssignmentWithOffset(tps, Some(ref))
+
+    override def toString: String = {
+      val listener = rebalanceListener match {
+        case Some(ref) => s",rebalanceListener=$ref"
+        case None => ""
+      }
+      s"AssignmentWithOffset(${tps.map { case (tp, offset) => s"$tp -> offset=$offset" }.mkString(",")}$listener)"
+    }
   }
 
   /** INTERNAL API */
@@ -74,6 +107,14 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes =
       AssignmentOffsetsForTimes(timestampsToSearch, Some(ref))
+
+    override def toString: String = {
+      val listener = rebalanceListener match {
+        case Some(ref) => s",rebalanceListener=$ref"
+        case None => ""
+      }
+      s"AssignmentOffsetsForTimes(${timestampsToSearch.map { case (tp, timestamp) => s"$tp -> timestamp=$timestamp" }.mkString(",")}$listener)"
+    }
   }
 
   /** Creates subscription for given set of topics */
