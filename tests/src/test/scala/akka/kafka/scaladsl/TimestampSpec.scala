@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.kafka.{KafkaPorts, Subscriptions}
-import akka.kafka.test.Utils.assertAllStagesStopped
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.common.TopicPartition

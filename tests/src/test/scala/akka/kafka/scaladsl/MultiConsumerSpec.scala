@@ -7,7 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.Done
 import akka.kafka.KafkaPorts
-import akka.kafka.test.Utils._
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 import scala.collection.immutable

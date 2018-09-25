@@ -5,11 +5,8 @@
 
 package akka.kafka.scaladsl
 
-import akka.kafka.test.Utils.StageStoppingTimeout
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
-
-import scala.concurrent.duration._
 
 abstract class SpecBase(kafkaPort: Int)
     extends ScalatestKafkaSpec(kafkaPort)
@@ -17,8 +14,4 @@ abstract class SpecBase(kafkaPort: Int)
     with EmbeddedKafkaLike
     with Matchers
     with ScalaFutures
-    with Eventually {
-
-  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
-
-}
+    with Eventually

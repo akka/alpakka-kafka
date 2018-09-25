@@ -18,9 +18,9 @@ import akka.kafka.scaladsl.Consumer
 import Consumer.Control
 import akka.stream._
 import akka.stream.scaladsl._
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import akka.kafka.test.Utils._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
@@ -69,7 +69,6 @@ class ConsumerTest(_system: ActorSystem)
     shutdown(system)
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
-  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
   val messages = (1 to 1000).map(createMessage)
 
