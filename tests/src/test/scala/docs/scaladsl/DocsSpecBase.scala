@@ -8,13 +8,10 @@ package docs.scaladsl
 import akka.NotUsed
 import akka.kafka.internal.TestFrameworkInterface
 import akka.kafka.scaladsl.{EmbeddedKafkaLike, KafkaSpec}
-import akka.kafka.test.Utils.StageStoppingTimeout
 import akka.stream.scaladsl.Flow
 import org.scalatest.{FlatSpecLike, Matchers, Suite}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.time.{Millis, Seconds, Span}
-
-import scala.concurrent.duration._
 
 abstract class DocsSpecBase(kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
@@ -26,7 +23,6 @@ abstract class DocsSpecBase(kafkaPort: Int)
     with Eventually {
 
   this: Suite ⇒
-  implicit val stageStoppingTimeout: StageStoppingTimeout = StageStoppingTimeout(15.seconds)
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))

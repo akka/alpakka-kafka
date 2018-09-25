@@ -11,9 +11,9 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
-import akka.kafka.test.Utils._
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
 import akka.testkit.TestKit
@@ -48,7 +48,6 @@ class ProducerTest(_system: ActorSystem)
   implicit val m = ActorMaterializer(
     ActorMaterializerSettings(_system).withFuzzing(true)
   )
-  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
 
   val checksum = new java.lang.Long(-1)

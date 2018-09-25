@@ -7,8 +7,8 @@ package akka.kafka.scaladsl
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.test.Utils._
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.producer.ProducerRecord

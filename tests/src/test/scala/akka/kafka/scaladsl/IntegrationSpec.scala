@@ -10,9 +10,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
-import akka.kafka.test.Utils._
 import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.util.Timeout
@@ -28,7 +28,7 @@ import scala.util.Success
 
 class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
 
-  implicit val patience = PatienceConfig(500.millis, 50.millis)
+  implicit val patience = PatienceConfig(15.seconds, 500.millis)
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
@@ -247,13 +247,11 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "connect consumer to producer and commit in batches" in {
       assertAllStagesStopped {
-        val topic1 = createTopicName(1)
-        val topic2 = createTopicName(2)
+        val topic1 = createTopic(1)
+        val topic2 = createTopic(2)
         val group1 = createGroupId(1)
 
-        givenInitializedTopic(topic1)
-
-        Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+        awaitProduce(produce(topic1, 1 to 10))
 
         val source = Consumer
           .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
@@ -266,9 +264,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
           })
           .via(Producer.flexiFlow(producerDefaults))
           .map(_.passThrough)
-          .batch(max = 10, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-            batch.updated(elem)
-          }
+          .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
           .mapAsync(producerDefaults.parallelism)(_.commitScaladsl())
 
         val probe = source.runWith(TestSink.probe)
@@ -391,12 +387,10 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "call the onRevoked hook" in {
       assertAllStagesStopped {
-        val topic = createTopicName(1)
+        val topic = createTopic()
         val group = createGroupId(1)
 
-        givenInitializedTopic(topic)
-
-        Await.result(produce(topic, 1 to 100), remainingOrDefault)
+        awaitProduce(produce(topic, 1 to 100))
 
         var revoked = false
 
@@ -406,23 +400,23 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
                                               _ => Future.successful(Map.empty),
                                               _ => revoked = true)
           .flatMapMerge(1, _._2)
-          .filterNot(_.value == InitialMsg)
           .map(_.value())
 
-        val probe1 = source.runWith(TestSink.probe)
+        val (control1, probe1) = source.toMat(TestSink.probe)(Keep.both).run()
 
-        probe1
-          .request(50)
+        probe1.request(50)
 
-        Thread.sleep(consumerDefaults.waitClosePartition.toMillis)
+        sleep(consumerDefaults.waitClosePartition)
 
         val probe2 = source.runWith(TestSink.probe)
 
-        eventually(assert(revoked))
+        eventually {
+          assert(revoked, "revoked hook should have been called")
+        }
 
         probe1.cancel()
         probe2.cancel()
-
+        control1.isShutdown.futureValue should be(Done)
       }
     }
 
