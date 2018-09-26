@@ -77,11 +77,11 @@ private[kafka] object ConsumerStage {
       with PlainMessageBuilder[K, V] with MetricsControl
   }
 
-  private[kafka] final class CommittableSource[K, V](
-      settings: ConsumerSettings[K, V],
-      subscription: Subscription,
-      _metadataFromRecord: ConsumerRecord[K, V] => String = (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA
-  ) extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"CommittableSource $subscription") {
+  private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K, V],
+                                                     subscription: Subscription,
+                                                     _metadataFromRecord: ConsumerRecord[K, V] => String =
+                                                       (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA)
+      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"CommittableSource $subscription") {
     override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
       new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
       with CommittableMessageBuilder[K, V] {
