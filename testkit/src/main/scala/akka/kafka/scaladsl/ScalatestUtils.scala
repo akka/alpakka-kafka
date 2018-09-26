@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.kafka.internal.TestFrameworkInterface
-import org.scalatest.{Suite, WordSpecLike}
+import org.scalatest.Suite
 
 abstract class ScalatestKafkaSpec(override val kafkaPort: Int)
     extends KafkaSpec(kafkaPort)

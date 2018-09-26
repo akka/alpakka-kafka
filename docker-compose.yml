@@ -8,7 +8,7 @@ services:
     ports:
       - "2181:2181"
   kafka:
-    image: wurstmeister/kafka:1.0.1
+    image: wurstmeister/kafka:1.1.0
     ports:
       - "9094"
     environment:

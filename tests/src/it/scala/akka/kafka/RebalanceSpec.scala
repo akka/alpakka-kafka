@@ -10,6 +10,7 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.duration._
 
 object RebalanceSpec {
+  // the following system properties are provided by the sbt-docker-compose plugin
   val KafkaBootstrapServers = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
   val Kafka1Port = sys.props("kafka_1_9094_port").toInt
   val Kafka2ContainerId = sys.props("kafka_2_9094_id")

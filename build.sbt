@@ -83,8 +83,12 @@ val commonSettings = Seq(
     "-Ywarn-numeric-widen",
     "-Xfuture"
   ),
-  testOptions += Tests.Argument("-oD"),
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
+  // show full stack traces and test case durations
+  testOptions += Tests.Argument("-oDF"),
+  // -a Show stack traces and exception class name for AssertionErrors.
+  // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
+  // -q Suppress stdout for successful tests.
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
   scalafmtOnCompile := true,
   headerLicense := Some(
     HeaderLicense.Custom(
@@ -123,7 +127,7 @@ lazy val `alpakka-kafka` =
             |    docs/target/paradox/site/local/index.html
             |
             |  test - runs all the tests
-            |  tests/dockerComposeTest it:test --scale kafka=3
+            |  tests/dockerComposeTest it:test
             |    - run integration test backed by Docker containers
           """.stripMargin
     )
@@ -165,6 +169,7 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
+    dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
