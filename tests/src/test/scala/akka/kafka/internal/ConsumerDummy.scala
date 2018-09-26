@@ -56,9 +56,8 @@ trait ConsumerDummy[K, V] extends Consumer[K, V] {
   override def partitionsFor(topic: String): java.util.List[PartitionInfo] = ???
   override def listTopics(): java.util.Map[String, java.util.List[PartitionInfo]] = ???
   override def paused(): java.util.Set[TopicPartition] = ???
-  override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
+  override def pause(partitions: java.util.Collection[TopicPartition]): Unit =
     firstPausingPromise.trySuccess(Done)
-  }
   override def resume(partitions: java.util.Collection[TopicPartition]): Unit = ???
   override def offsetsForTimes(
       timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]
