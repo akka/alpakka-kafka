@@ -6,11 +6,32 @@
 package akka.kafka.internal
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
+import akka.Done
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
+import org.slf4j.{Logger, LoggerFactory}
+
+import scala.concurrent.Promise
+
+object ConsumerDummy {
+  val instanceCounter = new AtomicInteger(0)
+
+  trait TpState
+  object Assigned extends TpState
+  object Revoked extends TpState
+  object Paused extends TpState
+  object Resumed extends TpState
+}
 
 trait ConsumerDummy[K, V] extends Consumer[K, V] {
+  def name: String
+  lazy val log: Logger = LoggerFactory.getLogger(name)
+
+  private val firstPausingPromise = Promise[Done]()
+  def started = firstPausingPromise.future
+
   override def assignment(): java.util.Set[TopicPartition] = ???
   override def subscription(): java.util.Set[String] = ???
   override def subscribe(topics: java.util.Collection[String]): Unit = ???
@@ -35,7 +56,9 @@ trait ConsumerDummy[K, V] extends Consumer[K, V] {
   override def partitionsFor(topic: String): java.util.List[PartitionInfo] = ???
   override def listTopics(): java.util.Map[String, java.util.List[PartitionInfo]] = ???
   override def paused(): java.util.Set[TopicPartition] = ???
-  override def pause(partitions: java.util.Collection[TopicPartition]): Unit = ???
+  override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
+    firstPausingPromise.trySuccess(Done)
+  }
   override def resume(partitions: java.util.Collection[TopicPartition]): Unit = ???
   override def offsetsForTimes(
       timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]
