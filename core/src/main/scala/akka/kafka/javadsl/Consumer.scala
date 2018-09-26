@@ -149,6 +149,21 @@ object Consumer {
       .asJava
 
   /**
+   * The `commitWithMetadataSource` makes it possible to add additional metadata (in the form of a string)
+   * when an offset is committed based on the record. This can be useful (for example) to store information about which
+   * node made the commit, what time the commit was made, the timestamp of the record etc.
+   */
+  def commitWithMetadataSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
+  ): Source[CommittableMessage[K, V], Control] =
+    scaladsl.Consumer
+      .commitWithMetadataSource(settings, subscription, (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+
+  /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before emitted downstreams.
    */

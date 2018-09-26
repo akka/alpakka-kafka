@@ -56,7 +56,7 @@ object KafkaConsumerActor {
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
-    final case class Commit(offsets: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
+    final case class Commit(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -134,8 +134,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   var consumer: Consumer[K, V] = _
   var subscriptions = Set.empty[SubscriptionRequest]
   var commitsInProgress = 0
-  var commitRequestedOffsets = Map.empty[TopicPartition, Long]
-  var committedOffsets = Map.empty[TopicPartition, Long]
+  var commitRequestedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
+  var committedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
   var commitRefreshDeadline: Option[Deadline] = None
   var initialPoll = true
   var wakeups = 0
@@ -207,8 +207,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
 
     case PartitionAssigned(partition, offset) =>
-      commitRequestedOffsets += partition -> commitRequestedOffsets.getOrElse(partition, offset)
-      committedOffsets += partition -> committedOffsets.getOrElse(partition, offset)
+      commitRequestedOffsets += partition -> commitRequestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+      committedOffsets += partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
       commitRefreshDeadline = nextCommitRefreshDeadline()
 
     case PartitionRevoked(partition) =>
@@ -216,7 +216,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       committedOffsets -= partition
 
     case Committed(offsets) =>
-      committedOffsets ++= offsets.mapValues(_.offset())
+      committedOffsets ++= offsets
 
     case Stop =>
       if (commitsInProgress == 0) {
@@ -477,9 +477,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     case infinite => None
   }
 
-  private def commit(offsets: Map[TopicPartition, Long], reply: ActorRef): Unit = {
+  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], reply: ActorRef): Unit = {
     commitRefreshDeadline = nextCommitRefreshDeadline()
-    val commitMap = offsets.mapValues(new OffsetAndMetadata(_))
     commitsInProgress += 1
     val startTime = System.nanoTime()
     consumer.commitAsync(

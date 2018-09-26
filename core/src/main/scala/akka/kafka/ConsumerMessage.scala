@@ -65,10 +65,22 @@ object ConsumerMessage {
     def partitionOffset: PartitionOffset
   }
 
+  trait CommittableOffsetMetadata extends CommittableOffset {
+    def metadata: String
+  }
+
   /**
    * Offset position for a groupId, topic, partition.
    */
-  final case class PartitionOffset(key: GroupTopicPartition, offset: Long)
+  final case class PartitionOffset(key: GroupTopicPartition, offset: Long) {
+    def withMetadata(metadata: String) =
+      PartitionOffsetMetadata(key, offset, metadata)
+  }
+
+  /**
+   * Offset position and metadata for a groupId, topic, partition.
+   */
+  final case class PartitionOffsetMetadata(key: GroupTopicPartition, offset: Long, metadata: String)
 
   /**
    * groupId, topic, partition key for an offset position.
