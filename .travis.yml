@@ -25,6 +25,9 @@ jobs:
     - env: CMD="+test"
       jdk: oraclejdk9
 
+    - env: CMD="+test"
+      jdk: oraclejdk10
+
     - env: CMD="mimaReportBinaryIssues"
       jdk: oraclejdk8
 
