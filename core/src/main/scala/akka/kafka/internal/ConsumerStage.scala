@@ -40,7 +40,7 @@ private[kafka] object ConsumerStage {
       getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]],
       onRevoke: Set[TopicPartition] => Unit
   ) extends KafkaSourceStage[K, V, (TopicPartition, Source[ConsumerRecord[K, V], NotUsed])](
-        s"PlainSubSource $subscription"
+        s"PlainSubSource ${subscription.renderStageAttribute}"
       ) {
     override protected def logic(shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]) =
       new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
@@ -50,7 +50,7 @@ private[kafka] object ConsumerStage {
   private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings[K, V],
                                                         subscription: AutoSubscription)
       extends KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])](
-        s"CommittableSubSource $subscription"
+        s"CommittableSubSource ${subscription.renderStageAttribute}"
       ) {
     override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
       new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
@@ -65,13 +65,15 @@ private[kafka] object ConsumerStage {
   }
 
   private[kafka] final class PlainSource[K, V](settings: ConsumerSettings[K, V], subscription: Subscription)
-      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](s"PlainSource $subscription") {
+      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](s"PlainSource ${subscription.renderStageAttribute}") {
     override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
       new SingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription) with PlainMessageBuilder[K, V]
   }
 
   private[kafka] final class ExternalPlainSource[K, V](consumer: ActorRef, subscription: ManualSubscription)
-      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](s"ExternalPlainSubSource $subscription") {
+      extends KafkaSourceStage[K, V, ConsumerRecord[K, V]](
+        s"ExternalPlainSubSource ${subscription.renderStageAttribute}"
+      ) {
     override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]) =
       new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription)
       with PlainMessageBuilder[K, V] with MetricsControl
@@ -81,7 +83,9 @@ private[kafka] object ConsumerStage {
                                                      subscription: Subscription,
                                                      _metadataFromRecord: ConsumerRecord[K, V] => String =
                                                        (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA)
-      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"CommittableSource $subscription") {
+      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](
+        s"CommittableSource ${subscription.renderStageAttribute}"
+      ) {
     override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
       new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
       with CommittableMessageBuilder[K, V] {
@@ -98,7 +102,9 @@ private[kafka] object ConsumerStage {
                                                              _groupId: String,
                                                              commitTimeout: FiniteDuration,
                                                              subscription: ManualSubscription)
-      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](s"ExternalCommittableSource $subscription") {
+      extends KafkaSourceStage[K, V, CommittableMessage[K, V]](
+        s"ExternalCommittableSource ${subscription.renderStageAttribute}"
+      ) {
     override protected def logic(shape: SourceShape[CommittableMessage[K, V]]) =
       new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
       with CommittableMessageBuilder[K, V] {
@@ -113,7 +119,9 @@ private[kafka] object ConsumerStage {
 
   private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerSettings[K, V],
                                                        subscription: Subscription)
-      extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](s"TransactionalSource $subscription") {
+      extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](
+        s"TransactionalSource ${subscription.renderStageAttribute}"
+      ) {
     require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty,
             "You must define a Consumer group.id.")
 
