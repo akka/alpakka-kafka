@@ -13,7 +13,7 @@ abstract class BenchmarksBase(name: String) extends ScalatestKafkaSpec(0) with F
 
   override def setUp(): Unit = {
     waitUntilCluster() {
-      _.nodes().get().size == 3
+      _.nodes().get().size == BuildInfo.kafkaScale
     }
     super.setUp()
   }

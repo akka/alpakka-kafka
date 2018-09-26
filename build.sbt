@@ -52,6 +52,8 @@ val benchmarkDependencies = Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion % "it"
 )
 
+val kafkaScale = settingKey[Int]("Number of kafka docker containers")
+
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
 val commonSettings = Seq(
@@ -113,22 +115,29 @@ lazy val `alpakka-kafka` =
         """
             |** Welcome to the Alpakka Kafka connector! **
             |
-            |The build has three modules
+            |The build has three main modules:
             |  core - the Kafka connector sources
             |  tests - tests, Docker based integration tests, code for the documentation
             |  testkit - framework for testing the connector
             |
+            |Other modules:
             |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
             |  benchmarks - for instructions read benchmarks/README.md
             |
             |Useful sbt tasks:
             |
-            |  docs/Local/paradox - builds documentation, which is generated at
+            |  docs/Local/paradox
+            |    builds documentation, which is generated at
             |    docs/target/paradox/site/local/index.html
             |
-            |  test - runs all the tests
+            |  test
+            |    runs all the tests
+            |
             |  tests/dockerComposeTest it:test
-            |    - run integration test backed by Docker containers
+            |    run integration test backed by Docker containers
+            |
+            |  benchmarks/dockerComposeTest it:testOnly *.AlpakkaKafkaPlainConsumer
+            |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
     .aggregate(core, testkit, tests, benchmarks, docs)
@@ -157,7 +166,7 @@ lazy val testkit = project
 
 lazy val tests = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .disablePlugins(MimaPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -169,12 +178,17 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
+
+    kafkaScale := 3,
+    buildInfoPackage := "akka.kafka",
+    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
+
     dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withOption("--scale", "kafka=3")
+        .withOption("--scale", s"kafka=${kafkaScale.value}")
     }
   )
 
@@ -206,7 +220,7 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -217,12 +231,17 @@ lazy val benchmarks = project
     skip in publish := true,
     parallelExecution in IntegrationTest := false,
     libraryDependencies ++= benchmarkDependencies,
+
+    kafkaScale := 1,
+    buildInfoPackage := "akka.kafka.benchmarks",
+    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
+
     dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withOption("--scale", "kafka=3")
+        .withOption("--scale", s"kafka=${kafkaScale.value}")
     },
     dockerfile in docker := {
       val artifact: File = assembly.value

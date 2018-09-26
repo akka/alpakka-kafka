@@ -32,7 +32,7 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
       val totalMessages = 1000 * 10
 
       waitUntilCluster() {
-        _.nodes().get().size == 3
+        _.nodes().get().size == BuildInfo.kafkaScale
       }
 
       val topic = createTopic(0, partitions = 1, replication = 3)
