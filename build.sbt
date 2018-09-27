@@ -178,11 +178,9 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-
     kafkaScale := 3,
     buildInfoPackage := "akka.kafka",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
-
     dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
@@ -231,11 +229,9 @@ lazy val benchmarks = project
     skip in publish := true,
     parallelExecution in IntegrationTest := false,
     libraryDependencies ++= benchmarkDependencies,
-
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
-
     dockerComposeTestLogging := true,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
