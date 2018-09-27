@@ -9,11 +9,11 @@ import akka.kafka.scaladsl.ScalatestKafkaSpec
 import org.scalatest.FlatSpecLike
 
 abstract class BenchmarksBase(name: String) extends ScalatestKafkaSpec(0) with FlatSpecLike {
-  override def bootstrapServers: String = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
+  override def bootstrapServers: String = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
 
   override def setUp(): Unit = {
     waitUntilCluster() {
-      _.nodes().get().size == 3
+      _.nodes().get().size == BuildInfo.kafkaScale
     }
     super.setUp()
   }
