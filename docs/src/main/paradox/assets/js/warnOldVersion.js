@@ -14,7 +14,7 @@ function initOldVersionWarnings($, thisVersion, projectUrl) {
 }
 
 function showVersionWarning(thisVersion, currentVersion, projectUrl) {
-    $('#version-warning').prepend(
+    $('#docs').prepend(
         '<div class="callout warning" style="margin-top: 16px">' +
         '<p><span style="font-weight: bold">This documentation regards version ' + thisVersion + ', ' +
         'however the current version is <a href="' + projectUrl + '">' + currentVersion + '</a>.</span></p>' +
