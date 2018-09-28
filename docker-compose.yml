@@ -12,7 +12,7 @@ services:
     ports:
       - "9094"
     environment:
-      HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
       PORT_COMMAND: "docker port `hostname` 9094 | cut -d: -f 2"
       KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://_{HOSTNAME_COMMAND}:_{PORT_COMMAND}
       KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
