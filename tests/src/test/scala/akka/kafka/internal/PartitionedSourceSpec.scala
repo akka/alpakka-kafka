@@ -82,9 +82,9 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.tpsPaused should be('empty)
     dummy.assignWithCallback(tp0, tp1)
-    dummy.nextPollData.set(Map(tp0 -> singleRecord))
+    dummy.setNextPollData(tp0 -> singleRecord)
     sink.requestNext().record.value() should be("value")
-    dummy.nextPollData.set(Map(tp1 -> singleRecord))
+    dummy.setNextPollData(tp1 -> singleRecord)
     sink.requestNext().record.value() should be("value")
 
     dummy.tpsResumed should contain allOf (tp0, tp1)
@@ -150,7 +150,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.tpsPaused should contain only tp0
 
     val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
-    dummy.nextPollData.set(Map(tp0 -> singleRecord))
+    dummy.setNextPollData(tp0 -> singleRecord)
 
     // demand a value
     probeTp0.requestNext().record.value() should be("value")
@@ -180,7 +180,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.tpsPaused should contain allOf (tp0, tp1)
 
     val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
-    dummy.nextPollData.set(Map(tp0 -> singleRecord))
+    dummy.setNextPollData(tp0 -> singleRecord)
 
     // demand a value
     probeTp0.requestNext().record.value() should be("value")
@@ -358,13 +358,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
   it should "call onRevoke callback" in assertAllStagesStopped {
     val dummy = new Dummy()
 
-    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
-      ()
-    }
-
     def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
       log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
-      assertGetOffsetsOnAssign(tps)
       Future.successful(tps.map(tp => (tp, 300L)).toMap)
     }
 
@@ -453,7 +448,6 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
   it should "issue elements" in assertAllStagesStopped {
     val dummy = new Dummy()
-    val dummy2 = new Dummy()
 
     val sink1 = Consumer
       .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
@@ -466,50 +460,63 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
     subSources1.keys should contain allOf (tp0, tp1)
 
-    // simulate partition re-balance
-    val sink2 = Consumer
-      .plainPartitionedSource(testSettings(dummy2), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
-
     val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
+    val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
 
     // trigger demand
     probeTp0.request(1L)
+    probeTp1.request(1L)
     eventually {
-      dummy.tpsPaused should contain only tp1
+      dummy.tpsPaused should be('empty)
     }
-    // make record available and get the record
-    dummy.nextPollData.set(Map(tp0 -> singleRecord))
-    probeTp0.expectNext().value() should be("value")
+    // make records available and get expect them
+    dummy.setNextPollData(tp0 -> singleRecord, tp1 -> singleRecord)
+    probeTp0.expectNext().value should be("value")
+    probeTp1.expectNext().value should be("value")
     // no demand anymore should lead to paused partition
     eventually {
       dummy.tpsPaused should contain allOf (tp0, tp1)
     }
 
-    dummy.assignWithCallback(tp0)
-    subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
+    sink1.cancel()
+  }
 
-    dummy2.assignWithCallback(tp1)
+  it should "issue in-flight elements when rebalancing" in assertAllStagesStopped {
+    val dummy = new Dummy()
 
-    val subSources2 = Map(sink2.requestNext())
-    subSources2.keys should contain only tp1
-    val probeTp1 = subSources2(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
+    val sink1 = Consumer
+      .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+
+    val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
+    val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
 
     // trigger demand
+    probeTp0.request(1L)
     probeTp1.request(1L)
     eventually {
-      dummy2.tpsPaused should contain only tp1
-    }
-    // make record available and get the record
-    dummy2.nextPollData.set(Map(tp1 -> singleRecord))
-    probeTp1.expectNext().value() should be("value")
-    // no demand anymore should lead to paused partition
-    eventually {
-      dummy2.tpsPaused should contain only tp1
+      dummy.tpsPaused should be('empty)
     }
 
+    dummy.setNextPollData(tp0 -> singleRecord, tp1 -> singleRecord)
+    // let a Poll slip in
+    sleep(200.millis)
+
+    // emulate a rebalance
+    dummy.assignWithCallback(tp0)
+    // make records available and get expect them
+    probeTp0.expectNext().value should be("value")
+    probeTp1.expectNext().value should be("value")
+    probeTp1.expectComplete()
+
     sink1.cancel()
-    sink2.cancel()
   }
 
 }
@@ -551,6 +558,11 @@ object PartitionedSourceSpec {
       callbacks.onPartitionsAssigned(partitions.asJava)
     }
 
+    def setNextPollData(tpRecord: (TopicPartition, java.util.List[ConsumerRecord[K, V]])*): Unit = {
+      log.debug(s"data available for ${tpRecord.toMap.keys.mkString(", ")}")
+      nextPollData.set(tpRecord.toMap)
+    }
+
     def tpsRevoked: Set[TopicPartition] = tps.filter(_._2 == Revoked).keys.toSet
     def tpsAssigned: Set[TopicPartition] = tps.filter(_._2 == Assigned).keys.toSet
     def tpsResumed: Set[TopicPartition] = tps.filter(_._2 == Resumed).keys.toSet
@@ -567,6 +579,9 @@ object PartitionedSourceSpec {
         case (tp, _) => tpsResumed.contains(tp)
       }
       nextPollData.set(dataPaused)
+      if (dataPaused.nonEmpty) {
+        log.debug(s"data for paused partitions $dataPaused")
+      }
       if (data2.nonEmpty) {
         log.debug(s"poll result $data2")
       }
