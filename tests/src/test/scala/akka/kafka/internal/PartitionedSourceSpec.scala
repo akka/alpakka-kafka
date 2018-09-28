@@ -112,7 +112,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.tpsPaused should be('empty)
     dummy.assignWithCallback(tp0, tp1)
 
-    // Two (TopicParition, Source) tuples should be issued
+    // Two (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
     subSources.keys should contain allOf (tp0, tp1)
     // No demand on sub-sources => paused
@@ -138,7 +138,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.tpsPaused should be('empty)
     dummy.assignWithCallback(tp0, tp1)
 
-    // (TopicParition, Source) tuples should be issued
+    // (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
     subSources.keys should contain allOf (tp0, tp1)
     // No demand on sub-sources => paused
@@ -173,7 +173,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.assignWithCallback(tp0, tp1)
 
-    // (TopicParition, Source) tuples should be issued
+    // (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
     subSources.keys should contain allOf (tp0, tp1)
     // No demand on sub-sources => paused
@@ -240,18 +240,19 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // assign 2
     dummy.assignWithCallback(tp0, tp1)
 
-    // (TopicParition, Source) tuples should be issued
+    // (TopicPartition, Source) tuples should be issued
     val subSources2 = Map(sink.requestNext(), sink.requestNext())
     subSources2.keys should contain allOf (tp0, tp1)
 
     sink.cancel()
   }
 
-  // PENDING: this test illustrates https://github.com/akka/alpakka-kafka/issues/570
-  "manual offset partitioned source" should "request offsets for partitions" in pendingUntilFixed(assertAllStagesStopped {
+  "manual offset partitioned source" should "request offsets for partitions" in assertAllStagesStopped {
     val dummy = new Dummy()
 
-    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ => () }
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
 
     def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
       log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
@@ -267,11 +268,44 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf(tp0, tp1)
+      tps should contain allOf (tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
-    // (TopicParition, Source) tuples should be issued
+    // (TopicPartition, Source) tuples should be issued
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    sink.cancel()
+  }
+
+  // PENDING: this test illustrates https://github.com/akka/alpakka-kafka/issues/570
+  it should "after revoke request offset for remaining partition" in pendingUntilFixed(assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicPartition, Source) tuples should be issued
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
     subSources1.keys should contain allOf (tp0, tp1)
 
@@ -284,6 +318,85 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     sink.cancel()
   })
+
+  it should "seek to given offset" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    eventually {
+      dummy.seeks should contain allOf (tp0 -> 300L, tp1 -> 300L)
+    }
+
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    sink.cancel()
+  }
+
+  it should "call onRevoke callback" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    var revoked = Set[TopicPartition]()
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(testSettings(dummy),
+                                          Subscriptions.topics(topic),
+                                          getOffsetsOnAssign,
+                                          onRevoke = { tp =>
+                                            revoked = revoked ++ tp
+                                          })
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    assertGetOffsetsOnAssign = { tps =>
+      //tps should contain allOf(tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0)
+
+    eventually {
+      revoked should contain only tp1
+    }
+
+    sink.cancel()
+  }
 
 }
 
@@ -313,6 +426,7 @@ object PartitionedSourceSpec {
     val emptyPollData = Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
     val nextPollData: AtomicReference[Map[TopicPartition, java.util.List[ConsumerRecord[K, V]]]] =
       new AtomicReference(emptyPollData)
+    var seeks = Map[TopicPartition, Long]()
 
     def assignWithCallback(partitions: TopicPartition*): Unit = {
       // revoke all
@@ -347,6 +461,7 @@ object PartitionedSourceSpec {
     override def position(partition: TopicPartition): Long = 0
     override def seek(partition: TopicPartition, offset: Long): Unit = {
       log.debug(s"seek($partition, $offset)")
+      seeks = seeks.updated(partition, offset)
     }
     override def paused(): java.util.Set[TopicPartition] = tpsPaused.asJava
     override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
