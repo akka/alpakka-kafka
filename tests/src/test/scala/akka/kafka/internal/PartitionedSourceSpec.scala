@@ -25,6 +25,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class PartitionedSourceSpec(_system: ActorSystem)
@@ -72,23 +73,23 @@ class PartitionedSourceSpec(_system: ActorSystem)
   "partitioned source" should "resume topics with demand" in assertAllStagesStopped {
     val dummy = new Dummy()
 
-    val sinkQueue = Consumer
+    val sink = Consumer
       .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
       .flatMapMerge(breadth = 10, _._2)
-      .runWith(Sink.queue())
+      .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
 
     dummy.tpsPaused should be('empty)
-    dummy.assign(Set(tp0, tp1).asJavaCollection)
+    dummy.assignWithCallback(tp0, tp1)
     dummy.nextPollData.set(Map(tp0 -> singleRecord))
-    sinkQueue.pull().futureValue.value.record.value() should be("value")
+    sink.requestNext().record.value() should be("value")
     dummy.nextPollData.set(Map(tp1 -> singleRecord))
-    sinkQueue.pull().futureValue.value.record.value() should be("value")
+    sink.requestNext().record.value() should be("value")
 
     dummy.tpsResumed should contain allOf (tp0, tp1)
     dummy.tpsPaused should be('empty)
-    dummy.assign(Set(tp0).asJavaCollection)
+    dummy.assignWithCallback(tp0)
 
     eventually {
       dummy.tpsResumed should contain only tp0
@@ -96,58 +97,54 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.tpsPaused should be('empty)
 
-    sinkQueue.cancel()
+    sink.cancel()
   }
 
   it should "cancel the sub-source when partition is revoked" in assertAllStagesStopped {
     val dummy = new Dummy()
 
-    val sinkQueue = Consumer
+    val sink = Consumer
       .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
-      .runWith(Sink.queue())
+      .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
 
     dummy.tpsPaused should be('empty)
-    dummy.assign(Set(tp0, tp1).asJavaCollection)
+    dummy.assignWithCallback(tp0, tp1)
 
     // Two (TopicParition, Source) tuples should be issued
-    val tup0 = sinkQueue.pull().futureValue.value
-    val tup1 = sinkQueue.pull().futureValue.value
-    val subSources = Map(tup0, tup1)
+    val subSources = Map(sink.requestNext(), sink.requestNext())
     subSources.keys should contain allOf (tp0, tp1)
     // No demand on sub-sources => paused
     dummy.tpsPaused should contain allOf (tp0, tp1)
 
-    dummy.assign(Set(tp0).asJavaCollection)
+    dummy.assignWithCallback(tp0)
 
     // tp1 not assigned any more => corresponding source should be cancelled
     subSources(tp1).runWith(Sink.ignore).futureValue should be(Done)
 
-    sinkQueue.cancel()
+    sink.cancel()
   }
 
   it should "pause when there is no demand" in assertAllStagesStopped {
     val dummy = new Dummy()
 
-    val sinkQueue = Consumer
+    val sink = Consumer
       .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
-      .runWith(Sink.queue())
+      .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
 
     dummy.tpsPaused should be('empty)
-    dummy.assign(Set(tp0, tp1).asJavaCollection)
+    dummy.assignWithCallback(tp0, tp1)
 
     // (TopicParition, Source) tuples should be issued
-    val tup0 = sinkQueue.pull().futureValue.value
-    val tup1 = sinkQueue.pull().futureValue.value
-    val subSources = Map(tup0, tup1)
+    val subSources = Map(sink.requestNext(), sink.requestNext())
     subSources.keys should contain allOf (tp0, tp1)
     // No demand on sub-sources => paused
     dummy.tpsPaused should contain allOf (tp0, tp1)
 
-    dummy.assign(Set(tp0).asJavaCollection)
+    dummy.assignWithCallback(tp0)
 
     // No demand on sub-sources => paused
     dummy.tpsPaused should contain only tp0
@@ -162,8 +159,132 @@ class PartitionedSourceSpec(_system: ActorSystem)
       dummy.tpsPaused should contain(tp0)
     }
     probeTp0.cancel()
-    sinkQueue.cancel()
+    sink.cancel()
   }
+
+  it should "get partitions assigned via callbacks" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    val sink = Consumer
+      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicParition, Source) tuples should be issued
+    val subSources = Map(sink.requestNext(), sink.requestNext())
+    subSources.keys should contain allOf (tp0, tp1)
+    // No demand on sub-sources => paused
+    dummy.tpsPaused should contain allOf (tp0, tp1)
+
+    val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
+    dummy.nextPollData.set(Map(tp0 -> singleRecord))
+
+    // demand a value
+    probeTp0.requestNext().record.value() should be("value")
+    // no demand anymore should lead to paused partition
+    eventually {
+      dummy.tpsPaused should contain allOf (tp0, tp1)
+    }
+    probeTp0.cancel()
+    sink.cancel()
+  }
+
+  it should "complete revoked partition's source" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    val sink = Consumer
+      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+
+    val subSources = Map(sink.requestNext(), sink.requestNext())
+    subSources.keys should contain allOf (tp0, tp1)
+
+    // revoke tp1
+    dummy.assignWithCallback(tp0)
+    subSources(tp1).runWith(Sink.ignore).futureValue should be(Done)
+    // revoke tp0
+    dummy.assignWithCallback()
+    subSources(tp0).runWith(Sink.ignore).futureValue should be(Done)
+
+    sink.cancel()
+  }
+
+  it should "issue new sources when assigned again" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    val sink = Consumer
+      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    dummy.assignWithCallback(tp0, tp1)
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    // revoke tp1
+    dummy.assignWithCallback(tp0)
+    subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
+    // revoke tp0
+    dummy.assignWithCallback()
+    subSources1(tp0).runWith(Sink.ignore).futureValue should be(Done)
+
+    // assign 2
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicParition, Source) tuples should be issued
+    val subSources2 = Map(sink.requestNext(), sink.requestNext())
+    subSources2.keys should contain allOf (tp0, tp1)
+
+    sink.cancel()
+  }
+
+  // PENDING: this test illustrates https://github.com/akka/alpakka-kafka/issues/570
+  "manual offset partitioned source" should "request offsets for partitions" in pendingUntilFixed(assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ => () }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf(tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicParition, Source) tuples should be issued
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    // revoke tp1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain only tp0
+    }
+    dummy.assignWithCallback(tp0)
+    subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
+
+    sink.cancel()
+  })
+
 }
 
 object PartitionedSourceSpec {
@@ -193,6 +314,15 @@ object PartitionedSourceSpec {
     val nextPollData: AtomicReference[Map[TopicPartition, java.util.List[ConsumerRecord[K, V]]]] =
       new AtomicReference(emptyPollData)
 
+    def assignWithCallback(partitions: TopicPartition*): Unit = {
+      // revoke all
+      // See ConsumerCoordinator.onJoinPrepare
+      callbacks.onPartitionsRevoked(assignment())
+      tps = partitions.map(_ -> Assigned).toMap
+      // See ConsumerCoordinator.onJoinComplete
+      callbacks.onPartitionsAssigned(partitions.asJava)
+    }
+
     def tpsRevoked: Set[TopicPartition] = tps.filter(_._2 == Revoked).keys.toSet
     def tpsAssigned: Set[TopicPartition] = tps.filter(_._2 == Assigned).keys.toSet
     def tpsResumed: Set[TopicPartition] = tps.filter(_._2 == Resumed).keys.toSet
@@ -201,11 +331,8 @@ object PartitionedSourceSpec {
     override def assignment(): java.util.Set[TopicPartition] = (tpsAssigned ++ tpsResumed ++ tpsPaused).asJava
     override def subscribe(topics: java.util.Collection[String], callback: ConsumerRebalanceListener): Unit =
       callbacks = callback
-    override def assign(partitions: java.util.Collection[TopicPartition]): Unit = {
-      callbacks.onPartitionsRevoked(tps.keySet.asJavaCollection)
+    override def assign(partitions: java.util.Collection[TopicPartition]): Unit =
       tps = partitions.asScala.map(_ -> Assigned).toMap
-      callbacks.onPartitionsAssigned(partitions)
-    }
     override def poll(timeout: Long): ConsumerRecords[K, V] = {
       val data = nextPollData.get()
       val (data2, dataPaused) = data.partition {
@@ -218,6 +345,9 @@ object PartitionedSourceSpec {
       new ConsumerRecords[K, V](data2.asJava)
     }
     override def position(partition: TopicPartition): Long = 0
+    override def seek(partition: TopicPartition, offset: Long): Unit = {
+      log.debug(s"seek($partition, $offset)")
+    }
     override def paused(): java.util.Set[TopicPartition] = tpsPaused.asJava
     override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
       super.pause(partitions)
@@ -231,4 +361,5 @@ object PartitionedSourceSpec {
       tps = tps ++ ps.map(_ -> Resumed)
     }
   }
+
 }
