@@ -10,13 +10,11 @@ import akka.actor.ActorRef;
 import akka.kafka.KafkaConsumerActor;
 import akka.kafka.Metadata;
 import akka.pattern.PatternsCS;
-import akka.util.Timeout;
 
+import java.time.Duration;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 
 // #metadata
-
 
 public class FetchMetadata extends ConsumerExample {
 
@@ -30,7 +28,7 @@ public class FetchMetadata extends ConsumerExample {
         ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
 
         // ... create source ...
-        Timeout timeout = new Timeout(2, TimeUnit.SECONDS);
+        Duration timeout = Duration.ofSeconds(2);
 
         CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)
                 .thenApply(reply -> ((Metadata.Topics) reply));
