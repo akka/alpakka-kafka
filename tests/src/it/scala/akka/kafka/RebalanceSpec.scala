@@ -3,6 +3,7 @@ package akka.kafka
 import akka.kafka.scaladsl.{Consumer, Producer, ScalatestKafkaSpec}
 import akka.stream.scaladsl.{Sink, Source}
 import com.spotify.docker.client.DefaultDockerClient
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
@@ -38,11 +39,15 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
       val topic = createTopic(0, partitions = 1, replication = 3)
       val groupId = createGroupId(0)
 
-      val consumer = Consumer.plainSource(consumerDefaults.withGroupId(groupId), Subscriptions.topics(topic))
+      val consumerConfig = consumerDefaults
+        .withGroupId(groupId)
+        .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
+
+      val consumer = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
         .take(totalMessages)
         .scan(0)((c, _) => c + 1)
         .map { i =>
-          if (i % 1000 == 0) system.log.info(s"Received [$i] messages so far.")
+          if (i % 1000 == 0) log.info(s"Received [$i] messages so far.")
           i
         }
         .runWith(Sink.last)
@@ -56,13 +61,13 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
 
       val result = Source(0 to totalMessages)
         .map { i =>
-          if (i % 1000 == 0) system.log.info(s"Sent [$i] messages so far.")
+          if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
           i.toString
         }
         .map(number => new ProducerRecord(topic, partition0, DefaultKey, number))
         .map { c =>
           if (c.value().toInt == totalMessages / 2) {
-            system.log.info("Stopping one Kafka container")
+            log.info("Stopping one Kafka container")
             docker.stopContainer(Kafka2ContainerId, 0)
           }
           c
