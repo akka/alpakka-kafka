@@ -67,7 +67,7 @@ val commonSettings = Seq(
                           url("https://github.com/akka/reactive-kafka/graphs/contributors")),
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
-  crossScalaVersions := Seq("2.12.6", "2.11.12"),
+  crossScalaVersions := Seq("2.12.7", "2.11.12"),
   scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
