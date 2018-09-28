@@ -340,6 +340,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
+      // this fails as of #570
       tps should contain allOf (tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
@@ -367,7 +368,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
       Future.successful(tps.map(tp => (tp, 300L)).toMap)
     }
 
-    var revoked = Set[TopicPartition]()
+    var revoked = Vector[TopicPartition]()
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(testSettings(dummy),
@@ -380,19 +381,16 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.started.futureValue should be(Done)
 
-    // assign 1
-    assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf (tp0, tp1)
-    }
     dummy.assignWithCallback(tp0, tp1)
 
-    assertGetOffsetsOnAssign = { tps =>
-      //tps should contain allOf(tp0, tp1)
-    }
     dummy.assignWithCallback(tp0)
-
     eventually {
-      revoked should contain only tp1
+      revoked should contain theSameElementsInOrderAs Seq(tp1)
+    }
+
+    dummy.assignWithCallback()
+    eventually {
+      revoked should contain theSameElementsInOrderAs Seq(tp1, tp0)
     }
 
     sink.cancel()
