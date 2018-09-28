@@ -34,13 +34,21 @@ class SubscriptionsSpec extends WordSpec with Matchers {
     }
 
     "be readable for multiple assignments with offset" in {
-      encode(Subscriptions.assignmentWithOffset(Map(new TopicPartition("topic1", 1) -> 123L, new TopicPartition("A-Topic-Name", 2) -> 456L))) should be(
+      encode(
+        Subscriptions.assignmentWithOffset(
+          Map(new TopicPartition("topic1", 1) -> 123L, new TopicPartition("A-Topic-Name", 2) -> 456L)
+        )
+      ) should be(
         "topic1-1+offset123+A-Topic-Name-2+offset456"
       )
     }
 
     "be readable for multiple assignments with timestamp" in {
-      encode(Subscriptions.assignmentOffsetsForTimes(Map(new TopicPartition("topic1", 1) -> 12345L, new TopicPartition("Another0Topic", 1) -> 998822L))) should be(
+      encode(
+        Subscriptions.assignmentOffsetsForTimes(
+          Map(new TopicPartition("topic1", 1) -> 12345L, new TopicPartition("Another0Topic", 1) -> 998822L)
+        )
+      ) should be(
         "topic1-1+timestamp12345+Another0Topic-1+timestamp998822"
       )
     }
