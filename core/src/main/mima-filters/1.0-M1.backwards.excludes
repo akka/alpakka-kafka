@@ -1,0 +1,2 @@
+# new method in sealed trait
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.Subscription.renderStageAttribute")

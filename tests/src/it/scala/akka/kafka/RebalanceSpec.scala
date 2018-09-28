@@ -10,7 +10,8 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.duration._
 
 object RebalanceSpec {
-  val KafkaBootstrapServers = (1 to 3).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
+  // the following system properties are provided by the sbt-docker-compose plugin
+  val KafkaBootstrapServers = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
   val Kafka1Port = sys.props("kafka_1_9094_port").toInt
   val Kafka2ContainerId = sys.props("kafka_2_9094_id")
 }
@@ -31,7 +32,7 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
       val totalMessages = 1000 * 10
 
       waitUntilCluster() {
-        _.nodes().get().size == 3
+        _.nodes().get().size == BuildInfo.kafkaScale
       }
 
       val topic = createTopic(0, partitions = 1, replication = 3)

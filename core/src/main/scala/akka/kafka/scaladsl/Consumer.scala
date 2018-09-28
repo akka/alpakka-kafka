@@ -142,7 +142,7 @@ object Consumer {
    */
   def plainSource[K, V](settings: ConsumerSettings[K, V],
                         subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
-    Source.fromGraph(ConsumerStage.plainSource[K, V](settings, subscription))
+    Source.fromGraph(new ConsumerStage.PlainSource[K, V](settings, subscription))
 
   /**
    * The `committableSource` makes it possible to commit offset positions to Kafka.
@@ -159,7 +159,19 @@ object Consumer {
    */
   def committableSource[K, V](settings: ConsumerSettings[K, V],
                               subscription: Subscription): Source[CommittableMessage[K, V], Control] =
-    Source.fromGraph(ConsumerStage.committableSource[K, V](settings, subscription))
+    Source.fromGraph(new ConsumerStage.CommittableSource[K, V](settings, subscription))
+
+  /**
+   * The `commitWithMetadataSource` makes it possible to add additional metadata (in the form of a string)
+   * when an offset is committed based on the record. This can be useful (for example) to store information about which
+   * node made the commit, what time the commit was made, the timestamp of the record etc.
+   */
+  def commitWithMetadataSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      metadataFromRecord: ConsumerRecord[K, V] => String
+  ): Source[CommittableMessage[K, V], Control] =
+    Source.fromGraph(new ConsumerStage.CommittableSource[K, V](settings, subscription, metadataFromRecord))
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
@@ -181,7 +193,7 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: AutoSubscription
   ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
-    Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription))
+    Source.fromGraph(new ConsumerStage.PlainSubSource[K, V](settings, subscription, None, onRevoke = _ => ()))
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
@@ -196,7 +208,7 @@ object Consumer {
       getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]],
       onRevoke: Set[TopicPartition] => Unit = _ => ()
   ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
-    Source.fromGraph(ConsumerStage.plainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
+    Source.fromGraph(new ConsumerStage.PlainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
 
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
@@ -205,7 +217,7 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: AutoSubscription
   ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
-    Source.fromGraph(ConsumerStage.committableSubSource[K, V](settings, subscription))
+    Source.fromGraph(new ConsumerStage.CommittableSubSource[K, V](settings, subscription))
 
   /**
    * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
@@ -213,7 +225,7 @@ object Consumer {
    */
   def plainExternalSource[K, V](consumer: ActorRef,
                                 subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
-    Source.fromGraph(ConsumerStage.externalPlainSource[K, V](consumer, subscription))
+    Source.fromGraph(new ConsumerStage.ExternalPlainSource[K, V](consumer, subscription))
 
   /**
    * The same as [[#plainExternalSource]] but with offset commit support.
@@ -223,7 +235,7 @@ object Consumer {
                                       groupId: String,
                                       commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] =
     Source.fromGraph(
-      ConsumerStage.externalCommittableSource[K, V](
+      new ConsumerStage.ExternalCommittableSource[K, V](
         consumer,
         groupId,
         commitTimeout,

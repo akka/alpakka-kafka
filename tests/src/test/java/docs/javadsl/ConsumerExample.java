@@ -213,6 +213,39 @@ class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
   }
 }
 
+// Consume messages at-least-once, and commit in batches with metadata
+class CommitWithMetadataExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new CommitWithMetadataExample().demo();
+  }
+
+  public void demo() {
+    // #commitWithMetadata
+    Consumer.Control control =
+        Consumer.commitWithMetadataSource(
+              consumerSettings,
+              Subscriptions.topics("topic1"),
+              (record) -> Long.toString(record.timestamp()))
+            .mapAsync(1, msg ->
+                business(msg.record().key(), msg.record().value())
+                        .thenApply(done -> msg.committableOffset())
+            )
+            .batch(
+                20,
+                ConsumerMessage::createCommittableOffsetBatch,
+                ConsumerMessage.CommittableOffsetBatch::updated
+            )
+            .mapAsync(3, c -> c.commitJavadsl())
+            .to(Sink.ignore())
+            .run(materializer);
+    // #commitWithMetadata
+  }
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
+    return CompletableFuture.completedFuture("");
+  }
+}
+
 // Connect a Consumer to Producer
 class ConsumerToProducerSinkExample extends ConsumerExample {
   public static void main(String[] args) {

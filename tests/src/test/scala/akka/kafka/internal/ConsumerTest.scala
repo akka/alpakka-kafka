@@ -18,9 +18,9 @@ import akka.kafka.scaladsl.Consumer
 import Consumer.Control
 import akka.stream._
 import akka.stream.scaladsl._
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import akka.kafka.test.Utils._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, PartitionInfo, TopicPartition}
 import org.apache.kafka.common.errors.WakeupException
@@ -47,10 +47,13 @@ object ConsumerTest {
 
   def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
-  def createMessage(seed: Int, topic: String, groupId: String = "group1"): CommittableMessage[K, V] = {
+  def createMessage(seed: Int,
+                    topic: String,
+                    groupId: String = "group1",
+                    metadata: String = ""): CommittableMessage[K, V] = {
     val offset = PartitionOffset(GroupTopicPartition(groupId, topic, 1), seed.toLong)
     val record = new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, seed.toString, seed.toString)
-    CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset)(null))
+    CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset, metadata)(null))
   }
 
   def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = msg.record
@@ -70,9 +73,8 @@ class ConsumerTest(_system: ActorSystem)
     shutdown(system)
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
-  implicit val stageStoppingTimeout = StageStoppingTimeout(15.seconds)
   implicit val ec = _system.dispatcher
-  val messages = (1 to 10000).map(createMessage)
+  val messages = (1 to 1000).map(createMessage)
 
   def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
     val mock = new ConsumerMock[K, V]()
@@ -92,8 +94,8 @@ class ConsumerTest(_system: ActorSystem)
       Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId),
       Some(new StringDeserializer),
       Some(new StringDeserializer),
-      1.milli,
-      1.milli,
+      pollInterval = 10.millis,
+      pollTimeout = 10.millis,
       1.second,
       closeTimeout,
       1.second,
@@ -113,6 +115,14 @@ class ConsumerTest(_system: ActorSystem)
                  groupId: String = "group1",
                  topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
     Consumer.committableSource(testSettings(mock.mock, groupId), Subscriptions.topics(topics))
+
+  def testSourceWithMetadata(mock: ConsumerMock[K, V],
+                             metadataFromRecord: ConsumerRecord[K, V] => String,
+                             groupId: String = "group1",
+                             topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
+    Consumer.commitWithMetadataSource(testSettings(mock.mock, groupId),
+                                      Subscriptions.topics(topics),
+                                      metadataFromRecord)
 
   def testPartitionedSource(
       mock: Consumer[K, V],
@@ -234,6 +244,42 @@ class ConsumerTest(_system: ActorSystem)
           .flatten
           .to[Seq]
       )
+    }
+  }
+
+  it should "commit metadata in message" in {
+    assertAllStagesStopped {
+      val commitLog = new ConsumerMock.LogHandler()
+      val mock = new ConsumerMock[K, V](commitLog)
+
+      val (control, probe) = testSourceWithMetadata(mock, (rec: ConsumerRecord[K, V]) => rec.offset.toString)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val msg = createMessage(1)
+      mock.enqueue(List(toRecord(msg)))
+
+      probe.request(100)
+      val done = probe.expectNext().committableOffset.commitScaladsl()
+
+      awaitAssert {
+        commitLog.calls should have size (1)
+      }
+
+      val (topicPartition, offsetMeta) = commitLog.calls.head._1.head
+      topicPartition.topic should ===(msg.record.topic())
+      topicPartition.partition should ===(msg.record.partition())
+      // committed offset should be the next message the application will consume, i.e. +1
+      offsetMeta.offset should ===(msg.record.offset() + 1)
+      offsetMeta.metadata should ===(msg.record.offset.toString)
+
+      //emulate commit
+      commitLog.calls.head match {
+        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+      }
+
+      Await.result(done, remainingOrDefault)
+      Await.result(control.shutdown(), remainingOrDefault)
     }
   }
 
@@ -360,6 +406,51 @@ class ConsumerTest(_system: ActorSystem)
       val commitMap = commitLog.calls.head._1
       commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
       commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
+
+      //emulate commit
+      commitLog.calls.foreach {
+        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+      }
+
+      Await.result(done, remainingOrDefault)
+      Await.result(control.shutdown(), remainingOrDefault)
+    }
+  }
+
+  it should "support commit batching with metadata" in {
+    assertAllStagesStopped {
+      val commitLog = new ConsumerMock.LogHandler()
+      val mock = new ConsumerMock[K, V](commitLog)
+      val (control, probe) = testSourceWithMetadata(mock,
+                                                    (rec: ConsumerRecord[K, V]) => rec.offset.toString,
+                                                    topics = Set("topic1", "topic2"))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
+      val msgsTopic2 = (11 to 13).map(createMessage(_, "topic2"))
+      mock.enqueue(msgsTopic1.map(toRecord))
+      mock.enqueue(msgsTopic2.map(toRecord))
+
+      probe.request(100)
+      val batch = probe
+        .expectNextN(6)
+        .map(_.committableOffset)
+        .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
+          b.updated(c)
+        }
+
+      val done = batch.commitScaladsl()
+
+      awaitAssert {
+        commitLog.calls should have size (1)
+      }
+
+      val commitMap = commitLog.calls.head._1
+      commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
+      commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
+      commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
+      commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
       //emulate commit
       commitLog.calls.foreach {

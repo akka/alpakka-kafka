@@ -10,8 +10,8 @@ import akka.kafka.ProducerMessage.PassThroughMessage
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.test.Utils._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig

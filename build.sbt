@@ -1,3 +1,4 @@
+import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
@@ -41,6 +42,18 @@ val integrationTestDependencies = Seq(
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
 )
 
+val benchmarkDependencies = Seq(
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+  "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
+  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+  "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+)
+
+val kafkaScale = settingKey[Int]("Number of kafka docker containers")
+
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
 val commonSettings = Seq(
@@ -72,8 +85,12 @@ val commonSettings = Seq(
     "-Ywarn-numeric-widen",
     "-Xfuture"
   ),
-  testOptions += Tests.Argument("-oD"),
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
+  // show full stack traces and test case durations
+  testOptions += Tests.Argument("-oDF"),
+  // -a Show stack traces and exception class name for AssertionErrors.
+  // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
+  // -q Suppress stdout for successful tests.
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
   scalafmtOnCompile := true,
   headerLicense := Some(
     HeaderLicense.Custom(
@@ -98,22 +115,29 @@ lazy val `alpakka-kafka` =
         """
             |** Welcome to the Alpakka Kafka connector! **
             |
-            |The build has three modules
+            |The build has three main modules:
             |  core - the Kafka connector sources
             |  tests - tests, Docker based integration tests, code for the documentation
             |  testkit - framework for testing the connector
             |
+            |Other modules:
             |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
             |  benchmarks - for instructions read benchmarks/README.md
             |
             |Useful sbt tasks:
             |
-            |  docs/Local/paradox - builds documentation, which is generated at
-            |    docs/target/paradox/site/local/home.html
+            |  docs/Local/paradox
+            |    builds documentation, which is generated at
+            |    docs/target/paradox/site/local/index.html
             |
-            |  test - runs all the tests
-            |  tests/dockerComposeTest it:test --scale kafka=3
-            |    - run integration test backed by Docker containers
+            |  test
+            |    runs all the tests
+            |
+            |  tests/dockerComposeTest it:test
+            |    run integration test backed by Docker containers
+            |
+            |  benchmarks/dockerComposeTest it:testOnly *.AlpakkaKafkaPlainConsumer
+            |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
     .aggregate(core, testkit, tests, benchmarks, docs)
@@ -142,7 +166,7 @@ lazy val testkit = project
 
 lazy val tests = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .disablePlugins(MimaPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -154,26 +178,31 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath
+    kafkaScale := 3,
+    buildInfoPackage := "akka.kafka",
+    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
+    dockerComposeTestLogging := true,
+    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
+    dockerComposeTestCommandOptions := {
+      import com.github.ehsanyou.sbt.docker.compose.commands.test._
+      DockerComposeTestCmd(DockerComposeTest.ItTest)
+        .withOption("--scale", s"kafka=${kafkaScale.value}")
+    }
   )
 
 lazy val docs = project
   .in(file("docs"))
-  .enablePlugins(ParadoxPlugin)
+  .enablePlugins(AkkaParadoxPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-docs",
     skip in publish := true,
-    paradoxTheme := Some(builtinParadoxTheme("generic")),
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
-      "version" -> version.value,
-      "akkaVersion" -> akkaVersion,
-      "kafkaVersion" -> kafkaVersion,
-      "scalaVersion" -> scalaVersion.value,
-      "scalaBinaryVersion" -> scalaBinaryVersion.value,
+      "akka.version" -> akkaVersion,
+      "kafka.version" -> kafkaVersion,
       "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
       "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
@@ -182,28 +211,34 @@ lazy val docs = project
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
+    resolvers += Resolver.jcenterRepo,
     paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
     paradoxLocalApiDir := (core / Compile / doc).value,
   )
 
-lazy val Benchmark = config("bench") extend Test
-
 lazy val benchmarks = project
-  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(core, testkit)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
+  .configs(IntegrationTest)
   .settings(commonSettings)
+  .settings(Defaults.itSettings)
+  .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     skip in publish := true,
-    parallelExecution in Benchmark := false,
-    libraryDependencies ++= coreDependencies ++ Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
-      "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion
-    ),
+    parallelExecution in IntegrationTest := false,
+    libraryDependencies ++= benchmarkDependencies,
+    kafkaScale := 1,
+    buildInfoPackage := "akka.kafka.benchmarks",
+    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
+    dockerComposeTestLogging := true,
+    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
+    dockerComposeTestCommandOptions := {
+      import com.github.ehsanyou.sbt.docker.compose.commands.test._
+      DockerComposeTestCmd(DockerComposeTest.ItTest)
+        .withOption("--scale", s"kafka=${kafkaScale.value}")
+    },
     dockerfile in docker := {
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"
@@ -216,6 +251,3 @@ lazy val benchmarks = project
       }
     }
   )
-  .configs(Benchmark)
-  .settings(inConfig(Benchmark)(Defaults.testSettings): _*)
-  .dependsOn(core)

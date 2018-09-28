@@ -9,8 +9,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.test.Utils._
 import akka.stream.scaladsl.Keep
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 

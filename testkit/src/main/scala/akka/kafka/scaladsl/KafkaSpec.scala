@@ -33,6 +33,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 trait EmbeddedKafkaLike extends KafkaSpec {
 
@@ -142,19 +143,8 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   def waitUntilCluster(maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
       predicate: DescribeClusterResult => Boolean
   ): Unit = {
-    @tailrec def checkCluster(triesLeft: Int): Unit = {
-      val cluster = adminClient().describeCluster()
-      if (!predicate(cluster)) {
-        if (triesLeft > 0) {
-          sleep(sleepInBetween)
-          checkCluster(triesLeft - 1)
-        } else {
-          throw new Error("Failure while waiting for desired cluster state")
-        }
-      }
-    }
-
-    checkCluster(maxTries)
+    val admin = adminClient()
+    periodicalCheck("cluster state", maxTries, sleepInBetween)(() => admin.describeCluster())(predicate)
   }
 
   /**
@@ -168,19 +158,30 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       maxTries: Int = 10,
       sleepInBetween: FiniteDuration = 100.millis
   )(predicate: kafka.admin.AdminClient#ConsumerGroupSummary => Boolean) = {
-    @tailrec def checkConsumerGroup(triesLeft: Int): Unit = {
-      val consumerGroup = oldAdminClient().describeConsumerGroup(groupId, timeout.toMillis)
-      if (!predicate(consumerGroup)) {
-        if (triesLeft > 0) {
-          sleep(sleepInBetween)
-          checkConsumerGroup(triesLeft - 1)
-        } else {
-          throw new Error("Failure while waiting for desired consumer group state")
-        }
-      }
-    }
+    val admin = oldAdminClient()
+    periodicalCheck("consumer group state", maxTries, sleepInBetween)(
+      () => admin.describeConsumerGroup(groupId, timeout.toMillis)
+    )(predicate)
+  }
 
-    checkConsumerGroup(maxTries)
+  def periodicalCheck[T](description: String, maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
+      data: () => T
+  )(predicate: T => Boolean): Unit = {
+    @tailrec def check(triesLeft: Int): Unit =
+      Try(predicate(data())).recover {
+        case e: org.apache.kafka.common.errors.TimeoutException => false
+      } match {
+        case Success(false) if triesLeft > 0 =>
+          sleep(sleepInBetween)
+          check(triesLeft - 1)
+        case Success(false) =>
+          throw new Error(s"Failure while waiting for desired $description")
+        case Failure(ex) =>
+          throw ex
+        case Success(true) => // predicate has been fulfilled, stop checking
+      }
+
+    check(maxTries)
   }
 
   /**

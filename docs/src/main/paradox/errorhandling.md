@@ -3,7 +3,7 @@
 ## Failing consumer
 
 When a consumer fails to read from Kafka due to connection problems, it throws a @javadoc[WakeupException](org.apache.kafka.common.errors.WakeupException) which is handled internally with retries. Refer to consumer configuration [settings](consumer.html#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
-When the last retry fails, source stage will be failed with an exception.
+When the currently configured number of `max-wakeups` is reached, the source stage will fail with an exception and stop.
 
 ## Failing producer
 
@@ -15,10 +15,10 @@ Akka streams @extref[provides graph stages](akka-docs:stream/stream-error.html#d
 to gracefully restart a stream on failure, with a configurable backoff. This can be taken advantage of to restart a failing consumer with an exponential backoff, by wrapping it in a `RestartSource`:
 
 Scala
-: @@ snip [restartsource](../../../../tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #restartSource }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #restartSource }
 
 Java
-: @@ snip [restartsource](../../../../tests/src/test/java/docs/javadsl/ConsumerExample.java) { #restartSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #restartSource }
 
 When a stream fails, library internals will handle all underlying resources.
 

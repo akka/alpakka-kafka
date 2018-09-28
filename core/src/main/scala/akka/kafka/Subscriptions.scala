@@ -18,6 +18,14 @@ sealed trait Subscription {
 
   /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
   def withRebalanceListener(ref: ActorRef): Subscription
+
+  def renderStageAttribute: String
+
+  protected def renderListener: String =
+    rebalanceListener match {
+      case Some(ref) => s" rebalanceListener $ref"
+      case None => ""
+    }
 }
 sealed trait ManualSubscription extends Subscription {
   def withRebalanceListener(ref: ActorRef): ManualSubscription
@@ -40,6 +48,7 @@ object Subscriptions {
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
       TopicSubscription(tps, Some(ref))
+    def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
   }
 
   /** INTERNAL API */
@@ -48,6 +57,7 @@ object Subscriptions {
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
       TopicSubscriptionPattern(pattern, Some(ref))
+    def renderStageAttribute: String = s"pattern $pattern$renderListener"
   }
 
   /** INTERNAL API */
@@ -56,6 +66,7 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): Assignment =
       Assignment(tps, Some(ref))
+    def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
   }
 
   /** INTERNAL API */
@@ -65,6 +76,8 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentWithOffset =
       AssignmentWithOffset(tps, Some(ref))
+    def renderStageAttribute: String =
+      s"${tps.map { case (tp, offset) => s"$tp offset$offset" }.mkString(" ")}$renderListener"
   }
 
   /** INTERNAL API */
@@ -74,6 +87,8 @@ object Subscriptions {
       extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes =
       AssignmentOffsetsForTimes(timestampsToSearch, Some(ref))
+    def renderStageAttribute: String =
+      s"${timestampsToSearch.map { case (tp, timestamp) => s"$tp timestamp$timestamp" }.mkString(" ")}$renderListener"
   }
 
   /** Creates subscription for given set of topics */
