@@ -48,14 +48,16 @@ private[kafka] object ConsumerStage {
   }
 
   private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings[K, V],
-                                                        subscription: AutoSubscription)
+                                                        subscription: AutoSubscription,
+                                                        _metadataFromRecord: ConsumerRecord[K, V] => String =
+                                                          (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA)
       extends KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])](
         s"CommittableSubSource ${subscription.renderStageAttribute}"
       ) {
     override protected def logic(shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]) =
       new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
       with CommittableMessageBuilder[K, V] with MetricsControl {
-        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
+        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
         override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
         lazy val committer: Committer = {
           val ec = materializer.executionContext
