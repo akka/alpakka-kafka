@@ -19,5 +19,6 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LEADER_IMBALANCE_CHECK_INTERVAL_SECONDS: 1 # default was 300 (5 minutes)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
