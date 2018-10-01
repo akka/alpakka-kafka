@@ -40,8 +40,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   val consumerPromise = Promise[ActorRef]
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
-  var consumer: ActorRef = _
-  var self: StageActor = _
+  var consumerActor: ActorRef = _
+  var sourceActor: StageActor = _
   // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
   var pendingPartitions: immutable.Set[TopicPartition] = immutable.Set.empty
   // We have created a source for these partitions, but it has not started up and is not in subSources yet.
@@ -52,27 +52,27 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
-    consumer = {
+    consumerActor = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
     }
-    consumerPromise.success(consumer)
+    consumerPromise.success(consumerActor)
 
-    self = getStageActor {
-      case (_, Terminated(ref)) if ref == consumer =>
+    sourceActor = getStageActor {
+      case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
     }
-    self.watch(consumer)
+    sourceActor.watch(consumerActor)
 
     def rebalanceListener =
       KafkaConsumerActor.rebalanceListener(partitionAssignedCB, partitionRevokedCB)
 
     subscription match {
       case TopicSubscription(topics, _) =>
-        consumer.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), self.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), sourceActor.ref)
       case TopicSubscriptionPattern(topics, _) =>
-        consumer.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), self.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), sourceActor.ref)
     }
   }
 
@@ -105,7 +105,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
               new ConsumerFailed(s"Failed to fetch offset for partitions: ${partitions.mkString(", ")}.", ex)
             )
           case Success(offsets) =>
-            consumer
+            consumerActor
               .ask(KafkaConsumerActor.Internal.Seek(offsets))
               .map(_ => pumpCB.invoke(partitions))
               .recover {
@@ -170,7 +170,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   })
 
   def createSource(tp: TopicPartition): Source[Msg, NotUsed] =
-    Source.fromGraph(new SubSourceStage(tp, consumer))
+    Source.fromGraph(new SubSourceStage(tp, consumerActor))
 
   @tailrec
   private def pump(): Unit =
@@ -184,7 +184,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
 
   override def postStop(): Unit = {
-    consumer ! KafkaConsumerActor.Internal.Stop
+    consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
     onShutdown()
     super.postStop()
   }
@@ -208,12 +208,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     if (!isClosed(shape.out)) {
       complete(shape.out)
     }
-    self.become {
-      case (_, Terminated(ref)) if ref == consumer =>
+    sourceActor.become {
+      case (_, Terminated(ref)) if ref == consumerActor =>
         onShutdown()
         completeStage()
     }
-    consumer ! KafkaConsumerActor.Internal.Stop
+    consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
   }
 
   class SubSourceStage(tp: TopicPartition, consumer: ActorRef) extends GraphStage[SourceShape[Msg]] { stage =>
