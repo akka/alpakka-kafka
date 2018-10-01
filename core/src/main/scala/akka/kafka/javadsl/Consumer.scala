@@ -264,6 +264,24 @@ object Consumer {
       .asJava
 
   /**
+   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support
+   */
+  def commitWithMetadataPartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
+  ): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .commitWithMetadataPartitionedSource(settings,
+                                           subscription,
+                                           (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .asJava
+
+  /**
    * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
    * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
    */
