@@ -12,7 +12,7 @@ import akka.actor.{ActorRef, Cancellable, ExtendedActorSystem, Terminated}
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
-import akka.pattern.{ask, AskTimeoutException}
+import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
@@ -23,7 +23,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise}
 import scala.util.{Failure, Success}
 
 private[kafka] abstract class SubSourceLogic[K, V, Msg](
@@ -66,7 +66,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     sourceActor.watch(consumerActor)
 
     def rebalanceListener =
-      KafkaConsumerActor.rebalanceListener(partitionAssignedCB, partitionRevokedCB)
+      KafkaConsumerActor.ListenerCallbacks(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
 
     subscription match {
       case TopicSubscription(topics, _) =>
@@ -85,10 +85,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     failStage(ex)
   }
 
-  private implicit val askTimeout = Timeout(10000, TimeUnit.MILLISECONDS)
-  def partitionAssignedCB(tps: Set[TopicPartition]) = {
-    implicit val ec = materializer.executionContext
-
+  val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
     val partitions = tps -- partitionsToRevoke
 
     if (log.isDebugEnabled && partitions.nonEmpty) {
@@ -98,6 +95,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     partitionsToRevoke = partitionsToRevoke -- tps
 
     getOffsetsOnAssign.fold(pumpCB.invoke(partitions)) { getOffsets =>
+      implicit val askTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
+      implicit val ec: ExecutionContext = materializer.executionContext
       getOffsets(partitions)
         .onComplete {
           case Failure(ex) =>
@@ -118,7 +117,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  def partitionRevokedCB(tps: Set[TopicPartition]) = {
+  val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
     pendingRevokeCall.map(_.cancel())
     partitionsToRevoke ++= tps
     val cb = getAsyncCallback[Unit] { _ =>

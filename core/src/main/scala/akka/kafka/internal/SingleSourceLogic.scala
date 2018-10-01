@@ -83,11 +83,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
       subscription.rebalanceListener.foreach(_.tell(TopicPartitionsRevoked(subscription, newTps), sourceActor.ref))
     }
 
-    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
-      val onAssign: Set[TopicPartition] ⇒ Unit = tps ⇒ partitionAssignedCB.invoke(tps)
-      val onRevoke: Set[TopicPartition] ⇒ Unit = set ⇒ partitionRevokedCB.invoke(set)
-      KafkaConsumerActor.rebalanceListener(onAssign, onRevoke)
-    }
+    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks =
+      KafkaConsumerActor.ListenerCallbacks(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
 
     subscription match {
       case TopicSubscription(topics, _) =>
