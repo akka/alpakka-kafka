@@ -61,7 +61,7 @@ private[kafka] object ConsumerStage {
         override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
         lazy val committer: Committer = {
           val ec = materializer.executionContext
-          KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+          KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
         }
       }
   }
@@ -95,7 +95,7 @@ private[kafka] object ConsumerStage {
         override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
         lazy val committer: Committer = {
           val ec = materializer.executionContext
-          KafkaAsyncConsumerCommitterRef(consumer, settings.commitTimeout)(ec)
+          KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
         }
       }
   }

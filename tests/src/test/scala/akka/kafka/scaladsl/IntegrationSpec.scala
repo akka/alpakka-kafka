@@ -333,93 +333,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       res.futureValue should be((1 to 5).map(_.toString))
     }
 
-    "begin consuming from the beginning of the topic" in {
-      assertAllStagesStopped {
-        val topic = createTopicName(1)
-        val group = createGroupId(1)
-
-        givenInitializedTopic(topic)
-
-        Await.result(produce(topic, 1 to 100), remainingOrDefault)
-
-        val probe = Consumer
-          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
-                                              Subscriptions.topics(topic),
-                                              _ => Future.successful(Map.empty))
-          .flatMapMerge(1, _._2)
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .runWith(TestSink.probe)
-
-        probe
-          .request(100)
-          .expectNextN((1 to 100).map(_.toString))
-
-        probe.cancel()
-      }
-    }
-
-    "begin consuming from the middle of the topic" in {
-      assertAllStagesStopped {
-        val topic = createTopicName(1)
-        val group = createGroupId(1)
-
-        givenInitializedTopic(topic)
-
-        Await.result(produce(topic, 1 to 100), remainingOrDefault)
-
-        val probe = Consumer
-          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
-                                              Subscriptions.topics(topic),
-                                              tp => Future.successful(tp.map(_ -> 51L).toMap))
-          .flatMapMerge(1, _._2)
-          .filterNot(_.value == InitialMsg)
-          .map(_.value())
-          .runWith(TestSink.probe)
-
-        probe
-          .request(50)
-          .expectNextN((51 to 100).map(_.toString))
-
-        probe.cancel()
-      }
-    }
-
-    "call the onRevoked hook" in {
-      assertAllStagesStopped {
-        val topic = createTopic()
-        val group = createGroupId(1)
-
-        awaitProduce(produce(topic, 1 to 100))
-
-        var revoked = false
-
-        val source = Consumer
-          .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
-                                              Subscriptions.topics(topic),
-                                              _ => Future.successful(Map.empty),
-                                              _ => revoked = true)
-          .flatMapMerge(1, _._2)
-          .map(_.value())
-
-        val (control1, probe1) = source.toMat(TestSink.probe)(Keep.both).run()
-
-        probe1.request(50)
-
-        sleep(consumerDefaults.waitClosePartition)
-
-        val probe2 = source.runWith(TestSink.probe)
-
-        eventually {
-          assert(revoked, "revoked hook should have been called")
-        }
-
-        probe1.cancel()
-        probe2.cancel()
-        control1.isShutdown.futureValue should be(Done)
-      }
-    }
-
     "support metadata fetching on ConsumerActor" in {
       assertAllStagesStopped {
         val topic = createTopicName(1)
@@ -533,17 +446,14 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete partition sources when stopped" in
     assertAllStagesStopped {
-      val topic = createTopicName(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
 
-      givenInitializedTopic(topic)
-
-      Await.result(produce(topic, 1 to 100), remainingOrDefault)
+      awaitProduce(produce(topic, 1 to 100))
 
       val (control, probe) = Consumer
         .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
         .flatMapMerge(1, _._2)
-        .filterNot(_.value == InitialMsg)
         .map(_.value())
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -555,7 +465,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val stopped = control.stop()
       probe.expectComplete()
 
-      Await.result(stopped, remainingOrDefault)
+      stopped.futureValue should be(Done)
 
       control.shutdown()
       probe.cancel()

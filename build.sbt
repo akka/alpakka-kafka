@@ -178,6 +178,7 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
+    IntegrationTest / parallelExecution := false,
     kafkaScale := 3,
     buildInfoPackage := "akka.kafka",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
@@ -227,7 +228,7 @@ lazy val benchmarks = project
   .settings(
     name := "akka-stream-kafka-benchmarks",
     skip in publish := true,
-    parallelExecution in IntegrationTest := false,
+    IntegrationTest / parallelExecution := false,
     libraryDependencies ++= benchmarkDependencies,
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
