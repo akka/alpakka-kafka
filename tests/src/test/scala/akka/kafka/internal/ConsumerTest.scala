@@ -5,7 +5,7 @@
 
 package akka.kafka.internal
 
-import java.{lang, util}
+import java.{lang, time, util}
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.util.{List => JList, Map => JMap, Set => JSet}
@@ -32,6 +32,7 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -754,6 +755,20 @@ class ConsumerTest(_system: ActorSystem)
       override def close(): Unit = {}
       override def close(timeout: Long, unit: TimeUnit): Unit = {}
       override def wakeup(): Unit = ???
+      override def poll(timeout: time.Duration): ConsumerRecords[K, V] = ???
+      override def commitSync(timeout: time.Duration): Unit = ???
+      override def commitSync(offsets: JMap[TopicPartition, OffsetAndMetadata], timeout: time.Duration): Unit = ???
+      override def position(partition: TopicPartition, timeout: time.Duration): Long = ???
+      override def committed(partition: TopicPartition, timeout: time.Duration): OffsetAndMetadata = ???
+      override def partitionsFor(topic: K, timeout: time.Duration): JList[PartitionInfo] = ???
+      override def listTopics(timeout: time.Duration): JMap[K, JList[PartitionInfo]] = ???
+      override def offsetsForTimes(timestampsToSearch: JMap[TopicPartition, lang.Long],
+                                   timeout: time.Duration): JMap[TopicPartition, OffsetAndTimestamp] = ???
+      override def beginningOffsets(partitions: util.Collection[TopicPartition],
+                                    timeout: time.Duration): JMap[TopicPartition, lang.Long] = ???
+      override def endOffsets(partitions: util.Collection[TopicPartition],
+                              timeout: time.Duration): JMap[TopicPartition, lang.Long] = ???
+      override def close(timeout: time.Duration): Unit = ???
     }
     val topic = "test"
     testPartitionedSource(mock, "group", Set(topic))
