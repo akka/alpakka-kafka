@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.scaladsl.{Keep, Source}
@@ -59,7 +60,10 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
-  def log: Logger = LoggerFactory.getLogger(getClass)
+  val log: Logger = LoggerFactory.getLogger(getClass)
+
+  // used by the .log(...) stream operator
+  implicit val adapter: LoggingAdapter = new Slf4jToAkkaLoggingAdapter(log)
 
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
@@ -281,4 +285,16 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
+}
+
+private class Slf4jToAkkaLoggingAdapter(logger: Logger) extends LoggingAdapter {
+  override def isErrorEnabled: Boolean = logger.isErrorEnabled
+  override def isWarningEnabled: Boolean = logger.isWarnEnabled
+  override def isInfoEnabled: Boolean = logger.isInfoEnabled
+  override def isDebugEnabled: Boolean = logger.isDebugEnabled
+  override protected def notifyError(message: String): Unit = logger.error(message)
+  override protected def notifyError(cause: Throwable, message: String): Unit = logger.error(message, cause)
+  override protected def notifyWarning(message: String): Unit = logger.warn(message)
+  override protected def notifyInfo(message: String): Unit = logger.info(message)
+  override protected def notifyDebug(message: String): Unit = logger.debug(message)
 }
