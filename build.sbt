@@ -3,10 +3,10 @@ enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.5.14"
+val akkaVersion = "2.5.17"
 val kafkaVersion = "2.0.0"
 val kafkaVersionForDocs = "20"
-val scalatestVersion = "3.0.4"
+val scalatestVersion = "3.0.5"
 val slf4jVersion = "1.7.25"
 
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
@@ -24,27 +24,27 @@ val testkitDependencies = Seq(
 
 val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.1" % Test,
+  "org.reactivestreams" % "reactive-streams-tck" % "1.0.2" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
-  "org.mockito" % "mockito-core" % "2.15.0" % Test
+  "org.mockito" % "mockito-core" % "2.22.0" % Test
 )
 
 val integrationTestDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
   "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-  "com.spotify" % "docker-client" % "8.11.5" % IntegrationTest,
+  "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
 )
 
 val benchmarkDependencies = Seq(
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
-  "io.dropwizard.metrics" % "metrics-core" % "3.2.5",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+  "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
@@ -67,7 +67,7 @@ val commonSettings = Seq(
                           url("https://github.com/akka/reactive-kafka/graphs/contributors")),
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
-  crossScalaVersions := Seq("2.12.6", "2.11.12"),
+  crossScalaVersions := Seq("2.12.7", "2.11.12"),
   scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(

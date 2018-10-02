@@ -162,7 +162,7 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 
 `Consumer.plainPartitionedSource` 
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
-and `Consumer.committablePartitionedSource` support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
+, `Consumer.committablePartitionedSource`, and `Consumer.commitWithMetadataPartitionedSource` support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
 
 Backpressure per partition with batch commit:
 

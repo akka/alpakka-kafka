@@ -220,6 +220,16 @@ object Consumer {
     Source.fromGraph(new ConsumerStage.CommittableSubSource[K, V](settings, subscription))
 
   /**
+   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support
+   */
+  def commitWithMetadataPartitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      metadataFromRecord: ConsumerRecord[K, V] => String
+  ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
+    Source.fromGraph(new ConsumerStage.CommittableSubSource[K, V](settings, subscription, metadataFromRecord))
+
+  /**
    * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
    * a lot of manually assigned topic-partitions and want to keep only one kafka consumer.
    */
