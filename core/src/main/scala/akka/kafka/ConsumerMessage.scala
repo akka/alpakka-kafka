@@ -140,6 +140,11 @@ object ConsumerMessage {
     def updated(offset: CommittableOffset): CommittableOffsetBatch
 
     /**
+     * Add/overwrite offset positions from another batch.
+     */
+    def updated(offset: CommittableOffsetBatch): CommittableOffsetBatch
+
+    /**
      * Scala API: Get current offset positions
      */
     def offsets(): Map[GroupTopicPartition, Long]

@@ -263,7 +263,7 @@ private[kafka] object ConsumerStage {
       extends CommittableOffsetBatch {
     def offsets = offsetsAndMetadata.mapValues(_.offset())
 
-    override def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
+    def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
       val partitionOffset = committableOffset.partitionOffset
       val key = partitionOffset.key
       val metadata = committableOffset match {
@@ -297,6 +297,32 @@ private[kafka] object ConsumerStage {
 
       new CommittableOffsetBatchImpl(newOffsets, newStages)
     }
+
+    def updated(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
+      committableOffsetBatch match {
+        case c: CommittableOffsetBatchImpl =>
+          val newOffsetsAndMetadata = offsetsAndMetadata ++ c.offsetsAndMetadata
+          val newStages = c.stages.foldLeft(stages) {
+            case (acc, (groupId, stage)) =>
+              acc.get(groupId) match {
+                case Some(s) =>
+                  require(
+                    s == stage,
+                    s"CommittableOffsetBatch [$committableOffsetBatch] origin stage for groupId [$groupId] " +
+                    s"must be same as other stage with same groupId. Expected [$s], got [$stage]"
+                  )
+                  acc
+                case None =>
+                  acc.updated(groupId, stage)
+              }
+          }
+          new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages)
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
+            s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+          )
+      }
 
     override def getOffsets(): JMap[GroupTopicPartition, Long] =
       offsets.asJava
