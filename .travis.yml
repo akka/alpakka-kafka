@@ -29,7 +29,7 @@ jobs:
       jdk: oraclejdk8
 
     - stage: integration
-      env: CMD="tests/dockerComposeTest it:test"
+      env: CMD="dockerComposeTestAll"
       jdk: oraclejdk8
     - env: CMD="benchmarks/dockerComposeTest it:test"
       jdk: oraclejdk8

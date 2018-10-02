@@ -191,6 +191,12 @@ lazy val tests = project
     }
   )
 
+commands += Command.command("dockerComposeTestAll") { state ⇒
+  val extracted = Project.extract(state)
+  val (_, allTests) = extracted.runTask(tests / IntegrationTest / definedTestNames, state)
+  allTests.map(test => s"tests/dockerComposeTest it:testOnly $test").foldRight(state)(_ :: _)
+}
+
 lazy val docs = project
   .in(file("docs"))
   .enablePlugins(AkkaParadoxPlugin)
