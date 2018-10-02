@@ -71,4 +71,21 @@ trait ConsumerDummy[K, V] extends Consumer[K, V] {
   override def close(): Unit = {}
   override def close(timeout: Long, unit: TimeUnit): Unit = {}
   override def wakeup(): Unit = ???
+
+  override def commitSync(timeout: java.time.Duration): Unit = ???
+  override def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
+                          timeout: java.time.Duration): Unit = ???
+  override def position(partition: TopicPartition, timeout: java.time.Duration): Long = ???
+  override def committed(partition: TopicPartition, timeout: java.time.Duration): OffsetAndMetadata = ???
+  override def partitionsFor(topic: String, timeout: java.time.Duration): java.util.List[PartitionInfo] = ???
+  override def listTopics(timeout: java.time.Duration): java.util.Map[String, java.util.List[PartitionInfo]] = ???
+  override def offsetsForTimes(timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long],
+                               timeout: java.time.Duration): java.util.Map[TopicPartition, OffsetAndTimestamp] = ???
+  override def beginningOffsets(partitions: java.util.Collection[TopicPartition],
+                                timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
+  override def endOffsets(partitions: java.util.Collection[TopicPartition],
+                          timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
+  override def close(timeout: java.time.Duration): Unit = ???
+  override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
+
 }
