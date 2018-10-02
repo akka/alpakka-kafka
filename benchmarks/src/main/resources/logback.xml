@@ -1,4 +1,11 @@
 <configuration>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>target/benchmarks.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%d{ISO8601} %-5level [%-20.20thread] [%-36.36logger{36}]  %msg%n%rEx</pattern>
+        </encoder>
+    </appender>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level [%-20.20thread] %-36.36logger{36}  %msg%n%rEx</pattern>
@@ -12,6 +19,7 @@
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
     <root level="DEBUG">
+        <appender-ref ref="FILE" />
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
