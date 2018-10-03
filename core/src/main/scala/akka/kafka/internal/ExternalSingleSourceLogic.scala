@@ -19,24 +19,24 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg],
-    val consumer: ActorRef,
+    val consumerActor: ActorRef,
     subscription: ManualSubscription
 ) extends GraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
     with MessageBuilder[K, V, Msg] {
   override def executionContext: ExecutionContext = materializer.executionContext
-  override val consumerFuture: Future[ActorRef] = Future.successful(consumer)
+  override val consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
   var requestId = 0
-  var self: StageActor = _
+  var sourceActor: StageActor = _
 
   override def preStart(): Unit = {
     super.preStart()
 
-    self = getStageActor {
+    sourceActor = getStageActor {
       case (sender, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
         // might be more than one in flight when we assign/revoke tps
         if (msg.requestId == requestId)
@@ -48,20 +48,20 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
           buffer = msg.messages
         }
         pump()
-      case (_, Terminated(ref)) if ref == consumer =>
+      case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
     }
-    self.watch(consumer)
+    sourceActor.watch(consumerActor)
 
     subscription match {
       case Assignment(topics, _) =>
-        consumer.tell(KafkaConsumerActor.Internal.Assign(topics), self.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.Assign(topics), sourceActor.ref)
         tps ++= topics
       case AssignmentWithOffset(topics, _) =>
-        consumer.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), self.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), sourceActor.ref)
         tps ++= topics.keySet
       case AssignmentOffsetsForTimes(topics, _) =>
-        consumer.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), self.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
         tps ++= topics.keySet
     }
   }
@@ -90,7 +90,7 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   private def requestMessages(): Unit = {
     requested = true
     requestId += 1
-    consumer.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), self.ref)
+    consumerActor.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), sourceActor.ref)
   }
 
   setHandler(shape.out, new OutHandler {

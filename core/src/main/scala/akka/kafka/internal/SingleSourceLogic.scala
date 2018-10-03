@@ -31,6 +31,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
 
   val consumerPromise = Promise[ActorRef]
+  final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
   var consumerActor: ActorRef = _
@@ -47,8 +48,7 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
 
     consumerActor = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
-      val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
-      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), s"kafka-consumer-$actorNumber")
     }
     consumerPromise.success(consumerActor)
 
@@ -65,22 +65,25 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         }
         pump()
       case (_, Terminated(ref)) if ref == consumerActor =>
-        failStage(new ConsumerFailed)
+        failStage(new ConsumerFailed())
     }
     sourceActor.watch(consumerActor)
 
-    val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
-      // Is info too much here? Will be logged at startup / rebalance
-      tps ++= newTps
-      log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", newTps, tps)
-      subscription.rebalanceListener.foreach(_.tell(TopicPartitionsAssigned(subscription, newTps), sourceActor.ref))
+    val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
+      tps ++= assignedTps
+      log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", assignedTps, tps)
+      subscription.rebalanceListener.foreach {
+        _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+      }
       requestMessages()
     }
 
-    val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { newTps =>
-      tps --= newTps
-      log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", newTps, tps)
-      subscription.rebalanceListener.foreach(_.tell(TopicPartitionsRevoked(subscription, newTps), sourceActor.ref))
+    val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
+      tps --= revokedTps
+      log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+      subscription.rebalanceListener.foreach {
+        _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+      }
     }
 
     def rebalanceListener: KafkaConsumerActor.ListenerCallbacks =

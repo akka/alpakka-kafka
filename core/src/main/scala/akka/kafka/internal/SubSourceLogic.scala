@@ -43,6 +43,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     with MessageBuilder[K, V, Msg]
     with StageLogging {
   val consumerPromise = Promise[ActorRef]
+  final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
   var consumerActor: ActorRef = _
@@ -59,8 +60,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     super.preStart()
     consumerActor = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
-      val name = s"kafka-consumer-${KafkaConsumerActor.Internal.nextNumber()}"
-      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), name)
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), s"kafka-consumer-$actorNumber")
     }
     consumerPromise.success(consumerActor)
 
@@ -94,7 +94,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     val partitions = tps -- partitionsToRevoke
 
     if (log.isDebugEnabled && partitions.nonEmpty) {
-      log.debug("Assigning new partitions: {}", partitions.mkString(", "))
+      log.debug("#{} Assigning new partitions: {}", actorNumber, partitions.mkString(", "))
     }
 
     partitionsToRevoke = partitionsToRevoke -- tps
@@ -106,7 +106,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         .onComplete {
           case Failure(ex) =>
             stageFailCB.invoke(
-              new ConsumerFailed(s"Failed to fetch offset for partitions: ${partitions.mkString(", ")}.", ex)
+              new ConsumerFailed(s"#$actorNumber Failed to fetch offset for partitions: ${partitions.mkString(", ")}.",
+                                 ex)
             )
           case Success(offsets) =>
             consumerActor
@@ -115,7 +116,9 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
               .recover {
                 case _: AskTimeoutException =>
                   stageFailCB.invoke(
-                    new ConsumerFailed(s"Consumer failed during seek for partitions: ${partitions.mkString(", ")}.")
+                    new ConsumerFailed(
+                      s"#$actorNumber Consumer failed during seek for partitions: ${partitions.mkString(", ")}."
+                    )
                   )
               }
         }
@@ -123,9 +126,13 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
+    // TODO this called in startup with empty tps, some existing tests reply on the callback
     pendingRevokeCall.map(_.cancel())
     partitionsToRevoke ++= tps
     val cb = getAsyncCallback[Unit] { _ =>
+      if (log.isDebugEnabled) {
+        log.debug("#{} Closing SubSources for revoked partitions: {}", actorNumber, partitionsToRevoke.mkString(", "))
+      }
       onRevoke(partitionsToRevoke)
       pendingPartitions --= partitionsToRevoke
       partitionsInStartup --= partitionsToRevoke
@@ -135,7 +142,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       pendingRevokeCall = None
     }
 
-    log.debug("Waiting {} for pending requests before close partitions", settings.waitClosePartition)
+    if (log.isDebugEnabled) {
+      log.debug("#{} Waiting {} for pending requests before close partitions",
+                actorNumber,
+                settings.waitClosePartition.toCoarsest)
+    }
     pendingRevokeCall = Option(
       materializer.scheduleOnce(
         settings.waitClosePartition,
@@ -175,7 +186,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   def createSource(tp: TopicPartition): Source[Msg, NotUsed] =
     Source.fromGraph(
-      new SubSourceStage(tp, consumerActor, subsourceStartedCB, subsourceCancelledCB, messageBuilder = this)
+      new SubSourceStage(tp,
+                         consumerActor,
+                         subsourceStartedCB,
+                         subsourceCancelledCB,
+                         messageBuilder = this,
+                         actorNumber)
     )
 
   @tailrec
@@ -224,11 +240,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
 }
 
-private class SubSourceStage[K, V, Msg](tp: TopicPartition,
-                                        consumerActor: ActorRef,
-                                        subsourceStartedCB: AsyncCallback[(TopicPartition, Control)],
-                                        subsourceCancelledCB: AsyncCallback[TopicPartition],
-                                        messageBuilder: MessageBuilder[K, V, Msg])
+private final class SubSourceStage[K, V, Msg](tp: TopicPartition,
+                                              consumerActor: ActorRef,
+                                              subSourceStartedCb: AsyncCallback[(TopicPartition, Control)],
+                                              subSourceCancelledCb: AsyncCallback[TopicPartition],
+                                              messageBuilder: MessageBuilder[K, V, Msg],
+                                              actorNumber: Int)
     extends GraphStage[SourceShape[Msg]] { stage =>
   val out = Outlet[Msg]("out")
   val shape = new SourceShape(out)
@@ -244,8 +261,9 @@ private class SubSourceStage[K, V, Msg](tp: TopicPartition,
       var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
       override def preStart(): Unit = {
+        log.debug("#{} Starting SubSource for partition {}", actorNumber, tp)
         super.preStart()
-        subsourceStartedCB.invoke((tp, this))
+        subSourceStartedCb.invoke(tp -> this.asInstanceOf[Control])
         subSourceActor = getStageActor {
           case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
             requested = false
@@ -272,13 +290,13 @@ private class SubSourceStage[K, V, Msg](tp: TopicPartition,
           pump()
 
         override def onDownstreamFinish(): Unit = {
-          subsourceCancelledCB.invoke(tp)
+          subSourceCancelledCb.invoke(tp)
           super.onDownstreamFinish()
         }
       })
 
       def performShutdown() = {
-        log.debug("Revoking partition {}", tp)
+        log.debug("#{} Completing SubSource for partition {}", actorNumber, tp)
         completeStage()
       }
 

@@ -152,21 +152,37 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   }
 
   /**
-   * Periodically checks if a given predicate on consumer group state holds.
+   * Periodically checks if the given predicate on consumer group state holds.
    *
    * If the predicate does not hold after `maxTries`, throws an exception.
    */
   def waitUntilConsumerGroup(
       groupId: String,
       timeout: Duration = 1.second,
-      maxTries: Int = 10,
       sleepInBetween: FiniteDuration = 100.millis
-  )(predicate: kafka.admin.AdminClient#ConsumerGroupSummary => Boolean) = {
+  )(predicate: kafka.admin.AdminClient#ConsumerGroupSummary => Boolean): Unit = {
     val admin = oldAdminClient()
-    periodicalCheck("consumer group state", maxTries, sleepInBetween)(
+    periodicalCheck("consumer group state", (timeout / sleepInBetween).toInt, sleepInBetween)(
       () => admin.describeConsumerGroup(groupId, timeout.toMillis)
     )(predicate)
   }
+
+  /**
+   * Periodically checks if the given predicate on consumer summary holds.
+   *
+   * If the predicate does not hold after `maxTries`, throws an exception.
+   */
+  def waitUntilConsumerSummary(
+      groupId: String,
+      timeout: Duration = 1.second,
+      sleepInBetween: FiniteDuration = 100.millis
+  )(predicate: PartialFunction[List[kafka.admin.AdminClient#ConsumerSummary], Boolean]): Unit =
+    waitUntilConsumerGroup(groupId, timeout, sleepInBetween) {
+      _.consumers match {
+        case Some(consumers) => Try(predicate(consumers)).getOrElse(false)
+        case _ => false
+      }
+    }
 
   def periodicalCheck[T](description: String, maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
       data: () => T
@@ -179,7 +195,9 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
           sleep(sleepInBetween)
           check(triesLeft - 1)
         case Success(false) =>
-          throw new Error(s"Failure while waiting for desired $description")
+          throw new Error(
+            s"Timeout while waiting for desired $description. Tried [$maxTries] times, slept [$sleepInBetween] in between."
+          )
         case Failure(ex) =>
           throw ex
         case Success(true) => // predicate has been fulfilled, stop checking

@@ -42,7 +42,7 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
 
   "partitioned source" should {
 
-    "not lose any messages (when everything is stable)" in assertAllStagesStopped {
+    "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
 
       val totalMessages = 1000 * 10L
 
@@ -87,13 +87,13 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
 
       val result = Source(0L until totalMessages)
         .map(logSentMessages)
-//        .map { number =>
-//          if (number == totalMessages / 2) {
-//            log.warn(s"Stopping one Kafka container [$Kafka2ContainerId] after [$number] messages")
-//            docker.stopContainer(Kafka2ContainerId, 0)
-//          }
-//          number
-//        }
+        .map { number =>
+          if (number == totalMessages / 2) {
+            log.warn(s"Stopping one Kafka container [$Kafka2ContainerId] after [$number] messages")
+            docker.stopContainer(Kafka2ContainerId, 0)
+          }
+          number
+        }
         .map(number => new ProducerRecord(topic, (number % partitions).toInt, DefaultKey, number.toString))
         .runWith(Producer.plainSink(producerDefaults))
 

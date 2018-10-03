@@ -114,7 +114,7 @@ private[kafka] object ConsumerStage {
         override def groupId: String = _groupId
         lazy val committer: Committer = {
           val ec = materializer.executionContext
-          KafkaAsyncConsumerCommitterRef(consumer, commitTimeout)(ec)
+          KafkaAsyncConsumerCommitterRef(consumerActor, commitTimeout)(ec)
         }
       }
   }
