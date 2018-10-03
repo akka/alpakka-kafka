@@ -21,6 +21,14 @@
 
     <logger name="kafka" level="WARN"/>
     <logger name="org.apache.kafka" level="WARN"/>
+    <!-- Useful log levels for debugging rebalancing
+    <logger name="org.apache.kafka" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer" level="DEBUG"/>
+    <logger name="org.apache.kafka.clients.consumer.KafkaConsumer" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="INFO"/>
+    -->
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
