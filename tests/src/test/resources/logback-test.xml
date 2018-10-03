@@ -33,7 +33,7 @@
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
     <root level="DEBUG">
-        <!--<appender-ref ref="STDOUT" />-->
+        <!--appender-ref ref="STDOUT" /-->
         <appender-ref ref="FILE" />
     </root>
 
