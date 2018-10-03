@@ -113,16 +113,18 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
-      sleep(10.seconds)
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+      }
 
       val producer = Source(1L to totalMessages)
         .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
         .runWith(Producer.plainSink(producerDefaults, testProducer))
 
       producer.futureValue shouldBe Done
-      sleep(5.seconds)
-      createdSubSources should contain allElementsOf allTps
       val streamMessages = control.drainAndShutdown().futureValue
+      createdSubSources should contain allElementsOf allTps
       streamMessages shouldBe totalMessages
     }
 
@@ -160,8 +162,10 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
-      // make sure the Consumer starts before the producer
-      sleep(10.seconds)
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+      }
 
       var createdInnerSubSources = List.empty[TopicPartition]
       var control2: DrainingControl[Long] = null
@@ -197,14 +201,21 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
         .runWith(Producer.plainSink(producerDefaults, testProducer))
 
       producer.futureValue shouldBe Done
-      sleep(5.seconds)
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.size == half && consumer2.assignment.size == half
+      }
+
       eventually {
         control2 should not be null
       }
-      createdSubSources should contain allElementsOf allTps
-      createdInnerSubSources should have size 2
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
+      createdSubSources should contain allElementsOf allTps
+      createdInnerSubSources should have size 2
       stream1messages + stream2messages shouldBe totalMessages
     }
 

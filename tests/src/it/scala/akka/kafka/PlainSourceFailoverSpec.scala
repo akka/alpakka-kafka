@@ -2,6 +2,7 @@ package akka.kafka
 
 import akka.kafka.scaladsl.{Consumer, Producer, ScalatestKafkaSpec}
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import com.spotify.docker.client.DefaultDockerClient
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -10,15 +11,15 @@ import org.scalatest.{Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
 
-object RebalanceSpec {
+object PlainSourceFailoverSpec {
   // the following system properties are provided by the sbt-docker-compose plugin
   val KafkaBootstrapServers = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
   val Kafka1Port = sys.props("kafka_1_9094_port").toInt
   val Kafka2ContainerId = sys.props("kafka_2_9094_id")
 }
 
-class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
-  import RebalanceSpec._
+class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
+  import PlainSourceFailoverSpec._
 
   override def bootstrapServers = KafkaBootstrapServers
 
@@ -26,17 +27,18 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
 
   implicit val pc = PatienceConfig(30.seconds, 100.millis)
 
-  "alpakka kafka" should {
+  "plain source" should {
 
-    "not lose any messages during a rebalance" in {
+    "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
 
       val totalMessages = 1000 * 10
+      val partitions = 1
 
       waitUntilCluster() {
         _.nodes().get().size == BuildInfo.kafkaScale
       }
 
-      val topic = createTopic(0, partitions = 1, replication = 3)
+      val topic = createTopic(partitions = partitions, replication = 3)
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
@@ -52,11 +54,8 @@ class RebalanceSpec extends ScalatestKafkaSpec(RebalanceSpec.Kafka1Port) with Wo
         }
         .runWith(Sink.last)
 
-      waitUntilConsumerGroup(groupId) {
-        _.consumers match {
-          case Some(consumers) if consumers.nonEmpty => true
-          case _ => false
-        }
+      waitUntilConsumerSummary(groupId, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
       }
 
       val result = Source(0 to totalMessages)
