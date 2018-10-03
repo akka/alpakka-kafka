@@ -46,19 +46,22 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
       val consumer = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
-        .take(totalMessages)
         .scan(0)((c, _) => c + 1)
         .map { i =>
           if (i % 1000 == 0) log.info(s"Received [$i] messages so far.")
           i
         }
+        .map(Some.apply)
+        .keepAlive(maxIdle = 10.seconds, () => None)
+        .takeWhile(_.isDefined)
         .runWith(Sink.last)
+        .map(_.get)
 
       waitUntilConsumerSummary(groupId, timeout = 5.seconds) {
         case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
       }
 
-      val result = Source(0 to totalMessages)
+      val result = Source(1 to totalMessages)
         .map { i =>
           if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
           i.toString
