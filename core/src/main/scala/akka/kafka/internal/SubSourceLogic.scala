@@ -86,43 +86,46 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  private val pumpCB = getAsyncCallback[Set[TopicPartition]] { tps =>
-    pendingPartitions ++= tps.filter(!partitionsInStartup.contains(_))
-    pump()
+  private val updatePendingPartitionsAndEmitSubSourcesCb = getAsyncCallback[Set[TopicPartition]] {
+    formerlyUnknownPartitions =>
+      pendingPartitions ++= formerlyUnknownPartitions.filter(!partitionsInStartup.contains(_))
+      emitSubSourcesForPendingPartitions()
   }
 
   private val stageFailCB = getAsyncCallback[ConsumerFailed] { ex =>
     failStage(ex)
   }
 
-  val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
-    val partitions = tps -- partitionsToRevoke
+  val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
+    val formerlyUnknown = assigned -- partitionsToRevoke
 
-    if (log.isDebugEnabled && partitions.nonEmpty) {
-      log.debug("#{} Assigning new partitions: {}", actorNumber, partitions.mkString(", "))
+    if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
+      log.debug("#{} Assigning new partitions: {}", actorNumber, formerlyUnknown.mkString(", "))
     }
 
-    partitionsToRevoke = partitionsToRevoke -- tps
+    partitionsToRevoke = partitionsToRevoke -- assigned
 
-    getOffsetsOnAssign.fold(pumpCB.invoke(partitions)) { getOffsets =>
-      implicit val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
+    getOffsetsOnAssign.fold(updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown)) { getOffsets =>
+      val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
       implicit val ec: ExecutionContext = materializer.executionContext
-      getOffsets(partitions)
+      getOffsets(formerlyUnknown)
         .onComplete {
           case Failure(ex) =>
             stageFailCB.invoke(
-              new ConsumerFailed(s"#$actorNumber Failed to fetch offset for partitions: ${partitions.mkString(", ")}.",
-                                 ex)
+              new ConsumerFailed(
+                s"#$actorNumber Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
+                ex
+              )
             )
           case Success(offsets) =>
             consumerActor
-              .ask(KafkaConsumerActor.Internal.Seek(offsets))
-              .map(_ => pumpCB.invoke(partitions))
+              .ask(KafkaConsumerActor.Internal.Seek(offsets))(seekTimeout, sourceActor.ref)
+              .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown))
               .recover {
                 case _: AskTimeoutException =>
                   stageFailCB.invoke(
                     new ConsumerFailed(
-                      s"#$actorNumber Consumer failed during seek for partitions: ${partitions.mkString(", ")}."
+                      s"#$actorNumber Consumer failed during seek for partitions: ${formerlyUnknown.mkString(", ")}."
                     )
                   )
               }
@@ -156,7 +159,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
         partitionsInStartup -= tp
         pendingPartitions += tp
 
-        implicit val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
+        val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
         implicit val ec: ExecutionContext = materializer.executionContext
 
         last match {
@@ -166,8 +169,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
             }
 
             consumerActor
-              .ask(KafkaConsumerActor.Internal.Seek(Map(tp -> record.offset())))
-              .map(_ => pumpCB.invoke(Set.empty))
+              .ask(KafkaConsumerActor.Internal.Seek(Map(tp -> record.offset())))(seekTimeout, sourceActor.ref)
+              .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(Set.empty))
               .recover {
                 case _: AskTimeoutException =>
                   stageFailCB.invoke(
@@ -176,7 +179,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
                     )
                   )
               }
-          case _ => pump()
+          case _ => emitSubSourcesForPendingPartitions()
         }
     }
 
@@ -194,30 +197,28 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   setHandler(shape.out, new OutHandler {
     override def onPull(): Unit =
-      pump()
+      emitSubSourcesForPendingPartitions()
     override def onDownstreamFinish(): Unit =
       performShutdown()
   })
 
-  def createSource(tp: TopicPartition): Source[Msg, NotUsed] =
-    Source.fromGraph(
-      new SubSourceStage(tp,
-                         consumerActor,
-                         subsourceStartedCB,
-                         subsourceCancelledCB,
-                         messageBuilder = this,
-                         actorNumber)
-    )
-
   @tailrec
-  private def pump(): Unit =
+  private def emitSubSourcesForPendingPartitions(): Unit =
     if (pendingPartitions.nonEmpty && isAvailable(shape.out)) {
       val tp = pendingPartitions.head
 
       pendingPartitions = pendingPartitions.tail
       partitionsInStartup += tp
-      push(shape.out, (tp, createSource(tp)))
-      pump()
+      val subSource = Source.fromGraph(
+        new SubSourceStage(tp,
+                           consumerActor,
+                           subsourceStartedCB,
+                           subsourceCancelledCB,
+                           messageBuilder = this,
+                           actorNumber)
+      )
+      push(shape.out, (tp, subSource))
+      emitSubSourcesForPendingPartitions()
     }
 
   override def postStop(): Unit = {
