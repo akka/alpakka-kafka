@@ -109,7 +109,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
       case Some(getOffsetsFromExternal) =>
         implicit val ec: ExecutionContext = materializer.executionContext
-        getOffsetsFromExternal(formerlyUnknown)
+        getOffsetsFromExternal(assigned)
           .onComplete {
             case Failure(ex) =>
               stageFailCB.invoke(

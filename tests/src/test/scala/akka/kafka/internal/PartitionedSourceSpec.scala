@@ -279,8 +279,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     sink.cancel()
   }
 
-  // PENDING: this test illustrates https://github.com/akka/alpakka-kafka/issues/570
-  it should "after revoke request offset for remaining partition" in pendingUntilFixed(assertAllStagesStopped {
+  it should "after revoke request offset for remaining partition" in assertAllStagesStopped {
     val dummy = new Dummy()
 
     var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
@@ -317,7 +316,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
 
     sink.cancel()
-  })
+  }
 
   it should "seek to given offset" in assertAllStagesStopped {
     val dummy = new Dummy()
