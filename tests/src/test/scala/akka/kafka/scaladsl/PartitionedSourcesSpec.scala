@@ -123,6 +123,7 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
         .runWith(Producer.plainSink(producerDefaults, testProducer))
 
       producer.futureValue shouldBe Done
+      sleep(2.seconds)
       val streamMessages = control.drainAndShutdown().futureValue
       createdSubSources should contain allElementsOf allTps
       streamMessages shouldBe totalMessages
@@ -209,9 +210,8 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
           consumer1.assignment.size == half && consumer2.assignment.size == half
       }
 
-      eventually {
-        control2 should not be null
-      }
+      control2 should not be null
+      sleep(4.seconds)
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
       createdSubSources should contain allElementsOf allTps

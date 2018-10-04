@@ -100,10 +100,13 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     TestKit.shutdownActorSystem(system)
   }
 
-  def sleep(time: FiniteDuration): Unit = {
-    log.debug(s"sleeping $time")
+  def sleep(time: FiniteDuration, msg: String = ""): Unit = {
+    log.debug(s"sleeping $time $msg")
     Thread.sleep(time.toMillis)
   }
+
+  def sleepQuietly(time: FiniteDuration): Unit =
+    Thread.sleep(time.toMillis)
 
   def awaitMultiple[T](d: FiniteDuration, futures: Future[T]*): Seq[T] =
     Await.result(Future.sequence(futures), d)
@@ -112,7 +115,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
 
   def awaitProduce(futures: Future[Done]*): Unit = {
     awaitMultiple(4.seconds, futures: _*)
-    sleep(sleepAfterProduce)
+    sleep(sleepAfterProduce, "to be sure producing has happened")
   }
 
   private val topicCounter = new AtomicInteger()
@@ -192,7 +195,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
         case e: org.apache.kafka.common.errors.TimeoutException => false
       } match {
         case Success(false) if triesLeft > 0 =>
-          sleep(sleepInBetween)
+          sleepQuietly(sleepInBetween)
           check(triesLeft - 1)
         case Success(false) =>
           throw new Error(
