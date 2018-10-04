@@ -10,7 +10,7 @@ import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, Assignme
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{GraphStageLogic, OutHandler}
+import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -24,20 +24,24 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
 ) extends GraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
-    with MessageBuilder[K, V, Msg] {
+    with MessageBuilder[K, V, Msg]
+    with StageLogging {
+
+  override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
+
   override def executionContext: ExecutionContext = materializer.executionContext
   override val consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
+  var sourceActor: StageActor = _
   var tps = Set.empty[TopicPartition]
   var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   var requested = false
   var requestId = 0
-  var sourceActor: StageActor = _
 
   override def preStart(): Unit = {
     super.preStart()
 
     sourceActor = getStageActor {
-      case (sender, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+      case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
         // might be more than one in flight when we assign/revoke tps
         if (msg.requestId == requestId)
           requested = false
@@ -49,7 +53,7 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         }
         pump()
       case (_, Terminated(ref)) if ref == consumerActor =>
-        failStage(new ConsumerFailed)
+        failStage(new ConsumerFailed())
     }
     sourceActor.watch(consumerActor)
 
@@ -64,15 +68,6 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
         consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
         tps ++= topics.keySet
     }
-  }
-
-  val partitionAssignedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps ++= newTps
-    requestMessages()
-  }
-  val partitionRevokedCB = getAsyncCallback[Iterable[TopicPartition]] { newTps =>
-    tps --= newTps
-    requestMessages()
   }
 
   @tailrec
@@ -90,19 +85,24 @@ private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
   private def requestMessages(): Unit = {
     requested = true
     requestId += 1
+    log.debug("Requesting messages, requestId: {}, partitions: {}", requestId, tps)
     consumerActor.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), sourceActor.ref)
   }
 
   setHandler(shape.out, new OutHandler {
     override def onPull(): Unit =
       pump()
-  })
 
-  override def performShutdown() =
-    completeStage()
+    override def onDownstreamFinish(): Unit =
+      performShutdown()
+  })
 
   override def postStop(): Unit = {
     onShutdown()
     super.postStop()
   }
+
+  override def performShutdown(): Unit =
+    completeStage()
+
 }

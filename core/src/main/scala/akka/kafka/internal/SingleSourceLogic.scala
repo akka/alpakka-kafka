@@ -104,7 +104,6 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
         consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
         tps ++= topics.keySet
     }
-
   }
 
   @tailrec
