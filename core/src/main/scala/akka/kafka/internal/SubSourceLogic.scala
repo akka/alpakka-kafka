@@ -8,7 +8,7 @@ package akka.kafka.internal
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
-import akka.actor.{ActorRef, Cancellable, ExtendedActorSystem, Terminated}
+import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
@@ -86,11 +86,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     }
   }
 
-  private val updatePendingPartitionsAndEmitSubSourcesCb = getAsyncCallback[Set[TopicPartition]] {
-    formerlyUnknownPartitions =>
-      pendingPartitions ++= formerlyUnknownPartitions.filter(!partitionsInStartup.contains(_))
-      emitSubSourcesForPendingPartitions()
-  }
+  private val updatePendingPartitionsAndEmitSubSourcesCb =
+    getAsyncCallback[Set[TopicPartition]](updatePendingPartitionsAndEmitSubSources)
 
   private val stageFailCB = getAsyncCallback[ConsumerFailed] { ex =>
     failStage(ex)
@@ -108,7 +105,7 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
     getOffsetsOnAssign match {
       case None =>
-        updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown)
+        updatePendingPartitionsAndEmitSubSources(formerlyUnknown)
 
       case Some(getOffsetsFromExternal) =>
         implicit val ec: ExecutionContext = materializer.executionContext
@@ -199,6 +196,11 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     override def onDownstreamFinish(): Unit =
       performShutdown()
   })
+
+  private def updatePendingPartitionsAndEmitSubSources(formerlyUnknownPartitions: Set[TopicPartition]): Unit = {
+    pendingPartitions ++= formerlyUnknownPartitions.filter(!partitionsInStartup.contains(_))
+    emitSubSourcesForPendingPartitions()
+  }
 
   @tailrec
   private def emitSubSourcesForPendingPartitions(): Unit =
