@@ -103,34 +103,47 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       log.debug("#{} Assigning new partitions: {}", actorNumber, formerlyUnknown.mkString(", "))
     }
 
+    // make sure re-assigned partitions don't get closed on CloseRevokedPartitions timer
     partitionsToRevoke = partitionsToRevoke -- assigned
 
-    getOffsetsOnAssign.fold(updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown)) { getOffsets =>
-      val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
-      implicit val ec: ExecutionContext = materializer.executionContext
-      getOffsets(formerlyUnknown)
-        .onComplete {
-          case Failure(ex) =>
-            stageFailCB.invoke(
-              new ConsumerFailed(
-                s"#$actorNumber Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
-                ex
+    getOffsetsOnAssign match {
+      case None =>
+        updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown)
+
+      case Some(getOffsetsFromExternal) =>
+        implicit val ec: ExecutionContext = materializer.executionContext
+        getOffsetsFromExternal(formerlyUnknown)
+          .onComplete {
+            case Failure(ex) =>
+              stageFailCB.invoke(
+                new ConsumerFailed(
+                  s"#$actorNumber Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
+                  ex
+                )
               )
-            )
-          case Success(offsets) =>
-            consumerActor
-              .ask(KafkaConsumerActor.Internal.Seek(offsets))(seekTimeout, sourceActor.ref)
-              .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown))
-              .recover {
-                case _: AskTimeoutException =>
-                  stageFailCB.invoke(
-                    new ConsumerFailed(
-                      s"#$actorNumber Consumer failed during seek for partitions: ${formerlyUnknown.mkString(", ")}."
-                    )
-                  )
-              }
-        }
+            case Success(offsets) =>
+              seekAndEmitSubSources(formerlyUnknown, offsets)
+          }
     }
+  }
+
+  private def seekAndEmitSubSources(
+      formerlyUnknown: Set[TopicPartition],
+      offsets: Map[TopicPartition, Long]
+  ): Unit = {
+    implicit val ec: ExecutionContext = materializer.executionContext
+    val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
+    consumerActor
+      .ask(KafkaConsumerActor.Internal.Seek(offsets))(seekTimeout, sourceActor.ref)
+      .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown))
+      .recover {
+        case _: AskTimeoutException =>
+          stageFailCB.invoke(
+            new ConsumerFailed(
+              s"#$actorNumber Consumer failed during seek for partitions: ${offsets.keys.mkString(", ")}."
+            )
+          )
+      }
   }
 
   val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
@@ -154,32 +167,17 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   val subsourceCancelledCB: AsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])] =
     getAsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])] {
-      case (tp, last) =>
+      case (tp, firstUnconsumed) =>
         subSources -= tp
         partitionsInStartup -= tp
         pendingPartitions += tp
-
-        val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
-        implicit val ec: ExecutionContext = materializer.executionContext
-
-        last match {
+        firstUnconsumed match {
           case Some(record) =>
             if (log.isDebugEnabled) {
               log.debug("#{} Seeking {} to {} after partition SubSource cancelled", actorNumber, tp, record.offset())
             }
-
-            consumerActor
-              .ask(KafkaConsumerActor.Internal.Seek(Map(tp -> record.offset())))(seekTimeout, sourceActor.ref)
-              .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(Set.empty))
-              .recover {
-                case _: AskTimeoutException =>
-                  stageFailCB.invoke(
-                    new ConsumerFailed(
-                      s"#$actorNumber Consumer failed during seek for partition: $tp after SubSource cancelled."
-                    )
-                  )
-              }
-          case _ => emitSubSourcesForPendingPartitions()
+            seekAndEmitSubSources(formerlyUnknown = Set.empty, Map(tp -> record.offset()))
+          case None => emitSubSourcesForPendingPartitions()
         }
     }
 
@@ -319,7 +317,7 @@ private final class SubSourceStage[K, V, Msg](
               None
             }
 
-            subSourceCancelledCb.invoke((tp, firstUnconsumed))
+            subSourceCancelledCb.invoke(tp -> firstUnconsumed)
             super.onDownstreamFinish()
           }
         }
