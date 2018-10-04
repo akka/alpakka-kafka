@@ -252,5 +252,35 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
       control1.isShutdown.futureValue should be(Done)
     }
 
+    "not leave gaps when subsource is cancelled" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+      val totalMessages = 100
+
+      awaitProduce(produce(topic, 1 to totalMessages))
+
+      val consumedMessages =
+        Consumer
+          .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+          .log(topic)
+          .flatMapMerge(
+            1, {
+              case (tp, source) =>
+                source
+                  .map(_.offset())
+                  .log(tp.toString)
+                  .take(10)
+            }
+          )
+          .scan(0)((c, _) => c + 1)
+          .map(Some.apply)
+          .keepAlive(5.seconds, () => None)
+          .takeWhile(_.isDefined)
+          .runWith(Sink.last)
+          .map(_.get)
+
+      consumedMessages.futureValue shouldBe totalMessages
+    }
+
   }
 }

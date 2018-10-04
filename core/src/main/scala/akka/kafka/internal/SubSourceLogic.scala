@@ -158,12 +158,36 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     )
   }
 
-  val subsourceCancelledCB: AsyncCallback[TopicPartition] = getAsyncCallback[TopicPartition] { tp =>
-    subSources -= tp
-    partitionsInStartup -= tp
-    pendingPartitions += tp
-    pump()
-  }
+  val subsourceCancelledCB: AsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])] =
+    getAsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])] {
+      case (tp, last) =>
+        subSources -= tp
+        partitionsInStartup -= tp
+        pendingPartitions += tp
+
+        implicit val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
+        implicit val ec: ExecutionContext = materializer.executionContext
+
+        last match {
+          case Some(record) =>
+            if (log.isDebugEnabled) {
+              log.debug("#{} Seeking {} to {} after partition SubSource cancelled", actorNumber, tp, record.offset())
+            }
+
+            consumerActor
+              .ask(KafkaConsumerActor.Internal.Seek(Map(tp -> record.offset())))
+              .map(_ => pumpCB.invoke(Set.empty))
+              .recover {
+                case _: AskTimeoutException =>
+                  stageFailCB.invoke(
+                    new ConsumerFailed(
+                      s"#$actorNumber Consumer failed during seek for partition: $tp after SubSource cancelled."
+                    )
+                  )
+              }
+          case _ => pump()
+        }
+    }
 
   val subsourceStartedCB: AsyncCallback[(TopicPartition, Control)] = getAsyncCallback[(TopicPartition, Control)] {
     case (tp, control) =>
@@ -240,13 +264,14 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
 }
 
-private final class SubSourceStage[K, V, Msg](tp: TopicPartition,
-                                              consumerActor: ActorRef,
-                                              subSourceStartedCb: AsyncCallback[(TopicPartition, Control)],
-                                              subSourceCancelledCb: AsyncCallback[TopicPartition],
-                                              messageBuilder: MessageBuilder[K, V, Msg],
-                                              actorNumber: Int)
-    extends GraphStage[SourceShape[Msg]] { stage =>
+private final class SubSourceStage[K, V, Msg](
+    tp: TopicPartition,
+    consumerActor: ActorRef,
+    subSourceStartedCb: AsyncCallback[(TopicPartition, Control)],
+    subSourceCancelledCb: AsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])],
+    messageBuilder: MessageBuilder[K, V, Msg],
+    actorNumber: Int
+) extends GraphStage[SourceShape[Msg]] { stage =>
   val out = Outlet[Msg]("out")
   val shape = new SourceShape(out)
 
@@ -285,15 +310,24 @@ private final class SubSourceStage[K, V, Msg](tp: TopicPartition,
         super.postStop()
       }
 
-      setHandler(out, new OutHandler {
-        override def onPull(): Unit =
-          pump()
+      setHandler(
+        out,
+        new OutHandler {
+          override def onPull(): Unit =
+            pump()
 
-        override def onDownstreamFinish(): Unit = {
-          subSourceCancelledCb.invoke(tp)
-          super.onDownstreamFinish()
+          override def onDownstreamFinish(): Unit = {
+            val firstUnconsumed = if (buffer.hasNext) {
+              Some(buffer.next())
+            } else {
+              None
+            }
+
+            subSourceCancelledCb.invoke((tp, firstUnconsumed))
+            super.onDownstreamFinish()
+          }
         }
-      })
+      )
 
       def performShutdown() = {
         log.debug("#{} Completing SubSource for partition {}", actorNumber, tp)
