@@ -187,7 +187,7 @@ lazy val tests = project
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withOption("--scale", s"kafka=${kafkaScale.value}")
+        .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
     }
   )
 
@@ -244,7 +244,7 @@ lazy val benchmarks = project
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withOption("--scale", s"kafka=${kafkaScale.value}")
+        .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
     },
     dockerfile in docker := {
       val artifact: File = assembly.value

@@ -1,13 +1,14 @@
 # See dockerhub for different versions of kafka and zookeeper
 # https://hub.docker.com/r/wurstmeister/kafka/
 # https://hub.docker.com/r/wurstmeister/zookeeper/
-version: '2'
+version: '2.2'
 services:
   zookeeper:
     image: wurstmeister/zookeeper:3.4.6
     ports:
       - "2181:2181"
   kafka:
+    scale: ${KAFKA_SCALE:-1}
     image: wurstmeister/kafka:1.1.0
     ports:
       - "9094"
@@ -20,5 +21,6 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LEADER_IMBALANCE_CHECK_INTERVAL_SECONDS: 1 # default was 300 (5 minutes)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_SCALE:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
