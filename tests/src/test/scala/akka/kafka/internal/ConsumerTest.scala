@@ -457,6 +457,51 @@ class ConsumerTest(_system: ActorSystem)
     }
   }
 
+  it should "support merging commit batches with metadata" in {
+    assertAllStagesStopped {
+      val commitLog = new ConsumerMock.LogHandler()
+      val mock = new ConsumerMock[K, V](commitLog)
+      val (control, probe) = createSourceWithMetadata(mock.mock,
+                                                      (rec: ConsumerRecord[K, V]) => rec.offset.toString,
+                                                      topics = Set("topic1", "topic2"))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
+      val msgsTopic2 = (11 to 13).map(createMessage(_, "topic2"))
+      mock.enqueue(msgsTopic1.map(toRecord))
+      mock.enqueue(msgsTopic2.map(toRecord))
+
+      probe.request(100)
+      val batch = probe
+        .expectNextN(6)
+        .map(_.committableOffset)
+        .grouped(2)
+        .map(_.foldLeft(CommittableOffsetBatch.empty)(_ updated _))
+        .foldLeft(CommittableOffsetBatch.empty)(_ updated _)
+
+      val done = batch.commitScaladsl()
+
+      awaitAssert {
+        commitLog.calls should have size (1)
+      }
+
+      val commitMap = commitLog.calls.head._1
+      commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
+      commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
+      commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
+      commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
+
+      //emulate commit
+      commitLog.calls.foreach {
+        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+      }
+
+      Await.result(done, remainingOrDefault)
+      Await.result(control.shutdown(), remainingOrDefault)
+    }
+  }
+
   //FIXME looks like current implementation of batch committer is incorrect
   it should "support commit batching from more than one stage" in {
     assertAllStagesStopped {
