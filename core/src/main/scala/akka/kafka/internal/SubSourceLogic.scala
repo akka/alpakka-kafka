@@ -37,24 +37,29 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => ()
-) extends GraphStageLogic(shape)
+) extends TimerGraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
     with MessageBuilder[K, V, Msg]
     with StageLogging {
+  import SubSourceLogic._
+
   val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
   var consumerActor: ActorRef = _
   var sourceActor: StageActor = _
-  // Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet.
+
+  /** Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet. */
   var pendingPartitions: immutable.Set[TopicPartition] = immutable.Set.empty
-  // We have created a source for these partitions, but it has not started up and is not in subSources yet.
+
+  /** We have created a source for these partitions, but it has not started up and is not in subSources yet. */
   var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
   var subSources: Map[TopicPartition, Control] = immutable.Map.empty
+
+  /** Kafka has signalled these partitions are revoked, but some may be re-assigned just after revoking. */
   var partitionsToRevoke: Set[TopicPartition] = Set.empty
-  var pendingRevokeCall: Option[Cancellable] = None
 
   override def preStart(): Unit = {
     super.preStart()
@@ -126,10 +131,13 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
-    // TODO this called in startup with empty tps, some existing tests reply on the callback
-    pendingRevokeCall.map(_.cancel())
+    // TODO this called in startup with empty tps, some existing tests rely on the callback
     partitionsToRevoke ++= tps
-    val cb = getAsyncCallback[Unit] { _ =>
+    scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
+  }
+
+  override def onTimer(timerKey: Any): Unit = timerKey match {
+    case CloseRevokedPartitions =>
       if (log.isDebugEnabled) {
         log.debug("#{} Closing SubSources for revoked partitions: {}", actorNumber, partitionsToRevoke.mkString(", "))
       }
@@ -139,23 +147,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       partitionsToRevoke.flatMap(subSources.get).foreach(_.shutdown())
       subSources --= partitionsToRevoke
       partitionsToRevoke = Set.empty
-      pendingRevokeCall = None
-    }
-
-    if (log.isDebugEnabled) {
-      log.debug("#{} Waiting {} for pending requests before close partitions",
-                actorNumber,
-                settings.waitClosePartition.toCoarsest)
-    }
-    pendingRevokeCall = Option(
-      materializer.scheduleOnce(
-        settings.waitClosePartition,
-        new Runnable {
-          override def run(): Unit =
-            cb.invoke(())
-        }
-      )
-    )
   }
 
   val subsourceCancelledCB: AsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])] =
@@ -262,6 +253,10 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
   }
 
+}
+
+private object SubSourceLogic {
+  case object CloseRevokedPartitions
 }
 
 private final class SubSourceStage[K, V, Msg](
