@@ -8,6 +8,7 @@ package akka.kafka.scaladsl
 import akka.Done
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -19,6 +20,7 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
+import scala.util.Success
 
 class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.PartitionedSourcesSpec) with Inside {
 
@@ -267,19 +269,55 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
             1, {
               case (tp, source) =>
                 source
-                  .map(_.offset())
-                  .log(tp.toString)
+                  .log(tp.toString, _.offset())
                   .take(10)
             }
           )
+          .map(_.value().toInt)
+          .takeWhile(_ < totalMessages, inclusive = true)
           .scan(0)((c, _) => c + 1)
-          .map(Some.apply)
-          .keepAlive(5.seconds, () => None)
-          .takeWhile(_.isDefined)
           .runWith(Sink.last)
-          .map(_.get)
 
       consumedMessages.futureValue shouldBe totalMessages
+    }
+
+    "not leave gaps when subsource fails" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+      val totalMessages = 105
+
+      awaitProduce(produce(topic, 1 to totalMessages))
+
+      val (queue, accumulator) = Source
+        .queue[Long](8, OverflowStrategy.backpressure)
+        .toMat(Sink.fold(0)((c, _) => c + 1))(Keep.both)
+        .run
+
+      val (killSwitch, consumerCompletion) = Consumer
+        .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .log(topic)
+        .viaMat(KillSwitches.single)(Keep.right)
+        .toMat(Sink.foreach {
+          case (tp, source) =>
+            source
+              .log(tp.toString, _.offset())
+              .mapAsync(parallelism = 1)(rec => queue.offer(rec.offset()).map(_ => rec))
+              .map(_.value().toInt)
+              .takeWhile(_ < totalMessages, inclusive = true)
+              .map { value =>
+                if (value % 10 == 0) throw new Error("Stopping subsource")
+                value
+              }
+              .runWith(Sink.onComplete {
+                case Success(_) => queue.complete()
+                case _ =>
+              })
+        })(Keep.both)
+        .run
+
+      accumulator.futureValue shouldBe totalMessages
+      killSwitch.shutdown()
+      consumerCompletion.futureValue
     }
 
   }
