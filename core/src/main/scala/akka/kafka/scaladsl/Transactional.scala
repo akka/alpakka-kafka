@@ -7,7 +7,8 @@ package akka.kafka.scaladsl
 
 import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.{ConsumerStage, ProducerStage}
+import akka.kafka.internal.ProducerStage
+import akka.kafka.internal.TransactionalSource
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
@@ -28,7 +29,7 @@ object Transactional {
    */
   def source[K, V](settings: ConsumerSettings[K, V],
                    subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
-    Source.fromGraph(new ConsumerStage.TransactionalSource[K, V](settings, subscription))
+    Source.fromGraph(new TransactionalSource[K, V](settings, subscription))
 
   /**
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will

@@ -10,7 +10,7 @@ import java.util.concurrent.{CompletionStage, Executor, Executors}
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.Done
-import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
+import akka.kafka.internal.ConsumerControlAsJava
 import org.apache.kafka.common.{Metric, MetricName}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
@@ -23,7 +23,7 @@ object ControlSpec {
   def createControl(stopFuture: Future[Done] = Future.successful(Done),
                     shutdownFuture: Future[Done] = Future.successful(Done)) = {
     val control = new akka.kafka.scaladsl.ControlSpec.ControlImpl(stopFuture, shutdownFuture)
-    val wrapped = new WrappedConsumerControl(control)
+    val wrapped = new ConsumerControlAsJava(control)
     new Consumer.Control {
       def shutdownCalled: AtomicBoolean = control.shutdownCalled
       override def stop(): CompletionStage[Done] = wrapped.stop()

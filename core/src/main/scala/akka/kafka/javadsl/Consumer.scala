@@ -12,7 +12,7 @@ import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
-import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
+import akka.kafka.internal.ConsumerControlAsJava
 import akka.stream.javadsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -108,7 +108,7 @@ object Consumer {
    * An implementation of Control to be used as an empty value, all methods return
    * a failed `CompletionStage`.
    */
-  def createNoopControl(): Control = new WrappedConsumerControl(scaladsl.Consumer.NoopControl)
+  def createNoopControl(): Control = new ConsumerControlAsJava(scaladsl.Consumer.NoopControl)
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
@@ -125,7 +125,7 @@ object Consumer {
                         subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .plainSource(settings, subscription)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -145,7 +145,7 @@ object Consumer {
                               subscription: Subscription): Source[CommittableMessage[K, V], Control] =
     scaladsl.Consumer
       .committableSource(settings, subscription)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -160,7 +160,7 @@ object Consumer {
   ): Source[CommittableMessage[K, V], Control] =
     scaladsl.Consumer
       .commitWithMetadataSource(settings, subscription, (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -171,7 +171,7 @@ object Consumer {
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .atMostOnceSource(settings, subscription)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -188,7 +188,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -215,7 +215,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -245,7 +245,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -260,7 +260,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -278,7 +278,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**
@@ -289,7 +289,7 @@ object Consumer {
                                 subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .plainExternalSource(consumer, subscription)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
       .asInstanceOf[Source[ConsumerRecord[K, V], Control]]
 
@@ -302,7 +302,7 @@ object Consumer {
                                       commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] =
     scaladsl.Consumer
       .committableExternalSource(consumer, subscription, groupId, commitTimeout)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
       .asInstanceOf[Source[CommittableMessage[K, V], Control]]
 }
