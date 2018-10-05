@@ -92,9 +92,12 @@ private[kafka] trait Committer {
   def commit(batch: CommittableOffsetBatch): Future[Done]
 }
 
-private final class CommittableOffsetBatchImpl(val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-                                               val stages: Map[String, Committer])
-    extends CommittableOffsetBatch {
+/** Internal API */
+@InternalApi
+private[kafka] final class CommittableOffsetBatchImpl(
+    val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
+    val stages: Map[String, Committer]
+) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
 
   def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
