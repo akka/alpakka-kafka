@@ -119,7 +119,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
     }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)) =
-    verify(mock, mode).close(ConsumerTest.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+    verify(mock, mode).close(SettingsCreator.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
     verify(mock, mode).poll(ArgumentMatchers.any[Long])
