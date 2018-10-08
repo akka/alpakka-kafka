@@ -12,6 +12,7 @@ import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
+import akka.testkit.TestProbe
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -197,6 +198,7 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
               .toMat(Sink.last)(Keep.both)
               .mapMaterializedValue(DrainingControl.apply)
               .run()
+            sleep(4.seconds, "to let the new consumer start")
           }
           number
         }
@@ -213,12 +215,86 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
       }
 
       control2 should not be null
-      sleep(4.seconds)
+      sleep(1.seconds, "to have all messages consumed")
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
       createdSubSources should contain allElementsOf allTps
       createdInnerSubSources should have size 2
       stream1messages + stream2messages shouldBe totalMessages
+      stream2messages should be >= (totalMessages / 4)
+    }
+
+    // See even test in IntegrationSpec with the same name.
+    "signal rebalance events to actor" in pendingUntilFixed { //assertAllStagesStopped {
+      val partitions = 4
+      val totalMessages = 400L
+
+      val topic = createTopic(1, partitions)
+      val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
+      val group = createGroupId(1)
+      val sourceSettings = consumerDefaults
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
+        .withGroupId(group)
+
+      val rebalanceActor = TestProbe()
+
+      val topicSubscription = Subscriptions.topics(topic)
+      val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor.ref)
+      val control = Consumer
+        .plainPartitionedSource(sourceSettings, subscription1)
+        .flatMapMerge(partitions, _._2)
+        .scan(0L)((c, _) => c + 1)
+        .toMat(Sink.last)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+      }
+
+      var control2: DrainingControl[Long] = null
+
+      val producer = Source(1L to totalMessages)
+        .map { number =>
+          if (number == totalMessages / 2) {
+            // create another consumer with the same groupId to trigger re-balancing
+            control2 = Consumer
+              .plainPartitionedSource(sourceSettings, topicSubscription)
+              .flatMapMerge(partitions, _._2)
+              .scan(0L)((c, _) => c + 1)
+              .toMat(Sink.last)(Keep.both)
+              .mapMaterializedValue(DrainingControl.apply)
+              .run()
+            sleep(4.seconds, "to let the new consumer start")
+          }
+          number
+        }
+        .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+        .runWith(Producer.plainSink(producerDefaults, testProducer))
+
+      producer.futureValue shouldBe Done
+
+      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
+      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.size == half && consumer2.assignment.size == half
+      }
+
+      control2 should not be null
+
+      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
+      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
+      sleep(1.seconds, "to have all messages consumed")
+
+      val stream1messages = control.drainAndShutdown().futureValue
+      val stream2messages = control2.drainAndShutdown().futureValue
+      stream1messages + stream2messages shouldBe totalMessages
+      stream2messages should be >= (totalMessages / 4)
     }
 
     "call the onRevoked hook" in assertAllStagesStopped {
