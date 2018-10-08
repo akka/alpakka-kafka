@@ -8,7 +8,6 @@ package akka.kafka.scaladsl
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.Done
-import akka.actor.{Actor, Props}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -25,7 +24,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
@@ -131,39 +129,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         .expectNextN((1 to 100).map(_.toString))
 
       probe3.cancel()
-    }
-
-    "be able to set rebalance listener" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
-
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-
-      val listener = TestProbe()
-
-      val sub = Subscriptions.topics(topic1).withRebalanceListener(listener.ref)
-      val (control, probe1) = Consumer
-        .committableSource(consumerSettings, sub)
-        .filterNot(_.record.value == InitialMsg)
-        .mapAsync(10) { elem => elem.committableOffset.commitScaladsl()
-        }
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
-
-      probe1.request(25)
-
-      val revoked = listener.expectMsgType[TopicPartitionsRevoked]
-      info("revoked: " + revoked)
-      revoked.sub shouldEqual sub
-      revoked.topicPartitions.size shouldEqual 0
-
-      val assigned = listener.expectMsgType[TopicPartitionsAssigned]
-      info("assigned: " + assigned)
-      assigned.sub shouldEqual sub
-      assigned.topicPartitions.size shouldEqual 1
-
-      probe1.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
     }
 
     "signal rebalance events to actor" in assertAllStagesStopped {
