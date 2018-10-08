@@ -9,7 +9,7 @@ import akka.actor.ActorRef
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
-import akka.kafka.internal.ConsumerStage
+import akka.kafka.internal._
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -142,7 +142,7 @@ object Consumer {
    */
   def plainSource[K, V](settings: ConsumerSettings[K, V],
                         subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
-    Source.fromGraph(new ConsumerStage.PlainSource[K, V](settings, subscription))
+    Source.fromGraph(new PlainSource[K, V](settings, subscription))
 
   /**
    * The `committableSource` makes it possible to commit offset positions to Kafka.
@@ -159,7 +159,7 @@ object Consumer {
    */
   def committableSource[K, V](settings: ConsumerSettings[K, V],
                               subscription: Subscription): Source[CommittableMessage[K, V], Control] =
-    Source.fromGraph(new ConsumerStage.CommittableSource[K, V](settings, subscription))
+    Source.fromGraph(new CommittableSource[K, V](settings, subscription))
 
   /**
    * The `commitWithMetadataSource` makes it possible to add additional metadata (in the form of a string)
@@ -171,7 +171,7 @@ object Consumer {
       subscription: Subscription,
       metadataFromRecord: ConsumerRecord[K, V] => String
   ): Source[CommittableMessage[K, V], Control] =
-    Source.fromGraph(new ConsumerStage.CommittableSource[K, V](settings, subscription, metadataFromRecord))
+    Source.fromGraph(new CommittableSource[K, V](settings, subscription, metadataFromRecord))
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
@@ -193,7 +193,7 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: AutoSubscription
   ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
-    Source.fromGraph(new ConsumerStage.PlainSubSource[K, V](settings, subscription, None, onRevoke = _ => ()))
+    Source.fromGraph(new PlainSubSource[K, V](settings, subscription, None, onRevoke = _ => ()))
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
@@ -208,7 +208,7 @@ object Consumer {
       getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]],
       onRevoke: Set[TopicPartition] => Unit = _ => ()
   ): Source[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed]), Control] =
-    Source.fromGraph(new ConsumerStage.PlainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
+    Source.fromGraph(new PlainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
 
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit support
@@ -217,7 +217,7 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: AutoSubscription
   ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
-    Source.fromGraph(new ConsumerStage.CommittableSubSource[K, V](settings, subscription))
+    Source.fromGraph(new CommittableSubSource[K, V](settings, subscription))
 
   /**
    * The same as [[#plainPartitionedSource]] but with offset commit with metadata support
@@ -227,7 +227,7 @@ object Consumer {
       subscription: AutoSubscription,
       metadataFromRecord: ConsumerRecord[K, V] => String
   ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
-    Source.fromGraph(new ConsumerStage.CommittableSubSource[K, V](settings, subscription, metadataFromRecord))
+    Source.fromGraph(new CommittableSubSource[K, V](settings, subscription, metadataFromRecord))
 
   /**
    * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
@@ -235,7 +235,7 @@ object Consumer {
    */
   def plainExternalSource[K, V](consumer: ActorRef,
                                 subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
-    Source.fromGraph(new ConsumerStage.ExternalPlainSource[K, V](consumer, subscription))
+    Source.fromGraph(new ExternalPlainSource[K, V](consumer, subscription))
 
   /**
    * The same as [[#plainExternalSource]] but with offset commit support.
@@ -245,7 +245,7 @@ object Consumer {
                                       groupId: String,
                                       commitTimeout: FiniteDuration): Source[CommittableMessage[K, V], Control] =
     Source.fromGraph(
-      new ConsumerStage.ExternalCommittableSource[K, V](
+      new ExternalCommittableSource[K, V](
         consumer,
         groupId,
         commitTimeout,

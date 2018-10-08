@@ -50,7 +50,7 @@ object ConsumerTest {
                     metadata: String = ""): CommittableMessage[K, V] = {
     val offset = PartitionOffset(GroupTopicPartition(groupId, topic, 1), seed.toLong)
     val record = new ConsumerRecord(offset.key.topic, offset.key.partition, offset.offset, seed.toString, seed.toString)
-    CommittableMessage(record, ConsumerStage.CommittableOffsetImpl(offset, metadata)(null))
+    CommittableMessage(record, CommittableOffsetImpl(offset, metadata)(null))
   }
 
   def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = msg.record

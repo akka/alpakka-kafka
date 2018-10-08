@@ -9,7 +9,7 @@ import java.util.{Map => JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.Done
-import akka.kafka.internal.ConsumerStage.CommittableOffsetBatchImpl
+import akka.kafka.internal.CommittableOffsetBatchImpl
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.concurrent.Future

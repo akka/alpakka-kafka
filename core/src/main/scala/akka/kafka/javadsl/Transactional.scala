@@ -10,7 +10,7 @@ import java.util.concurrent.CompletionStage
 import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.ProducerMessage._
 import akka.kafka._
-import akka.kafka.internal.ConsumerStage.WrappedConsumerControl
+import akka.kafka.internal.ConsumerControlAsJava
 import akka.kafka.javadsl.Consumer.Control
 import akka.stream.javadsl.{Flow, Sink, Source}
 import akka.{Done, NotUsed}
@@ -30,7 +30,7 @@ object Transactional {
                    subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
     scaladsl.Transactional
       .source(consumerSettings, subscription)
-      .mapMaterializedValue(new WrappedConsumerControl(_))
+      .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
 
   /**

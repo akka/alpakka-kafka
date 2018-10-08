@@ -1,0 +1,107 @@
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ */
+
+package akka.kafka.internal
+import java.util.concurrent.{CompletionStage, Executor}
+
+import akka.Done
+import akka.actor.ActorRef
+import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
+import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
+import akka.kafka.{javadsl, scaladsl}
+import akka.stream.SourceShape
+import akka.stream.stage.GraphStageLogic
+import akka.util.Timeout
+import org.apache.kafka.common.{Metric, MetricName}
+
+import scala.collection.JavaConverters._
+import scala.compat.java8.FutureConverters.{CompletionStageOps, FutureOps}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+
+private object PromiseControl {
+  sealed trait ControlOperation
+  case object ControlStop extends ControlOperation
+  case object ControlShutdown extends ControlOperation
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] trait PromiseControl extends GraphStageLogic with scaladsl.Consumer.Control {
+  import PromiseControl._
+
+  def shape: SourceShape[_]
+  def performShutdown(): Unit
+  def performStop(): Unit = {
+    setKeepGoing(true)
+    complete(shape.out)
+    onStop()
+  }
+
+  private val shutdownPromise: Promise[Done] = Promise()
+  private val stopPromise: Promise[Done] = Promise()
+
+  private val controlCallback = getAsyncCallback[ControlOperation]({
+    case ControlStop => performStop()
+    case ControlShutdown => performShutdown()
+  })
+
+  def onStop() =
+    stopPromise.trySuccess(Done)
+
+  def onShutdown() = {
+    stopPromise.trySuccess(Done)
+    shutdownPromise.trySuccess(Done)
+  }
+
+  override def stop(): Future[Done] = {
+    controlCallback.invoke(ControlStop)
+    stopPromise.future
+  }
+  override def shutdown(): Future[Done] = {
+    controlCallback.invoke(ControlShutdown)
+    shutdownPromise.future
+  }
+  override def isShutdown: Future[Done] = shutdownPromise.future
+
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] trait MetricsControl extends scaladsl.Consumer.Control {
+
+  protected def executionContext: ExecutionContext
+  protected def consumerFuture: Future[ActorRef]
+
+  def metrics: Future[Map[MetricName, Metric]] = {
+    import akka.pattern.ask
+
+    import scala.concurrent.duration._
+    consumerFuture
+      .flatMap { consumer =>
+        consumer
+          .ask(RequestMetrics)(Timeout(1.minute))
+          .mapTo[ConsumerMetrics]
+          .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+      }(executionContext)
+  }
+}
+
+/** Internal API */
+@InternalApi
+final private[kafka] class ConsumerControlAsJava(underlying: scaladsl.Consumer.Control)
+    extends javadsl.Consumer.Control {
+  override def stop(): CompletionStage[Done] = underlying.stop().toJava
+
+  override def shutdown(): CompletionStage[Done] = underlying.shutdown().toJava
+
+  override def drainAndShutdown[T](streamCompletion: CompletionStage[T], ec: Executor): CompletionStage[T] =
+    underlying.drainAndShutdown(streamCompletion.toScala)(ExecutionContext.fromExecutor(ec)).toJava
+
+  override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
+
+  override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] =
+    underlying.metrics.map(_.asJava)(ExecutionContexts.sameThreadExecutionContext).toJava
+}
