@@ -74,12 +74,12 @@ object KafkaConsumerActor {
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
     private[KafkaConsumerActor] final case class PartitionAssigned(
-        partition: TopicPartition,
-        offset: Long
+        assignedOffsets: Map[TopicPartition, Long]
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
+
     private[KafkaConsumerActor] final case class PartitionRevoked(
-        partition: TopicPartition
+        revokedTps: Set[TopicPartition]
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
 
@@ -95,23 +95,22 @@ object KafkaConsumerActor {
   case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
       extends NoSerializationVerificationNeeded
 
-  private class WrappedAutoPausedListener(client: Consumer[_, _], caller: ActorRef, listener: ListenerCallbacks)
+  private class WrappedAutoPausedListener(client: Consumer[_, _], consumerActor: ActorRef, listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
     import KafkaConsumerActor.Internal._
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
       client.pause(partitions)
-      partitions.asScala.foreach { tp =>
-        caller ! PartitionAssigned(tp, client.position(tp))
-      }
-      listener.onAssign(partitions.asScala.toSet)
+      val tps = partitions.asScala.toSet
+      val assignedOffsets = tps.map(tp => tp -> client.position(tp)).toMap
+      consumerActor ! PartitionAssigned(assignedOffsets)
+      listener.onAssign(tps)
     }
 
     override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
-      listener.onRevoke(partitions.asScala.toSet)
-      partitions.asScala.foreach { tp =>
-        caller ! PartitionRevoked(tp)
-      }
+      val revokedTps = partitions.asScala.toSet
+      listener.onRevoke(revokedTps)
+      consumerActor ! PartitionRevoked(revokedTps)
     }
   }
 }
@@ -144,33 +143,33 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       checkOverlappingRequests("Assign", sender(), tps)
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
-      tps.foreach { tp =>
-        self ! PartitionAssigned(tp, consumer.position(tp))
-      }
-    case AssignWithOffset(tps) =>
+      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
+      self ! PartitionAssigned(assignedOffsets)
+    case AssignWithOffset(assignedOffsets) =>
       scheduleFirstPollTask()
-      checkOverlappingRequests("AssignWithOffset", sender(), tps.keySet)
+      checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
       val previousAssigned = consumer.assignment()
-      consumer.assign((tps.keys.toSeq ++ previousAssigned.asScala).asJava)
-      tps.foreach {
+      consumer.assign((assignedOffsets.keys.toSeq ++ previousAssigned.asScala).asJava)
+      assignedOffsets.foreach {
         case (tp, offset) =>
           consumer.seek(tp, offset)
-          self ! PartitionAssigned(tp, offset)
       }
+      self ! PartitionAssigned(assignedOffsets)
     case AssignOffsetsForTimes(timestampsToSearch) =>
       scheduleFirstPollTask()
       checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
       val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava)
-      topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).foreach {
+      val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
           val ts = oat.timestamp()
           log.debug("Get offset {} from topic {} with timestamp {}", offset, tp, ts)
           consumer.seek(tp, offset)
-          self ! PartitionAssigned(tp, offset)
+          tp -> offset
       }
+      self ! PartitionAssigned(assignedOffsets)
 
     case Commit(offsets) =>
       commitRequestedOffsets ++= offsets
@@ -202,14 +201,20 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
         self ! delayedPollMsg
       }
 
-    case PartitionAssigned(partition, offset) =>
-      commitRequestedOffsets += partition -> commitRequestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-      committedOffsets += partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+    case PartitionAssigned(assignedOffsets) =>
+      commitRequestedOffsets ++= assignedOffsets.map {
+        case (partition, offset) =>
+          partition -> commitRequestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+      }
+      committedOffsets ++= assignedOffsets.map {
+        case (partition, offset) =>
+          partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+      }
       commitRefreshDeadline = nextCommitRefreshDeadline()
 
-    case PartitionRevoked(partition) =>
-      commitRequestedOffsets -= partition
-      committedOffsets -= partition
+    case PartitionRevoked(revokedTps) =>
+      commitRequestedOffsets --= revokedTps
+      committedOffsets --= revokedTps
 
     case Committed(offsets) =>
       committedOffsets ++= offsets
