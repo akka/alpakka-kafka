@@ -95,14 +95,14 @@ object KafkaConsumerActor {
   case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
       extends NoSerializationVerificationNeeded
 
-  private class WrappedAutoPausedListener(client: Consumer[_, _], consumerActor: ActorRef, listener: ListenerCallbacks)
+  private class WrappedAutoPausedListener(consumer: Consumer[_, _], consumerActor: ActorRef, listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
     import KafkaConsumerActor.Internal._
     override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
-      client.pause(partitions)
+      consumer.pause(partitions)
       val tps = partitions.asScala.toSet
-      val assignedOffsets = tps.map(tp => tp -> client.position(tp)).toMap
+      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
       consumerActor ! PartitionAssigned(assignedOffsets)
       listener.onAssign(tps)
     }
@@ -145,6 +145,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
       val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
       self ! PartitionAssigned(assignedOffsets)
+
     case AssignWithOffset(assignedOffsets) =>
       scheduleFirstPollTask()
       checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
@@ -155,6 +156,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
           consumer.seek(tp, offset)
       }
       self ! PartitionAssigned(assignedOffsets)
+
     case AssignOffsetsForTimes(timestampsToSearch) =>
       scheduleFirstPollTask()
       checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
