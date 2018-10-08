@@ -225,7 +225,7 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
     }
 
     // See even test in IntegrationSpec with the same name.
-    "signal rebalance events to actor" in pendingUntilFixed { //assertAllStagesStopped {
+    "signal rebalance events to actor" in assertAllStagesStopped {
       val partitions = 4
       val totalMessages = 400L
 
