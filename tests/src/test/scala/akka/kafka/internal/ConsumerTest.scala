@@ -112,33 +112,29 @@ class ConsumerTest(_system: ActorSystem)
                                topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
     Consumer.commitWithMetadataSource(testSettings(mock, groupId), Subscriptions.topics(topics), metadataFromRecord)
 
-  it should "fail stream when poll() fails with unhandled exception" in {
-    assertAllStagesStopped {
-      val mock = new FailingConsumerMock[K, V](new Exception("Fatal Kafka error"), failOnCallNumber = 1)
+  it should "fail stream when poll() fails with unhandled exception" in assertAllStagesStopped {
+    val mock = new FailingConsumerMock[K, V](new Exception("Fatal Kafka error"), failOnCallNumber = 1)
 
-      val probe = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.right)
-        .run()
+    val probe = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
 
-      probe
-        .request(1)
-        .expectError()
-    }
+    probe
+      .request(1)
+      .expectError()
   }
 
-  it should "not fail stream when poll() fails twice with WakeupException" in {
-    assertAllStagesStopped {
-      val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2)
+  it should "not fail stream when poll() fails twice with WakeupException" in assertAllStagesStopped {
+    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2)
 
-      val probe = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.right)
-        .run()
+    val probe = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
 
-      probe
-        .request(1)
-        .expectNoMessage(200.millis)
-        .cancel()
-    }
+    probe
+      .request(1)
+      .expectNoMessage(200.millis)
+      .cancel()
   }
 
   it should "not fail stream when poll() fails twice, then succeeds, then fails twice with WakeupException" in assertAllStagesStopped {
@@ -154,245 +150,217 @@ class ConsumerTest(_system: ActorSystem)
       .cancel()
   }
 
-  it should "fail stream when poll() fail limit exceeded" in {
-    assertAllStagesStopped {
-      val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
+  it should "fail stream when poll() fail limit exceeded" in assertAllStagesStopped {
+    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
 
-      val probe = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.right)
-        .run()
+    val probe = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.right)
+      .run()
 
-      probe
-        .request(1)
-        .expectError()
-    }
+    probe
+      .request(1)
+      .expectError()
   }
 
-  it should "complete stage when stream control.stop called" in {
-    assertAllStagesStopped {
-      val mock = new ConsumerMock[K, V]()
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "complete stage when stream control.stop called" in assertAllStagesStopped {
+    val mock = new ConsumerMock[K, V]()
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      probe.request(100)
+    probe.request(100)
 
-      Await.result(control.shutdown(), remainingOrDefault)
-      probe.expectComplete()
-      mock.verifyClosed()
-    }
+    Await.result(control.shutdown(), remainingOrDefault)
+    probe.expectComplete()
+    mock.verifyClosed()
   }
 
-  it should "complete stage when processing flow canceled" in {
-    assertAllStagesStopped {
-      val mock = new ConsumerMock[K, V]()
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "complete stage when processing flow canceled" in assertAllStagesStopped {
+    val mock = new ConsumerMock[K, V]()
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      probe.request(100)
-      mock.verifyClosed(never())
-      probe.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-      mock.verifyClosed()
-    }
+    probe.request(100)
+    mock.verifyClosed(never())
+    probe.cancel()
+    Await.result(control.isShutdown, remainingOrDefault)
+    mock.verifyClosed()
   }
 
-  it should "emit messages received as one big chunk" in {
-    assertAllStagesStopped {
-      checkMessagesReceiving(Seq(messages))
-    }
+  it should "emit messages received as one big chunk" in assertAllStagesStopped {
+    checkMessagesReceiving(Seq(messages))
   }
 
-  it should "emit messages received as medium chunks" in {
-    assertAllStagesStopped {
-      checkMessagesReceiving(messages.grouped(97).to[Seq])
-    }
+  it should "emit messages received as medium chunks" in assertAllStagesStopped {
+    checkMessagesReceiving(messages.grouped(97).to[Seq])
   }
 
-  it should "emit messages received as one message per chunk" in {
-    assertAllStagesStopped {
-      checkMessagesReceiving((1 to 100).map(createMessage).grouped(1).to[Seq])
-    }
+  it should "emit messages received as one message per chunk" in assertAllStagesStopped {
+    checkMessagesReceiving((1 to 100).map(createMessage).grouped(1).to[Seq])
   }
 
-  it should "emit messages received with empty some messages" in {
-    assertAllStagesStopped {
-      checkMessagesReceiving(
-        messages
-          .grouped(97)
-          .map(x => Seq(Seq.empty, x))
-          .flatten
-          .to[Seq]
-      )
-    }
+  it should "emit messages received with empty some messages" in assertAllStagesStopped {
+    checkMessagesReceiving(
+      messages
+        .grouped(97)
+        .map(x => Seq(Seq.empty, x))
+        .flatten
+        .to[Seq]
+    )
   }
 
-  it should "complete out and keep underlying client open when control.stop called" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "complete out and keep underlying client open when control.stop called" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      mock.enqueue((1 to 10).map(createMessage).map(toRecord))
-      probe.request(1)
-      probe.expectNext()
+    mock.enqueue((1 to 10).map(createMessage).map(toRecord))
+    probe.request(1)
+    probe.expectNext()
 
-      Await.result(control.stop(), remainingOrDefault)
-      probe.expectComplete()
+    Await.result(control.stop(), remainingOrDefault)
+    probe.expectComplete()
 
-      mock.verifyClosed(never())
+    mock.verifyClosed(never())
 
-      Await.result(control.shutdown(), remainingOrDefault)
-      mock.verifyClosed()
-    }
+    Await.result(control.shutdown(), remainingOrDefault)
+    mock.verifyClosed()
   }
 
-  it should "complete stop's Future after stage was shutdown" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "complete stop's Future after stage was shutdown" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      probe.request(1)
-      Await.result(control.stop(), remainingOrDefault)
-      probe.expectComplete()
+    probe.request(1)
+    Await.result(control.stop(), remainingOrDefault)
+    probe.expectComplete()
 
-      Await.result(control.shutdown(), remainingOrDefault)
-      Await.result(control.stop(), remainingOrDefault)
-    }
+    Await.result(control.shutdown(), remainingOrDefault)
+    Await.result(control.stop(), remainingOrDefault)
   }
 
-  it should "return completed Future in stop after shutdown" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "return completed Future in stop after shutdown" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      probe.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-      control.stop().value.get.get shouldBe Done
-    }
+    probe.cancel()
+    Await.result(control.isShutdown, remainingOrDefault)
+    control.stop().value.get.get shouldBe Done
   }
 
-  it should "be ok to call control.stop multiple times" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "be ok to call control.stop multiple times" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      mock.enqueue((1 to 10).map(createMessage).map(toRecord))
-      probe.request(1)
-      probe.expectNext()
+    mock.enqueue((1 to 10).map(createMessage).map(toRecord))
+    probe.request(1)
+    probe.expectNext()
 
-      val stops = (1 to 5).map(_ => control.stop())
-      Await.result(Future.sequence(stops), remainingOrDefault)
+    val stops = (1 to 5).map(_ => control.stop())
+    Await.result(Future.sequence(stops), remainingOrDefault)
 
-      probe.expectComplete()
-      Await.result(control.shutdown(), remainingOrDefault)
-    }
+    probe.expectComplete()
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  it should "keep stage running until all futures completed" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "keep stage running until all futures completed" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      val msgs = (1 to 10).map(createMessage)
-      mock.enqueue(msgs.map(toRecord))
+    val msgs = (1 to 10).map(createMessage)
+    mock.enqueue(msgs.map(toRecord))
 
-      probe.request(100)
-      val done = probe.expectNext().committableOffset.commitScaladsl()
-      probe.expectNextN(9)
+    probe.request(100)
+    val done = probe.expectNext().committableOffset.commitScaladsl()
+    probe.expectNextN(9)
 
-      awaitAssert {
-        commitLog.calls should have size (1)
-      }
+    awaitAssert {
+      commitLog.calls should have size (1)
+    }
 
-      val stopped = control.shutdown()
-      probe.expectComplete()
+    val stopped = control.shutdown()
+    probe.expectComplete()
 
-      Thread.sleep(100)
-      stopped.isCompleted should ===(false)
+    Thread.sleep(100)
+    stopped.isCompleted should ===(false)
 
-      //emulate commit
-      commitLog.calls.foreach {
-        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-      }
+    //emulate commit
+    commitLog.calls.foreach {
+      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+    }
 
+    Await.result(done, remainingOrDefault)
+    Await.result(stopped, remainingOrDefault)
+    mock.verifyClosed()
+  }
+
+  it should "complete futures with failure when commit after stop" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    val msg = createMessage(1)
+    mock.enqueue(List(toRecord(msg)))
+
+    probe.request(100)
+    val first = probe.expectNext()
+
+    val stopped = control.shutdown()
+    probe.expectComplete()
+    Await.result(stopped, remainingOrDefault)
+
+    val done = first.committableOffset.commitScaladsl()
+    intercept[CommitTimeoutException] {
       Await.result(done, remainingOrDefault)
-      Await.result(stopped, remainingOrDefault)
-      mock.verifyClosed()
     }
   }
 
-  it should "complete futures with failure when commit after stop" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+  it should "keep stage running after cancellation until all futures completed" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
 
-      val msg = createMessage(1)
-      mock.enqueue(List(toRecord(msg)))
+    val msgs = (1 to 10).map(createMessage)
+    mock.enqueue(msgs.map(toRecord))
 
-      probe.request(100)
-      val first = probe.expectNext()
+    probe.request(5)
+    val done = probe.expectNext().committableOffset.commitScaladsl()
+    probe.expectNextN(4)
 
-      val stopped = control.shutdown()
-      probe.expectComplete()
-      Await.result(stopped, remainingOrDefault)
-
-      val done = first.committableOffset.commitScaladsl()
-      intercept[CommitTimeoutException] {
-        Await.result(done, remainingOrDefault)
-      }
+    awaitAssert {
+      commitLog.calls should have size 1
     }
-  }
 
-  it should "keep stage running after cancellation until all futures completed" in {
-    assertAllStagesStopped {
-      val commitLog = new ConsumerMock.LogHandler()
-      val mock = new ConsumerMock[K, V](commitLog)
-      val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+    probe.cancel()
+    probe.expectNoMessage(200.millis)
+    control.isShutdown.isCompleted should ===(false)
 
-      val msgs = (1 to 10).map(createMessage)
-      mock.enqueue(msgs.map(toRecord))
-
-      probe.request(5)
-      val done = probe.expectNext().committableOffset.commitScaladsl()
-      probe.expectNextN(4)
-
-      awaitAssert {
-        commitLog.calls should have size 1
-      }
-
-      probe.cancel()
-      probe.expectNoMessage(200.millis)
-      control.isShutdown.isCompleted should ===(false)
-
-      //emulate commit
-      commitLog.calls.foreach {
-        case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-      }
-
-      Await.result(done, remainingOrDefault)
-      Await.result(control.isShutdown, remainingOrDefault)
-      mock.verifyClosed()
+    //emulate commit
+    commitLog.calls.foreach {
+      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
+
+    Await.result(done, remainingOrDefault)
+    Await.result(control.isShutdown, remainingOrDefault)
+    mock.verifyClosed()
   }
 }
