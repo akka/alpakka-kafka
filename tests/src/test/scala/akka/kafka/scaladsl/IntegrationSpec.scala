@@ -8,8 +8,10 @@ package akka.kafka.scaladsl
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.Done
+import akka.actor.{Actor, Props}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -17,11 +19,13 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.util.Timeout
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
@@ -141,8 +145,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val (control, probe1) = Consumer
         .committableSource(consumerSettings, sub)
         .filterNot(_.record.value == InitialMsg)
-        .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl()
+        .mapAsync(10) { elem => elem.committableOffset.commitScaladsl()
         }
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -161,6 +164,74 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
+    }
+
+    "signal rebalance events to actor" in assertAllStagesStopped {
+      val partitions = 4
+      val totalMessages = 200L
+
+      val topic = createTopic(1, partitions)
+      val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
+      val group = createGroupId(1)
+      val sourceSettings = consumerDefaults
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
+        .withGroupId(group)
+
+      val rebalanceActor = TestProbe()
+
+      val topicSubscription = Subscriptions.topics(topic)
+      val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor.ref)
+      val control = Consumer
+        .plainSource(sourceSettings, subscription1)
+        .scan(0L)((c, _) => c + 1)
+        .toMat(Sink.last)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+      }
+
+      var control2: DrainingControl[Long] = null
+
+      val producer = Source(1L to totalMessages)
+        .map { number =>
+          if (number == totalMessages / 2) {
+            // create another consumer with the same groupId to trigger re-balancing
+            control2 = Consumer
+              .plainSource(sourceSettings, topicSubscription)
+              .scan(0L)((c, _) => c + 1)
+              .toMat(Sink.last)(Keep.both)
+              .mapMaterializedValue(DrainingControl.apply)
+              .run()
+          }
+          number
+        }
+        .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+        .runWith(Producer.plainSink(producerDefaults, testProducer))
+
+      producer.futureValue shouldBe Done
+
+      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
+      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.size == half && consumer2.assignment.size == half
+      }
+
+      control2 should not be null
+      sleep(4.seconds)
+
+      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
+      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
+
+      val stream1messages = control.drainAndShutdown().futureValue
+      val stream2messages = control2.drainAndShutdown().futureValue
+      stream1messages + stream2messages shouldBe totalMessages
     }
 
     "handle commit without demand" in assertAllStagesStopped {
@@ -218,12 +289,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
             consumerSettings,
             Subscriptions.topics(topic)
           )
-          .map { msg =>
-            msg.committableOffset
-          }
-          .batch(max = 10, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-            batch.updated(elem)
-          }
+          .map(_.committableOffset)
+          .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
           .mapAsync(1)(_.commitScaladsl())
           .toMat(TestSink.probe)(Keep.both)
           .run()
