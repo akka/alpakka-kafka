@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.ProducerStage
+import akka.kafka.internal.DefaultProducerStage
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -114,9 +114,7 @@ object Producer {
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
-        new ProducerStage.DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K,
-                                                                                                     V,
-                                                                                                     PassThrough]](
+        new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
           () => settings.createKafkaProducer()
@@ -147,9 +145,7 @@ object Producer {
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
-        new ProducerStage.DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K,
-                                                                                                       V,
-                                                                                                       PassThrough]](
+        new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
           () => settings.createKafkaProducer()
@@ -178,9 +174,7 @@ object Producer {
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
-        new ProducerStage.DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K,
-                                                                                                     V,
-                                                                                                     PassThrough]](
+        new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
           producerProvider = () => producer
@@ -214,9 +208,7 @@ object Producer {
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
-        new ProducerStage.DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K,
-                                                                                                       V,
-                                                                                                       PassThrough]](
+        new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
           producerProvider = () => producer

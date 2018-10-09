@@ -88,9 +88,9 @@ class ProducerTest(_system: ActorSystem)
                           closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
     Flow
       .fromGraph(
-        new ProducerStage.DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout,
-                                                                                           closeOnStop,
-                                                                                           () => mock.mock)
+        new DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout,
+                                                                             closeOnStop,
+                                                                             () => mock.mock)
       )
       .mapAsync(1)(identity)
 
@@ -98,10 +98,10 @@ class ProducerTest(_system: ActorSystem)
                                      closeOnStop: Boolean = true): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] =
     Flow
       .fromGraph(
-        new ProducerStage.TransactionProducerStage[K, V, P](settings.closeTimeout,
-                                                            closeOnStop,
-                                                            () => mock.mock,
-                                                            settings.eosCommitInterval)
+        new TransactionalProducerStage[K, V, P](settings.closeTimeout,
+                                                closeOnStop,
+                                                () => mock.mock,
+                                                settings.eosCommitInterval)
       )
       .mapAsync(1)(identity)
 
