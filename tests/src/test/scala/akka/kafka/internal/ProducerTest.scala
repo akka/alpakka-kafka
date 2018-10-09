@@ -98,10 +98,10 @@ class ProducerTest(_system: ActorSystem)
                                      closeOnStop: Boolean = true): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] =
     Flow
       .fromGraph(
-        new TransactionProducerStage[K, V, P](settings.closeTimeout,
-                                              closeOnStop,
-                                              () => mock.mock,
-                                              settings.eosCommitInterval)
+        new TransactionalProducerStage[K, V, P](settings.closeTimeout,
+                                                closeOnStop,
+                                                () => mock.mock,
+                                                settings.eosCommitInterval)
       )
       .mapAsync(1)(identity)
 

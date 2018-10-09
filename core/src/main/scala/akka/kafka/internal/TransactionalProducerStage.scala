@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
  * INTERNAL API
  */
 @InternalApi
-private[kafka] final class TransactionProducerStage[K, V, P](
+private[kafka] final class TransactionalProducerStage[K, V, P](
     val closeTimeout: FiniteDuration,
     val closeProducerOnStop: Boolean,
     val producerProvider: () => Producer[K, V],
@@ -36,7 +36,7 @@ private[kafka] final class TransactionProducerStage[K, V, P](
     new TransactionProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
 }
 
-private object TransactionProducerStage {
+private object TransactionalProducerStage {
   object TransactionBatch {
     def empty: TransactionBatch = new EmptyTransactionBatch()
   }
@@ -74,7 +74,7 @@ private object TransactionProducerStage {
 /**
  * Transaction (Exactly-Once) Producer State Logic
  */
-private final class TransactionProducerStageLogic[K, V, P](stage: TransactionProducerStage[K, V, P],
+private final class TransactionProducerStageLogic[K, V, P](stage: TransactionalProducerStage[K, V, P],
                                                            producer: Producer[K, V],
                                                            inheritedAttributes: Attributes,
                                                            commitInterval: FiniteDuration)
@@ -85,7 +85,7 @@ private final class TransactionProducerStageLogic[K, V, P](stage: TransactionPro
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
-  import TransactionProducerStage._
+  import TransactionalProducerStage._
 
   private val commitSchedulerKey = "commit"
   private val messageDrainInterval = 10.milliseconds
