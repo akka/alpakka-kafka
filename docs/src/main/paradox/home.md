@@ -11,7 +11,7 @@ The examples in this documentation use
 * Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/reactive-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/#package))
 * Scala $scala.binary.version$ (also available for Scala 2.11)
 * Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
-* Apache Kafka $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
+* Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
 
 Release notes are found at [Github releases](https://github.com/akka/reactive-kafka/releases).
 
@@ -22,6 +22,7 @@ If you want to try out a connector that has not yet been released, give @ref[sna
 
 |Kafka  | Akka version | Alpakka Kafka Connector
 |-------|--------------|-------------------------
+|2.0.x  | 2.5.x        | [release 1.0-M1](https://github.com/akka/reactive-kafka/releases)
 |1.1.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
 |1.0.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
 |0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
