@@ -33,7 +33,7 @@ private[kafka] final class TransactionalProducerStage[K, V, P](
     with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new TransactionProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
+    new TransactionalProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
 }
 
 private object TransactionalProducerStage {
@@ -74,10 +74,10 @@ private object TransactionalProducerStage {
 /**
  * Transaction (Exactly-Once) Producer State Logic
  */
-private final class TransactionProducerStageLogic[K, V, P](stage: TransactionalProducerStage[K, V, P],
-                                                           producer: Producer[K, V],
-                                                           inheritedAttributes: Attributes,
-                                                           commitInterval: FiniteDuration)
+private final class TransactionalProducerStageLogic[K, V, P](stage: TransactionalProducerStage[K, V, P],
+                                                             producer: Producer[K, V],
+                                                             inheritedAttributes: Attributes,
+                                                             commitInterval: FiniteDuration)
     extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage,
                                                                                     producer,
                                                                                     inheritedAttributes)
