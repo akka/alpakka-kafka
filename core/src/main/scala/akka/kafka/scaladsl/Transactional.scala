@@ -7,8 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.ProducerStage
-import akka.kafka.internal.TransactionalSource
+import akka.kafka.internal.{TransactionProducerStage, TransactionalSource}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
@@ -60,7 +59,7 @@ object Transactional {
 
     val flow = Flow
       .fromGraph(
-        new ProducerStage.TransactionProducerStage[K, V, ConsumerMessage.PartitionOffset](
+        new TransactionProducerStage[K, V, ConsumerMessage.PartitionOffset](
           txSettings.closeTimeout,
           closeProducerOnStop = true,
           () => txSettings.createKafkaProducer(),
