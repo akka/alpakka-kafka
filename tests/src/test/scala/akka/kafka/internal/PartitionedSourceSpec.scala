@@ -596,7 +596,7 @@ object PartitionedSourceSpec {
       super.pause(partitions)
       val ps = partitions.asScala
       log.debug(s"pausing ${ps.mkString("(", ", ", ")")}")
-      tps = tps ++ ps.map(_ -> Paused)
+      tps = tps ++ ps.filter(tp => tps.contains(tp)).map(_ -> Paused)
     }
     override def resume(partitions: java.util.Collection[TopicPartition]): Unit = {
       val ps = partitions.asScala
