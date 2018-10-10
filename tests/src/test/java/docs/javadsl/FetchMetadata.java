@@ -18,29 +18,35 @@ import java.util.concurrent.CompletionStage;
 
 public class FetchMetadata extends ConsumerExample {
 
-    public static void main(String[] args) {
-        new FetchMetadata().demo();
-    }
+  public static void main(String[] args) {
+    new FetchMetadata().demo();
+  }
 
-    void demo() {
-        // #metadata
-        // Create kafka consumer actor to be used with Consumer.plainExternalSource or committableExternalSource
-        ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
+  void demo() {
+    // #metadata
+    // Create kafka consumer actor to be used with Consumer.plainExternalSource or
+    // committableExternalSource
+    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
 
-        // ... create source ...
-        Duration timeout = Duration.ofSeconds(2);
+    // ... create source ...
+    Duration timeout = Duration.ofSeconds(2);
 
-        CompletionStage<Metadata.Topics> topicsStage = PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)
-                .thenApply(reply -> ((Metadata.Topics) reply));
+    CompletionStage<Metadata.Topics> topicsStage =
+        PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)
+            .thenApply(reply -> ((Metadata.Topics) reply));
 
-        // print response
-        topicsStage
-                .thenApply(Metadata.Topics::getResponse)
-                .thenAccept(responseOption -> responseOption.ifPresent(map -> map.forEach((topic, partitionInfo) ->
-                        partitionInfo.forEach(info ->
-                                System.out.println(topic + ": " + info.toString())
-                        ))));
+    // print response
+    topicsStage
+        .thenApply(Metadata.Topics::getResponse)
+        .thenAccept(
+            responseOption ->
+                responseOption.ifPresent(
+                    map ->
+                        map.forEach(
+                            (topic, partitionInfo) ->
+                                partitionInfo.forEach(
+                                    info -> System.out.println(topic + ": " + info.toString())))));
 
-        // #metadata
-    }
+    // #metadata
+  }
 }
