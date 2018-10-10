@@ -202,7 +202,7 @@ lazy val docs = project
   .enablePlugins(AkkaParadoxPlugin)
   .settings(commonSettings)
   .settings(
-    name := "akka-stream-kafka-docs",
+    name := "Alpakka Kafka",
     skip in publish := true,
     paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
