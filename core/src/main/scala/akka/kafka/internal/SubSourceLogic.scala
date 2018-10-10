@@ -12,7 +12,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
+import akka.kafka._
 import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
@@ -76,7 +76,24 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     sourceActor.watch(consumerActor)
 
     def rebalanceListener =
-      KafkaConsumerActor.ListenerCallbacks(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+      KafkaConsumerActor.ListenerCallbacks(
+        assignedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+          }
+          if (assignedTps.nonEmpty) {
+            partitionAssignedCB.invoke(assignedTps)
+          }
+        },
+        revokedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+          }
+          if (revokedTps.nonEmpty) {
+            partitionRevokedCB.invoke(revokedTps)
+          }
+        }
+      )
 
     subscription match {
       case TopicSubscription(topics, _) =>
@@ -143,9 +160,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       }
   }
 
-  val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { tps =>
-    // TODO this called in startup with empty tps, some existing tests rely on the callback
-    partitionsToRevoke ++= tps
+  val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
+    partitionsToRevoke ++= revoked
     scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
   }
 

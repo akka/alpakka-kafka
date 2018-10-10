@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
+import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -19,7 +19,6 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
@@ -35,7 +34,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
     with BeforeAndAfterAll
     with OptionValues
     with ScalaFutures
-    with Eventually {
+    with Eventually
+    with SettingsCreator {
 
   implicit val patience = PatienceConfig(4.seconds, 50.millis)
 
@@ -49,32 +49,11 @@ class PartitionedSourceSpec(_system: ActorSystem)
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
 
-  def testSettings(consumer: Consumer[K, V], groupId: String = "group1") =
-    new ConsumerSettings(
-      Map(ConsumerConfig.GROUP_ID_CONFIG -> groupId),
-      Some(new StringDeserializer),
-      Some(new StringDeserializer),
-      pollInterval = 200.millis,
-      pollTimeout = 10.millis,
-      stopTimeout = 1.second,
-      closeTimeout = 500.millis,
-      commitTimeout = 1.second,
-      wakeupTimeout = 5.seconds,
-      maxWakeups = 3,
-      commitRefreshInterval = Duration.Inf,
-      dispatcher = "akka.kafka.default-dispatcher",
-      commitTimeWarning = 1.second,
-      wakeupDebug = true,
-      waitClosePartition = 100.millis
-    ) {
-      override def createKafkaConsumer(): Consumer[K, V] = consumer
-    }
-
   "partitioned source" should "resume topics with demand" in assertAllStagesStopped {
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .flatMapMerge(breadth = 10, _._2)
       .runWith(TestSink.probe)
 
@@ -104,7 +83,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -130,7 +109,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -166,7 +145,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -196,7 +175,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -220,7 +199,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .committablePartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -261,7 +240,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     }
 
     val sink = Consumer
-      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -293,7 +272,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     }
 
     val sink = Consumer
-      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -332,7 +311,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     }
 
     val sink = Consumer
-      .plainPartitionedManualOffsetSource(testSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -365,7 +344,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     var revoked = Vector[TopicPartition]()
 
     val sink = Consumer
-      .plainPartitionedManualOffsetSource(testSettings(dummy),
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy),
                                           Subscriptions.topics(topic),
                                           getOffsetsOnAssign,
                                           onRevoke = { tp =>
@@ -394,7 +373,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink = Consumer
-      .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -418,7 +397,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy2 = new Dummy()
 
     val sink1 = Consumer
-      .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -430,7 +409,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // simulate partition re-balance
     val sink2 = Consumer
-      .plainPartitionedSource(testSettings(dummy2), Subscriptions.topics(topic))
+      .plainPartitionedSource(consumerSettings(dummy2), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.assignWithCallback(tp0)
@@ -449,7 +428,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink1 = Consumer
-      .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
@@ -484,7 +463,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val dummy = new Dummy()
 
     val sink1 = Consumer
-      .plainPartitionedSource(testSettings(dummy), Subscriptions.topics(topic))
+      .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)

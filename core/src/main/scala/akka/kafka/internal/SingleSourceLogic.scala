@@ -32,22 +32,33 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
     val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
       tps ++= assignedTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", assignedTps, tps)
-      subscription.rebalanceListener.foreach {
-        _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
-      }
       requestMessages()
     }
 
     val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
       tps --= revokedTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
-      subscription.rebalanceListener.foreach {
-        _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
-      }
     }
 
     def rebalanceListener: KafkaConsumerActor.ListenerCallbacks =
-      KafkaConsumerActor.ListenerCallbacks(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+      KafkaConsumerActor.ListenerCallbacks(
+        assignedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+          }
+          if (assignedTps.nonEmpty) {
+            partitionAssignedCB.invoke(assignedTps)
+          }
+        },
+        revokedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+          }
+          if (revokedTps.nonEmpty) {
+            partitionRevokedCB.invoke(revokedTps)
+          }
+        }
+      )
 
     subscription match {
       case TopicSubscription(topics, _) =>
