@@ -104,7 +104,9 @@ object KafkaConsumerActor {
    * `onPartitionsRevoked` callback before any instance executes its
    * `onPartitionsAssigned` callback.
    */
-  private class WrappedAutoPausedListener(consumer: Consumer[_, _], consumerActor: ActorRef, listener: ListenerCallbacks)
+  private class WrappedAutoPausedListener(consumer: Consumer[_, _],
+                                          consumerActor: ActorRef,
+                                          listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
     import KafkaConsumerActor.Internal._
