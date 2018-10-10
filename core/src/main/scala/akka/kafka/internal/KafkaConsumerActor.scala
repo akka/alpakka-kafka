@@ -5,7 +5,6 @@
 
 package akka.kafka.internal
 
-import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.LockSupport
@@ -95,13 +94,21 @@ object KafkaConsumerActor {
   case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
       extends NoSerializationVerificationNeeded
 
-  private class WrappedAutoPausedListener(consumer: Consumer[_, _],
-                                          consumerActor: ActorRef,
-                                          listener: ListenerCallbacks)
+  /**
+   * Copied from the implemented interface:
+   *
+   * These methods will be called after the partition re-assignment completes and before the
+   * consumer starts fetching data, and only as the result of a `poll` call.
+   *
+   * It is guaranteed that all the processes in a consumer group will execute their
+   * `onPartitionsRevoked` callback before any instance executes its
+   * `onPartitionsAssigned` callback.
+   */
+  private class WrappedAutoPausedListener(consumer: Consumer[_, _], consumerActor: ActorRef, listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
     import KafkaConsumerActor.Internal._
-    override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]): Unit = {
+    override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
       val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
@@ -109,7 +116,7 @@ object KafkaConsumerActor {
       listener.onAssign(tps)
     }
 
-    override def onPartitionsRevoked(partitions: util.Collection[TopicPartition]): Unit = {
+    override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
       val revokedTps = partitions.asScala.toSet
       listener.onRevoke(revokedTps)
       consumerActor ! PartitionRevoked(revokedTps)
@@ -489,7 +496,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     consumer.commitAsync(
       commitMap.asJava,
       new OffsetCommitCallback {
-        override def onComplete(offsets: util.Map[TopicPartition, OffsetAndMetadata], exception: Exception): Unit = {
+        override def onComplete(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
+                                exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
           if (duration > settings.commitTimeWarning.toNanos) {

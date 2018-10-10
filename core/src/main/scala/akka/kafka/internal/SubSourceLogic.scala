@@ -76,7 +76,24 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
     sourceActor.watch(consumerActor)
 
     def rebalanceListener =
-      KafkaConsumerActor.ListenerCallbacks(partitionAssignedCB.invoke, partitionRevokedCB.invoke)
+      KafkaConsumerActor.ListenerCallbacks(
+        assignedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+          }
+          if (assignedTps.nonEmpty) {
+            partitionAssignedCB.invoke(assignedTps)
+          }
+        },
+        revokedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+          }
+          if (revokedTps.nonEmpty) {
+            partitionRevokedCB.invoke(revokedTps)
+          }
+        }
+      )
 
     subscription match {
       case TopicSubscription(topics, _) =>
@@ -94,9 +111,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
-    subscription.rebalanceListener.foreach {
-      _.tell(TopicPartitionsAssigned(subscription, assigned), sourceActor.ref)
-    }
     val formerlyUnknown = assigned -- partitionsToRevoke
 
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
@@ -147,10 +161,6 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
   }
 
   val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
-    subscription.rebalanceListener.foreach {
-      _.tell(TopicPartitionsRevoked(subscription, revoked), sourceActor.ref)
-    }
-    // TODO this called in startup with empty tps, some existing tests rely on the callback
     partitionsToRevoke ++= revoked
     scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
   }
