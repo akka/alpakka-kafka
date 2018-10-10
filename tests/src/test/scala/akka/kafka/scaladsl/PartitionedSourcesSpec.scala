@@ -23,7 +23,10 @@ import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.Success
 
-class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.PartitionedSourcesSpec) with Inside {
+class PartitionedSourcesSpec
+    extends SpecBase(kafkaPort = KafkaPorts.PartitionedSourcesSpec)
+    with Inside
+    with OptionValues {
 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
@@ -298,35 +301,40 @@ class PartitionedSourcesSpec extends SpecBase(kafkaPort = KafkaPorts.Partitioned
     }
 
     "call the onRevoked hook" in assertAllStagesStopped {
-      val topic = createTopic()
+      val partitions = 4
+      val topic = createTopic(1, partitions)
       val group = createGroupId(1)
 
-      awaitProduce(produce(topic, 1 to 100))
-
-      var revoked = false
+      var partitionsAssigned = false
+      var revoked: Option[Set[TopicPartition]] = None
 
       val source = Consumer
-        .plainPartitionedManualOffsetSource(consumerDefaults.withGroupId(group),
-                                            Subscriptions.topics(topic),
-                                            _ => Future.successful(Map.empty),
-                                            _ => revoked = true)
+        .plainPartitionedManualOffsetSource(
+          consumerDefaults.withGroupId(group),
+          Subscriptions.topics(topic),
+          getOffsetsOnAssign = tps => {
+            partitionsAssigned = true
+            Future.successful(Map.empty)
+          },
+          onRevoke = tps => revoked = Some(tps)
+        )
         .flatMapMerge(1, _._2)
         .map(_.value())
 
-      val (control1, probe1) = source.toMat(TestSink.probe)(Keep.both).run()
-
-      probe1.request(50)
-
-      sleep(consumerDefaults.waitClosePartition)
-
-      val probe2 = source.runWith(TestSink.probe)
+      val (control1, firstConsumer) = source.toMat(TestSink.probe)(Keep.both).run()
 
       eventually {
-        assert(revoked, "revoked hook should have been called")
+        assert(partitionsAssigned, "first consumer should get asked for offsets")
       }
 
-      probe1.cancel()
-      probe2.cancel()
+      val secondConsumer = source.runWith(TestSink.probe)
+
+      eventually {
+        revoked.value should have size partitions / 2
+      }
+
+      firstConsumer.cancel()
+      secondConsumer.cancel()
       control1.isShutdown.futureValue should be(Done)
     }
 
