@@ -5,7 +5,6 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
@@ -32,6 +31,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
+
+import akka.util.JavaDurationConverters._
 
 object KafkaConsumerActor {
 
@@ -300,7 +301,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
-    consumer.close(settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+    consumer.close(settings.closeTimeout.asJava)
     super.postStop()
   }
 
