@@ -139,6 +139,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
   /** Limits the blocking on offsetForTimes */
   val offsetForTimesTimeout = java.time.Duration.ofSeconds(30)
+
   /** Limits the blocking on position in [[WrappedAutoPausedListener]] */
   val positionTimeout = java.time.Duration.ofSeconds(30)
 
