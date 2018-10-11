@@ -185,8 +185,43 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true,
     val waitClosePartition: FiniteDuration,
-    val metadataRequestTimeout: FiniteDuration = 5.seconds
+    val metadataRequestTimeout: FiniteDuration
 ) {
+
+  @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
+  def this(properties: Map[String, String],
+           keyDeserializer: Option[Deserializer[K]],
+           valueDeserializer: Option[Deserializer[V]],
+           pollInterval: FiniteDuration,
+           pollTimeout: FiniteDuration,
+           stopTimeout: FiniteDuration,
+           closeTimeout: FiniteDuration,
+           commitTimeout: FiniteDuration,
+           wakeupTimeout: FiniteDuration,
+           maxWakeups: Int,
+           commitRefreshInterval: Duration,
+           dispatcher: String,
+           commitTimeWarning: FiniteDuration,
+           wakeupDebug: Boolean,
+           waitClosePartition: FiniteDuration,
+  ) = this(
+    properties,
+    keyDeserializer,
+    valueDeserializer,
+    pollInterval,
+    pollTimeout,
+    stopTimeout,
+    closeTimeout,
+    commitTimeout,
+    wakeupTimeout,
+    maxWakeups,
+    commitRefreshInterval,
+    dispatcher,
+    commitTimeWarning,
+    wakeupDebug,
+    waitClosePartition,
+    metadataRequestTimeout = 5.seconds
+  )
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)

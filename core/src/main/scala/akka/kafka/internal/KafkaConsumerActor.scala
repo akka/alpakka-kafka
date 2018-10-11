@@ -33,8 +33,6 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
-import akka.util.JavaDurationConverters._
-
 object KafkaConsumerActor {
 
   object Internal {
