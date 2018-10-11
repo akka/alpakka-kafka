@@ -95,15 +95,15 @@ object Subscriptions {
   def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts, None)
 
   /**
-   * Creates subscription for given set of topics
    * JAVA API
+   * Creates subscription for given set of topics
    */
   @varargs
   def topics(ts: String*): AutoSubscription = topics(ts.toSet)
 
   /**
-   * Creates subscription for given set of topics
    * JAVA API
+   * Creates subscription for given set of topics
    */
   def topics(ts: java.util.Set[String]): AutoSubscription = topics(ts.asScala.toSet)
 
@@ -118,15 +118,15 @@ object Subscriptions {
   def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps, None)
 
   /**
-   * Manually assign given topics and partitions
    * JAVA API
+   * Manually assign given topics and partitions
    */
   @varargs
   def assignment(tps: TopicPartition*): ManualSubscription = assignment(tps.toSet)
 
   /**
-   * Manually assign given topics and partitions
    * JAVA API
+   * Manually assign given topics and partitions
    */
   def assignment(tps: java.util.Set[TopicPartition]): ManualSubscription = assignment(tps.asScala.toSet)
 
@@ -141,8 +141,8 @@ object Subscriptions {
   def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap, None)
 
   /**
-   * Manually assign given topics and partitions with offsets
    * JAVA API
+   * Manually assign given topics and partitions with offsets
    */
   def assignmentWithOffset(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription =
     assignmentWithOffset(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])
@@ -166,8 +166,8 @@ object Subscriptions {
     AssignmentOffsetsForTimes(tps.toMap, None)
 
   /**
-   * Manually assign given topics and partitions with timestamps
    * JAVA API
+   * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tps: java.util.Map[TopicPartition, java.lang.Long]): ManualSubscription =
     assignmentOffsetsForTimes(tps.asScala.toMap.asInstanceOf[Map[TopicPartition, Long]])

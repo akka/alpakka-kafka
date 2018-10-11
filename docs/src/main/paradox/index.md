@@ -11,6 +11,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 * [overview](home.md)
 * [Producer](producer.md)
 * [Consumer](consumer.md)
+* [Subscription](subscription.md)
 * [Consumer Metadata](consumer-metadata.md)
 * [Error Handling](errorhandling.md)
 * [At-Least-Once Delivery](atleastonce.md)
