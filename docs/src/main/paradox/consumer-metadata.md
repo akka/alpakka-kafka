@@ -16,12 +16,16 @@ The supported metadata are
 | GetEndOffsets | EndOffsets |
 | GetOffsetsForTimes | OffsetsForTimes |
 | GetCommittedOffset | CommittedOffset |
+
+These requests are blocking within the Kafka client library up to a timeout configured by `metadata-request-timeout` or `ConsumerSettings.withMetadataRequestTimeout` respectively.
    
 @@@ warning
 
-Processing of these requests blocks the actor loop. The KafkaConsumerActor is configured to run on its own dispatcher, so just as the other remote calls to Kafka, the blocking happens within a designated thread pool.
+Processing of these requests blocks the actor loop. The `KafkaConsumerActor` is configured to run on its own dispatcher, so just as the other remote calls to Kafka, the blocking happens within a designated thread pool.
 
 However, calling these during consuming might affect performance and even cause timeouts in extreme cases.
+
+Please consider to use a dedicated `KafkaConsumerActor` to run metadata requests against.
 
 @@@   
 

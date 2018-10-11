@@ -7,6 +7,7 @@ package docs.javadsl;
 
 // #metadata
 import akka.actor.ActorRef;
+import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaConsumerActor;
 import akka.kafka.Metadata;
 import akka.pattern.PatternsCS;
@@ -24,12 +25,11 @@ public class FetchMetadata extends ConsumerExample {
 
   void demo() {
     // #metadata
-    // Create kafka consumer actor to be used with Consumer.plainExternalSource or
-    // committableExternalSource
-    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
-
-    // ... create source ...
     Duration timeout = Duration.ofSeconds(2);
+    ConsumerSettings<String, byte[]> settings =
+        consumerSettings.withMetadataRequestTimeout(timeout);
+
+    ActorRef consumer = system.actorOf((KafkaConsumerActor.props(settings)));
 
     CompletionStage<Metadata.Topics> topicsStage =
         PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)

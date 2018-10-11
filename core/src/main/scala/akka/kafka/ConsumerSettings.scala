@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.kafka.internal._
+import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.serialization.Deserializer
@@ -67,6 +68,7 @@ object ConsumerSettings {
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
+    val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -82,7 +84,8 @@ object ConsumerSettings {
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      metadataRequestTimeout
     )
   }
 
@@ -165,7 +168,8 @@ object ConsumerSettings {
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  */
-class ConsumerSettings[K, V](
+class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead",
+                                         "1.0-M1")(
     val properties: Map[String, String],
     val keyDeserializerOpt: Option[Deserializer[K]],
     val valueDeserializerOpt: Option[Deserializer[V]],
@@ -180,7 +184,8 @@ class ConsumerSettings[K, V](
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true,
-    val waitClosePartition: FiniteDuration
+    val waitClosePartition: FiniteDuration,
+    val metadataRequestTimeout: FiniteDuration = 5.seconds
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
@@ -261,6 +266,16 @@ class ConsumerSettings[K, V](
   def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
     copy(waitClosePartition = waitClosePartition)
 
+  /** Scala API */
+  def withMetadataRequestTimeout(metadataRequestTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(metadataRequestTimeout = metadataRequestTimeout)
+
+  /** Java API */
+  def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
+
+  def getMetadataRequestTimeout: java.time.Duration = metadataRequestTimeout.asJava
+
   private def copy(
       properties: Map[String, String] = properties,
       keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
@@ -276,7 +291,8 @@ class ConsumerSettings[K, V](
       commitRefreshInterval: Duration = commitRefreshInterval,
       dispatcher: String = dispatcher,
       wakeupDebug: Boolean = wakeupDebug,
-      waitClosePartition: FiniteDuration = waitClosePartition
+      waitClosePartition: FiniteDuration = waitClosePartition,
+      metadataRequestTimeout: FiniteDuration = metadataRequestTimeout
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -293,7 +309,8 @@ class ConsumerSettings[K, V](
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      metadataRequestTimeout
     )
 
   /**
@@ -322,6 +339,7 @@ class ConsumerSettings[K, V](
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"wakeupDebug=$wakeupDebug," +
-    s"waitClosePartition=${waitClosePartition.toCoarsest}" +
+    s"waitClosePartition=${waitClosePartition.toCoarsest}," +
+    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}" +
     ")"
 }

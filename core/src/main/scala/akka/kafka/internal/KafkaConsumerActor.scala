@@ -33,6 +33,8 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
+import akka.util.JavaDurationConverters._
+
 object KafkaConsumerActor {
 
   object Internal {
@@ -557,7 +559,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     case Metadata.ListTopics =>
       Metadata.Topics(Try {
         consumer
-          .listTopics()
+          .listTopics(settings.getMetadataRequestTimeout)
           .asScala
           .map {
             case (k, v) => k -> v.asScala.toList
@@ -567,13 +569,13 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
     case Metadata.GetPartitionsFor(topic) =>
       Metadata.PartitionsFor(Try {
-        consumer.partitionsFor(topic).asScala.toList
+        consumer.partitionsFor(topic, settings.getMetadataRequestTimeout).asScala.toList
       })
 
     case Metadata.GetBeginningOffsets(partitions) =>
       Metadata.BeginningOffsets(Try {
         consumer
-          .beginningOffsets(partitions.asJava)
+          .beginningOffsets(partitions.asJava, settings.getMetadataRequestTimeout)
           .asScala
           .map {
             case (k, v) => k -> (v: Long)
@@ -584,7 +586,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     case Metadata.GetEndOffsets(partitions) =>
       Metadata.EndOffsets(Try {
         consumer
-          .endOffsets(partitions.asJava)
+          .endOffsets(partitions.asJava, settings.getMetadataRequestTimeout)
           .asScala
           .map {
             case (k, v) => k -> (v: Long)
@@ -597,12 +599,12 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
         val search = timestampsToSearch.map {
           case (k, v) => k -> (v: java.lang.Long)
         }.asJava
-        consumer.offsetsForTimes(search).asScala.toMap
+        consumer.offsetsForTimes(search, settings.getMetadataRequestTimeout).asScala.toMap
       })
 
     case Metadata.GetCommittedOffset(partition) =>
       Metadata.CommittedOffset(Try {
-        consumer.committed(partition)
+        consumer.committed(partition, settings.getMetadataRequestTimeout)
       })
   }
 }
