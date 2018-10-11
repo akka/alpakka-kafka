@@ -107,6 +107,7 @@ object KafkaConsumerActor {
    */
   private class WrappedAutoPausedListener(consumer: Consumer[_, _],
                                           consumerActor: ActorRef,
+                                          positionTimeout: java.time.Duration,
                                           listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
@@ -114,7 +115,7 @@ object KafkaConsumerActor {
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
-      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
+      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
       consumerActor ! PartitionAssigned(assignedOffsets)
       listener.onAssign(tps)
     }
@@ -135,6 +136,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   val delayedPollMsg = Poll(this, periodic = false)
   def pollTimeout() = settings.pollTimeout
   def pollInterval() = settings.pollInterval
+
+  /** Limits the blocking on offsetForTimes */
+  val offsetForTimesTimeout = java.time.Duration.ofSeconds(30)
+  /** Limits the blocking on position in [[WrappedAutoPausedListener]] */
+  val positionTimeout = java.time.Duration.ofSeconds(30)
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -174,7 +180,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
-      val topicPartitionToOffsetAndTimestamp = consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava)
+      val topicPartitionToOffsetAndTimestamp =
+        consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava, offsetForTimesTimeout)
       val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
@@ -260,9 +267,11 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
     subscription match {
       case Subscribe(topics, listener) =>
-        consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(consumer, self, listener))
+        consumer.subscribe(topics.toList.asJava,
+                           new WrappedAutoPausedListener(consumer, self, positionTimeout, listener))
       case SubscribePattern(pattern, listener) =>
-        consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(consumer, self, listener))
+        consumer.subscribe(Pattern.compile(pattern),
+                           new WrappedAutoPausedListener(consumer, self, positionTimeout, listener))
     }
   }
 
