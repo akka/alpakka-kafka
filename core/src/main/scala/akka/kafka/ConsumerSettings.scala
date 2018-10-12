@@ -68,6 +68,8 @@ object ConsumerSettings {
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
+    val positionTimeout = config.getDuration("position-timeout").asScala
+    val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     new ConsumerSettings[K, V](
       properties,
@@ -85,6 +87,8 @@ object ConsumerSettings {
       commitTimeWarning,
       wakeupDebug,
       waitClosePartition,
+      positionTimeout,
+      offsetForTimesTimeout,
       metadataRequestTimeout
     )
   }
@@ -185,6 +189,8 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true,
     val waitClosePartition: FiniteDuration,
+    val positionTimeout: FiniteDuration,
+    val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration
 ) {
 
@@ -220,6 +226,8 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
     commitTimeWarning,
     wakeupDebug,
     waitClosePartition,
+    positionTimeout = 5.seconds,
+    offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds
   )
 
@@ -301,6 +309,22 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
   def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
     copy(waitClosePartition = waitClosePartition)
 
+  /** Scala API: Limits the blocking on Kafka consumer position calls. */
+  def withPositionTimeout(positionTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(positionTimeout = positionTimeout)
+
+  /** Java API: Limits the blocking on Kafka consumer position calls. */
+  def withPositionTimeout(positionTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(positionTimeout = positionTimeout.asScala)
+
+  /** Scala API: Limits the blocking on Kafka consumer offsetForTimes calls. */
+  def withOffsetForTimesTimeout(offsetForTimesTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(offsetForTimesTimeout = offsetForTimesTimeout)
+
+  /** Java API: Limits the blocking on Kafka consumer offsetForTimes calls. */
+  def withOffsetForTimesTimeout(offsetForTimesTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(offsetForTimesTimeout = offsetForTimesTimeout.asScala)
+
   /** Scala API */
   def withMetadataRequestTimeout(metadataRequestTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(metadataRequestTimeout = metadataRequestTimeout)
@@ -309,6 +333,9 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
   def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
+  def getCloseTimeout: java.time.Duration = closeTimeout.asJava
+  def getPositionTimeout: java.time.Duration = positionTimeout.asJava
+  def getOffsetForTimesTimeout: java.time.Duration = offsetForTimesTimeout.asJava
   def getMetadataRequestTimeout: java.time.Duration = metadataRequestTimeout.asJava
 
   private def copy(
@@ -327,6 +354,8 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
       dispatcher: String = dispatcher,
       wakeupDebug: Boolean = wakeupDebug,
       waitClosePartition: FiniteDuration = waitClosePartition,
+      positionTimeout: FiniteDuration = positionTimeout,
+      offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
@@ -345,6 +374,8 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
       commitTimeWarning,
       wakeupDebug,
       waitClosePartition,
+      positionTimeout,
+      offsetForTimesTimeout,
       metadataRequestTimeout
     )
 

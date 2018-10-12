@@ -4,8 +4,8 @@
  */
 
 package akka.kafka.internal
-import java.util.concurrent.TimeUnit
 
+import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.mockito.Mockito._
@@ -119,7 +119,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
     }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)) =
-    verify(mock, mode).close(SettingsCreator.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+    verify(mock, mode).close(SettingsCreator.closeTimeout.asJava)
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
     verify(mock, mode).poll(ArgumentMatchers.any[Long])

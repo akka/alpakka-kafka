@@ -566,6 +566,7 @@ object PartitionedSourceSpec {
       new ConsumerRecords[K, V](data2.asJava)
     }
     override def position(partition: TopicPartition): Long = 0
+    override def position(partition: TopicPartition, timeout: java.time.Duration): Long = 0
     override def seek(partition: TopicPartition, offset: Long): Unit = {
       log.debug(s"seek($partition, $offset)")
       seeks = seeks.updated(partition, offset)

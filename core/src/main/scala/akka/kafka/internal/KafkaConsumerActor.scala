@@ -32,8 +32,6 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
-import akka.util.JavaDurationConverters._
-
 object KafkaConsumerActor {
 
   object Internal {
@@ -138,10 +136,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
   def pollInterval() = settings.pollInterval
 
   /** Limits the blocking on offsetForTimes */
-  val offsetForTimesTimeout = java.time.Duration.ofSeconds(30)
+  val offsetForTimesTimeout = settings.getOffsetForTimesTimeout
 
   /** Limits the blocking on position in [[WrappedAutoPausedListener]] */
-  val positionTimeout = java.time.Duration.ofSeconds(30)
+  val positionTimeout = settings.getPositionTimeout
 
   var requests = Map.empty[ActorRef, RequestMessages]
   var requestors = Set.empty[ActorRef]
@@ -311,7 +309,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       case (ref, req) =>
         ref ! Messages(req.requestId, Iterator.empty)
     }
-    consumer.close(settings.closeTimeout.asJava)
+    consumer.close(settings.getCloseTimeout)
     super.postStop()
   }
 
