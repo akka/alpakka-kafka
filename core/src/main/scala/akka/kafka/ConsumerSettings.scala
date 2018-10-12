@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.kafka.internal._
+import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.serialization.Deserializer
@@ -67,6 +68,9 @@ object ConsumerSettings {
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
+    val positionTimeout = config.getDuration("position-timeout").asScala
+    val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
+    val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -82,7 +86,10 @@ object ConsumerSettings {
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      positionTimeout,
+      offsetForTimesTimeout,
+      metadataRequestTimeout
     )
   }
 
@@ -165,7 +172,8 @@ object ConsumerSettings {
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  */
-class ConsumerSettings[K, V](
+class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead",
+                                         "1.0-M1")(
     val properties: Map[String, String],
     val keyDeserializerOpt: Option[Deserializer[K]],
     val valueDeserializerOpt: Option[Deserializer[V]],
@@ -180,8 +188,47 @@ class ConsumerSettings[K, V](
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true,
-    val waitClosePartition: FiniteDuration
+    val waitClosePartition: FiniteDuration,
+    val positionTimeout: FiniteDuration,
+    val offsetForTimesTimeout: FiniteDuration,
+    val metadataRequestTimeout: FiniteDuration
 ) {
+
+  @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
+  def this(properties: Map[String, String],
+           keyDeserializer: Option[Deserializer[K]],
+           valueDeserializer: Option[Deserializer[V]],
+           pollInterval: FiniteDuration,
+           pollTimeout: FiniteDuration,
+           stopTimeout: FiniteDuration,
+           closeTimeout: FiniteDuration,
+           commitTimeout: FiniteDuration,
+           wakeupTimeout: FiniteDuration,
+           maxWakeups: Int,
+           commitRefreshInterval: Duration,
+           dispatcher: String,
+           commitTimeWarning: FiniteDuration,
+           wakeupDebug: Boolean,
+           waitClosePartition: FiniteDuration) = this(
+    properties,
+    keyDeserializer,
+    valueDeserializer,
+    pollInterval,
+    pollTimeout,
+    stopTimeout,
+    closeTimeout,
+    commitTimeout,
+    wakeupTimeout,
+    maxWakeups,
+    commitRefreshInterval,
+    dispatcher,
+    commitTimeWarning,
+    wakeupDebug,
+    waitClosePartition,
+    positionTimeout = 5.seconds,
+    offsetForTimesTimeout = 5.seconds,
+    metadataRequestTimeout = 5.seconds
+  )
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
@@ -261,6 +308,35 @@ class ConsumerSettings[K, V](
   def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
     copy(waitClosePartition = waitClosePartition)
 
+  /** Scala API: Limits the blocking on Kafka consumer position calls. */
+  def withPositionTimeout(positionTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(positionTimeout = positionTimeout)
+
+  /** Java API: Limits the blocking on Kafka consumer position calls. */
+  def withPositionTimeout(positionTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(positionTimeout = positionTimeout.asScala)
+
+  /** Scala API: Limits the blocking on Kafka consumer offsetForTimes calls. */
+  def withOffsetForTimesTimeout(offsetForTimesTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(offsetForTimesTimeout = offsetForTimesTimeout)
+
+  /** Java API: Limits the blocking on Kafka consumer offsetForTimes calls. */
+  def withOffsetForTimesTimeout(offsetForTimesTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(offsetForTimesTimeout = offsetForTimesTimeout.asScala)
+
+  /** Scala API */
+  def withMetadataRequestTimeout(metadataRequestTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(metadataRequestTimeout = metadataRequestTimeout)
+
+  /** Java API */
+  def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
+
+  def getCloseTimeout: java.time.Duration = closeTimeout.asJava
+  def getPositionTimeout: java.time.Duration = positionTimeout.asJava
+  def getOffsetForTimesTimeout: java.time.Duration = offsetForTimesTimeout.asJava
+  def getMetadataRequestTimeout: java.time.Duration = metadataRequestTimeout.asJava
+
   private def copy(
       properties: Map[String, String] = properties,
       keyDeserializer: Option[Deserializer[K]] = keyDeserializerOpt,
@@ -276,7 +352,10 @@ class ConsumerSettings[K, V](
       commitRefreshInterval: Duration = commitRefreshInterval,
       dispatcher: String = dispatcher,
       wakeupDebug: Boolean = wakeupDebug,
-      waitClosePartition: FiniteDuration = waitClosePartition
+      waitClosePartition: FiniteDuration = waitClosePartition,
+      positionTimeout: FiniteDuration = positionTimeout,
+      offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
+      metadataRequestTimeout: FiniteDuration = metadataRequestTimeout
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -293,7 +372,10 @@ class ConsumerSettings[K, V](
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      positionTimeout,
+      offsetForTimesTimeout,
+      metadataRequestTimeout
     )
 
   /**
@@ -322,6 +404,7 @@ class ConsumerSettings[K, V](
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"wakeupDebug=$wakeupDebug," +
-    s"waitClosePartition=${waitClosePartition.toCoarsest}" +
+    s"waitClosePartition=${waitClosePartition.toCoarsest}," +
+    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}" +
     ")"
 }

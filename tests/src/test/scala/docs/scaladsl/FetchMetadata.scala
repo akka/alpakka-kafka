@@ -5,13 +5,16 @@
 
 package docs.scaladsl
 
+import org.scalatest.TryValues
+import org.scalatest.time.{Seconds, Span}
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
+
 // #metadata
 import akka.actor.ActorRef
 import akka.kafka.{KafkaConsumerActor, KafkaPorts, Metadata}
 import akka.pattern.ask
 import akka.util.Timeout
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
-import org.scalatest.TryValues
+import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -20,6 +23,9 @@ import scala.concurrent.duration._
 
 class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) with TryValues {
 
+  override implicit def patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(20, Seconds)), interval = scaled(Span(1, Seconds)))
+
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
@@ -27,11 +33,11 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #metadata
-    implicit val timeout = Timeout(5.seconds)
+    val timeout = 5.seconds
+    val settings = consumerSettings.withMetadataRequestTimeout(timeout)
+    implicit val askTimeout = Timeout(timeout)
 
-    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-    // ... create source ...
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(settings))
 
     val topicsFuture: Future[Metadata.Topics] = (consumer ? Metadata.ListTopics).mapTo[Metadata.Topics]
 
@@ -47,5 +53,43 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
     // #metadata
     topicsFuture.futureValue.response should be a 'success
     topicsFuture.futureValue.response.get(topic) should not be 'empty
+  }
+
+  "Get offsets" should "timeout fast" in {
+    val consumerSettings = consumerDefaults
+      .withGroupId(createGroupId())
+      .withMetadataRequestTimeout(100.millis)
+    val topic = createTopic()
+    implicit val timeout = Timeout(consumerSettings.metadataRequestTimeout * 2)
+
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+    val nonExistentPartition = 42
+    val topicsFuture: Future[Metadata.EndOffsets] =
+      (consumer ? Metadata.GetEndOffsets(Set(new TopicPartition(topic, nonExistentPartition))))
+        .mapTo[Metadata.EndOffsets]
+
+    val response = topicsFuture.futureValue.response
+    response should be a 'failure
+    response.failed.get shouldBe a[org.apache.kafka.common.errors.TimeoutException]
+  }
+
+  it should "return" in {
+    val consumerSettings = consumerDefaults
+      .withGroupId(createGroupId())
+      .withMetadataRequestTimeout(5.seconds)
+    val topic = createTopic()
+    implicit val timeout = Timeout(consumerSettings.metadataRequestTimeout * 2)
+
+    val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+    val partition = 0
+    val tp = new TopicPartition(topic, partition)
+    val topicsFuture: Future[Metadata.EndOffsets] =
+      (consumer ? Metadata.GetEndOffsets(Set(tp))).mapTo[Metadata.EndOffsets]
+
+    val response = topicsFuture.futureValue.response
+    response should be a 'success
+    response.get(tp) should be(0L)
   }
 }

@@ -5,14 +5,12 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
-import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka._
+import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
@@ -24,6 +22,7 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -146,9 +145,8 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
       offsets: Map[TopicPartition, Long]
   ): Unit = {
     implicit val ec: ExecutionContext = materializer.executionContext
-    val seekTimeout: Timeout = Timeout(10000, TimeUnit.MILLISECONDS)
     consumerActor
-      .ask(KafkaConsumerActor.Internal.Seek(offsets))(seekTimeout, sourceActor.ref)
+      .ask(KafkaConsumerActor.Internal.Seek(offsets))(Timeout(10.seconds), sourceActor.ref)
       .map(_ => updatePendingPartitionsAndEmitSubSourcesCb.invoke(formerlyUnknown))
       .recover {
         case _: AskTimeoutException =>
