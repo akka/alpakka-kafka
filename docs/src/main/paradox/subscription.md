@@ -23,9 +23,23 @@ Subscribes to one or more topics which match the given pattern. Take a look at t
 
 Subscribes to given topics and their given partitions.
 
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #assingment-single-partition }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #assingment-single-partition }
+
+
 ### Partition Assignment with Offset
 
 Subscribes to given topics and their partitions allowing to also set an offset from which messages will be read.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #assingment-single-partition-offset }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #assingment-single-partition-offset }
+
 
 This subscription can be used when offsets are stored in Kafka or on external storage. For more information, take a look at the @ref[Offset Storage external to Kafka](consumer.md#offset-storage-external-to-kafka) documentation page.
 

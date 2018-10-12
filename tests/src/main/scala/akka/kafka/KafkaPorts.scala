@@ -25,5 +25,7 @@ object KafkaPorts {
   val ScalaTransactionsExamples = 9102
   val ScalaProducerExamples = 9112
   val PartitionedSourcesSpec = 9122
+  val AssignmentSpec = 9132
+  val AssignmentTest = 9142
 
 }
