@@ -209,7 +209,7 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
            dispatcher: String,
            commitTimeWarning: FiniteDuration,
            wakeupDebug: Boolean,
-           waitClosePartition: FiniteDuration,
+           waitClosePartition: FiniteDuration
   ) = this(
     properties,
     keyDeserializer,
