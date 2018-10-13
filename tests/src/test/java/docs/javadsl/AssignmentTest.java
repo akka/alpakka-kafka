@@ -36,8 +36,8 @@ import static org.junit.Assert.assertEquals;
 
 public class AssignmentTest extends EmbeddedKafkaTest {
 
-  static final ActorSystem sys = ActorSystem.create("AssignmentTest");
-  static final Materializer mat = ActorMaterializer.create(sys);
+  private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
+  private static final Materializer mat = ActorMaterializer.create(sys);
 
   @Override
   public ActorSystem system() {
