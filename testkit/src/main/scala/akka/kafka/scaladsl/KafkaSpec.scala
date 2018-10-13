@@ -6,9 +6,7 @@
 package akka.kafka.scaladsl
 
 import java.util
-import java.util.{Arrays, Properties}
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.actor.ActorSystem
@@ -22,10 +20,8 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, DescribeClusterResult, NewTopic}
-import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.admin.{DescribeClusterResult, NewTopic}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec

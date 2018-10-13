@@ -74,10 +74,4 @@ trait KafkaTestKit {
     createResult.all().get(10, TimeUnit.SECONDS)
     topicName
   }
-
-  /**
-   * JAVA API
-   */
-  def createTopicWithPartitions(partitions: Int) =
-    createTopic(partitions = partitions)
 }

@@ -57,7 +57,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumeFromTheSpecifiedPartition()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopicWithPartitions(2);
+    final String topic = createTopic(0, 2, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -90,7 +90,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumerFromTheSpecifiedPartitionAndOffset()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopicWithPartitions(1);
+    final String topic = createTopic(1, 1, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -121,6 +121,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
 
   @AfterClass
   public static void afterClass() {
+    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(sys);
   }
 }
