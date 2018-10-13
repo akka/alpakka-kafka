@@ -73,6 +73,31 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
       val messages = consumer.take(totalMessages / 2).map(_.offset()).runWith(Sink.seq)
       messages.futureValue.map(_ - offset).zipWithIndex.map { case (offs, idx) => offs - idx }.sum shouldBe 0
     }
+
+    "consume from the specified partition and timestamp" in assertAllStagesStopped {
+      val topic = createTopic(partitions = 1)
+      val totalMessages = 100
+      val producerCompletion =
+        Source(1 to totalMessages)
+          .map { msg =>
+            new ProducerRecord(topic, 0, System.currentTimeMillis(), DefaultKey, msg.toString)
+          }
+          .runWith(Producer.plainSink(producerDefaults))
+
+      producerCompletion.futureValue
+
+      // #assingment-single-partition-timestamp
+      val partition = 0
+      val now = System.currentTimeMillis
+      val messagesSince: Long = now - 5000
+      val subscription = Subscriptions.assignmentOffsetsForTimes(new TopicPartition(topic, partition) -> messagesSince)
+      val consumer = Consumer.plainSource(consumerDefaults, subscription)
+      // #assingment-single-partition-timestamp
+
+      val messages =
+        consumer.takeWhile(_.value().toInt < totalMessages, inclusive = true).map(_.timestamp()).runWith(Sink.seq)
+      messages.futureValue.map(_ - now).count(_ > 5000) shouldBe 0
+    }
   }
 
 }

@@ -46,3 +46,9 @@ This subscription can be used when offsets are stored in Kafka or on external st
 ### Partition Assignment with Timestamp
 
 Subscribes to given topics and their partitions allowing to also set a timestamp which will be used to find the offset from which messages will be read.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #assingment-single-partition-timestamp }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #assingment-single-partition-timestamp }

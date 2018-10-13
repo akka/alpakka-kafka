@@ -88,7 +88,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   @Test
-  public void mustConsumerFromTheSpecifiedPartitionAndOffset()
+  public void mustConsumeFromTheSpecifiedPartitionAndOffset()
       throws ExecutionException, InterruptedException {
     final String topic = createTopic(1, 1, 1);
     final Integer totalMessages = 100;
@@ -112,6 +112,48 @@ public class AssignmentTest extends EmbeddedKafkaTest {
         consumer.take(totalMessages / 2).map(ConsumerRecord::offset).runWith(Sink.seq(), mat);
     final List<Long> messages = consumerCompletion.toCompletableFuture().get();
     IntStream.range(0, (int) offset).forEach(idx -> assertEquals(idx, messages.get(idx) - offset));
+  }
+
+  @Test
+  public void mustConsumeFromTheSpecifiedPartitionAndTimestamp()
+      throws ExecutionException, InterruptedException {
+    final String topic = createTopic(2, 1, 1);
+    final Integer totalMessages = 100;
+    final CompletionStage<Done> producerCompletion =
+        Source.range(1, totalMessages)
+            .map(
+                msg ->
+                    new ProducerRecord<>(
+                        topic, 0, System.currentTimeMillis(), DefaultKey(), msg.toString()))
+            .runWith(Producer.plainSink(producerDefaults()), mat);
+
+    producerCompletion.toCompletableFuture().get();
+
+    // #assingment-single-partition-timestamp
+    final Integer partition = 0;
+    final Long now = System.currentTimeMillis();
+    final Long messagesSince = now - 5000;
+    final ManualSubscription subscription =
+        Subscriptions.assignmentOffsetsForTimes(
+            new TopicPartition(topic, partition), messagesSince);
+    final Source<ConsumerRecord<String, String>, Consumer.Control> consumer =
+        Consumer.plainSource(consumerDefaults(), subscription);
+    // #assingment-single-partition-timestamp
+
+    final CompletionStage<List<Long>> consumerCompletion =
+        consumer
+            .takeWhile(m -> Integer.valueOf(m.value()) < totalMessages, true)
+            .map(ConsumerRecord::timestamp)
+            .runWith(Sink.seq(), mat);
+    final long oldMessages =
+        consumerCompletion
+            .toCompletableFuture()
+            .get()
+            .stream()
+            .map(t -> t - now)
+            .filter(t -> t > 5000)
+            .count();
+    assertEquals(0, oldMessages);
   }
 
   @After
