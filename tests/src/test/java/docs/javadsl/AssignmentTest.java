@@ -7,6 +7,7 @@ package docs.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
+import akka.kafka.AutoSubscription;
 import akka.kafka.KafkaPorts;
 import akka.kafka.ManualSubscription;
 import akka.kafka.Subscriptions;
@@ -55,9 +56,38 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   @Test
+  public void mustConsumeFromTheSpecifiedTopic() throws ExecutionException, InterruptedException {
+    final String topic = createTopic(0, 1, 1);
+    final String group = createGroupId(0);
+    final Integer totalMessages = 100;
+    final CompletionStage<Done> producerCompletion =
+        Source.range(1, totalMessages)
+            .map(msg -> new ProducerRecord<>(topic, 0, DefaultKey(), msg.toString()))
+            .runWith(Producer.plainSink(producerDefaults()), mat);
+
+    producerCompletion.toCompletableFuture().get();
+
+    // #single-topic
+    final AutoSubscription subscription = Subscriptions.topics(topic);
+    final Source<ConsumerRecord<String, String>, Consumer.Control> consumer =
+        Consumer.plainSource(consumerDefaults().withGroupId(group), subscription);
+    // #single-topic
+
+    final Integer receivedMessages =
+        consumer
+            .takeWhile(m -> Integer.valueOf(m.value()) < totalMessages, true)
+            .runWith(Sink.seq(), mat)
+            .toCompletableFuture()
+            .get()
+            .size();
+
+    assertEquals(totalMessages, receivedMessages);
+  }
+
+  @Test
   public void mustConsumeFromTheSpecifiedPartition()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(0, 2, 1);
+    final String topic = createTopic(1, 2, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -90,7 +120,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndOffset()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(1, 1, 1);
+    final String topic = createTopic(2, 1, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -117,7 +147,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndTimestamp()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(2, 1, 1);
+    final String topic = createTopic(3, 1, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)

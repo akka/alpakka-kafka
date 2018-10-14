@@ -28,6 +28,29 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
 
   "subscription with partition assignment" must {
 
+    "consumer from the specified topic" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+      val totalMessages = 100
+      val producerCompletion =
+        Source(1 to totalMessages)
+          .map { msg =>
+            new ProducerRecord(topic, 0, DefaultKey, msg.toString)
+          }
+          .runWith(Producer.plainSink(producerDefaults))
+
+      producerCompletion.futureValue
+
+      // #single-topic
+      val subscription = Subscriptions.topics(topic)
+      val consumer = Consumer.plainSource(consumerDefaults.withGroupId(group), subscription)
+      // #single-topic
+
+      val messages =
+        consumer.log("incoming").takeWhile(_.value().toInt < totalMessages, inclusive = true).runWith(Sink.seq)
+      messages.futureValue.size shouldBe totalMessages
+    }
+
     "consume from the specified partition" in assertAllStagesStopped {
       val topic = createTopic(partitions = 2)
       val totalMessages = 100
@@ -52,7 +75,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
     }
 
     "consume from the specified partition and offset" in assertAllStagesStopped {
-      val topic = createTopic(partitions = 1)
+      val topic = createTopic()
       val totalMessages = 100
       val producerCompletion =
         Source(1 to totalMessages)
@@ -75,7 +98,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
     }
 
     "consume from the specified partition and timestamp" in assertAllStagesStopped {
-      val topic = createTopic(partitions = 1)
+      val topic = createTopic()
       val totalMessages = 100
       val producerCompletion =
         Source(1 to totalMessages)

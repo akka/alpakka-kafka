@@ -12,6 +12,13 @@ Factory methods for all subscriptions can be found in the @scaladoc[Subscription
 
 Subscribes to one or more topics. Partitions will be assigned automatically by the Kafka Client.
 
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #single-topic }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #single-topic }
+
+
 ### Topic Pattern
 
 Subscribes to one or more topics which match the given pattern. Take a look at the @javadoc[`subscribe​(java.util.regex.Pattern pattern,
