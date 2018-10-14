@@ -28,9 +28,11 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
@@ -56,7 +58,8 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   @Test
-  public void mustConsumeFromTheSpecifiedTopic() throws ExecutionException, InterruptedException {
+  public void mustConsumeFromTheSpecifiedSingleTopic()
+      throws ExecutionException, InterruptedException {
     final String topic = createTopic(0, 1, 1);
     final String group = createGroupId(0);
     final Integer totalMessages = 100;
@@ -85,9 +88,49 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   @Test
+  public void mustConsumeFromTheSpecifiedTopicPattern()
+      throws ExecutionException, InterruptedException {
+    final List<String> topics = Arrays.asList(createTopic(1, 1, 1), createTopic(1, 1, 1));
+    final String group = createGroupId(0);
+    final Integer totalMessages = 100;
+    final CompletionStage<Done> producerCompletion =
+        Source.range(1, totalMessages)
+            .mapConcat(
+                msg ->
+                    topics
+                        .stream()
+                        .map(t -> new ProducerRecord<>(t, 0, DefaultKey(), msg.toString()))
+                        .collect(Collectors.toList()))
+            .concat(
+                Source.single(
+                    new ProducerRecord<>(
+                        topics.get(0), 0, DefaultKey(), String.valueOf(totalMessages + 1))))
+            .runWith(Producer.plainSink(producerDefaults()), mat);
+
+    producerCompletion.toCompletableFuture().get();
+
+    // #topic-pattern
+    final String pattern = "topic-1-[0-9]";
+    final AutoSubscription subscription = Subscriptions.topicPattern(pattern);
+    final Source<ConsumerRecord<String, String>, Consumer.Control> consumer =
+        Consumer.plainSource(consumerDefaults().withGroupId(group), subscription);
+    // #topic-pattern
+
+    final Integer receivedMessages =
+        consumer
+            .takeWhile(m -> Integer.valueOf(m.value()) <= totalMessages)
+            .runWith(Sink.seq(), mat)
+            .toCompletableFuture()
+            .get()
+            .size();
+
+    assertEquals(totalMessages * topics.size(), (int) receivedMessages);
+  }
+
+  @Test
   public void mustConsumeFromTheSpecifiedPartition()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(1, 2, 1);
+    final String topic = createTopic(2, 2, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -120,7 +163,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndOffset()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(2, 1, 1);
+    final String topic = createTopic(3, 1, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -147,7 +190,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndTimestamp()
       throws ExecutionException, InterruptedException {
-    final String topic = createTopic(3, 1, 1);
+    final String topic = createTopic(4, 1, 1);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)

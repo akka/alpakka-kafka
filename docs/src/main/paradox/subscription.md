@@ -24,6 +24,13 @@ Java
 Subscribes to one or more topics which match the given pattern. Take a look at the @javadoc[`subscribe​(java.util.regex.Pattern pattern,
 ...)`](org.apache.kafka.clients.consumer.KafkaConsumer) method documentation for more information on topic pattern matching.
 
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #topic-pattern }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #topic-pattern }
+
+
 ## Manual Partition Assignment
 
 ### Partition Assignment

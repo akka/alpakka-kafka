@@ -13,6 +13,7 @@ import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 
 class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
@@ -28,7 +29,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
 
   "subscription with partition assignment" must {
 
-    "consumer from the specified topic" in assertAllStagesStopped {
+    "consume from the specified single topic" in assertAllStagesStopped {
       val topic = createTopic()
       val group = createGroupId()
       val totalMessages = 100
@@ -47,8 +48,33 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
       // #single-topic
 
       val messages =
-        consumer.log("incoming").takeWhile(_.value().toInt < totalMessages, inclusive = true).runWith(Sink.seq)
+        consumer.takeWhile(_.value().toInt < totalMessages, inclusive = true).runWith(Sink.seq)
       messages.futureValue.size shouldBe totalMessages
+    }
+
+    "consume from the specified topic pattern" in assertAllStagesStopped {
+      val topics = immutable.Seq(createTopic(number = 1), createTopic(number = 1))
+      val group = createGroupId()
+      val totalMessages = 100
+      val producerCompletion =
+        Source(1 to totalMessages)
+          .mapConcat { msg =>
+            topics.map(topic => new ProducerRecord(topic, 0, DefaultKey, msg.toString))
+          }
+          .concat(Source.single(new ProducerRecord(topics.head, 0, DefaultKey, (totalMessages + 1).toString)))
+          .runWith(Producer.plainSink(producerDefaults))
+
+      producerCompletion.futureValue
+
+      // #topic-pattern
+      val pattern = "topic-1-[0-9]"
+      val subscription = Subscriptions.topicPattern(pattern)
+      val consumer = Consumer.plainSource(consumerDefaults.withGroupId(group), subscription)
+      // #topic-pattern
+
+      val messages =
+        consumer.takeWhile(_.value().toInt <= totalMessages).runWith(Sink.seq)
+      messages.futureValue.size shouldBe totalMessages * topics.size
     }
 
     "consume from the specified partition" in assertAllStagesStopped {
@@ -70,7 +96,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
       val consumer = Consumer.plainSource(consumerDefaults, subscription)
       // #assingment-single-partition
 
-      val messages = consumer.take(totalMessages / 2).map(_.value().toInt).runWith(Sink.seq)
+      val messages = consumer.take(totalMessages.toLong / 2).map(_.value().toInt).runWith(Sink.seq)
       messages.futureValue.map(_ % 2 shouldBe 0)
     }
 
@@ -88,12 +114,12 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
 
       // #assingment-single-partition-offset
       val partition = 0
-      val offset: Long = totalMessages / 2
+      val offset: Long = totalMessages.toLong / 2
       val subscription = Subscriptions.assignmentWithOffset(new TopicPartition(topic, partition) -> offset)
       val consumer = Consumer.plainSource(consumerDefaults, subscription)
       // #assingment-single-partition-offset
 
-      val messages = consumer.take(totalMessages / 2).map(_.offset()).runWith(Sink.seq)
+      val messages = consumer.take(totalMessages.toLong / 2).map(_.offset()).runWith(Sink.seq)
       messages.futureValue.map(_ - offset).zipWithIndex.map { case (offs, idx) => offs - idx }.sum shouldBe 0
     }
 
