@@ -5,7 +5,10 @@
 
 package akka.kafka.javadsl
 
-import net.manub.embeddedkafka.schemaregistry.{EmbeddedKafkaConfigWithSchemaRegistryImpl, EmbeddedKafkaWithSchemaRegistry}
+import net.manub.embeddedkafka.schemaregistry.{
+  EmbeddedKafkaConfigWithSchemaRegistryImpl,
+  EmbeddedKafkaWithSchemaRegistry
+}
 
 abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaTest {}
 
