@@ -31,6 +31,11 @@
     -->
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.jboss" level="WARN"/>
+    <logger name="org.glassfish" level="WARN"/>
+    <logger name="io.confluent" level="WARN"/>
 
     <root level="DEBUG">
         <!--appender-ref ref="STDOUT" /-->

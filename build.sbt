@@ -8,7 +8,6 @@ val kafkaVersion = "2.0.0"
 val kafkaVersionForDocs = "20"
 val scalatestVersion = "3.0.5"
 val slf4jVersion = "1.7.25"
-
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
 val coreDependencies = Seq(
@@ -23,7 +22,13 @@ val testkitDependencies = Seq(
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 
+val confluentAvroSerializerVersion = "5.0.0"
+
 val testDependencies = Seq(
+  "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
+  // See https://github.com/sbt/sbt/issues/3618
+  "javax.ws.rs" % "javax.ws.rs-api" % "2.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
+  "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.2" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test,
@@ -31,6 +36,8 @@ val testDependencies = Seq(
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
+  // Schema registry uses Glassfish which uses java.util.logging
+  "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
   "org.mockito" % "mockito-core" % "2.22.0" % Test
 )
 
@@ -176,6 +183,7 @@ lazy val tests = project
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= testDependencies ++ integrationTestDependencies,
+    resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
@@ -211,6 +219,7 @@ lazy val docs = project
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
+      "confluent.version" -> confluentAvroSerializerVersion,
       "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
       "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
