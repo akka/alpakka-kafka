@@ -6,26 +6,22 @@
 package akka.kafka.scaladsl
 
 import java.util
-import java.util.{Arrays, Properties}
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.kafka._
+import akka.kafka.internal.KafkaTestKit
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
-import kafka.admin.{AdminClient => OldAdminClient}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, DescribeClusterResult, NewTopic}
-import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.admin.{DescribeClusterResult, NewTopic}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
@@ -56,7 +52,8 @@ trait EmbeddedKafkaLike extends KafkaSpec {
 }
 
 abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
-    extends TestKit(actorSystem) {
+    extends TestKit(actorSystem)
+    with KafkaTestKit {
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 
@@ -68,29 +65,10 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
 
-  def bootstrapServers: String
-
   var testProducer: KafkaProducer[String, String] = _
 
-  val DefaultKey = "key"
   val InitialMsg =
     "initial msg in topic, required to create the topic before any consumer subscribes to it"
-
-  val producerDefaults =
-    ProducerSettings(system, new StringSerializer, new StringSerializer)
-      .withBootstrapServers(bootstrapServers)
-
-  val consumerDefaults = ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
-    .withBootstrapServers(bootstrapServers)
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-    .withWakeupTimeout(10 seconds)
-    .withMaxWakeups(10)
-
-  val adminDefaults = {
-    val config = new Properties()
-    config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
-    config
-  }
 
   def setUp(): Unit =
     testProducer = producerDefaults.createKafkaProducer()
@@ -118,29 +96,10 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     sleep(sleepAfterProduce, "to be sure producing has happened")
   }
 
-  private val topicCounter = new AtomicInteger()
-
-  def createTopicName(number: Int) = s"topic-$number-${topicCounter.incrementAndGet()}"
-
-  def createGroupId(number: Int = 0) = s"group-$number-${topicCounter.incrementAndGet()}"
-
-  def createTransactionalId(number: Int = 0) = s"transactionalId-$number-${topicCounter.incrementAndGet()}"
-
   val partition0 = 0
 
   def givenInitializedTopic(topic: String): Unit =
     testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
-
-  def adminClient(): AdminClient =
-    AdminClient.create(adminDefaults)
-
-  /**
-   * Get an old admin client which is deprecated. However only this client allows access
-   * to consumer group summaries
-   *
-   */
-  def oldAdminClient(): OldAdminClient =
-    OldAdminClient.create(adminDefaults)
 
   /**
    * Periodically checks if a given predicate on cluster state holds.
@@ -207,22 +166,6 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       }
 
     check(maxTries)
-  }
-
-  /**
-   * Create a topic with given partinion number and replication factor.
-   *
-   * This method will block and return only when the topic has been successfully created.
-   */
-  def createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
-    val topicName = createTopicName(number)
-
-    val configs = new util.HashMap[String, String]()
-    val createResult = adminClient().createTopics(
-      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
-    )
-    createResult.all().get(10, TimeUnit.SECONDS)
-    topicName
   }
 
   def createTopics(topics: Int*): immutable.Seq[String] = {

@@ -26,7 +26,7 @@ import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-object ConsumerTest {
+object ConsumerSpec {
   type K = String
   type V = String
   type Record = ConsumerRecord[K, V]
@@ -45,14 +45,14 @@ object ConsumerTest {
   def toRecord(msg: CommittableMessage[K, V]): ConsumerRecord[K, V] = msg.record
 }
 
-class ConsumerTest(_system: ActorSystem)
+class ConsumerSpec(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with SettingsCreator {
 
-  import ConsumerTest._
+  import ConsumerSpec._
 
   def this() = this(ActorSystem())
 
