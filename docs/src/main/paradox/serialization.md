@@ -56,7 +56,7 @@ Gradle
 To create serializers that use the Schema Registry, its URL needs to be provided as configuration `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the serializer and that serializer is used in the `ProducerSettings`.
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AvroSerializationSpec.scala) { #imports #serializer }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #serializer }
 
 
 
@@ -65,5 +65,5 @@ Scala
 To create deserializers that use the Schema Registry, its URL needs to be provided as configuration  `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the deserializer and that deserializer is used in the `ConsumerSettings`.
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AvroSerializationSpec.scala) { #imports #de-serializer }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #de-serializer }
 
