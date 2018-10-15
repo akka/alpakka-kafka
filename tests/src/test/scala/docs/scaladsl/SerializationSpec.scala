@@ -5,13 +5,16 @@
 
 package docs.scaladsl
 
+import java.nio.charset.StandardCharsets
+
 import akka.Done
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.kafka._
 import akka.kafka.internal.TestFrameworkInterface
 import akka.kafka.scaladsl._
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.avro.util.Utf8
+import org.apache.kafka.common.TopicPartition
 // #imports
 import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
 import org.apache.avro.specific.SpecificRecord
@@ -34,8 +37,9 @@ import org.slf4j.bridge.SLF4JBridgeHandler
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
+import scala.concurrent.duration._
 
-class AvroSerializationSpec
+class SerializationSpec
     extends KafkaSpec(KafkaPorts.ScalaAvroSerialization)
     with FlatSpecLike
     with TestFrameworkInterface.Scalatest
