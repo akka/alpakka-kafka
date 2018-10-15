@@ -58,6 +58,9 @@ To create serializers that use the Schema Registry, its URL needs to be provided
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #serializer }
 
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #imports #serializer }
+
 
 
 ## Consumer
@@ -66,4 +69,7 @@ To create deserializers that use the Schema Registry, its URL needs to be provid
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #de-serializer }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #imports #de-serializer }
 

@@ -571,8 +571,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
     val involvedStageActors = requests.keys
     log.debug("sending failure to {}", involvedStageActors.mkString(","))
     involvedStageActors.foreach { stageActorRef =>
-        stageActorRef ! Failure(exception)
-        requests -= stageActorRef
+      stageActorRef ! Failure(exception)
+      requests -= stageActorRef
     }
   }
 
