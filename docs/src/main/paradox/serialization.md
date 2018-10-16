@@ -5,7 +5,7 @@ The general recommendation for de-/serialization of messages is to use byte arra
 
 ## Jackson JSON
 
-Serializing data to JSON text with Jackson in a `map` operator will turn the object instance into a String which is used as value in the `ProducerRecord`.
+Serializing data to JSON text with [Jackson](https://github.com/FasterXML/jackson) in a `map` operator will turn the object instance into a String which is used as value in the `ProducerRecord`.
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #jackson-imports #jackson-serializer }
@@ -17,6 +17,16 @@ This example uses resuming to react on data which can't be parsed correctly and 
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #jackson-imports #jackson-deserializer }
+
+
+## Spray JSON
+
+To de-serialize a JSON String with [Spray JSON](https://github.com/spray/spray-json) in a `map` operator, extract the String and use the Spray-provided implicits `parseJson` and `convertTo` in a `map` operator. 
+
+This example uses resuming to react on data which can't be parsed correctly and ignores faulty elements.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #spray-imports #spray-deser }
 
 
 ## Avro with Schema Registry

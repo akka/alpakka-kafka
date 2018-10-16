@@ -12,6 +12,7 @@ import akka.kafka._
 import akka.kafka.internal.TestFrameworkInterface
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
+import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -41,8 +42,20 @@ import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 
+// #spray-imports
 import spray.json._
-import SprayProtocol._
+// #spray-imports
+
+// #spray-deser
+
+final case class SampleData(name: String, value: Int)
+
+object SampleDataSprayProtocol extends DefaultJsonProtocol {
+  implicit val sampleDataProtocol: RootJsonFormat[SampleData] = jsonFormat2(SampleData)
+}
+
+import SampleDataSprayProtocol._
+// #spray-deser
 
 class SerializationSpec
     extends KafkaSpec(KafkaPorts.ScalaAvroSerialization)
@@ -82,33 +95,44 @@ class SerializationSpec
     super.cleanUp()
   }
 
-  "Deserialization in map" should "be documented" ignore assertAllStagesStopped {
+  "Deserialization in map" should "be documented" in assertAllStagesStopped {
     val group = createGroupId()
     val topic = createTopic()
 
-    val jsonString = SampleData("Viktor", 54).toJson.compactPrint
+    val sample = SampleData("Viktor", 54)
+    val samples = List(sample, sample, sample)
 
     awaitProduce(
-      produceString(topic, List(jsonString))
+      produceString(topic, List("{faulty JSON data") ++ samples.map(_.toJson.compactPrint))
     )
 
     val consumerSettings = consumerDefaults.withGroupId(group)
 
+    // #spray-deser
+
+    val resumeOnParsingException = ActorAttributes.withSupervisionStrategy {
+      case _: spray.json.JsonParser.ParsingException => Supervision.Resume
+      case _ => Supervision.stop
+    }
+
     val consumer = Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic))
       .map { consumerRecord =>
-        val s = consumerRecord.value()
-        val sampleData: SampleData = s.toJson.convertTo[SampleData]
+        val value = consumerRecord.value()
+        val sampleData = value.parseJson.convertTo[SampleData]
         sampleData
       }
-      .take(1L)
+      .withAttributes(resumeOnParsingException)
+      // #spray-deser
+      .take(samples.size.toLong)
+      // #spray-deser
       .toMat(Sink.seq)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
+    // #spray-deser
 
     consumer.isShutdown.futureValue should be(Done)
-    consumer.drainAndShutdown().futureValue should be("fsd")
-
+    consumer.drainAndShutdown().futureValue should be(samples)
   }
 
   "With SchemaRegistry" should "Avro serialization/deserialization work" in assertAllStagesStopped {
