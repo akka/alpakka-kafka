@@ -7,7 +7,6 @@ package docs.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
-import akka.japi.Pair;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaPorts;
 import akka.kafka.ProducerSettings;
@@ -15,16 +14,13 @@ import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.EmbeddedKafkaWithSchemaRegistryTest;
 import akka.kafka.javadsl.Producer;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
+import akka.stream.*;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 // #jackson-imports
-import akka.japi.pf.PFBuilder;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -50,16 +46,12 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-import scala.PartialFunction;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
@@ -74,6 +66,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   private static final int zooKeeperPort = KafkaPorts.SerializationTest() + 1;
   private static final int schemaRegistryPort = KafkaPorts.SerializationTest() + 2;
   private static final String schemaRegistryUrl = "http://localhost:" + schemaRegistryPort;
+  private static final Executor ec = Executors.newSingleThreadExecutor();
 
   @Override
   public ActorSystem system() {
@@ -94,9 +87,9 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   }
 
   @Test
-  public void jacksonDeSerWithRecover() throws Exception {
-    final String topic = createTopic(0, 1, 1);
-    final String group = createGroupId(0);
+  public void jacksonDeSer() throws Exception {
+    final String topic = createTopic(nextNumber(), 1, 1);
+    final String group = createGroupId(nextNumber());
 
     ConsumerSettings<String, String> consumerSettings = consumerDefaults().withGroupId(group);
 
@@ -125,17 +118,24 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
     // #jackson-deserializer
     final ObjectReader sampleDataReader = mapper.readerFor(SampleData.class);
 
-    PartialFunction<Throwable, SampleData> handleParseException =
-        new PFBuilder().match(JsonParseException.class, e -> new SampleData("parse error", -1)).build();
+    final Attributes resumeOnParseException =
+        ActorAttributes.withSupervisionStrategy(
+            exception -> {
+              if (exception instanceof JsonParseException) {
+                return Supervision.resume();
+              } else {
+                return Supervision.stop();
+              }
+            });
 
     Consumer.DrainingControl<List<SampleData>> control =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
+            .map(ConsumerRecord::value)
+            .<SampleData>map(sampleDataReader::readValue)
+            .withAttributes(resumeOnParseException) // drop faulty elements
             // #jackson-deserializer
             .take(samples.size())
             // #jackson-deserializer
-            .map(ConsumerRecord::value)
-            .<SampleData>map(sampleDataReader::readValue)
-            .recover(handleParseException)
             .toMat(Sink.seq(), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(mat);
@@ -150,16 +150,16 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
         control.isShutdown().toCompletableFuture().get(4, TimeUnit.SECONDS),
         is(Done.getInstance()));
 
-    final Executor ec = Executors.newSingleThreadExecutor();
-    assertThat(
-        control.drainAndShutdown(ec).toCompletableFuture().get(1, TimeUnit.SECONDS).size() + 1,
-        is(samples.size()));
+    List<SampleData> result =
+        control.drainAndShutdown(ec).toCompletableFuture().get(1, TimeUnit.SECONDS);
+    assertThat(result, is(samples));
+    assertThat(result.size(), is(samples.size()));
   }
 
   @Test
   public void avroDeSerMustWorkWithSchemaRegistry() throws Exception {
-    final String topic = createTopic(0, 1, 1);
-    final String group = createGroupId(0);
+    final String topic = createTopic(nextNumber(), 1, 1);
+    final String group = createGroupId(nextNumber());
 
     // #serializer #de-serializer
 
@@ -198,24 +198,23 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
     // #de-serializer
 
-    Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, Object>>>>
-        controlCompletionStagePair =
-            Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
-                .take(samples.size())
-                .toMat(Sink.seq(), Keep.both())
-                .run(mat);
+    Consumer.DrainingControl<List<ConsumerRecord<String, Object>>> controlCompletionStagePair =
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
+            .take(samples.size())
+            .toMat(Sink.seq(), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(mat);
     // #de-serializer
 
     assertThat(
-        controlCompletionStagePair
-            .first()
-            .isShutdown()
-            .toCompletableFuture()
-            .get(4, TimeUnit.SECONDS),
+        controlCompletionStagePair.isShutdown().toCompletableFuture().get(4, TimeUnit.SECONDS),
         is(Done.getInstance()));
-    assertThat(
-        controlCompletionStagePair.second().toCompletableFuture().get(1, TimeUnit.SECONDS).size(),
-        is(samples.size()));
+    List<ConsumerRecord<String, Object>> result =
+        controlCompletionStagePair
+            .drainAndShutdown(ec)
+            .toCompletableFuture()
+            .get(1, TimeUnit.SECONDS);
+    assertThat(result.size(), is(samples.size()));
   }
 
   @After

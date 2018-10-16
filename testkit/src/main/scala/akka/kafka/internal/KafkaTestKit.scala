@@ -25,8 +25,6 @@ trait KafkaTestKit {
 
   val DefaultKey = "key"
 
-  private val topicCounter = new AtomicInteger()
-
   val producerDefaults =
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
@@ -37,11 +35,13 @@ trait KafkaTestKit {
     .withWakeupTimeout(10.seconds)
     .withMaxWakeups(10)
 
-  def createTopicName(number: Int) = s"topic-$number-${topicCounter.incrementAndGet()}"
+  def nextNumber(): Int = KafkaTestKit.topicCounter.incrementAndGet()
 
-  def createGroupId(number: Int = 0) = s"group-$number-${topicCounter.incrementAndGet()}"
+  def createTopicName(number: Int) = s"topic-$number-${nextNumber}"
 
-  def createTransactionalId(number: Int = 0) = s"transactionalId-$number-${topicCounter.incrementAndGet()}"
+  def createGroupId(number: Int = 0) = s"group-$number-${nextNumber}"
+
+  def createTransactionalId(number: Int = 0) = s"transactionalId-$number-${nextNumber}"
 
   def system: ActorSystem
   def bootstrapServers: String
@@ -64,13 +64,12 @@ trait KafkaTestKit {
     OldAdminClient.create(adminDefaults)
 
   /**
-   * Create a topic with given partinion number and replication factor.
+   * Create a topic with given partition number and replication factor.
    *
    * This method will block and return only when the topic has been successfully created.
    */
   def createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
     val topicName = createTopicName(number)
-
     val configs = new util.HashMap[String, String]()
     val createResult = adminClient().createTopics(
       Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
@@ -79,8 +78,17 @@ trait KafkaTestKit {
     topicName
   }
 
-  def sleepSeconds(s: Int, msg: String): Unit = {
-    log.debug(s"sleeping ${s}s $msg")
-    Thread.sleep(s * 1000)
+  def sleepMillis(ms: Int, msg: String): Unit = {
+    log.debug(s"sleeping $ms ms $msg")
+    Thread.sleep(ms)
   }
+
+  def sleepSeconds(s: Int, msg: String): Unit = {
+    log.debug(s"sleeping $s s $msg")
+    Thread.sleep(s * 1000L)
+  }
+}
+
+object KafkaTestKit {
+  val topicCounter = new AtomicInteger()
 }

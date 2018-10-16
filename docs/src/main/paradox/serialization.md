@@ -1,6 +1,6 @@
 # Serialization
 
-The general recommendation for de-/serialization of messages is to use byte arrays as value and do the de-/serialization in a `map` operation in the Akka Stream instead of implementing it directly in Kafka de-/serializers.
+The general recommendation for de-/serialization of messages is to use byte arrays (or Strings) as value and do the de-/serialization in a `map` operation in the Akka Stream instead of implementing it directly in Kafka de-/serializers. When deserialization is handled explicitly within the Akka Stream, it is easier to implement the desired error handling strategy as the examples below show.
 
 
 ## Jackson JSON
@@ -13,9 +13,10 @@ Java
 
 To de-serialize a JSON String with Jackson in a `map` operator, extract the String and apply the Jackson object reader in a `map` operator. Amend the `map` operator with the extracted type as the object reader is not generic.
 
+This example uses resuming to react on data which can't be parsed correctly and ignores faulty elements.
+
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #jackson-imports #jackson-deserializer }
-
 
 
 ## Avro with Schema Registry
