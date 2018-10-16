@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets
 import akka.Done
 import akka.kafka._
 import akka.kafka.internal.TestFrameworkInterface
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -39,6 +40,9 @@ import org.slf4j.bridge.SLF4JBridgeHandler
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
+
+import spray.json._
+import SprayProtocol._
 
 class SerializationSpec
     extends KafkaSpec(KafkaPorts.ScalaAvroSerialization)
@@ -76,6 +80,35 @@ class SerializationSpec
   override def cleanUp(): Unit = {
     EmbeddedKafkaWithSchemaRegistry.stop()
     super.cleanUp()
+  }
+
+  "Deserialization in map" should "be documented" ignore assertAllStagesStopped {
+    val group = createGroupId()
+    val topic = createTopic()
+
+    val jsonString = SampleData("Viktor", 54).toJson.compactPrint
+
+    awaitProduce(
+      produceString(topic, List(jsonString))
+    )
+
+    val consumerSettings = consumerDefaults.withGroupId(group)
+
+    val consumer = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .map { consumerRecord =>
+        val s = consumerRecord.value()
+        val sampleData: SampleData = s.toJson.convertTo[SampleData]
+        sampleData
+      }
+      .take(1L)
+      .toMat(Sink.seq)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    consumer.isShutdown.futureValue should be(Done)
+    consumer.drainAndShutdown().futureValue should be("fsd")
+
   }
 
   "With SchemaRegistry" should "Avro serialization/deserialization work" in assertAllStagesStopped {
