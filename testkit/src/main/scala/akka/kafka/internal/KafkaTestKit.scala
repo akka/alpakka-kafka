@@ -15,10 +15,14 @@ import kafka.admin.{AdminClient => OldAdminClient}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration._
 
 trait KafkaTestKit {
+
+  def log: Logger
+
   val DefaultKey = "key"
 
   private val topicCounter = new AtomicInteger()
@@ -73,5 +77,10 @@ trait KafkaTestKit {
     )
     createResult.all().get(10, TimeUnit.SECONDS)
     topicName
+  }
+
+  def sleepSeconds(s: Int, msg: String): Unit = {
+    log.debug(s"sleeping ${s}s $msg")
+    Thread.sleep(s * 1000)
   }
 }

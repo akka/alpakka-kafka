@@ -31,6 +31,8 @@ val testDependencies = Seq(
   "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "org.reactivestreams" % "reactive-streams-tck" % "1.0.2" % Test,
+  "io.spray" %%  "spray-json" % "1.3.4" % Test,
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.6" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
