@@ -15,7 +15,6 @@ import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -36,7 +35,7 @@ abstract class ProducerExample {
       ProducerSettings.create(config, new StringSerializer(), new StringSerializer())
           .withBootstrapServers("localhost:9092");
   // #settings
-  final KafkaProducer<String, String> kafkaProducer = producerSettings.createKafkaProducer();
+  final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer = producerSettings.createKafkaProducer();
   // #producer
 
   protected void terminateWhenDone(CompletionStage<Done> result) {
