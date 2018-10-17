@@ -8,7 +8,7 @@ package akka.kafka
 import java.util.Optional
 
 import akka.actor.ActorSystem
-import akka.annotation.{DoNotInherit, InternalApi}
+import akka.annotation.InternalApi
 import akka.kafka.internal._
 import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
