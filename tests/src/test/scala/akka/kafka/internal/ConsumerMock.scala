@@ -16,9 +16,12 @@ import org.mockito.{ArgumentMatchers, Mockito}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
+import scala.concurrent.duration._
 
 object ConsumerMock {
   type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
+
+  def closeTimeout = 500.millis
 
   def notImplementedHandler: CommitHandler = (_, _) => ???
 
@@ -119,7 +122,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
     }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)) =
-    verify(mock, mode).close(SettingsCreator.closeTimeout.asJava)
+    verify(mock, mode).close(ConsumerMock.closeTimeout.asJava)
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
     verify(mock, mode).poll(ArgumentMatchers.any[Long])

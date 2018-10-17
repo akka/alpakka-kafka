@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.Subscriptions
+import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream._
@@ -17,6 +17,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -49,8 +50,7 @@ class CommittingSpec(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll
-    with SettingsCreator {
+    with BeforeAndAfterAll {
 
   import CommittingSpec._
 
@@ -79,13 +79,27 @@ class CommittingSpec(_system: ActorSystem)
   def createCommittableSource(mock: Consumer[K, V],
                               groupId: String = "group1",
                               topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.committableSource(consumerSettings(mock, groupId), Subscriptions.topics(topics))
+    Consumer.committableSource(
+      ConsumerSettings
+        .create(system, new StringDeserializer, new StringDeserializer)
+        .withGroupId(groupId)
+        .withConsumerFactoryForSpecialHandling(_ => mock),
+      Subscriptions.topics(topics)
+    )
 
   def createSourceWithMetadata(mock: Consumer[K, V],
                                metadataFromRecord: ConsumerRecord[K, V] => String,
                                groupId: String = "group1",
                                topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.commitWithMetadataSource(consumerSettings(mock, groupId), Subscriptions.topics(topics), metadataFromRecord)
+    Consumer.commitWithMetadataSource(
+      ConsumerSettings
+        .create(system, new StringDeserializer, new StringDeserializer)
+        .withGroupId(groupId)
+        .withCloseTimeout(ConsumerMock.closeTimeout)
+        .withConsumerFactoryForSpecialHandling(_ => mock),
+      Subscriptions.topics(topics),
+      metadataFromRecord
+    )
 
   it should "commit metadata in message" in assertAllStagesStopped {
     val commitLog = new ConsumerMock.LogHandler()
