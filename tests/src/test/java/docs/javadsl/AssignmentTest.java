@@ -110,7 +110,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
     producerCompletion.toCompletableFuture().get();
 
     // #topic-pattern
-    final String pattern = "topic-1-[0-9]";
+    final String pattern = "topic-1-[0-9]+";
     final AutoSubscription subscription = Subscriptions.topicPattern(pattern);
     final Source<ConsumerRecord<String, String>, Consumer.Control> consumer =
         Consumer.plainSource(consumerDefaults().withGroupId(group), subscription);
