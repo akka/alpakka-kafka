@@ -184,7 +184,7 @@ object ConsumerSettings {
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  */
-@DoNotInherit class ConsumerSettings[K, V] private (
+class ConsumerSettings[K, V] private (
     val properties: Map[String, String],
     val keyDeserializerOpt: Option[Deserializer[K]],
     val valueDeserializerOpt: Option[Deserializer[V]],
