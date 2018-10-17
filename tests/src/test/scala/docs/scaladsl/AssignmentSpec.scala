@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 
 class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
 
-  implicit val patience = PatienceConfig(15.seconds, 500.millis)
+  implicit val patience = PatienceConfig(15.seconds, 1.second)
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
@@ -67,7 +67,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
       producerCompletion.futureValue
 
       // #topic-pattern
-      val pattern = "topic-1-[0-9]"
+      val pattern = "topic-1-[0-9]+"
       val subscription = Subscriptions.topicPattern(pattern)
       val consumer = Consumer.plainSource(consumerDefaults.withGroupId(group), subscription)
       // #topic-pattern
