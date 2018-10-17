@@ -29,7 +29,6 @@ import scala.collection.immutable
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 trait EmbeddedKafkaLike extends KafkaSpec {

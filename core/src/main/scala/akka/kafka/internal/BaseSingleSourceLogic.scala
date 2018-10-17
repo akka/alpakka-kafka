@@ -5,6 +5,7 @@
 
 package akka.kafka.internal
 
+import akka.actor.Status.Failure
 import akka.actor.{ActorRef, Terminated}
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
@@ -51,6 +52,8 @@ private[kafka] abstract class BaseSingleSourceLogic[K, V, Msg](
           buffer = msg.messages
         }
         pump()
+      case (_, Failure(e)) =>
+        failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed())
     }

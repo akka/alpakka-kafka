@@ -10,6 +10,7 @@ import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
 
 import akka.Done
+import akka.actor.Status.Failure
 import akka.actor.{
   Actor,
   ActorLogging,
@@ -241,10 +242,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
     case Stop =>
       if (commitsInProgress == 0) {
-        log.debug("Stopping")
+        log.debug("Received Stop from {}, stopping", sender())
         context.stop(self)
       } else {
-        log.debug("Received Stop, waiting for commitsInProgress={}", commitsInProgress)
+        log.debug("Received Stop from {}, waiting for commitsInProgress={}", sender(), commitsInProgress)
         stopInProgress = true
         context.become(stopping)
       }
@@ -406,8 +407,10 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
             }
           }
           throw new NoPollResult
+        case e: org.apache.kafka.common.errors.SerializationException =>
+          throw e
         case NonFatal(e) =>
-          log.error(e, "Exception when polling from consumer")
+          log.error(e, "Exception when polling from consumer: {}", e.toString)
           context.stop(self)
           throw new NoPollResult
       }
@@ -444,6 +447,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
         processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
       }
     } catch {
+      case e: org.apache.kafka.common.errors.SerializationException =>
+        processErrors(e)
       case _: NoPollResult => // already handled, just proceed
     } finally wakeupTask.cancel()
 
@@ -547,7 +552,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
       //send messages to actors
       requests.foreach {
-        case (ref, req) =>
+        case (stageActorRef, req) =>
           //gather all messages for ref
           val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
             case (acc, tp) =>
@@ -556,11 +561,20 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
               else acc ++ tpMessages
           }
           if (messages.nonEmpty) {
-            ref ! Messages(req.requestId, messages)
-            requests -= ref
+            stageActorRef ! Messages(req.requestId, messages)
+            requests -= stageActorRef
           }
       }
     }
+
+  private def processErrors(exception: Exception): Unit = {
+    val involvedStageActors = requests.keys
+    log.debug("sending failure to {}", involvedStageActors.mkString(","))
+    involvedStageActors.foreach { stageActorRef =>
+      stageActorRef ! Failure(exception)
+      requests -= stageActorRef
+    }
+  }
 
   private def handleMetadataRequest(req: Metadata.Request): Metadata.Response = req match {
     case Metadata.ListTopics =>

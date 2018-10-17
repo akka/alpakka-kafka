@@ -6,6 +6,7 @@
 package akka.kafka.internal
 
 import akka.NotUsed
+import akka.actor.Status
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
@@ -309,6 +310,8 @@ private final class SubSourceStage[K, V, Msg](
               buffer = msg.messages
             }
             pump()
+          case (_, Status.Failure(e)) =>
+            failStage(e)
           case (_, Terminated(ref)) if ref == consumerActor =>
             failStage(new ConsumerFailed)
         }

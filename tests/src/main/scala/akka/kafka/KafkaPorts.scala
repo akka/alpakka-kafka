@@ -27,5 +27,7 @@ object KafkaPorts {
   val PartitionedSourcesSpec = 9122
   val AssignmentSpec = 9132
   val AssignmentTest = 9142
+  val ScalaAvroSerialization = 9152
+  val SerializationTest = 9162
 
 }
