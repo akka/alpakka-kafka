@@ -417,20 +417,25 @@ class ConsumerSettings[K, V] private (
 
   /**
    * If set to a finite duration, the consumer will re-send the last committed offsets periodically
-   * for all assigned partitions. @see https://issues.apache.org/jira/browse/KAFKA-4682
+   * for all assigned partitions.
+   *
+   * @see https://issues.apache.org/jira/browse/KAFKA-4682
    */
   def withCommitRefreshInterval(commitRefreshInterval: Duration): ConsumerSettings[K, V] =
     copy(commitRefreshInterval = commitRefreshInterval)
 
-// TODO
-//  /**
-//   * Java API:
-//   * If set to a finite duration, the consumer will re-send the last committed offsets periodically
-//   * for all assigned partitions. @see https://issues.apache.org/jira/browse/KAFKA-4682
-//   */
-//  def withCommitRefreshInterval(commitRefreshInterval: Duration): ConsumerSettings[K, V] =
-//    copy(commitRefreshInterval = commitRefreshInterval)
-//
+  /**
+   * Java API:
+   * If set to a finite duration, the consumer will re-send the last committed offsets periodically
+   * for all assigned partitions. @see https://issues.apache.org/jira/browse/KAFKA-4682
+   * Set to [[java.time.Duration.ZERO]] to switch it off.
+   *
+   * @see https://issues.apache.org/jira/browse/KAFKA-4682
+   */
+  def withCommitRefreshInterval(commitRefreshInterval: java.time.Duration): ConsumerSettings[K, V] =
+    if (commitRefreshInterval.isZero) copy(commitRefreshInterval = Duration.Inf)
+    else copy(commitRefreshInterval = commitRefreshInterval.asScala)
+
   /**
    * If enabled, log stack traces before waking up the KafkaConsumer to give
    * some indication why the KafkaConsumer is not honouring the `poll-timeout`.
