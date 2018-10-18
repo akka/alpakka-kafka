@@ -347,6 +347,20 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       res.futureValue should be((1 to 5).map(_.toString))
     }
 
+    "expose missing groupId as error" in assertAllStagesStopped {
+      val topic1 = createTopicName(1)
+
+      val control =
+        Consumer
+          .committableSource(consumerDefaults, Subscriptions.topics(topic1))
+          .toMat(Sink.seq)(Keep.both)
+          .mapMaterializedValue(DrainingControl.apply)
+          .run()
+
+      control.isShutdown.futureValue
+      control.drainAndShutdown().failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]
+    }
+
     "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
       val topic1 = createTopicName(1)
       val group1 = createGroupId(1)

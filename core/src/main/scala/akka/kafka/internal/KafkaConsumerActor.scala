@@ -88,7 +88,7 @@ object KafkaConsumerActor {
     def nextNumber(): Int =
       number.incrementAndGet()
 
-    private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
+    private[KafkaConsumerActor] object WakeupHandled extends RuntimeException with NoStackTrace
   }
 
   case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
@@ -414,13 +414,7 @@ class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettin
               reconcileAssignments(currentAssignmentsJava.asScala.toSet, newAssignments.toSet)
             }
           }
-          throw new NoPollResult
-        case e: org.apache.kafka.common.errors.SerializationException =>
-          throw e
-        case NonFatal(e) =>
-          log.error(e, "Exception when polling from consumer: {}", e.toString)
-          context.stop(self)
-          throw new NoPollResult
+          throw WakeupHandled
       }
 
     try {
@@ -455,9 +449,13 @@ class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettin
         processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
       }
     } catch {
+      case WakeupHandled => // already handled, just proceed
       case e: org.apache.kafka.common.errors.SerializationException =>
         processErrors(e)
-      case _: NoPollResult => // already handled, just proceed
+      case NonFatal(e) =>
+        processErrors(e)
+        log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
+        context.stop(self)
     } finally wakeupTask.cancel()
 
     if (stopInProgress && commitsInProgress == 0) {
@@ -575,8 +573,8 @@ class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettin
       }
     }
 
-  private def processErrors(exception: Exception): Unit = {
-    val involvedStageActors = requests.keys
+  private def processErrors(exception: Throwable): Unit = {
+    val involvedStageActors = (requests.keys ++ owner).toSet
     log.debug("sending failure to {}", involvedStageActors.mkString(","))
     involvedStageActors.foreach { stageActorRef =>
       stageActorRef ! Failure(exception)
