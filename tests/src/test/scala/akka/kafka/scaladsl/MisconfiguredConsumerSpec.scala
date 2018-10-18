@@ -11,6 +11,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
@@ -36,6 +37,16 @@ class MisconfiguredConsumerSpec
       val result = Consumer
         .plainSource(consumerSettings, Subscriptions.topics("topic"))
         .runWith(Sink.head)
+
+      result.failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
+    }
+
+    "be signalled to the stream by single sources with external offset" in assertAllStagesStopped {
+      val consumerSettings =
+        ConsumerSettings(system, new StringDeserializer, new StringDeserializer).withGroupId("group")
+      val result = Consumer
+        .plainSource(consumerSettings, Subscriptions.assignmentWithOffset(new TopicPartition("topic", 0) -> 3123L))
+        .runWith(Sink.ignore)
 
       result.failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
     }
