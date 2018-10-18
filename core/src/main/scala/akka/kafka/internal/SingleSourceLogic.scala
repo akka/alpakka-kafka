@@ -73,7 +73,8 @@ private[kafka] abstract class SingleSourceLogic[K, V, Msg](
   final def createConsumerActor(): ActorRef = {
     val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
     val actor =
-      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), s"kafka-consumer-$actorNumber")
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
+                                        s"kafka-consumer-$actorNumber")
     consumerPromise.success(actor)
     actor
   }

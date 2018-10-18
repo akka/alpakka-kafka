@@ -5,7 +5,7 @@
 
 package akka.kafka
 
-import akka.actor.{NoSerializationVerificationNeeded, Props}
+import akka.actor.{ActorRef, NoSerializationVerificationNeeded, Props}
 import akka.kafka.internal.{KafkaConsumerActor => InternalKafkaConsumerActor}
 
 object KafkaConsumerActor {
@@ -23,7 +23,17 @@ object KafkaConsumerActor {
 
   case class StoppingException() extends RuntimeException("Kafka consumer is stopping")
 
+  /**
+   * Creates Props for the Kafka Consumer Actor.
+   */
   def props[K, V](settings: ConsumerSettings[K, V]): Props =
-    Props(new InternalKafkaConsumerActor(settings)).withDispatcher(settings.dispatcher)
+    Props(new InternalKafkaConsumerActor(None, settings)).withDispatcher(settings.dispatcher)
 
+  /**
+   * Creates Props for the Kafka Consumer Actor with a reference back to the owner of it
+   * which will be signalled with [[akka.actor.Status.Failure(exception)]], in case the
+   * Kafka client instance can't be created.
+   */
+  def props[K, V](owner: ActorRef, settings: ConsumerSettings[K, V]): Props =
+    Props(new InternalKafkaConsumerActor(Some(owner), settings)).withDispatcher(settings.dispatcher)
 }

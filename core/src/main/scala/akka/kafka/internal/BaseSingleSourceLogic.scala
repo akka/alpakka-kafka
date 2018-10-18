@@ -5,8 +5,7 @@
 
 package akka.kafka.internal
 
-import akka.actor.Status.Failure
-import akka.actor.{ActorRef, Terminated}
+import akka.actor.{ActorRef, Status, Terminated}
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
@@ -38,8 +37,6 @@ private[kafka] abstract class BaseSingleSourceLogic[K, V, Msg](
   override def preStart(): Unit = {
     super.preStart()
 
-    consumerActor = createConsumerActor()
-
     sourceActor = getStageActor {
       case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
         // might be more than one in flight when we assign/revoke tps
@@ -52,11 +49,12 @@ private[kafka] abstract class BaseSingleSourceLogic[K, V, Msg](
           buffer = msg.messages
         }
         pump()
-      case (_, Failure(e)) =>
+      case (_, Status.Failure(e)) =>
         failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed())
     }
+    consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 
     configureSubscription()

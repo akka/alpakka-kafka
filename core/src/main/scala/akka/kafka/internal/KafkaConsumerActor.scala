@@ -127,7 +127,10 @@ object KafkaConsumerActor {
   }
 }
 
-class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging with Timers {
+class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettings[K, V])
+    extends Actor
+    with ActorLogging
+    with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -300,8 +303,13 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
   override def preStart(): Unit = {
     super.preStart()
-
-    consumer = settings.createKafkaConsumer()
+    try {
+      consumer = settings.createKafkaConsumer()
+    } catch {
+      case e: Exception =>
+        owner.foreach(_ ! Failure(e))
+        throw e
+    }
   }
 
   override def postStop(): Unit = {
