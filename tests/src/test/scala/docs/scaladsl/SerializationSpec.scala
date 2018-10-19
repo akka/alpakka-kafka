@@ -29,9 +29,9 @@ import net.manub.embeddedkafka.schemaregistry.{
 }
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.avro.{AvroRuntimeException, Schema}
-// #imports
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
+// #imports
 import org.apache.kafka.common.serialization._
 // #imports
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
@@ -221,6 +221,53 @@ class SerializationSpec
     control.isShutdown.futureValue should be(Done)
     result.failed.futureValue shouldBe a[org.apache.kafka.common.errors.SerializationException]
   }
+
+  /*
+  it should "signal TBD" in assertAllStagesStopped {
+    val group = createGroupId()
+    val topic = createTopic()
+
+    val specifcRecordSettings: ConsumerSettings[String, SpecificRecord] = specificRecordConsumerSettings(group)
+
+    val byteArraySettings =
+      ConsumerSettings(system, new StringDeserializer, new ByteArrayDeserializer)
+        .withBootstrapServers(bootstrapServers)
+        .withGroupId(group)
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+
+    val producerSettings: ProducerSettings[String, Array[Byte]] =
+      ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
+        .withBootstrapServers(bootstrapServers)
+
+    val samples = immutable.Seq("String1", "String2", "String3")
+    val producerCompletion =
+      Source(samples)
+        .map(n => new ProducerRecord(topic, n, n.getBytes(StandardCharsets.UTF_8)))
+        .runWith(Producer.plainSink(producerSettings))
+    awaitProduce(producerCompletion)
+
+    val (control1, result1) =
+      Consumer
+        .plainSource(specifcRecordSettings, Subscriptions.topics(topic))
+        .take(samples.size.toLong)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+
+    val (control2, result2) =
+      Consumer
+        .plainSource(byteArraySettings, Subscriptions.topics(topic))
+        .take(samples.size.toLong)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+
+    sleep(30.seconds, "to see if it fails")
+
+    control1.isShutdown.futureValue should be(Done)
+    control2.isShutdown.futureValue should be(Done)
+    result1.failed.futureValue shouldBe a[org.apache.kafka.common.errors.SerializationException]
+    result2.failed.futureValue shouldBe a[org.apache.kafka.common.errors.SerializationException]
+  }
+   */
 
   it should "signal to all streams of a shared actor in same request, and keep others alive" in assertAllStagesStopped {
     val group = createGroupId()

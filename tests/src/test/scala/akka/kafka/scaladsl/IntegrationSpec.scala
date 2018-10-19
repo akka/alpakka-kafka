@@ -327,7 +327,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         val source = Consumer
           .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
           .map(msg => {
-            ProducerMessage.Message(
+            ProducerMessage.single(
               // Produce to topic2
               new ProducerRecord[String, String](topic2, msg.record.value),
               msg.committableOffset

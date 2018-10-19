@@ -279,7 +279,7 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
             .map(
                 msg ->
-                    new ProducerMessage.Message<String, byte[], ConsumerMessage.Committable>(
+                    ProducerMessage.<String, byte[], ConsumerMessage.Committable>single(
                         new ProducerRecord<>(
                             "targetTopic", msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
@@ -301,14 +301,11 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
     Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .map(
-                msg -> {
-                  ProducerMessage.Envelope<String, byte[], ConsumerMessage.Committable> prodMsg =
-                      new ProducerMessage.Message<>(
-                          new ProducerRecord<>("topic2", msg.record().value()),
-                          msg.committableOffset() // the passThrough
-                          );
-                  return prodMsg;
-                })
+                msg ->
+                    ProducerMessage.single(
+                        new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()),
+                        msg.committableOffset() // the passThrough
+                        ))
             .via(Producer.flexiFlow(producerSettings))
             .mapAsync(
                 producerSettings.parallelism(),
@@ -334,14 +331,10 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .map(
-                msg -> {
-                  ProducerMessage.Envelope<String, byte[], ConsumerMessage.CommittableOffset>
-                      prodMsg =
-                          new ProducerMessage.Message<>(
-                              new ProducerRecord<>("topic2", msg.record().value()),
-                              msg.committableOffset());
-                  return prodMsg;
-                })
+                msg ->
+                    ProducerMessage.single(
+                        new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()),
+                        msg.committableOffset()))
             .via(Producer.flexiFlow(producerSettings))
             .map(result -> result.passThrough());
 
@@ -366,14 +359,10 @@ class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
     Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .map(
-                msg -> {
-                  ProducerMessage.Envelope<String, byte[], ConsumerMessage.CommittableOffset>
-                      prodMsg =
-                          new ProducerMessage.Message<>(
-                              new ProducerRecord<>("topic2", msg.record().value()),
-                              msg.committableOffset());
-                  return prodMsg;
-                })
+                msg ->
+                    ProducerMessage.single(
+                        new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()),
+                        msg.committableOffset()))
             .via(Producer.flexiFlow(producerSettings))
             .map(result -> result.passThrough());
 

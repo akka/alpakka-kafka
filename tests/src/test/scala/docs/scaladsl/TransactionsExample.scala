@@ -37,7 +37,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
         .source(consumerSettings, Subscriptions.topics(sourceTopic))
         .via(businessFlow)
         .map { msg =>
-          ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
+          ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
         }
         .to(Transactional.sink(producerSettings, transactionalId))
         .run()
@@ -76,7 +76,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
         .source(consumerSettings, Subscriptions.topics(sourceTopic))
         .via(businessFlow)
         .map { msg =>
-          ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
+          ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
         }
         // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
         .mapMaterializedValue(c => innerControl.set(c))

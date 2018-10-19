@@ -97,7 +97,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
 
   def createMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
     // #singleMessage
-    new ProducerMessage.Message[KeyType, ValueType, PassThroughType](
+    ProducerMessage.single(
       new ProducerRecord("topicName", key, value),
       passThrough
     )
@@ -108,7 +108,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
                                                               passThrough: PassThroughType) = {
     import scala.collection.immutable
     // #multiMessage
-    new ProducerMessage.MultiMessage[KeyType, ValueType, PassThroughType](
+    ProducerMessage.multi(
       immutable.Seq(
         new ProducerRecord("topicName", key, value),
         new ProducerRecord("anotherTopic", key, value)
@@ -123,7 +123,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
                                                                     passThrough: PassThroughType) =
     // format:off
     // #passThroughMessage
-    new ProducerMessage.PassThroughMessage(
+    ProducerMessage.passThrough(
       passThrough
     )
   // #passThroughMessage
@@ -139,7 +139,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
       .map { number =>
         val partition = 0
         val value = number.toString
-        ProducerMessage.Message(
+        ProducerMessage.single(
           new ProducerRecord(topic, partition, "key", value),
           number
         )

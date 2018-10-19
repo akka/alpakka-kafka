@@ -11,7 +11,7 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
-import akka.kafka.{ConsumerMessage, ProducerSettings}
+import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
@@ -71,9 +71,11 @@ class ProducerSpec(_system: ActorSystem)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   def toTxMessage(tuple: (Record, RecordMetadata)) =
-    Message(tuple._1,
-            ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset()))
-  def result(r: Record, m: RecordMetadata) = Result(m, Message(r, NotUsed))
+    ProducerMessage.Message(
+      tuple._1,
+      ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+    )
+  def result(r: Record, m: RecordMetadata) = Result(m, ProducerMessage.Message(r, NotUsed))
   val toResult = (result _).tupled
 
   def recordValues(values: V*): ((ProducerRecord[String, String], RecordMetadata)) => Boolean = {
@@ -406,7 +408,7 @@ class ProducerSpec(_system: ActorSystem)
 
       val (source, sink) = TestSource
         .probe[TxMsg]
-        .map(msg => PassThroughMessage[K, V, PartitionOffset](msg.passThrough))
+        .map(msg => ProducerMessage.passThrough[K, V, PartitionOffset](msg.passThrough))
         .via(testTransactionProducerFlow(client))
         .toMat(TestSink.probe)(Keep.both)
         .run()

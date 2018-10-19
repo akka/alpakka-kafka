@@ -39,8 +39,8 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
 
     val control = source
       .map { msg =>
-        ProducerMessage.Message(new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value()),
-                                msg.partitionOffset)
+        ProducerMessage.single(new ProducerRecord[Array[Byte], String](sinkTopic, msg.record.value()),
+                               msg.partitionOffset)
       }
       .via(fixture.flow)
       .toMat(Sink.foreach {

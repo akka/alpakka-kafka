@@ -6,7 +6,6 @@
 package akka.kafka.scaladsl
 
 import akka.kafka.ConsumerMessage.PartitionOffset
-import akka.kafka.ProducerMessage.PassThroughMessage
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
@@ -48,8 +47,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
           .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
-            ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value),
-                                    msg.partitionOffset)
+            ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
           }
           .via(Transactional.flow(producerDefaults, group))
           .toMat(Sink.ignore)(Keep.left)
@@ -92,10 +90,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         .filterNot(_.record.value() == InitialMsg)
         .map { msg =>
           if (msg.record.value.toInt % 10 == 0) {
-            ProducerMessage.PassThroughMessage[String, String, ConsumerMessage.PartitionOffset](msg.partitionOffset)
+            ProducerMessage.passThrough[String, String, ConsumerMessage.PartitionOffset](msg.partitionOffset)
           } else {
-            ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value),
-                                    msg.partitionOffset)
+            ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
           }
         }
         .via(Transactional.flow(producerDefaults, group))
@@ -153,10 +150,10 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
                 Thread.sleep(producerDefaults.eosCommitInterval.toMillis + 10)
               }
               if (msg.record.value().toInt == 501 && restartCount < 2) {
-                throw new RuntimeException("Uh oh..")
+                throw new RuntimeException("Uh oh.. intentional exception")
               } else {
-                ProducerMessage.Message(new ProducerRecord[String, String](sinkTopic, msg.record.value()),
-                                        msg.partitionOffset)
+                ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value),
+                                       msg.partitionOffset)
               }
             }
             // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
@@ -219,14 +216,13 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
             if (msg.record.value().toInt == 51 && restartCount < 2) {
               throw new RuntimeException("Uh oh..")
             } else {
-              ProducerMessage.Message[String, String, PartitionOffset](new ProducerRecord(sinkTopic,
-                                                                                          msg.record.value()),
-                                                                       msg.partitionOffset)
+              ProducerMessage.Message(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value),
+                                      msg.partitionOffset)
             }
           }
           .map { msg =>
             if (msg.record.value.toInt % 10 == 0) {
-              PassThroughMessage[String, String, PartitionOffset](msg.passThrough)
+              ProducerMessage.passThrough[String, String, PartitionOffset](msg.passThrough)
             } else msg
           }
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`

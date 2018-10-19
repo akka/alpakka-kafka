@@ -5,6 +5,7 @@
 
 package akka.kafka
 
+import akka.NotUsed
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.collection.immutable
@@ -53,6 +54,13 @@ object ProducerMessage {
       passThrough: PassThrough
   ) extends Envelope[K, V, PassThrough]
 
+  def single[K, V, PassThrough](
+      record: ProducerRecord[K, V],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = Message(record, passThrough)
+
+  def single[K, V](record: ProducerRecord[K, V]): Envelope[K, V, NotUsed] = Message(record, NotUsed)
+
   /**
    * [[Envelope]] implementation that produces multiple message to a Kafka topics, flows emit
    *  a [[MultiResult]] for every element processed.
@@ -80,6 +88,30 @@ object ProducerMessage {
     }
   }
 
+  def multi[K, V, PassThrough](
+      records: immutable.Seq[ProducerRecord[K, V]],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = MultiMessage(records, passThrough)
+
+  def multi[K, V](
+      records: immutable.Seq[ProducerRecord[K, V]]
+  ): Envelope[K, V, NotUsed] = MultiMessage(records, NotUsed)
+
+  /**
+   * Java API
+   */
+  def multi[K, V, PassThrough](
+      records: java.util.Collection[ProducerRecord[K, V]],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = new MultiMessage(records, passThrough)
+
+  /**
+   * Java API
+   */
+  def multi[K, V](
+      records: java.util.Collection[ProducerRecord[K, V]]
+  ): Envelope[K, V, NotUsed] = new MultiMessage(records, NotUsed)
+
   /**
    * [[Envelope]] implementation that does not produce anything to Kafka, flows emit
    * a [[PassThroughResult]] for every element processed.
@@ -93,6 +125,9 @@ object ProducerMessage {
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
   ) extends Envelope[K, V, PassThrough]
+
+  def passThrough[K, V, PassThrough](passThrough: PassThrough): Envelope[K, V, PassThrough] =
+    PassThroughMessage(passThrough)
 
   /**
    * Output type produced by `Producer.flexiFlow` and `Transactional.flow`.

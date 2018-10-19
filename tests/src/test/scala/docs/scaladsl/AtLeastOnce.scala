@@ -10,7 +10,7 @@ import akka.Done
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage.{Envelope, Message, MultiMessage, PassThroughMessage}
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.{KafkaPorts, Subscriptions}
+import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink}
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
@@ -39,7 +39,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(
           msg =>
-            MultiMessage(
+            ProducerMessage.multi(
               immutable.Seq(
                 new ProducerRecord(topic2, msg.record.key, msg.record.value),
                 new ProducerRecord(topic3, msg.record.key, msg.record.value)
@@ -81,7 +81,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
         .map(msg => {
           val out: Envelope[String, String, CommittableOffset] =
             if (duplicate(msg.record.value))
-              MultiMessage(
+              ProducerMessage.multi(
                 immutable.Seq(
                   new ProducerRecord(topic2, msg.record.key, msg.record.value),
                   new ProducerRecord(topic3, msg.record.key, msg.record.value)
@@ -89,9 +89,9 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
                 msg.committableOffset
               )
             else if (ignore(msg.record.value))
-              PassThroughMessage(msg.committableOffset)
+              ProducerMessage.passThrough(msg.committableOffset)
             else
-              Message(
+              ProducerMessage.single(
                 new ProducerRecord(topic4, msg.record.key, msg.record.value),
                 msg.committableOffset
               )
