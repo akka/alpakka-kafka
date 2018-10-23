@@ -63,16 +63,19 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
-    consumerActor = {
-      val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
-      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(settings), s"kafka-consumer-$actorNumber")
-    }
-    consumerPromise.success(consumerActor)
 
     sourceActor = getStageActor {
+      case (_, Status.Failure(e)) =>
+        failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
     }
+    consumerActor = {
+      val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
+      extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
+                                        s"kafka-consumer-$actorNumber")
+    }
+    consumerPromise.success(consumerActor)
     sourceActor.watch(consumerActor)
 
     def rebalanceListener =

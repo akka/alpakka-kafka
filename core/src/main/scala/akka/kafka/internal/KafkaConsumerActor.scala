@@ -88,7 +88,7 @@ object KafkaConsumerActor {
     def nextNumber(): Int =
       number.incrementAndGet()
 
-    private[KafkaConsumerActor] class NoPollResult extends RuntimeException with NoStackTrace
+    private[KafkaConsumerActor] object WakeupHandled extends RuntimeException with NoStackTrace
   }
 
   case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
@@ -127,7 +127,10 @@ object KafkaConsumerActor {
   }
 }
 
-class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor with ActorLogging with Timers {
+class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettings[K, V])
+    extends Actor
+    with ActorLogging
+    with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
@@ -300,8 +303,13 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
 
   override def preStart(): Unit = {
     super.preStart()
-
-    consumer = settings.createKafkaConsumer()
+    try {
+      consumer = settings.createKafkaConsumer()
+    } catch {
+      case e: Exception =>
+        owner.foreach(_ ! Failure(e))
+        throw e
+    }
   }
 
   override def postStop(): Unit = {
@@ -406,13 +414,7 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
               reconcileAssignments(currentAssignmentsJava.asScala.toSet, newAssignments.toSet)
             }
           }
-          throw new NoPollResult
-        case e: org.apache.kafka.common.errors.SerializationException =>
-          throw e
-        case NonFatal(e) =>
-          log.error(e, "Exception when polling from consumer: {}", e.toString)
-          context.stop(self)
-          throw new NoPollResult
+          throw WakeupHandled
       }
 
     try {
@@ -447,9 +449,13 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
         processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
       }
     } catch {
+      case WakeupHandled => // already handled, just proceed
       case e: org.apache.kafka.common.errors.SerializationException =>
         processErrors(e)
-      case _: NoPollResult => // already handled, just proceed
+      case NonFatal(e) =>
+        processErrors(e)
+        log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
+        context.stop(self)
     } finally wakeupTask.cancel()
 
     if (stopInProgress && commitsInProgress == 0) {
@@ -567,8 +573,8 @@ class KafkaConsumerActor[K, V](settings: ConsumerSettings[K, V]) extends Actor w
       }
     }
 
-  private def processErrors(exception: Exception): Unit = {
-    val involvedStageActors = requests.keys
+  private def processErrors(exception: Throwable): Unit = {
+    val involvedStageActors = (requests.keys ++ owner).toSet
     log.debug("sending failure to {}", involvedStageActors.mkString(","))
     involvedStageActors.foreach { stageActorRef =>
       stageActorRef ! Failure(exception)
