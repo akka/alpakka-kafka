@@ -39,7 +39,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
     Mockito
-      .when(result.poll(ArgumentMatchers.any[Long]))
+      .when(result.poll(ArgumentMatchers.any[java.time.Duration]))
       .thenAnswer(new Answer[ConsumerRecords[K, V]] {
         override def answer(invocation: InvocationOnMock) = ConsumerMock.this.synchronized {
           pendingSubscriptions.foreach {
@@ -125,7 +125,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
     verify(mock, mode).close(ConsumerMock.closeTimeout.asJava)
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
-    verify(mock, mode).poll(ArgumentMatchers.any[Long])
+    verify(mock, mode).poll(ArgumentMatchers.any[java.time.Duration])
 
   def assignPartitions(tps: Set[TopicPartition]) =
     tps.groupBy(_.topic()).foreach {
@@ -144,7 +144,7 @@ class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) ex
   var callNumber = 0
 
   Mockito
-    .when(mock.poll(ArgumentMatchers.any[Long]))
+    .when(mock.poll(ArgumentMatchers.any[java.time.Duration]))
     .thenAnswer(new Answer[ConsumerRecords[K, V]] {
       override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
         callNumber = callNumber + 1

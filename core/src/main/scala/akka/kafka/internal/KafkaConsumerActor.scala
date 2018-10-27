@@ -22,17 +22,17 @@ import akka.actor.{
   Timers
 }
 import akka.annotation.InternalApi
+import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
 import akka.kafka._
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.util.Try
-import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.control.NonFatal
 
 /**
  * Internal API.
@@ -94,7 +94,6 @@ import scala.util.control.{NoStackTrace, NonFatal}
     def nextNumber(): Int =
       number.incrementAndGet()
 
-    private[KafkaConsumerActor] object WakeupHandled extends RuntimeException with NoStackTrace
   }
 
   final case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
@@ -131,6 +130,8 @@ import scala.util.control.{NoStackTrace, NonFatal}
       consumerActor ! PartitionRevoked(revokedTps)
     }
   }
+
+  private val oneMilli = java.time.Duration.ofMillis(1)
 }
 
 /**
@@ -148,7 +149,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
 
   private val pollMsg = Poll(this, periodic = true)
   private val delayedPollMsg = Poll(this, periodic = false)
-  private val pollTimeoutMillis = settings.pollTimeout.toMillis
+  private val pollTimeout = settings.pollTimeout.asJava
 
   /** Limits the blocking on offsetForTimes */
   private val offsetForTimesTimeout = settings.getOffsetForTimesTimeout
@@ -164,8 +165,6 @@ import scala.util.control.{NoStackTrace, NonFatal}
   private var commitRequestedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
   private var committedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
   private var commitRefreshDeadline: Option[Deadline] = None
-  private var initialPoll = true
-  private var wakeups = 0
   private var stopInProgress = false
   private var delayedPollInFlight = false
 
@@ -360,86 +359,18 @@ import scala.util.control.{NoStackTrace, NonFatal}
     }
 
   def poll(): Unit = {
-    val wakeupTask = context.system.scheduler.scheduleOnce(settings.wakeupTimeout) {
-      log.warning(
-        "KafkaConsumer poll has exceeded wake up timeout ({}). Waking up consumer to avoid thread starvation.",
-        settings.wakeupTimeout.toCoarsest
-      )
-      if (settings.wakeupDebug && wakeups > settings.maxWakeups / 2) {
-        val stacks =
-          Thread.getAllStackTraces.asScala.map { case (k, v) => s"$k\n ${v.mkString("\n")}" }.mkString("\n\n")
-        log.warning(
-          "Wake up has been triggered {} times (See setting akka.kafka.consumer.wakeup-debug). Dumping stacks: {}",
-          wakeups,
-          stacks
-        )
-      }
-      consumer.wakeup()
-    }(context.system.dispatcher)
     val currentAssignmentsJava = consumer.assignment()
-
-    def tryPoll(timeout: Long): ConsumerRecords[K, V] =
-      try {
-        val records = consumer.poll(timeout)
-        initialPoll = false
-        wakeups = 0
-        records
-      } catch {
-        case w: WakeupException =>
-          wakeups = wakeups + 1
-          if (wakeups == settings.maxWakeups) {
-            if (initialPoll)
-              throw new InitialPollFailed(
-                timeout,
-                settings.properties.getOrElse(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "not set")
-              )
-            else
-              throw new WakeupsExceeded(timeout, settings.maxWakeups, settings.wakeupTimeout)
-          } else {
-            if (log.isWarningEnabled && wakeups > settings.maxWakeups / 2) {
-              log.warning(
-                "Consumer poll({}) interrupted with WakeupException (#{} of max-wakeups = {}, wakeup-timeout = {}).",
-                timeout,
-                wakeups,
-                settings.maxWakeups,
-                settings.wakeupTimeout.toCoarsest
-              )
-              if (initialPoll) {
-                log.error(
-                  "Initial consumer poll({}) with bootstrap servers {} did not succeed, still trying",
-                  timeout,
-                  settings.properties.getOrElse(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "not set")
-                )
-              }
-            }
-
-            // If the current consumer is using group assignment (i.e. subscriptions is non empty) the wakeup might
-            // have prevented the re-balance callbacks to be called leaving the Source in an inconsistent state w.r.t
-            // assigned TopicPartitions. In order to reconcile the state we manually call callbacks for all added/remove
-            // TopicPartition assignments aligning the Source's state the consumer's.
-            // We are safe to perform the operation here since the poll() thread has been aborted by the wakeup call
-            // and there are no other threads are using the consumer.
-            // Note: in case of manual partition assignment this is not needed since rebalance doesn't take place.
-            if (subscriptions.nonEmpty) {
-              val newAssignments = consumer.assignment().asScala
-              reconcileAssignments(currentAssignmentsJava.asScala.toSet, newAssignments.toSet)
-            }
-          }
-          throw WakeupHandled
-      }
-
     try {
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
-
         def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
           if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
-
         consumer.pause(currentAssignmentsJava)
-        checkNoResult(tryPoll(0))
+        checkNoResult(consumer.poll(java.time.Duration.ZERO))
 
+        // COMMIT PERFORMANCE OPTIMIZATION
         // For commits we try to avoid blocking poll because a commit normally succeeds after a few
         // poll(0). Using poll(1) will always block for 1 ms, since there are no messages.
         // Therefore we do 10 poll(0) with short 10 μs delay followed by 1 poll(1).
@@ -447,8 +378,8 @@ import scala.util.control.{NoStackTrace, NonFatal}
         var i = 10
         while (i > 0 && commitsInProgress > 0) {
           LockSupport.parkNanos(10 * 1000)
-          val pollTimeout = if (i == 1) 1L else 0L
-          checkNoResult(tryPoll(pollTimeout))
+          val pollTimeout = if (i == 1) oneMilli else java.time.Duration.ZERO
+          checkNoResult(consumer.poll(pollTimeout))
           i -= 1
         }
       } else {
@@ -457,63 +388,20 @@ import scala.util.control.{NoStackTrace, NonFatal}
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)
-        processResult(partitionsToFetch, tryPoll(pollTimeoutMillis))
+        processResult(partitionsToFetch, consumer.poll(pollTimeout))
       }
     } catch {
-      case WakeupHandled => // already handled, just proceed
       case e: org.apache.kafka.common.errors.SerializationException =>
         processErrors(e)
       case NonFatal(e) =>
         processErrors(e)
         log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
         context.stop(self)
-    } finally wakeupTask.cancel()
+    }
 
     if (stopInProgress && commitsInProgress == 0) {
       log.debug("Stopping")
       context.stop(self)
-    }
-  }
-
-  //TODO can't be re-created deterministically so should be pulled out and tested
-  private def reconcileAssignments(currentAssignments: Set[TopicPartition],
-                                   newAssignments: Set[TopicPartition]): Unit = {
-
-    val revokedAssignmentsByTopic = (currentAssignments -- newAssignments).groupBy(_.topic())
-    val addedAssignmentsByTopic = (newAssignments -- currentAssignments).groupBy(_.topic())
-
-    if (settings.wakeupDebug) {
-      log.info(
-        "Reconciliation has found revoked assignments: {} added assignments: {}. Current subscriptions: {}",
-        revokedAssignmentsByTopic,
-        addedAssignmentsByTopic,
-        subscriptions
-      )
-    }
-
-    subscriptions.foreach {
-      case Subscribe(topics, listener) =>
-        topics.foreach { topic =>
-          val removedTopicAssignments = revokedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (removedTopicAssignments.nonEmpty) listener.onRevoke(removedTopicAssignments)
-
-          val addedTopicAssignments = addedAssignmentsByTopic.getOrElse(topic, Set.empty)
-          if (addedTopicAssignments.nonEmpty) listener.onAssign(addedTopicAssignments)
-        }
-
-      case SubscribePattern(pattern: String, listener) =>
-        val ptr = Pattern.compile(pattern)
-        def filterByPattern(tpm: Map[String, Set[TopicPartition]]): Set[TopicPartition] =
-          tpm.flatMap {
-            case (topic, tps) if ptr.matcher(topic).matches() => tps
-            case _ => Set.empty[TopicPartition]
-          }.toSet
-
-        val revokedAssignments = filterByPattern(revokedAssignmentsByTopic)
-        if (revokedAssignments.nonEmpty) listener.onRevoke(revokedAssignments)
-
-        val addedAssignments = filterByPattern(addedAssignmentsByTopic)
-        if (addedAssignments.nonEmpty) listener.onAssign(addedAssignments)
     }
   }
 

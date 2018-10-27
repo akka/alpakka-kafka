@@ -114,44 +114,6 @@ class ConsumerSpec(_system: ActorSystem)
       .expectError()
   }
 
-  it should "not fail stream when poll() fails twice with WakeupException" in assertAllStagesStopped {
-    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2)
-
-    val probe = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.right)
-      .run()
-
-    probe
-      .request(1)
-      .expectNoMessage(200.millis)
-      .cancel()
-  }
-
-  it should "not fail stream when poll() fails twice, then succeeds, then fails twice with WakeupException" in assertAllStagesStopped {
-    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 4, 5)
-
-    val probe = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.right)
-      .run()
-
-    probe
-      .request(1)
-      .expectNoMessage(200.millis)
-      .cancel()
-  }
-
-  it should "fail stream when poll() fail limit exceeded" in assertAllStagesStopped {
-    val mock = new FailingConsumerMock[K, V](new WakeupException(), failOnCallNumber = 1, 2, 3)
-
-    val probe = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.right)
-      .run()
-
-    probe
-      .request(1)
-      .expectError()
-  }
-
   it should "complete stage when stream control.stop called" in assertAllStagesStopped {
     val mock = new ConsumerMock[K, V]()
     val (control, probe) = createCommittableSource(mock.mock)
