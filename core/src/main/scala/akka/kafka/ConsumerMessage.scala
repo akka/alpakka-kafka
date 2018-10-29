@@ -48,6 +48,11 @@ object ConsumerMessage {
   trait Committable {
     def commitScaladsl(): Future[Done]
     def commitJavadsl(): CompletionStage[Done]
+
+    /**
+     * Get a number of processed messages this committable contains
+     */
+    def batchSize: Long
   }
 
   /**
@@ -92,7 +97,7 @@ object ConsumerMessage {
   )
 
   object CommittableOffsetBatch {
-    val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty)
+    val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty, 0)
 
     /**
      * Scala API:
@@ -153,6 +158,7 @@ object ConsumerMessage {
      * Java API: Get current offset positions
      */
     def getOffsets(): JMap[GroupTopicPartition, Long]
+
   }
 
 }
