@@ -102,7 +102,12 @@ private[kafka] final class CommittableOffsetBatchImpl(
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
 
-  def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
+  def updated(committable: Committable): CommittableOffsetBatch = committable match {
+    case offset: CommittableOffset => updatedWithOffset(offset)
+    case batch: CommittableOffsetBatch => updatedWithBatch(batch)
+  }
+
+  private def updatedWithOffset(committableOffset: CommittableOffset): CommittableOffsetBatch = {
     val partitionOffset = committableOffset.partitionOffset
     val key = partitionOffset.key
     val metadata = committableOffset match {
@@ -137,7 +142,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     new CommittableOffsetBatchImpl(newOffsets, newStages, size + 1)
   }
 
-  def updated(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
+  private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
     committableOffsetBatch match {
       case c: CommittableOffsetBatchImpl =>
         val newOffsetsAndMetadata = offsetsAndMetadata ++ c.offsetsAndMetadata

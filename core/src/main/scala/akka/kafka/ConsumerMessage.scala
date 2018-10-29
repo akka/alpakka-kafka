@@ -140,14 +140,9 @@ object ConsumerMessage {
   trait CommittableOffsetBatch extends Committable {
 
     /**
-     * Add/overwrite an offset position for the given groupId, topic, partition.
+     * Add/overwrite an offset position from another committable.
      */
-    def updated(offset: CommittableOffset): CommittableOffsetBatch
-
-    /**
-     * Add/overwrite offset positions from another batch.
-     */
-    def updated(offset: CommittableOffsetBatch): CommittableOffsetBatch
+    def updated(offset: Committable): CommittableOffsetBatch
 
     /**
      * Scala API: Get current offset positions
