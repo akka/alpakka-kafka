@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
-import akka.kafka.{ConsumerSettings, ProducerSettings}
+import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import kafka.admin.{AdminClient => OldAdminClient}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -34,6 +34,8 @@ trait KafkaTestKit {
     .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
     .withWakeupTimeout(10.seconds)
     .withMaxWakeups(10)
+
+  val committerDefaults = CommitterSettings(system)
 
   def nextNumber(): Int = KafkaTestKit.topicCounter.incrementAndGet()
 

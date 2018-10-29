@@ -109,7 +109,7 @@ object ConsumerMessage {
      * Scala API:
      * Create an offset batch out of a list of offsets.
      */
-    def apply(offsets: Seq[CommittableOffset]): CommittableOffsetBatch =
+    def apply(offsets: Seq[Committable]): CommittableOffsetBatch =
       offsets.foldLeft(CommittableOffsetBatch.empty) { (batch, elem) =>
         batch.updated(elem)
       }

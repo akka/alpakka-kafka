@@ -277,6 +277,45 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       probe2.cancel()
     }
 
+    "consume and commit with a committer sink" in assertAllStagesStopped {
+      val topic1 = createTopicName(1)
+      val group1 = createGroupId(1)
+
+      givenInitializedTopic(topic1)
+
+      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
+      val committerSettings = committerDefaults.withMaxBatch(5)
+
+      def consumeAndCommitUntil(topic: String, failAt: String) =
+        Consumer
+          .committableSource(
+            consumerSettings,
+            Subscriptions.topics(topic)
+          )
+          .map {
+            case msg if msg.record.value() == failAt => throw new Exception
+            case other => other
+          }
+          .map(_.committableOffset)
+          .toMat(Committer.sink(committerSettings))(Keep.right)
+          .run()
+
+      // Consume and fail in the middle of the commit batch
+      val failAt = 32
+      val done1 = consumeAndCommitUntil(topic1, failAt.toString)
+
+      Await.result(done1.failed, remainingOrDefault)
+
+      // Check offset
+      val (_, probe1) = createProbe(consumerSettings, topic1)
+      val element1 = probe1.request(1).expectNext(60.seconds)
+
+      Assertions.assert(element1.toInt >= failAt - committerSettings.maxBatch,
+                        "Should re-process at most maxBatch elements")
+      probe1.cancel()
+    }
+
     "connect consumer to producer and commit in batches" in {
       assertAllStagesStopped {
         val topic1 = createTopic(1)

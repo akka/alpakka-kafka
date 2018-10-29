@@ -82,7 +82,7 @@ private final case class CommittableOffsetImpl(override val partitionOffset: Con
   override def commitScaladsl(): Future[Done] =
     committer.commit(immutable.Seq(partitionOffset.withMetadata(metadata)))
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
-  override def batchSize: Long = 1
+  override val batchSize: Long = 1
 }
 
 /** Internal API */
@@ -98,7 +98,7 @@ private[kafka] trait Committer {
 private[kafka] final class CommittableOffsetBatchImpl(
     val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
     val stages: Map[String, Committer],
-    size: Long
+    override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
 
@@ -139,7 +139,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
         stages.updated(key.groupId, stage)
     }
 
-    new CommittableOffsetBatchImpl(newOffsets, newStages, size + 1)
+    new CommittableOffsetBatchImpl(newOffsets, newStages, batchSize + 1)
   }
 
   private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
@@ -160,7 +160,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
                 acc.updated(groupId, stage)
             }
         }
-        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages, size + committableOffsetBatch.batchSize)
+        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages, batchSize + committableOffsetBatch.batchSize)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
@@ -182,7 +182,5 @@ private[kafka] final class CommittableOffsetBatchImpl(
     }
 
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
-
-  override def batchSize: Long = size
 
 }
