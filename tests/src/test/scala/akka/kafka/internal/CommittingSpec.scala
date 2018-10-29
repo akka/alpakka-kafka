@@ -83,7 +83,7 @@ class CommittingSpec(_system: ActorSystem)
       ConsumerSettings
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
-        .withConsumerFactoryForSpecialHandling(_ => mock),
+        .withConsumerFactory(_ => mock),
       Subscriptions.topics(topics)
     )
 
@@ -96,7 +96,7 @@ class CommittingSpec(_system: ActorSystem)
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
         .withCloseTimeout(ConsumerMock.closeTimeout)
-        .withConsumerFactoryForSpecialHandling(_ => mock),
+        .withConsumerFactory(_ => mock),
       Subscriptions.topics(topics),
       metadataFromRecord
     )

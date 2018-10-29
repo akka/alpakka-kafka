@@ -53,7 +53,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     ConsumerSettings
       .create(system, new StringDeserializer, new StringDeserializer)
       .withGroupId("group")
-      .withConsumerFactoryForSpecialHandling(_ => dummy)
+      .withConsumerFactory(_ => dummy)
 
   "partitioned source" should "resume topics with demand" in assertAllStagesStopped {
     val dummy = new Dummy()

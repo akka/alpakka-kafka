@@ -183,8 +183,10 @@ object ConsumerSettings {
  * `reference.conf`. Note that the [[ConsumerSettings companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
+ *
+ * The constructor is Internal API.
  */
-class ConsumerSettings[K, V] private (
+class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val properties: Map[String, String],
     val keyDeserializerOpt: Option[Deserializer[K]],
     val valueDeserializerOpt: Option[Deserializer[V]],
@@ -482,13 +484,12 @@ class ConsumerSettings[K, V] private (
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
   /**
-   * Internal API. DANGER ZONE.
+   * Internal API.
    * Replaces the default Kafka consumer creation logic.
    */
-  @InternalApi def withConsumerFactoryForSpecialHandling(
+  @InternalApi private[kafka] def withConsumerFactory(
       factory: ConsumerSettings[K, V] => Consumer[K, V]
-  ): ConsumerSettings[K, V] =
-    copy(consumerFactory = factory)
+  ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
 
   def getCloseTimeout: java.time.Duration = closeTimeout.asJava
   def getPositionTimeout: java.time.Duration = positionTimeout.asJava

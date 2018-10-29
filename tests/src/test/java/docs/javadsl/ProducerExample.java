@@ -35,7 +35,8 @@ abstract class ProducerExample {
       ProducerSettings.create(config, new StringSerializer(), new StringSerializer())
           .withBootstrapServers("localhost:9092");
   // #settings
-  final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer = producerSettings.createKafkaProducer();
+  final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
+      producerSettings.createKafkaProducer();
   // #producer
 
   protected void terminateWhenDone(CompletionStage<Done> result) {

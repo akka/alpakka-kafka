@@ -157,8 +157,10 @@ object ProducerSettings {
  * reference.conf. Note that the [[ProducerSettings companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
+ *
+ * The constructor is Internal API.
  */
-class ProducerSettings[K, V] private (
+class ProducerSettings[K, V] @InternalApi private[kafka] (
     val properties: Map[String, String],
     val keySerializerOpt: Option[Serializer[K]],
     val valueSerializerOpt: Option[Serializer[V]],
@@ -267,10 +269,10 @@ class ProducerSettings[K, V] private (
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
   /**
-   * Internal API. DANGER ZONE.
+   * Internal API.
    * Replaces the default Kafka producer creation logic.
    */
-  @InternalApi def withProducerFactoryForSpecialHandling(
+  @InternalApi private[kafka] def withProducerFactory(
       factory: ProducerSettings[K, V] => KafkaProducer[K, V]
   ): ProducerSettings[K, V] = copy(producerFactory = factory)
 

@@ -84,7 +84,7 @@ class ConsumerSpec(_system: ActorSystem)
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
         .withCloseTimeout(ConsumerMock.closeTimeout)
-        .withConsumerFactoryForSpecialHandling(_ => mock),
+        .withConsumerFactory(_ => mock),
       Subscriptions.topics(topics)
     )
 
@@ -97,7 +97,7 @@ class ConsumerSpec(_system: ActorSystem)
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
         .withCloseTimeout(ConsumerMock.closeTimeout)
-        .withConsumerFactoryForSpecialHandling(_ => mock),
+        .withConsumerFactory(_ => mock),
       Subscriptions.topics(topics),
       metadataFromRecord
     )
