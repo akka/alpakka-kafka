@@ -16,3 +16,6 @@ To create the materialized value of Consumer sources, `akka.kafka.testkit.scalad
 
 Scala
 : @@snip [snip](/tests/src/test/scala/docs/scaladsl/TestkitSamplesSpec.scala) { #factories }
+
+Java
+: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitSamplesTest.java) { #factories }
