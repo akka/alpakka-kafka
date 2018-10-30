@@ -13,8 +13,8 @@ import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffset}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 
 /**
  * Factory methods to create instances that normally are emitted by [[akka.kafka.scaladsl.Consumer]] and [[akka.kafka.javadsl.Consumer]] flows.

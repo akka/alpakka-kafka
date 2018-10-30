@@ -8,15 +8,26 @@ package akka.kafka.testkit
 import akka.annotation.ApiMayChange
 import akka.kafka.ProducerMessage
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
+import org.apache.kafka.common.TopicPartition
 
-import scala.collection.immutable
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 
 /**
  * Factory methods to create instances that normally are emitted by [[akka.kafka.scaladsl.Producer]] and [[akka.kafka.javadsl.Producer]] flows.
  */
 @ApiMayChange
 object ProducerResultFactory {
+
+  def recordMetadata(msg: ProducerRecord[_, _]): RecordMetadata =
+    new RecordMetadata(new TopicPartition(msg.topic, msg.partition), -1L, 1L, msg.timestamp(), 233L, 2, 2)
+
+  def recordMetadata(topic: String, partition: Int, offset: Long): RecordMetadata =
+    new RecordMetadata(new TopicPartition(topic, partition), offset, 0L, 12345L, 233L, 2, 2)
+
+  def result[K, V, PassThrough](
+      message: ProducerMessage.Message[K, V, PassThrough]
+  ): ProducerMessage.Result[K, V, PassThrough] = ProducerMessage.Result(recordMetadata(message.record), message)
 
   def result[K, V, PassThrough](
       metadata: RecordMetadata,
