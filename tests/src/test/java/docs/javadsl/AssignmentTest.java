@@ -12,13 +12,17 @@ import akka.kafka.KafkaPorts;
 import akka.kafka.ManualSubscription;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
+// #testkit
 import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+// #testkit
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+// #testkit
 import akka.stream.testkit.javadsl.StreamTestKit;
+// #testkit
 import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -37,10 +41,13 @@ import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 
+// #testkit
+
 public class AssignmentTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
+  private static final int kafkaPort = KafkaPorts.AssignmentTest();
 
   @Override
   public ActorSystem system() {
@@ -49,13 +56,15 @@ public class AssignmentTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + KafkaPorts.AssignmentTest();
+    return "localhost:" + kafkaPort;
   }
 
   @BeforeClass
   public static void beforeClass() {
-    startEmbeddedKafka(KafkaPorts.AssignmentTest(), 1);
+    startEmbeddedKafka(kafkaPort, 1);
   }
+
+  // #testkit
 
   @Test
   public void mustConsumeFromTheSpecifiedSingleTopic()
@@ -229,6 +238,7 @@ public class AssignmentTest extends EmbeddedKafkaTest {
     assertEquals(0, oldMessages);
   }
 
+  // #testkit
   @After
   public void after() {
     StreamTestKit.assertAllStagesStopped(mat);
@@ -240,3 +250,4 @@ public class AssignmentTest extends EmbeddedKafkaTest {
     TestKit.shutdownActorSystem(sys);
   }
 }
+// #testkit
