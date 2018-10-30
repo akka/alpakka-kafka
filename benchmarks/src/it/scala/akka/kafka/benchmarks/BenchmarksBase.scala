@@ -5,7 +5,7 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.app.RunTestCommand
-import akka.kafka.scaladsl.ScalatestKafkaSpec
+import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.FlatSpecLike
 
 abstract class BenchmarksBase(name: String) extends ScalatestKafkaSpec(0) with FlatSpecLike {

@@ -3,9 +3,9 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.javadsl
+package akka.kafka.testkit.javadsl
 
-import akka.kafka.internal.KafkaTestKit
+import akka.kafka.testkit.internal.KafkaTestKit
 import org.slf4j.{Logger, LoggerFactory}
 
 abstract class KafkaTest extends KafkaTestKit {

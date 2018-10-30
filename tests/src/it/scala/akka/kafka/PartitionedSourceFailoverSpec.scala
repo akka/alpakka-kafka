@@ -2,7 +2,8 @@ package akka.kafka
 
 import akka.Done
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.scaladsl.{Consumer, Producer, ScalatestKafkaSpec}
+import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import com.spotify.docker.client.DefaultDockerClient

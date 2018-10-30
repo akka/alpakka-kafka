@@ -1,4 +1,9 @@
-package akka.kafka.akka.kafka.testkit
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ */
+
+package akka.kafka.testkit
 
 import akka.annotation.ApiMayChange
 import akka.kafka.ProducerMessage

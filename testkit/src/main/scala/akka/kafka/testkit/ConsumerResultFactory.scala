@@ -1,4 +1,9 @@
-package akka.kafka.akka.kafka.testkit
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+ * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ */
+
+package akka.kafka.testkit
 
 import java.util.concurrent.CompletionStage
 
@@ -8,8 +13,8 @@ import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffset}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
+import scala.compat.java8.FutureConverters._
 
 /**
  * Factory methods to create instances that normally are emitted by [[akka.kafka.scaladsl.Consumer]] and [[akka.kafka.javadsl.Consumer]] flows.

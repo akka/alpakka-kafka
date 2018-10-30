@@ -3,9 +3,9 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka.testkit.scaladsl
 
-import akka.kafka.internal.TestFrameworkInterface
+import akka.kafka.testkit.internal.TestFrameworkInterface
 import org.scalatest.Suite
 
 abstract class ScalatestKafkaSpec(override val kafkaPort: Int)

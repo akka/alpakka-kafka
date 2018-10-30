@@ -12,7 +12,7 @@ import akka.kafka.KafkaPorts;
 import akka.kafka.ManualSubscription;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
-import akka.kafka.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;

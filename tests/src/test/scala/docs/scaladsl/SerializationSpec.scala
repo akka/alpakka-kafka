@@ -9,9 +9,10 @@ import java.nio.charset.StandardCharsets
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.internal.TestFrameworkInterface
+import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
+import akka.kafka.testkit.scaladsl.KafkaSpec
 import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
