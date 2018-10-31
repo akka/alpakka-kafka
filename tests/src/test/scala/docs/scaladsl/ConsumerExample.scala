@@ -218,6 +218,26 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
   }
 
+  "Consume messages at-least-once, and commit with a committer sink" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val committerSettings = committerDefaults
+    val topic = createTopic()
+    // #committerSink
+    val control =
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic))
+        .mapAsync(1) { msg =>
+          business(msg.record.key, msg.record.value)
+            .map(_ => msg.committableOffset)
+        }
+        .toMat(Committer.sink(committerSettings))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    // #committerSink
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds)
+  }
+
   "Connect a Consumer to Producer" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic1, topic2, targetTopic) = createTopics(1, 2, 3)
