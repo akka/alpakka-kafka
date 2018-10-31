@@ -29,7 +29,7 @@ private object PromiseControl {
 
 /** Internal API */
 @InternalApi
-private[kafka] trait PromiseControl extends GraphStageLogic with scaladsl.Consumer.Control {
+private trait PromiseControl extends GraphStageLogic with scaladsl.Consumer.Control {
   import PromiseControl._
 
   def shape: SourceShape[_]
@@ -70,7 +70,7 @@ private[kafka] trait PromiseControl extends GraphStageLogic with scaladsl.Consum
 
 /** Internal API */
 @InternalApi
-private[kafka] trait MetricsControl extends scaladsl.Consumer.Control {
+private trait MetricsControl extends scaladsl.Consumer.Control {
 
   protected def executionContext: ExecutionContext
   protected def consumerFuture: Future[ActorRef]

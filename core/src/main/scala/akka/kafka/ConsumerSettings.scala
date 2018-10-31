@@ -66,7 +66,7 @@ object ConsumerSettings {
     val commitTimeWarning = config.getDuration("commit-time-warning").asScala
     val wakeupTimeout = config.getDuration("wakeup-timeout").asScala
     val maxWakeups = config.getInt("max-wakeups")
-    val commitRefreshInterval = config.getPotentiallyInfiniteDuration("commit-refresh-interval")
+    val commitRefreshInterval = ConfigSettings.getPotentiallyInfiniteDuration(config, "commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition").asScala

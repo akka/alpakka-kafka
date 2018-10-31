@@ -28,10 +28,12 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 /**
- * Internal API
+ * Internal API.
+ *
+ * Anonymous sub-class instance is created in [[CommittableSubSource]].
  */
 @InternalApi
-private[kafka] abstract class SubSourceLogic[K, V, Msg](
+private abstract class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
     subscription: AutoSubscription,
@@ -274,10 +276,12 @@ private[kafka] abstract class SubSourceLogic[K, V, Msg](
 
 }
 
+/** Internal API */
 private object SubSourceLogic {
   case object CloseRevokedPartitions
 }
 
+/** Internal API */
 private final class SubSourceStage[K, V, Msg](
     tp: TopicPartition,
     consumerActor: ActorRef,

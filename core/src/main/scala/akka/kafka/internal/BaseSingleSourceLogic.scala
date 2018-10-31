@@ -6,6 +6,7 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, Status, Terminated}
+import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
@@ -17,7 +18,12 @@ import org.apache.kafka.common.TopicPartition
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 
-private[kafka] abstract class BaseSingleSourceLogic[K, V, Msg](
+/**
+ * Internal API.
+ *
+ * Shared GraphStageLogic for [[SingleSourceLogic]] and [[ExternalSingleSourceLogic]].
+ */
+@InternalApi private abstract class BaseSingleSourceLogic[K, V, Msg](
     val shape: SourceShape[Msg]
 ) extends GraphStageLogic(shape)
     with PromiseControl

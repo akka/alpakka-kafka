@@ -18,6 +18,8 @@ import scala.concurrent.duration._
 
 /**
  * INTERNAL API
+ *
+ * Implemented by [[DefaultProducerStage]] and [[TransactionalProducerStage]].
  */
 @InternalApi
 private[kafka] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]] {
@@ -34,7 +36,7 @@ private[kafka] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Resu
  * INTERNAL API
  */
 @InternalApi
-private[kafka] object ProducerStage {
+private object ProducerStage {
 
   trait ProducerCompletionState {
     def onCompletionSuccess(): Unit
@@ -42,7 +44,7 @@ private[kafka] object ProducerStage {
   }
 
   trait MessageCallback[K, V, P] {
-    def awaitingConfirmation: AtomicInteger
+    protected def awaitingConfirmation: AtomicInteger
     def onMessageAckCb: AsyncCallback[Envelope[K, V, P]]
   }
 }

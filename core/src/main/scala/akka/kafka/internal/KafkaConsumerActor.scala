@@ -21,6 +21,7 @@ import akka.actor.{
   Terminated,
   Timers
 }
+import akka.annotation.InternalApi
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
 import akka.kafka.{ConsumerSettings, Metadata}
@@ -33,7 +34,12 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
-object KafkaConsumerActor {
+/**
+ * Internal API.
+ *
+ * The actor communicating through the Kafka consumer client.
+ */
+@InternalApi private object KafkaConsumerActor {
 
   object Internal {
     sealed trait SubscriptionRequest
@@ -91,7 +97,7 @@ object KafkaConsumerActor {
     private[KafkaConsumerActor] object WakeupHandled extends RuntimeException with NoStackTrace
   }
 
-  case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
+  final case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
       extends NoSerializationVerificationNeeded
 
   /**
@@ -104,10 +110,10 @@ object KafkaConsumerActor {
    * `onPartitionsRevoked` callback before any instance executes its
    * `onPartitionsAssigned` callback.
    */
-  private class WrappedAutoPausedListener(consumer: Consumer[_, _],
-                                          consumerActor: ActorRef,
-                                          positionTimeout: java.time.Duration,
-                                          listener: ListenerCallbacks)
+  private final class WrappedAutoPausedListener(consumer: Consumer[_, _],
+                                                consumerActor: ActorRef,
+                                                positionTimeout: java.time.Duration,
+                                                listener: ListenerCallbacks)
       extends ConsumerRebalanceListener
       with NoSerializationVerificationNeeded {
     import KafkaConsumerActor.Internal._
@@ -127,36 +133,41 @@ object KafkaConsumerActor {
   }
 }
 
-class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettings[K, V])
+/**
+ * Internal API.
+ *
+ * The actor communicating through the Kafka consumer client.
+ */
+@InternalApi final private[kafka] class KafkaConsumerActor[K, V](owner: Option[ActorRef],
+                                                                 settings: ConsumerSettings[K, V])
     extends Actor
     with ActorLogging
     with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
-  val pollMsg = Poll(this, periodic = true)
-  val delayedPollMsg = Poll(this, periodic = false)
-  def pollTimeout() = settings.pollTimeout
-  def pollInterval() = settings.pollInterval
+  private val pollMsg = Poll(this, periodic = true)
+  private val delayedPollMsg = Poll(this, periodic = false)
+  private val pollTimeoutMillis = settings.pollTimeout.toMillis
 
   /** Limits the blocking on offsetForTimes */
-  val offsetForTimesTimeout = settings.getOffsetForTimesTimeout
+  private val offsetForTimesTimeout = settings.getOffsetForTimesTimeout
 
   /** Limits the blocking on position in [[WrappedAutoPausedListener]] */
-  val positionTimeout = settings.getPositionTimeout
+  private val positionTimeout = settings.getPositionTimeout
 
-  var requests = Map.empty[ActorRef, RequestMessages]
-  var requestors = Set.empty[ActorRef]
-  var consumer: Consumer[K, V] = _
-  var subscriptions = Set.empty[SubscriptionRequest]
-  var commitsInProgress = 0
-  var commitRequestedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
-  var committedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
-  var commitRefreshDeadline: Option[Deadline] = None
-  var initialPoll = true
-  var wakeups = 0
-  var stopInProgress = false
-  var delayedPollInFlight = false
+  private var requests = Map.empty[ActorRef, RequestMessages]
+  private var requestors = Set.empty[ActorRef]
+  private var consumer: Consumer[K, V] = _
+  private var subscriptions = Set.empty[SubscriptionRequest]
+  private var commitsInProgress = 0
+  private var commitRequestedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
+  private var committedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
+  private var commitRefreshDeadline: Option[Deadline] = None
+  private var initialPoll = true
+  private var wakeups = 0
+  private var stopInProgress = false
+  private var delayedPollInFlight = false
 
   def receive: Receive = LoggingReceive {
     case Assign(tps) =>
@@ -326,7 +337,7 @@ class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettin
     if (!timers.isTimerActive(PollTask)) schedulePollTask()
 
   def schedulePollTask(): Unit =
-    timers.startSingleTimer(PollTask, pollMsg, pollInterval())
+    timers.startSingleTimer(PollTask, pollMsg, settings.pollInterval)
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
@@ -446,7 +457,7 @@ class KafkaConsumerActor[K, V](owner: Option[ActorRef], settings: ConsumerSettin
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)
-        processResult(partitionsToFetch, tryPoll(pollTimeout().toMillis))
+        processResult(partitionsToFetch, tryPoll(pollTimeoutMillis))
       }
     } catch {
       case WakeupHandled => // already handled, just proceed

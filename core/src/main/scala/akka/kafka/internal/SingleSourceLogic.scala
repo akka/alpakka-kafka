@@ -6,6 +6,7 @@
 package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
+import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.kafka.Subscriptions._
 import akka.kafka._
@@ -14,7 +15,12 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.{Future, Promise}
 
-private[kafka] abstract class SingleSourceLogic[K, V, Msg](
+/**
+ * Internal API.
+ *
+ * Anonymous sub-class instances are created in [[CommittableSource]] and [[TransactionalSource]].
+ */
+@InternalApi private abstract class SingleSourceLogic[K, V, Msg](
     shape: SourceShape[Msg],
     settings: ConsumerSettings[K, V],
     subscription: Subscription

@@ -36,6 +36,7 @@ private[kafka] final class TransactionalProducerStage[K, V, P](
     new TransactionalProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
 }
 
+/** Internal API */
 private object TransactionalProducerStage {
   object TransactionBatch {
     def empty: TransactionBatch = new EmptyTransactionBatch()
@@ -72,6 +73,8 @@ private object TransactionalProducerStage {
 }
 
 /**
+ * Internal API.
+ *
  * Transaction (Exactly-Once) Producer State Logic
  */
 private final class TransactionalProducerStageLogic[K, V, P](stage: TransactionalProducerStage[K, V, P],
