@@ -53,7 +53,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
-  private val awaitingConfirmation = new AtomicInteger(0)
+  protected val awaitingConfirmation = new AtomicInteger(0)
   private var inIsClosed = false
   private var completionState: Option[Try[Done]] = None
 
