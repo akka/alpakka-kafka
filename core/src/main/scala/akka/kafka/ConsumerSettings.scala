@@ -6,9 +6,9 @@
 package akka.kafka
 
 import java.util.Optional
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.annotation.InternalApi
 import akka.kafka.internal._
 import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
@@ -21,6 +21,8 @@ import scala.concurrent.duration._
 
 object ConsumerSettings {
 
+  val configPath = "akka.kafka.consumer"
+
   /**
    * Create settings from the default configuration
    * `akka.kafka.consumer`.
@@ -31,7 +33,7 @@ object ConsumerSettings {
       keyDeserializer: Option[Deserializer[K]],
       valueDeserializer: Option[Deserializer[V]]
   ): ConsumerSettings[K, V] = {
-    val config = system.settings.config.getConfig("akka.kafka.consumer")
+    val config = system.settings.config.getConfig(configPath)
     apply(config, keyDeserializer, valueDeserializer)
   }
 
@@ -56,18 +58,18 @@ object ConsumerSettings {
       (valueDeserializer.isDefined || properties.contains(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)),
       "Value deserializer should be defined or declared in configuration"
     )
-    val pollInterval = config.getDuration("poll-interval", TimeUnit.MILLISECONDS).millis
-    val pollTimeout = config.getDuration("poll-timeout", TimeUnit.MILLISECONDS).millis
-    val stopTimeout = config.getDuration("stop-timeout", TimeUnit.MILLISECONDS).millis
-    val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
-    val commitTimeout = config.getDuration("commit-timeout", TimeUnit.MILLISECONDS).millis
-    val commitTimeWarning = config.getDuration("commit-time-warning", TimeUnit.MILLISECONDS).millis
-    val wakeupTimeout = config.getDuration("wakeup-timeout", TimeUnit.MILLISECONDS).millis
+    val pollInterval = config.getDuration("poll-interval").asScala
+    val pollTimeout = config.getDuration("poll-timeout").asScala
+    val stopTimeout = config.getDuration("stop-timeout").asScala
+    val closeTimeout = config.getDuration("close-timeout").asScala
+    val commitTimeout = config.getDuration("commit-timeout").asScala
+    val commitTimeWarning = config.getDuration("commit-time-warning").asScala
+    val wakeupTimeout = config.getDuration("wakeup-timeout").asScala
     val maxWakeups = config.getInt("max-wakeups")
     val commitRefreshInterval = config.getPotentiallyInfiniteDuration("commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
     val wakeupDebug = config.getBoolean("wakeup-debug")
-    val waitClosePartition = config.getDuration("wait-close-partition", TimeUnit.MILLISECONDS).millis
+    val waitClosePartition = config.getDuration("wait-close-partition").asScala
     val positionTimeout = config.getDuration("position-timeout").asScala
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
@@ -89,7 +91,8 @@ object ConsumerSettings {
       waitClosePartition,
       positionTimeout,
       offsetForTimesTimeout,
-      metadataRequestTimeout
+      metadataRequestTimeout,
+      ConsumerSettings.createKafkaConsumer
     )
   }
 
@@ -164,16 +167,26 @@ object ConsumerSettings {
       valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
     apply(config, keyDeserializer, valueDeserializer)
+
+  /**
+   * Create a [[org.apache.kafka.clients.consumer.KafkaConsumer KafkaConsumer]] instance from the settings.
+   */
+  def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] = {
+    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
+    new KafkaConsumer[K, V](javaProps, settings.keyDeserializerOpt.orNull, settings.valueDeserializerOpt.orNull)
+  }
+
 }
 
 /**
  * Settings for consumers. See `akka.kafka.consumer` section in
- * reference.conf. Note that the [[ConsumerSettings companion]] object provides
+ * `reference.conf`. Note that the [[ConsumerSettings companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
+ *
+ * The constructor is Internal API.
  */
-class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead",
-                                         "1.0-M1")(
+class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val properties: Map[String, String],
     val keyDeserializerOpt: Option[Deserializer[K]],
     val valueDeserializerOpt: Option[Deserializer[V]],
@@ -186,12 +199,13 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
     val maxWakeups: Int,
     val commitRefreshInterval: Duration,
     val dispatcher: String,
-    val commitTimeWarning: FiniteDuration = 1.second,
-    val wakeupDebug: Boolean = true,
+    val commitTimeWarning: FiniteDuration,
+    val wakeupDebug: Boolean,
     val waitClosePartition: FiniteDuration,
     val positionTimeout: FiniteDuration,
     val offsetForTimesTimeout: FiniteDuration,
-    val metadataRequestTimeout: FiniteDuration
+    val metadataRequestTimeout: FiniteDuration,
+    val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]
 ) {
 
   @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
@@ -227,42 +241,56 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
     waitClosePartition,
     positionTimeout = 5.seconds,
     offsetForTimesTimeout = 5.seconds,
-    metadataRequestTimeout = 5.seconds
+    metadataRequestTimeout = 5.seconds,
+    consumerFactory = ConsumerSettings.createKafkaConsumer
   )
 
+  /**
+   * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
+   */
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
 
+  /**
+   * An id string to pass to the server when making requests. The purpose of this is to be able to track the source
+   * of requests beyond just ip/port by allowing a logical application name to be included in server-side request logging.
+   */
   def withClientId(clientId: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.CLIENT_ID_CONFIG, clientId)
 
+  /**
+   * A unique string that identifies the consumer group this consumer belongs to.
+   */
   def withGroupId(groupId: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId)
 
   /**
+   * Scala API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   * [[org.apache.kafka.clients.consumer.ConsumerConfig]].
    */
   def withProperties(properties: Map[String, String]): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties)
 
   /**
+   * Scala API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   * [[org.apache.kafka.clients.consumer.ConsumerConfig]].
    */
   def withProperties(properties: (String, String)*): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties.toMap)
 
   /**
+   * Java API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   * [[org.apache.kafka.clients.consumer.ConsumerConfig]].
    */
   def withProperties(properties: java.util.Map[String, String]): ConsumerSettings[K, V] =
     copy(properties = this.properties ++ properties.asScala)
 
   /**
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.consumer.ConsumerConfig`.
+   * [[org.apache.kafka.clients.consumer.ConsumerConfig]].
    */
   def withProperty(key: String, value: String): ConsumerSettings[K, V] =
     copy(properties = properties.updated(key, value))
@@ -272,41 +300,164 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
    */
   def getProperty(key: String): String = properties.getOrElse(key, null)
 
+  /**
+   * Set the maximum duration a poll to the Kafka broker is allowed to take.
+   */
   def withPollTimeout(pollTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(pollTimeout = pollTimeout)
 
+  /**
+   * Java API:
+   * Set the maximum duration a poll to the Kafka broker is allowed to take.
+   */
+  def withPollTimeout(pollTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(pollTimeout = pollTimeout.asScala)
+
+  /**
+   * Set the interval from one scheduled poll to the next.
+   */
   def withPollInterval(pollInterval: FiniteDuration): ConsumerSettings[K, V] =
     copy(pollInterval = pollInterval)
 
+  /**
+   * Java API:
+   * Set the interval from one scheduled poll to the next.
+   */
+  def withPollInterval(pollInterval: java.time.Duration): ConsumerSettings[K, V] =
+    copy(pollInterval = pollInterval.asScala)
+
+  /**
+   * The stage will await outstanding offset commit requests before
+   * shutting down, but if that takes longer than this timeout it will
+   * stop forcefully.
+   */
   def withStopTimeout(stopTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(stopTimeout = stopTimeout)
 
+  /**
+   * Java API:
+   * The stage will await outstanding offset commit requests before
+   * shutting down, but if that takes longer than this timeout it will
+   * stop forcefully.
+   */
+  def withStopTimeout(stopTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(stopTimeout = stopTimeout.asScala)
+
+  /**
+   * Set duration to wait for `KafkaConsumer.close` to finish.
+   */
   def withCloseTimeout(closeTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(closeTimeout = closeTimeout)
 
+  /**
+   * Java API:
+   * Set duration to wait for `KafkaConsumer.close` to finish.
+   */
+  def withCloseTimeout(closeTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(closeTimeout = closeTimeout.asScala)
+
+  /**
+   * If offset commit requests are not completed within this timeout
+   * the returned Future is completed with [[akka.kafka.CommitTimeoutException]].
+   */
   def withCommitTimeout(commitTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(commitTimeout = commitTimeout)
 
+  /**
+   * Java API:
+   * If offset commit requests are not completed within this timeout
+   * the returned Future is completed with [[akka.kafka.CommitTimeoutException]].
+   */
+  def withCommitTimeout(commitTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(commitTimeout = commitTimeout.asScala)
+
+  /**
+   * If commits take longer than this time a warning is logged
+   */
   def withCommitWarning(commitTimeWarning: FiniteDuration): ConsumerSettings[K, V] =
     copy(commitTimeWarning = commitTimeWarning)
 
+  /**
+   * Java API:
+   * If commits take longer than this time a warning is logged
+   */
+  def withCommitWarning(commitTimeWarning: java.time.Duration): ConsumerSettings[K, V] =
+    copy(commitTimeWarning = commitTimeWarning.asScala)
+
+  /**
+   * If for any reason `KafkaConsumer.poll` blocks for longer than the configured
+   * poll-timeout then it is forcefully woken up with `KafkaConsumer.wakeup`.
+   *
+   * @see https://kafka.apache.org/20/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#wakeup--
+   */
   def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] =
     copy(wakeupTimeout = wakeupTimeout)
 
+  /**
+   * Java API:
+   * If for any reason `KafkaConsumer.poll` blocks for longer than the configured
+   * poll-timeout then it is forcefully woken up with `KafkaConsumer.wakeup`.
+   *
+   * @see https://kafka.apache.org/20/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#wakeup--
+   */
+  def withWakeupTimeout(wakeupTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(wakeupTimeout = wakeupTimeout.asScala)
+
+  /**
+   * Fully qualified config path which holds the dispatcher configuration
+   * to be used by the [[akka.kafka.KafkaConsumerActor]]. Some blocking may occur.
+   */
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
+  /**
+   * After exceeding maximum wakeups the consumer will stop and the stage will fail.
+   * Setting it to 0 will let it ignore the wakeups and try to get the polling done forever.
+   */
   def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
     copy(maxWakeups = maxWakeups)
 
+  /**
+   * If set to a finite duration, the consumer will re-send the last committed offsets periodically
+   * for all assigned partitions.
+   *
+   * @see https://issues.apache.org/jira/browse/KAFKA-4682
+   */
   def withCommitRefreshInterval(commitRefreshInterval: Duration): ConsumerSettings[K, V] =
     copy(commitRefreshInterval = commitRefreshInterval)
 
-  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
-    copy(wakeupDebug = wakeupDebug)
+  /**
+   * Java API:
+   * If set to a finite duration, the consumer will re-send the last committed offsets periodically
+   * for all assigned partitions. @see https://issues.apache.org/jira/browse/KAFKA-4682
+   * Set to [[java.time.Duration.ZERO]] to switch it off.
+   *
+   * @see https://issues.apache.org/jira/browse/KAFKA-4682
+   */
+  def withCommitRefreshInterval(commitRefreshInterval: java.time.Duration): ConsumerSettings[K, V] =
+    if (commitRefreshInterval.isZero) copy(commitRefreshInterval = Duration.Inf)
+    else copy(commitRefreshInterval = commitRefreshInterval.asScala)
 
+  /**
+   * If enabled, log stack traces before waking up the KafkaConsumer to give
+   * some indication why the KafkaConsumer is not honouring the `poll-timeout`.
+   */
+  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
+    if (wakeupDebug == this.wakeupDebug) this
+    else copy(wakeupDebug = wakeupDebug)
+
+  /**
+   * Time to wait for pending requests when a partition is closed.
+   */
   def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
     copy(waitClosePartition = waitClosePartition)
+
+  /**
+   * Java API:
+   * Time to wait for pending requests when a partition is closed.
+   */
+  def withWaitClosePartition(waitClosePartition: java.time.Duration): ConsumerSettings[K, V] =
+    copy(waitClosePartition = waitClosePartition.asScala)
 
   /** Scala API: Limits the blocking on Kafka consumer position calls. */
   def withPositionTimeout(positionTimeout: FiniteDuration): ConsumerSettings[K, V] =
@@ -332,6 +483,14 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
   def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
+  /**
+   * Internal API.
+   * Replaces the default Kafka consumer creation logic.
+   */
+  @InternalApi private[kafka] def withConsumerFactory(
+      factory: ConsumerSettings[K, V] => Consumer[K, V]
+  ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
+
   def getCloseTimeout: java.time.Duration = closeTimeout.asJava
   def getPositionTimeout: java.time.Duration = positionTimeout.asJava
   def getOffsetForTimesTimeout: java.time.Duration = offsetForTimesTimeout.asJava
@@ -355,7 +514,8 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
       waitClosePartition: FiniteDuration = waitClosePartition,
       positionTimeout: FiniteDuration = positionTimeout,
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
-      metadataRequestTimeout: FiniteDuration = metadataRequestTimeout
+      metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
+      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -375,18 +535,14 @@ class ConsumerSettings[K, V] @deprecated("use the factory methods `ConsumerSetti
       waitClosePartition,
       positionTimeout,
       offsetForTimesTimeout,
-      metadataRequestTimeout
+      metadataRequestTimeout,
+      consumerFactory
     )
 
   /**
-   * Create a `KafkaConsumer` instance from the settings.
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
    */
-  def createKafkaConsumer(): Consumer[K, V] = {
-    val javaProps = properties.foldLeft(new java.util.Properties) {
-      case (p, (k, v)) => p.put(k, v); p
-    }
-    new KafkaConsumer[K, V](javaProps, keyDeserializerOpt.orNull, valueDeserializerOpt.orNull)
-  }
+  def createKafkaConsumer(): Consumer[K, V] = consumerFactory.apply(this)
 
   override def toString: String =
     s"akka.kafka.ConsumerSettings(" +

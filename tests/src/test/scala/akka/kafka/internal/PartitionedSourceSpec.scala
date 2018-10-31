@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.Subscriptions
+import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
 import akka.stream._
 import akka.stream.scaladsl._
@@ -19,6 +19,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
@@ -34,8 +35,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     with BeforeAndAfterAll
     with OptionValues
     with ScalaFutures
-    with Eventually
-    with SettingsCreator {
+    with Eventually {
 
   implicit val patience = PatienceConfig(4.seconds, 50.millis)
 
@@ -48,6 +48,12 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
+
+  def consumerSettings(dummy: Consumer[K, V]): ConsumerSettings[K, V] =
+    ConsumerSettings
+      .create(system, new StringDeserializer, new StringDeserializer)
+      .withGroupId("group")
+      .withConsumerFactory(_ => dummy)
 
   "partitioned source" should "resume topics with demand" in assertAllStagesStopped {
     val dummy = new Dummy()

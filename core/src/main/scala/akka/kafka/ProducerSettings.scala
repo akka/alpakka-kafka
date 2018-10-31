@@ -6,9 +6,9 @@
 package akka.kafka
 
 import java.util.Optional
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.annotation.InternalApi
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
@@ -17,8 +17,11 @@ import org.apache.kafka.common.serialization.Serializer
 import scala.collection.JavaConverters._
 import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
+import akka.util.JavaDurationConverters._
 
 object ProducerSettings {
+
+  val configPath = "akka.kafka.producer"
 
   /**
    * Create settings from the default configuration
@@ -30,7 +33,7 @@ object ProducerSettings {
       keySerializer: Option[Serializer[K]],
       valueSerializer: Option[Serializer[V]]
   ): ProducerSettings[K, V] =
-    apply(system.settings.config.getConfig("akka.kafka.producer"), keySerializer, valueSerializer)
+    apply(system.settings.config.getConfig(configPath), keySerializer, valueSerializer)
 
   /**
    * Create settings from a configuration with the same layout as
@@ -53,17 +56,18 @@ object ProducerSettings {
       (valueSerializer.isDefined || properties.contains(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG)),
       "Value serializer should be defined or declared in configuration"
     )
-    val closeTimeout = config.getDuration("close-timeout", TimeUnit.MILLISECONDS).millis
+    val closeTimeout = config.getDuration("close-timeout").asScala
     val parallelism = config.getInt("parallelism")
     val dispatcher = config.getString("use-dispatcher")
-    val eosCommitInterval = config.getDuration("eos-commit-interval", TimeUnit.MILLISECONDS).millis
+    val eosCommitInterval = config.getDuration("eos-commit-interval").asScala
     new ProducerSettings[K, V](properties,
                                keySerializer,
                                valueSerializer,
                                closeTimeout,
                                parallelism,
                                dispatcher,
-                               eosCommitInterval)
+                               eosCommitInterval,
+                               ProducerSettings.createKafkaProducer)
   }
 
   /**
@@ -138,6 +142,14 @@ object ProducerSettings {
   ): ProducerSettings[K, V] =
     apply(config, keySerializer, valueSerializer)
 
+  /**
+   * Create a [[org.apache.kafka.clients.producer.KafkaProducer KafkaProducer]] instance from the settings.
+   */
+  def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] = {
+    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
+    new KafkaProducer[K, V](javaProps, settings.keySerializerOpt.orNull, settings.valueSerializerOpt.orNull)
+  }
+
 }
 
 /**
@@ -145,59 +157,124 @@ object ProducerSettings {
  * reference.conf. Note that the [[ProducerSettings companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
+ *
+ * The constructor is Internal API.
  */
-class ProducerSettings[K, V](
+class ProducerSettings[K, V] @InternalApi private[kafka] (
     val properties: Map[String, String],
     val keySerializerOpt: Option[Serializer[K]],
     val valueSerializerOpt: Option[Serializer[V]],
     val closeTimeout: FiniteDuration,
     val parallelism: Int,
     val dispatcher: String,
-    val eosCommitInterval: FiniteDuration
+    val eosCommitInterval: FiniteDuration,
+    val producerFactory: ProducerSettings[K, V] => KafkaProducer[K, V]
 ) {
 
+  @deprecated("use the factory methods `ProducerSettings.apply` and `create` instead", "1.0-M1")
+  def this(
+      properties: Map[String, String],
+      keySerializerOpt: Option[Serializer[K]],
+      valueSerializerOpt: Option[Serializer[V]],
+      closeTimeout: FiniteDuration,
+      parallelism: Int,
+      dispatcher: String,
+      eosCommitInterval: FiniteDuration
+  ) =
+    this(properties,
+         keySerializerOpt,
+         valueSerializerOpt,
+         closeTimeout,
+         parallelism,
+         dispatcher,
+         eosCommitInterval,
+         ProducerSettings.createKafkaProducer)
+
+  /**
+   * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
+   */
   def withBootstrapServers(bootstrapServers: String): ProducerSettings[K, V] =
     withProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
 
   /**
+   * Scala API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.producer.ProducerConfig`.
+   * [[org.apache.kafka.clients.producer.ProducerConfig]].
    */
   def withProperties(properties: Map[String, String]): ProducerSettings[K, V] =
     copy(properties = this.properties ++ properties)
 
   /**
+   * Scala API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.producer.ProducerConfig`.
+   * [[org.apache.kafka.clients.producer.ProducerConfig]].
    */
   def withProperties(properties: (String, String)*): ProducerSettings[K, V] =
     copy(properties = this.properties ++ properties.toMap)
 
   /**
+   * Java API:
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.producer.ProducerConfig`.
+   * [[org.apache.kafka.clients.producer.ProducerConfig]].
    */
   def withProperties(properties: java.util.Map[String, String]): ProducerSettings[K, V] =
     copy(properties = this.properties ++ properties.asScala)
 
   /**
    * The raw properties of the kafka-clients driver, see constants in
-   * `org.apache.kafka.clients.producer.ProducerConfig`.
+   * [[org.apache.kafka.clients.producer.ProducerConfig]].
    */
   def withProperty(key: String, value: String): ProducerSettings[K, V] =
     copy(properties = properties.updated(key, value))
 
+  /**
+   * Duration to wait for `KafkaConsumer.close` to finish.
+   */
   def withCloseTimeout(closeTimeout: FiniteDuration): ProducerSettings[K, V] =
     copy(closeTimeout = closeTimeout)
 
+  /**
+   * Java API:
+   * Duration to wait for `KafkaConsumer.close` to finish.
+   */
+  def withCloseTimeout(closeTimeout: java.time.Duration): ProducerSettings[K, V] =
+    copy(closeTimeout = closeTimeout.asScala)
+
+  /**
+   * Tuning parameter of how many sends that can run in parallel.
+   */
   def withParallelism(parallelism: Int): ProducerSettings[K, V] =
     copy(parallelism = parallelism)
 
+  /**
+   * Fully qualified config path which holds the dispatcher configuration
+   * to be used by the producer stages. Some blocking may occur.
+   * When this value is empty, the dispatcher configured for the stream
+   * will be used.
+   */
   def withDispatcher(dispatcher: String): ProducerSettings[K, V] =
     copy(dispatcher = dispatcher)
 
+  /**
+   * The time interval to commit a transaction when using the `Transactional.sink` or `Transactional.flow`.
+   */
   def withEosCommitInterval(eosCommitInterval: FiniteDuration): ProducerSettings[K, V] =
     copy(eosCommitInterval = eosCommitInterval)
+
+  /**
+   * Java API:
+   * The time interval to commit a transaction when using the `Transactional.sink` or `Transactional.flow`.
+   */
+  def withEosCommitInterval(eosCommitInterval: java.time.Duration): ProducerSettings[K, V] =
+    copy(eosCommitInterval = eosCommitInterval.asScala)
+
+  /**
+   * Internal API.
+   * Replaces the default Kafka producer creation logic.
+   */
+  @InternalApi private[kafka] def withProducerFactory(
+      factory: ProducerSettings[K, V] => KafkaProducer[K, V]
+  ): ProducerSettings[K, V] = copy(producerFactory = factory)
 
   private def copy(
       properties: Map[String, String] = properties,
@@ -206,7 +283,8 @@ class ProducerSettings[K, V](
       closeTimeout: FiniteDuration = closeTimeout,
       parallelism: Int = parallelism,
       dispatcher: String = dispatcher,
-      eosCommitInterval: FiniteDuration = eosCommitInterval
+      eosCommitInterval: FiniteDuration = eosCommitInterval,
+      producerFactory: ProducerSettings[K, V] => KafkaProducer[K, V] = producerFactory
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
                                keySerializer,
@@ -214,7 +292,8 @@ class ProducerSettings[K, V](
                                closeTimeout,
                                parallelism,
                                dispatcher,
-                               eosCommitInterval)
+                               eosCommitInterval,
+                               producerFactory)
 
   override def toString: String =
     "akka.kafka.ProducerSettings(" +
@@ -230,15 +309,5 @@ class ProducerSettings[K, V](
   /**
    * Create a `KafkaProducer` instance from the settings.
    */
-  def createKafkaProducer(): KafkaProducer[K, V] = {
-    val javaProps = properties.foldLeft(new java.util.Properties) {
-      case (p, (k, v)) => p.put(k, v); p
-    }
-    new KafkaProducer[K, V](javaProps, keySerializerOpt.orNull, valueSerializerOpt.orNull)
-  }
-
-  /**
-   * Lazily evaluate and store KafkaProducer when it's needed for operations like transactions.
-   */
-  lazy val lazyProducer: KafkaProducer[K, V] = createKafkaProducer()
+  def createKafkaProducer(): KafkaProducer[K, V] = producerFactory.apply(this)
 }

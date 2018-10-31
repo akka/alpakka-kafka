@@ -330,7 +330,7 @@ class PartitionedSourcesSpec
       val secondConsumer = source.runWith(TestSink.probe)
 
       eventually {
-        revoked.value should have size partitions / 2
+        revoked.value should have size partitions / 2L
       }
 
       firstConsumer.cancel()

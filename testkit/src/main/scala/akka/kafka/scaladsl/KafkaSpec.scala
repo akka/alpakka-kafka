@@ -21,7 +21,7 @@ import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.admin.{DescribeClusterResult, NewTopic}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
@@ -64,7 +64,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
 
-  var testProducer: KafkaProducer[String, String] = _
+  var testProducer: KProducer[String, String] = _
 
   val InitialMsg =
     "initial msg in topic, required to create the topic before any consumer subscribes to it"
