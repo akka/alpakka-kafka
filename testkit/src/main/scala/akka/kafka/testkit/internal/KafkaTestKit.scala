@@ -30,11 +30,12 @@ trait KafkaTestKit {
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  val consumerDefaults: ConsumerSettings[String, String] = ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
-    .withBootstrapServers(bootstrapServers)
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-    .withWakeupTimeout(10.seconds)
-    .withMaxWakeups(10)
+  val consumerDefaults: ConsumerSettings[String, String] =
+    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
+      .withBootstrapServers(bootstrapServers)
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      .withWakeupTimeout(10.seconds)
+      .withMaxWakeups(10)
 
   val committerDefaults = CommitterSettings(system)
 
