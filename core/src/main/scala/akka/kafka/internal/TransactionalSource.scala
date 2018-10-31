@@ -8,8 +8,10 @@ import java.util.Locale
 
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.TransactionalMessage
+import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerSettings, Subscription}
 import akka.stream.SourceShape
+import akka.stream.stage.GraphStageLogic
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.requests.IsolationLevel
 
@@ -34,7 +36,7 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
   )
 
-  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]) =
+  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
     with TransactionalMessageBuilder[K, V] {
       override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)

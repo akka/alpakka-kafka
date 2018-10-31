@@ -75,6 +75,7 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
   }
 }
 
+/** Internal API */
 private final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset,
                                                override val metadata: String)(
     val committer: Committer

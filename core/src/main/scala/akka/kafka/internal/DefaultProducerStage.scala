@@ -7,6 +7,7 @@ package akka.kafka.internal
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.ProducerMessage._
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
@@ -36,6 +37,11 @@ private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT 
     new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
 }
 
+/**
+ * Internal API.
+ *
+ * Used by [[DefaultProducerStage]], extended by [[TransactionalProducerStageLogic]].
+ */
 private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
     stage: ProducerStage[K, V, P, IN, OUT],
     producer: Producer[K, V],
@@ -45,11 +51,11 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
-  lazy val decider: Decider =
+  private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
-  val awaitingConfirmation = new AtomicInteger(0)
-  @volatile var inIsClosed = false
-  var completionState: Option[Try[Unit]] = None
+  private val awaitingConfirmation = new AtomicInteger(0)
+  private var inIsClosed = false
+  private var completionState: Option[Try[Done]] = None
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
@@ -88,7 +94,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
       override def onUpstreamFinish(): Unit = {
         inIsClosed = true
-        completionState = Some(Success(()))
+        completionState = Some(Success(Done))
         checkForCompletion()
       }
 

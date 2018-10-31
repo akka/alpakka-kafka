@@ -6,12 +6,18 @@
 package akka.kafka.internal
 
 import akka.actor.ActorRef
+import akka.annotation.InternalApi
 import akka.kafka.ManualSubscription
 import akka.stream.SourceShape
 
 import scala.concurrent.Future
 
-private[kafka] abstract class ExternalSingleSourceLogic[K, V, Msg](
+/**
+ * Internal API.
+ *
+ * Single source logic for externally provided [[KafkaConsumerActor]].
+ */
+@InternalApi private abstract class ExternalSingleSourceLogic[K, V, Msg](
     shape: SourceShape[Msg],
     _consumerActor: ActorRef,
     subscription: ManualSubscription
