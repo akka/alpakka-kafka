@@ -88,7 +88,22 @@ The above example uses separate `mapAsync` stages for processing and committing.
 
 Committing the offset for each message as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
 
-You can use the Akka Stream `batch` combinator to perform the batching. Note that it will only aggregate elements into batches if the downstream consumer is slower than the upstream producer.
+You can use a pre-defined `Committer.sink` to perform commits in batches:
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committerSink }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #committerSink }
+ 
+When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scaladoc[API](akka.kafka.CommitterSettings)) that defines:
+
+* `max-batch` — maximum number of messages to commit at once,
+* `max-interval` — maximum interval between commits.
+
+The bigger the values are, the less load you put on Kafka and the smaller are chances that committing offsets will become a bottleneck. However, increasing these values also means that in case of a failure you will have to re-process more messages. 
+
+You can also make a manual batching using the Akka Stream `batch` combinator to perform the batching. Note that it will only aggregate elements into batches if the downstream consumer is slower than the upstream producer.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atLeastOnceBatch }

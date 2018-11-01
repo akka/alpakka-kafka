@@ -15,6 +15,7 @@ import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.javadsl.Committer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -58,6 +59,8 @@ abstract class ConsumerExample {
           .withGroupId("group1")
           .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
   // #settings
+
+  final CommitterSettings committerSettings = CommitterSettings.create(config);
 
   final ConsumerSettings<String, byte[]> consumerSettingsWithAutoCommit =
       // #settings-autocommit
@@ -172,6 +175,31 @@ class AtLeastOnceExample extends ConsumerExample {
 
   CompletionStage<String> business(String key, byte[] value) { // .... }
     // #atLeastOnce
+    return CompletableFuture.completedFuture("");
+  }
+}
+
+// Consume messages at-least-once, and commit with a committer sink
+class AtLeastOnceWithCommitterSinkExample extends ConsumerExample {
+  public static void main(String[] args) {
+    new AtLeastOnceWithBatchCommitExample().demo();
+  }
+
+  public void demo() {
+    // #committerSink
+    Consumer.Control control =
+        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
+            .mapAsync(
+                1,
+                msg ->
+                    business(msg.record().key(), msg.record().value())
+                        .<ConsumerMessage.Committable>thenApply(done -> msg.committableOffset()))
+            .to(Committer.sink(committerSettings))
+            .run(materializer);
+    // #committerSink
+  }
+
+  CompletionStage<String> business(String key, byte[] value) { // .... }
     return CompletableFuture.completedFuture("");
   }
 }

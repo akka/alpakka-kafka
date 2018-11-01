@@ -83,6 +83,7 @@ private final case class CommittableOffsetImpl(override val partitionOffset: Con
   override def commitScaladsl(): Future[Done] =
     committer.commit(immutable.Seq(partitionOffset.withMetadata(metadata)))
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
+  override val batchSize: Long = 1
 }
 
 /** Internal API */
@@ -97,11 +98,17 @@ private[kafka] trait Committer {
 @InternalApi
 private[kafka] final class CommittableOffsetBatchImpl(
     val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-    val stages: Map[String, Committer]
+    val stages: Map[String, Committer],
+    override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
 
-  def updated(committableOffset: CommittableOffset): CommittableOffsetBatch = {
+  def updated(committable: Committable): CommittableOffsetBatch = committable match {
+    case offset: CommittableOffset => updatedWithOffset(offset)
+    case batch: CommittableOffsetBatch => updatedWithBatch(batch)
+  }
+
+  private def updatedWithOffset(committableOffset: CommittableOffset): CommittableOffsetBatch = {
     val partitionOffset = committableOffset.partitionOffset
     val key = partitionOffset.key
     val metadata = committableOffset match {
@@ -133,10 +140,10 @@ private[kafka] final class CommittableOffsetBatchImpl(
         stages.updated(key.groupId, stage)
     }
 
-    new CommittableOffsetBatchImpl(newOffsets, newStages)
+    new CommittableOffsetBatchImpl(newOffsets, newStages, batchSize + 1)
   }
 
-  def updated(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
+  private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
     committableOffsetBatch match {
       case c: CommittableOffsetBatchImpl =>
         val newOffsetsAndMetadata = offsetsAndMetadata ++ c.offsetsAndMetadata
@@ -154,7 +161,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
                 acc.updated(groupId, stage)
             }
         }
-        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages)
+        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages, batchSize + committableOffsetBatch.batchSize)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
