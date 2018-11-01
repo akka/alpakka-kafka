@@ -76,8 +76,10 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
 }
 
 /** Internal API */
-private final case class CommittableOffsetImpl(override val partitionOffset: ConsumerMessage.PartitionOffset,
-                                               override val metadata: String)(
+@InternalApi private[kafka] final case class CommittableOffsetImpl(
+    override val partitionOffset: ConsumerMessage.PartitionOffset,
+    override val metadata: String
+)(
     val committer: Committer
 ) extends CommittableOffsetMetadata {
   override def commitScaladsl(): Future[Done] =
@@ -98,7 +100,7 @@ private[kafka] trait Committer {
 @InternalApi
 private[kafka] final class CommittableOffsetBatchImpl(
     val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-    val stages: Map[String, Committer],
+    val committers: Map[String, Committer],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
@@ -121,7 +123,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     val newOffsets =
       offsetsAndMetadata.updated(key, new OffsetAndMetadata(committableOffset.partitionOffset.offset, metadata))
 
-    val stage = committableOffset match {
+    val committer = committableOffset match {
       case c: CommittableOffsetImpl => c.committer
       case _ =>
         throw new IllegalArgumentException(
@@ -130,38 +132,40 @@ private[kafka] final class CommittableOffsetBatchImpl(
         )
     }
 
-    val newStages = stages.get(key.groupId) match {
+    val newComitters = committers.get(key.groupId) match {
       case Some(s) =>
-        require(s == stage,
-                s"CommittableOffset [$committableOffset] origin stage must be same as other " +
-                s"stage with same groupId. Expected [$s], got [$stage]")
-        stages
+        require(
+          s == committer,
+          s"CommittableOffset [$committableOffset] committer for groupId [${key.groupId}] " +
+          s"must be same as the other with this groupId. Expected [$s], got [$committer]"
+        )
+        committers
       case None =>
-        stages.updated(key.groupId, stage)
+        committers.updated(key.groupId, committer)
     }
 
-    new CommittableOffsetBatchImpl(newOffsets, newStages, batchSize + 1)
+    new CommittableOffsetBatchImpl(newOffsets, newComitters, batchSize + 1)
   }
 
   private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
     committableOffsetBatch match {
       case c: CommittableOffsetBatchImpl =>
         val newOffsetsAndMetadata = offsetsAndMetadata ++ c.offsetsAndMetadata
-        val newStages = c.stages.foldLeft(stages) {
-          case (acc, (groupId, stage)) =>
+        val newCommitters = c.committers.foldLeft(committers) {
+          case (acc, (groupId, committer)) =>
             acc.get(groupId) match {
               case Some(s) =>
                 require(
-                  s == stage,
-                  s"CommittableOffsetBatch [$committableOffsetBatch] origin stage for groupId [$groupId] " +
-                  s"must be same as other stage with same groupId. Expected [$s], got [$stage]"
+                  s == committer,
+                  s"CommittableOffsetBatch [$committableOffsetBatch] committer for groupId [$groupId] " +
+                  s"must be same as the other with this groupId. Expected [$s], got [$committer]"
                 )
                 acc
               case None =>
-                acc.updated(groupId, stage)
+                acc.updated(groupId, committer)
             }
         }
-        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newStages, batchSize + committableOffsetBatch.batchSize)
+        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newCommitters, batchSize + committableOffsetBatch.batchSize)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
@@ -179,7 +183,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     if (offsets.isEmpty)
       Future.successful(Done)
     else {
-      stages.head._2.commit(this)
+      committers.head._2.commit(this)
     }
 
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava

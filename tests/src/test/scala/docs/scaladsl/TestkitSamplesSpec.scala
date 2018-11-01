@@ -10,6 +10,7 @@ import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerMessage, ProducerMessage}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
@@ -29,9 +30,11 @@ class TestkitSamplesSpec
     with ScalaFutures {
   implicit val mat: Materializer = ActorMaterializer()
 
+  implicit val patience = PatienceConfig(3.seconds, 100.millis)
+
   override protected def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 
-  "Without broker testing" should "be possible" in {
+  "Without broker testing" should "be possible" in assertAllStagesStopped {
     val topic = "topic"
     val targetTopic = "target-topic"
     val groupId = "group1"
@@ -39,8 +42,7 @@ class TestkitSamplesSpec
     val partition = 0
 
     // #factories
-    import akka.kafka.testkit.ConsumerResultFactory
-    import akka.kafka.testkit.ProducerResultFactory
+    import akka.kafka.testkit.{ConsumerResultFactory, ProducerResultFactory}
     import akka.kafka.testkit.scaladsl.ConsumerControlFactory
 
     // create elements emitted by the mocked Consumer
@@ -68,6 +70,7 @@ class TestkitSamplesSpec
         .map {
           case msg: ProducerMessage.Message[String, String, CommittableOffset] =>
             ProducerResultFactory.result(msg)
+          case other => throw new Exception(s"excluded: $other")
         }
 
     // run the flow as if it was connected to a Kafka broker
@@ -88,7 +91,6 @@ class TestkitSamplesSpec
       .run()
     // #factories
 
-    control.shutdown()
     streamCompletion.futureValue should be(Done)
   }
 }

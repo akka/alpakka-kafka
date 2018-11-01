@@ -5,15 +5,14 @@
 
 package akka.kafka.testkit
 
-import java.util.concurrent.CompletionStage
-
 import akka.Done
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffset}
+import akka.kafka.internal.{CommittableOffsetImpl, Committer}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import scala.compat.java8.FutureConverters._
+import scala.collection.immutable
 import scala.concurrent.Future
 
 /**
@@ -21,6 +20,13 @@ import scala.concurrent.Future
  */
 @ApiMayChange
 object ConsumerResultFactory {
+
+  val fakeCommitter = new Committer {
+    override def commit(
+        offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]
+    ): Future[Done] = Future.successful(Done)
+    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] = Future.successful(Done)
+  }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =
     ConsumerMessage.PartitionOffset(ConsumerMessage.GroupTopicPartition(groupId, topic, partition), offset)
@@ -35,16 +41,8 @@ object ConsumerResultFactory {
     committableOffset(partitionOffset(groupId, topic, partition, offset), metadata)
 
   def committableOffset(partitionOffset: ConsumerMessage.PartitionOffset,
-                        metadata: String): ConsumerMessage.CommittableOffset = {
-    val metadata2 = metadata
-    val partitionOffset2 = partitionOffset
-    new ConsumerMessage.CommittableOffsetMetadata {
-      override val metadata: String = metadata2
-      override val partitionOffset: ConsumerMessage.PartitionOffset = partitionOffset2
-      override def commitScaladsl(): Future[Done] = Future.successful(Done)
-      override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
-    }
-  }
+                        metadata: String): ConsumerMessage.CommittableOffset =
+    CommittableOffsetImpl(partitionOffset, metadata)(fakeCommitter)
 
   def committableMessage[K, V](
       record: ConsumerRecord[K, V],
