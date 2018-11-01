@@ -165,7 +165,9 @@ private[kafka] final class CommittableOffsetBatchImpl(
                 acc.updated(groupId, committer)
             }
         }
-        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newCommitters, batchSize + committableOffsetBatch.batchSize)
+        new CommittableOffsetBatchImpl(newOffsetsAndMetadata,
+                                       newCommitters,
+                                       batchSize + committableOffsetBatch.batchSize)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
