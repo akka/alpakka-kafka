@@ -77,7 +77,7 @@ Gradle
     ```
 
 
-## Producer
+### Producer
 
 To create serializers that use the Schema Registry, its URL needs to be provided as configuration `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the serializer and that serializer is used in the `ProducerSettings`.
 
@@ -89,7 +89,7 @@ Java
 
 
 
-## Consumer
+### Consumer
 
 To create deserializers that use the Schema Registry, its URL needs to be provided as configuration  `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the deserializer and that deserializer is used in the `ConsumerSettings`.
 
