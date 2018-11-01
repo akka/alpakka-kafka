@@ -10,7 +10,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage, Executor}
 import akka.Done
 import akka.annotation.ApiMayChange
 import akka.kafka.javadsl.Consumer
-import akka.stream.javadsl.{Flow, Source}
+import akka.stream.javadsl.{Flow, Keep, Source}
 import akka.stream.{scaladsl, KillSwitch, KillSwitches}
 import org.apache.kafka.common.{Metric, MetricName}
 
@@ -23,7 +23,7 @@ object ConsumerControlFactory {
 
   def attachControl[A, B](source: Source[A, B]): Source[A, Consumer.Control] =
     source
-      .viaMat(controlFlow(), (a: B, b: Consumer.Control) => b)
+      .viaMat(controlFlow(), Keep.right[B, Consumer.Control])
 
   def controlFlow[A](): Flow[A, A, Consumer.Control] =
     scaladsl
@@ -53,7 +53,10 @@ object ConsumerControlFactory {
     override def drainAndShutdown[T](
         streamCompletion: CompletionStage[T],
         ec: Executor
-    ): CompletionStage[T] = stop().thenCompose(_ => streamCompletion)
+    ): CompletionStage[T] =
+      stop().thenCompose(new java.util.function.Function[Done, CompletionStage[T]] {
+        override def apply(t: Done): CompletionStage[T] = streamCompletion
+      })
 
   }
 
