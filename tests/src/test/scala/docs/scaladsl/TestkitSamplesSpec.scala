@@ -20,6 +20,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.immutable
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class TestkitSamplesSpec
@@ -84,13 +85,14 @@ class TestkitSamplesSpec
       )
       .via(mockedKafkaProducerFlow)
       .map(_.passThrough)
-      .groupedWithin(10, 5.seconds)
+      .groupedWithin(10, 500.millis)
       .map(CommittableOffsetBatch(_))
       .mapAsync(3)(_.commitScaladsl())
       .toMat(Sink.ignore)(Keep.both)
       .run()
     // #factories
 
+    Await.result(streamCompletion, 2.seconds)
     streamCompletion.futureValue should be(Done)
   }
 }
