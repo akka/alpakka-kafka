@@ -8,13 +8,17 @@ package docs.scaladsl
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Sink, Source}
+// #testkit
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
+// #testkit
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.immutable
 import scala.concurrent.duration._
+
+// #testkit
 
 class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
 
@@ -26,6 +30,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
                         Map(
                           "offsets.topic.replication.factor" -> "1"
                         ))
+  // #testkit
 
   "subscription with partition assignment" must {
 
@@ -148,5 +153,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
       messages.futureValue.map(_ - now).count(_ > 5000) shouldBe 0
     }
   }
+  // #testkit
 
 }
+// #testkit

@@ -3,11 +3,12 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.internal
+package akka.kafka.testkit.internal
+
 import java.util
-import java.util.{Arrays, Properties}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.{Arrays, Properties}
 
 import akka.actor.ActorSystem
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
@@ -15,7 +16,7 @@ import kafka.admin.{AdminClient => OldAdminClient}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.Logger
 
 import scala.concurrent.duration._
 
@@ -29,11 +30,12 @@ trait KafkaTestKit {
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  val consumerDefaults = ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
-    .withBootstrapServers(bootstrapServers)
-    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-    .withWakeupTimeout(10.seconds)
-    .withMaxWakeups(10)
+  val consumerDefaults: ConsumerSettings[String, String] =
+    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
+      .withBootstrapServers(bootstrapServers)
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      .withWakeupTimeout(10.seconds)
+      .withMaxWakeups(10)
 
   val committerDefaults = CommitterSettings(system)
 
@@ -80,7 +82,7 @@ trait KafkaTestKit {
     topicName
   }
 
-  def sleepMillis(ms: Int, msg: String): Unit = {
+  def sleepMillis(ms: Long, msg: String): Unit = {
     log.debug(s"sleeping $ms ms $msg")
     Thread.sleep(ms)
   }

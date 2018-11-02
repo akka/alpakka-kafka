@@ -3,7 +3,7 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka.testkit.scaladsl
 
 import java.util
 import java.util.concurrent.TimeUnit
@@ -12,8 +12,9 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.kafka._
-import akka.kafka.internal.KafkaTestKit
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.testkit.internal.KafkaTestKit
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
@@ -25,8 +26,8 @@ import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
-import scala.collection.immutable
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}

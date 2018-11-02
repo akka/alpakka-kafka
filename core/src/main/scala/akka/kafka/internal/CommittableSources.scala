@@ -125,7 +125,7 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
     case b: CommittableOffsetBatchImpl =>
       val futures = b.offsetsAndMetadata.groupBy(_._1.groupId).map {
         case (groupId, offsetsMap) =>
-          val committer = b.stages.getOrElse(
+          val committer = b.committers.getOrElse(
             groupId,
             throw new IllegalStateException(s"Unknown committer, got [$groupId]")
           )

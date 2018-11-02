@@ -6,8 +6,8 @@
 package docs.scaladsl
 
 import akka.NotUsed
-import akka.kafka.internal.TestFrameworkInterface
-import akka.kafka.scaladsl.{EmbeddedKafkaLike, KafkaSpec}
+import akka.kafka.testkit.scaladsl.{EmbeddedKafkaLike, KafkaSpec}
+import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.stream.scaladsl.Flow
 import org.scalatest.{FlatSpecLike, Matchers, Suite}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}

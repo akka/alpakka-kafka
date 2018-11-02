@@ -3,7 +3,7 @@
  * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.internal
+package akka.kafka.testkit.internal
 
 import org.scalatest.{BeforeAndAfterAll, Suite}
 

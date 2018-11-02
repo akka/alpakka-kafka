@@ -215,7 +215,6 @@ lazy val docs = project
   .settings(
     name := "Alpakka Kafka",
     skip in publish := true,
-    paradoxNavigationDepth := 3,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",

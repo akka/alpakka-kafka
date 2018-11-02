@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+// #testkit
+import akka.kafka.testkit.scaladsl.{EmbeddedKafkaLike, ScalatestKafkaSpec}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
 
@@ -15,3 +17,4 @@ abstract class SpecBase(kafkaPort: Int)
     with Matchers
     with ScalaFutures
     with Eventually
+// #testkit

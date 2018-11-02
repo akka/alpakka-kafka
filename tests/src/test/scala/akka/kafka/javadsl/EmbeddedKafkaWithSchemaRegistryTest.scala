@@ -4,7 +4,7 @@
  */
 
 package akka.kafka.javadsl
-
+import akka.kafka.testkit.javadsl.KafkaTest
 import net.manub.embeddedkafka.schemaregistry.{
   EmbeddedKafkaConfigWithSchemaRegistryImpl,
   EmbeddedKafkaWithSchemaRegistry

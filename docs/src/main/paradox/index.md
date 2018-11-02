@@ -18,6 +18,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 * [Transactions](transactions.md)
 * [deser](serialization.md)
 * [debug](debugging.md)
+* [test](testing.md)
 * [Snapshots](snapshots.md)
 
 @@@
