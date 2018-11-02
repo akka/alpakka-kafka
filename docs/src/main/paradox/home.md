@@ -1,6 +1,6 @@
 # Overview
 
-The [Alpakka project](https://developer.lightbend.com/docs/alpakka/current/) is an open source initiative to implement stream-aware and reactive integration pipelines for Java and Scala. It is built on top of [Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](https://www.reactive-streams.org/) and JDK 9+ [java.util.concurrent.Flow](https://docs.oracle.com/javase/10/docs/api/java/util/concurrent/Flow.html)-compliant implementation and therefore [fully interoperable](https://doc.akka.io/docs/akka/current/general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
+The [Alpakka project](https://developer.lightbend.com/docs/alpakka/current/) is an open source initiative to implement stream-aware and reactive integration pipelines for Java and Scala. It is built on top of @extref[Akka Streams](akka-docs:stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](https://www.reactive-streams.org/) and JDK 9+ @extref[java.util.concurrent.Flow](java-docs:docs/api/java.base/java/util/concurrent/Flow.html)-compliant implementation and therefore @extref[fully interoperable](akka-docs:general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
 
 This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
@@ -8,7 +8,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 The examples in this documentation use
 
-* Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/reactive-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/#package))
+* Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/reactive-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/akka/kafka/index.html))
 * Scala $scala.binary.version$ (also available for Scala 2.11)
 * Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
 * Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
@@ -59,3 +59,8 @@ Please feel free to contribute to Alpakka and the Alpakka Kafka connector by rep
 We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://github.com/akka/reactive-kafka/blob/master/CODE_OF_CONDUCT.md).
 
 
+@@@ index
+
+* [release notes](release-notes/index.md)
+
+@@@

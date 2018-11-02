@@ -31,7 +31,7 @@ object KafkaConsumerActor {
 
   /**
    * Creates Props for the Kafka Consumer Actor with a reference back to the owner of it
-   * which will be signalled with [[akka.actor.Status.Failure(exception)]], in case the
+   * which will be signalled with [[akka.actor.Status.Failure Failure(exception)]], in case the
    * Kafka client instance can't be created.
    */
   def props[K, V](owner: ActorRef, settings: ConsumerSettings[K, V]): Props =

@@ -2,7 +2,7 @@
 
 ## Failing consumer
 
-When a consumer fails to read from Kafka due to connection problems, it throws a @javadoc[WakeupException](org.apache.kafka.common.errors.WakeupException) which is handled internally with retries. Refer to consumer configuration [settings](consumer.html#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
+When a consumer fails to read from Kafka due to connection problems, it throws a @javadoc[WakeupException](org.apache.kafka.common.errors.WakeupException) which is handled internally with retries. Refer to consumer configuration @ref[settings](consumer.md#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
 When the currently configured number of `max-wakeups` is reached, the source stage will fail with an exception and stop.
 
 ## Failing producer
@@ -25,6 +25,6 @@ When a stream fails, library internals will handle all underlying resources.
 @@@note { title=(de)serialization }
 
 If reading from Kafka failure is caused by other reasons, like **deserialization problems**, then the stage will fail immediately. If you expect such cases, consider
-consuming raw byte arrays and deserializing in a subsequent `map` stage where you can use supervision to skip failed elements. See also the ["At least once"](atleastonce.html) page for more suggestions.
+consuming raw byte arrays and deserializing in a subsequent `map` stage where you can use supervision to skip failed elements. See also @ref:[Serialization](serialization.md) and @ref:["At least once"](atleastonce.md) pages for more suggestions.
 
 @@@

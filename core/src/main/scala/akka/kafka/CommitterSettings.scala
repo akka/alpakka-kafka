@@ -49,7 +49,7 @@ object CommitterSettings {
 
 /**
  * Settings for committer. See `akka.kafka.committer` section in
- * reference.conf. Note that the [[CommitterSettings companion]] object provides
+ * reference.conf. Note that the [[akka.kafka.CommitterSettings$ companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  */
