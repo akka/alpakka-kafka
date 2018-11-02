@@ -59,7 +59,8 @@ class TestkitSamplesSpec
 
     // create a source imitating the Consumer.committableSource
     val mockedKafkaConsumerSource: Source[ConsumerMessage.CommittableMessage[String, String], Consumer.Control] =
-      Source(elements)
+      Source
+        .cycle(() => elements.iterator)
         .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
 
     // create a source imitating the Producer.flexiFlow
@@ -91,6 +92,8 @@ class TestkitSamplesSpec
       .run()
     // #factories
 
+    Thread.sleep(1 * 1000L)
+    control.shutdown().futureValue should be(Done)
     streamCompletion.futureValue should be(Done)
   }
 }

@@ -81,7 +81,8 @@ public class TestkitSamplesTest {
     // create a source imitating the Consumer.committableSource
     Source<ConsumerMessage.CommittableMessage<String, String>, Consumer.Control>
         mockedKafkaConsumerSource =
-            Source.from(elements).viaMat(ConsumerControlFactory.controlFlow(), Keep.right());
+            Source.cycle(elements::iterator)
+                .viaMat(ConsumerControlFactory.controlFlow(), Keep.right());
 
     // create a source imitating the Producer.flexiFlow
     Flow<
@@ -126,7 +127,10 @@ public class TestkitSamplesTest {
             .run(mat);
     // #factories
 
-    stream.first().shutdown();
+    Thread.sleep(1 * 1000L);
+    assertThat(
+        stream.first().shutdown().toCompletableFuture().get(2, TimeUnit.SECONDS),
+        is(Done.getInstance()));
     assertThat(
         stream.second().toCompletableFuture().get(2, TimeUnit.SECONDS), is(Done.getInstance()));
   }
