@@ -1,1 +1,5 @@
 ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
+
+# https://github.com/akka/alpakka-kafka/pull/622
+ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.updated")
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.batchSize")
