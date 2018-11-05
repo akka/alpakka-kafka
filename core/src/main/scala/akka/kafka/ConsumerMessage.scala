@@ -9,6 +9,7 @@ import java.util.{Map => JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.Done
+import akka.annotation.DoNotInherit
 import akka.kafka.internal.CommittableOffsetBatchImpl
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -45,7 +46,7 @@ object ConsumerMessage {
    *
    * This interface might move into `akka.stream`
    */
-  trait Committable {
+  @DoNotInherit trait Committable {
     def commitScaladsl(): Future[Done]
     def commitJavadsl(): CompletionStage[Done]
 
@@ -66,11 +67,11 @@ object ConsumerMessage {
    * should be the next message your application will consume,
    * i.e. lastProcessedMessageOffset + 1.
    */
-  trait CommittableOffset extends Committable {
+  @DoNotInherit trait CommittableOffset extends Committable {
     def partitionOffset: PartitionOffset
   }
 
-  trait CommittableOffsetMetadata extends CommittableOffset {
+  @DoNotInherit trait CommittableOffsetMetadata extends CommittableOffset {
     def metadata: String
   }
 
@@ -137,7 +138,7 @@ object ConsumerMessage {
    * using this class, before [[Committable#commitScaladsl committing]] them. Start with
    * the [[CommittableOffsetBatch#empty empty]] batch.
    */
-  trait CommittableOffsetBatch extends Committable {
+  @DoNotInherit trait CommittableOffsetBatch extends Committable {
 
     /**
      * Add/overwrite an offset position from another committable.
