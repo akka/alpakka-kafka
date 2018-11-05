@@ -132,7 +132,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
         )
     }
 
-    val newComitters = committers.get(key.groupId) match {
+    val newCommitters = committers.get(key.groupId) match {
       case Some(s) =>
         require(
           s == committer,
@@ -144,7 +144,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
         committers.updated(key.groupId, committer)
     }
 
-    new CommittableOffsetBatchImpl(newOffsets, newComitters, batchSize + 1)
+    new CommittableOffsetBatchImpl(newOffsets, newCommitters, batchSize + 1)
   }
 
   private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
