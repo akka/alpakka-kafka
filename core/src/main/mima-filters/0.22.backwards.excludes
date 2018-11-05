@@ -1,5 +1,20 @@
 ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
 
+# Committer sink
 # https://github.com/akka/alpakka-kafka/pull/622
 ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.updated")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.batchSize")
+
+# Use named classes for consumer stages and set a name attribute
+# https://github.com/akka/alpakka-kafka/pull/571
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.Subscription.renderStageAttribute")
+
+# Add support for merging commit batches
+# https://github.com/akka/alpakka-kafka/pull/584
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.updated")
+
+# revised settings classes
+# https://github.com/akka/alpakka-kafka/pull/616
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ProducerSettings.lazyProducer")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>$default$13")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>$default$14")
