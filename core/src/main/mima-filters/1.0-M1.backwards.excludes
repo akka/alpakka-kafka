@@ -1,7 +1,0 @@
-# new method in sealed trait
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.Subscription.renderStageAttribute")
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.updated")
-# revised settings classes
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ProducerSettings.lazyProducer")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>$default$13")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>$default$14")
