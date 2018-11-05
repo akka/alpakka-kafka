@@ -159,7 +159,10 @@ lazy val core = project
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= coreDependencies,
-    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet
+    mimaPreviousArtifacts := Set(
+      organization.value %% name.value % previousStableVersion.value
+        .getOrElse(throw new Error("Unable to determine previous version"))
+    )
   )
 
 lazy val testkit = project
@@ -171,7 +174,10 @@ lazy val testkit = project
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     libraryDependencies ++= testkitDependencies,
-    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet
+    mimaPreviousArtifacts := Set(
+      organization.value %% name.value % previousStableVersion.value
+        .getOrElse(throw new Error("Unable to determine previous version"))
+    )
   )
 
 lazy val tests = project
