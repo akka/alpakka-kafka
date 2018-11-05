@@ -8,7 +8,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 The examples in this documentation use
 
-* Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/reactive-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/akka/kafka/index.html))
+* Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/alpakka-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/akka/kafka/index.html))
 * Scala $scala.binary.version$ (also available for Scala 2.11)
 * Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
 * Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
