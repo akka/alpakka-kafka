@@ -10,10 +10,8 @@ import akka.Done;
 import akka.kafka.ConsumerMessage;
 import akka.kafka.ConsumerMessage.CommittableOffset;
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch;
+import akka.kafka.ProducerMessage;
 import akka.kafka.ProducerMessage.Envelope;
-import akka.kafka.ProducerMessage.Message;
-import akka.kafka.ProducerMessage.MultiMessage;
-import akka.kafka.ProducerMessage.PassThroughMessage;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
@@ -38,7 +36,7 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
             .map(
                 msg -> {
                   Envelope<String, byte[], CommittableOffset> multiMsg =
-                      new MultiMessage<String, byte[], CommittableOffset>(
+                      ProducerMessage.multi(
                           Arrays.asList(
                               new ProducerRecord<>("topic2", msg.record().value()),
                               new ProducerRecord<>("topic3", msg.record().value())),
@@ -80,16 +78,16 @@ class AtLeastOnceOneToConditional extends ConsumerExample {
                   final Envelope<String, byte[], CommittableOffset> produce;
                   if (duplicate(msg.record().value())) {
                     produce =
-                        new MultiMessage<>(
+                        ProducerMessage.multi(
                             Arrays.asList(
                                 new ProducerRecord<>("topic2", msg.record().value()),
                                 new ProducerRecord<>("topic3", msg.record().value())),
                             msg.committableOffset());
                   } else if (ignore(msg.record().value())) {
-                    produce = new PassThroughMessage<>(msg.committableOffset());
+                    produce = ProducerMessage.passThrough(msg.committableOffset());
                   } else {
                     produce =
-                        new Message<>(
+                        ProducerMessage.single(
                             new ProducerRecord<>("topic2", msg.record().value()),
                             msg.committableOffset());
                   }

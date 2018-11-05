@@ -248,8 +248,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1, topic2))
         .map { msg =>
-          ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
-            new ProducerRecord(targetTopic, msg.record.value),
+          ProducerMessage.single(
+            new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
             msg.committableOffset
           )
         }
@@ -279,8 +279,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map { msg =>
-        ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
-          new ProducerRecord(targetTopic, msg.record.value),
+        ProducerMessage.single(
+          new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
           passThrough = msg.committableOffset
         )
       }
@@ -314,8 +314,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map(
         msg =>
-          ProducerMessage.Message[String, String, ConsumerMessage.CommittableOffset](
-            new ProducerRecord(targetTopic, msg.record.value),
+          ProducerMessage.single(
+            new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
             msg.committableOffset
         )
       )
@@ -347,8 +347,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       .committableSource(consumerSettings, Subscriptions.topics(topic))
       .map(
         msg =>
-          ProducerMessage.Message(
-            new ProducerRecord[String, String](targetTopic, msg.record.value),
+          ProducerMessage.single(
+            new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
             msg.committableOffset
         )
       )

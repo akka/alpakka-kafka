@@ -5,6 +5,7 @@
 
 package akka.kafka
 
+import akka.NotUsed
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.collection.immutable
@@ -54,6 +55,26 @@ object ProducerMessage {
   ) extends Envelope[K, V, PassThrough]
 
   /**
+   * Create a message containing the `record` and a `passThrough`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   * @tparam PassThrough the type of data passed through
+   */
+  def single[K, V, PassThrough](
+      record: ProducerRecord[K, V],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = Message(record, passThrough)
+
+  /**
+   * Create a message containing the `record`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   */
+  def single[K, V](record: ProducerRecord[K, V]): Envelope[K, V, NotUsed] = Message(record, NotUsed)
+
+  /**
    * [[Envelope]] implementation that produces multiple message to a Kafka topics, flows emit
    *  a [[MultiResult]] for every element processed.
    *
@@ -81,6 +102,52 @@ object ProducerMessage {
   }
 
   /**
+   * Create a multi-message containing several `records` and one `passThrough`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   * @tparam PassThrough the type of data passed through
+   */
+  def multi[K, V, PassThrough](
+      records: immutable.Seq[ProducerRecord[K, V]],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = MultiMessage(records, passThrough)
+
+  /**
+   * Create a multi-message containing several `records`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   */
+  def multi[K, V](
+      records: immutable.Seq[ProducerRecord[K, V]]
+  ): Envelope[K, V, NotUsed] = MultiMessage(records, NotUsed)
+
+  /**
+   * Java API:
+   * Create a multi-message containing several `records` and one `passThrough`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   * @tparam PassThrough the type of data passed through
+   */
+  def multi[K, V, PassThrough](
+      records: java.util.Collection[ProducerRecord[K, V]],
+      passThrough: PassThrough
+  ): Envelope[K, V, PassThrough] = new MultiMessage(records, passThrough)
+
+  /**
+   * Java API:
+   * Create a multi-message containing several `records`.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   */
+  def multi[K, V](
+      records: java.util.Collection[ProducerRecord[K, V]]
+  ): Envelope[K, V, NotUsed] = new MultiMessage(records, NotUsed)
+
+  /**
    * [[Envelope]] implementation that does not produce anything to Kafka, flows emit
    * a [[PassThroughResult]] for every element processed.
    *
@@ -93,6 +160,17 @@ object ProducerMessage {
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
   ) extends Envelope[K, V, PassThrough]
+
+  /**
+   * Create a pass-through message not containing any records.
+   * In some cases the type parameters need to be specified explicitly.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   * @tparam PassThrough the type of data passed through
+   */
+  def passThrough[K, V, PassThrough](passThrough: PassThrough): Envelope[K, V, PassThrough] =
+    PassThroughMessage(passThrough)
 
   /**
    * Output type produced by `Producer.flexiFlow` and `Transactional.flow`.

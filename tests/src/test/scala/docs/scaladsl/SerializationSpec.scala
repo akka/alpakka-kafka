@@ -29,9 +29,9 @@ import net.manub.embeddedkafka.schemaregistry.{
 }
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.avro.{AvroRuntimeException, Schema}
-// #imports
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
+// #imports
 import org.apache.kafka.common.serialization._
 // #imports
 import org.scalatest.concurrent.{Eventually, ScalaFutures}

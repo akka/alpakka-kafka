@@ -95,39 +95,53 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     // #producer
   }
 
-  def createMessage[KeyType, ValueType, PassThroughType](key: KeyType, value: ValueType, passThrough: PassThroughType) =
+  def createMessage[KeyType, ValueType, PassThroughType](
+      key: KeyType,
+      value: ValueType,
+      passThrough: PassThroughType
+  ): ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] = {
     // #singleMessage
-    new ProducerMessage.Message[KeyType, ValueType, PassThroughType](
-      new ProducerRecord("topicName", key, value),
-      passThrough
-    )
-  // #singleMessage
-
-  def createMultiMessage[KeyType, ValueType, PassThroughType](key: KeyType,
-                                                              value: ValueType,
-                                                              passThrough: PassThroughType) = {
-    import scala.collection.immutable
-    // #multiMessage
-    new ProducerMessage.MultiMessage[KeyType, ValueType, PassThroughType](
-      immutable.Seq(
+    val single: ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] =
+      ProducerMessage.single(
         new ProducerRecord("topicName", key, value),
-        new ProducerRecord("anotherTopic", key, value)
-      ),
-      passThrough
-    )
-    // #multiMessage
+        passThrough
+      )
+    // #singleMessage
+    single
   }
 
-  def createPassThroughMessage[KeyType, ValueType, PassThroughType](key: KeyType,
-                                                                    value: ValueType,
-                                                                    passThrough: PassThroughType) =
-    // format:off
+  def createMultiMessage[KeyType, ValueType, PassThroughType](
+      key: KeyType,
+      value: ValueType,
+      passThrough: PassThroughType
+  ): ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] = {
+    import scala.collection.immutable
+    // #multiMessage
+    val multi: ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] =
+      ProducerMessage.multi(
+        immutable.Seq(
+          new ProducerRecord("topicName", key, value),
+          new ProducerRecord("anotherTopic", key, value)
+        ),
+        passThrough
+      )
+    // #multiMessage
+    multi
+  }
+
+  def createPassThroughMessage[KeyType, ValueType, PassThroughType](
+      key: KeyType,
+      value: ValueType,
+      passThrough: PassThroughType
+  ): ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] = {
     // #passThroughMessage
-    new ProducerMessage.PassThroughMessage(
-      passThrough
-    )
-  // #passThroughMessage
-  // format:on
+    val ptm: ProducerMessage.Envelope[KeyType, ValueType, PassThroughType] =
+      ProducerMessage.passThrough(
+        passThrough
+      )
+    // #passThroughMessage
+    ptm
+  }
 
   "flexiFlow" should "work" in {
     val producerSettings = producerDefaults
@@ -139,15 +153,14 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
       .map { number =>
         val partition = 0
         val value = number.toString
-        ProducerMessage.Message(
+        ProducerMessage.single(
           new ProducerRecord(topic, partition, "key", value),
           number
         )
       }
       .via(Producer.flexiFlow(producerSettings))
       .map {
-        case ProducerMessage.Result(metadata, message) =>
-          val record = message.record
+        case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) =>
           s"${metadata.topic}/${metadata.partition} ${metadata.offset}: ${record.value}"
 
         case ProducerMessage.MultiResult(parts, passThrough) =>
