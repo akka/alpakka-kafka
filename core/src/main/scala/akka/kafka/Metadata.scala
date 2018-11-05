@@ -184,5 +184,12 @@ object Metadata {
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
+  def createGetCommittedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
+
+  /**
+   * Java API:
+   * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
+   */
+  @deprecated("Use createGetCommittedOffset(...) instead", "1.0-M1")
   def createGetCommitedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
 }
