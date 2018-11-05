@@ -107,33 +107,32 @@ class ProducerFlowExample extends ProducerExample {
   <KeyType, ValueType, PassThroughType>
       ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> createMessage(
           KeyType key, ValueType value, PassThroughType passThrough) {
-    return
     // #singleMessage
-    ProducerMessage.single(new ProducerRecord<>("topicName", key, value), passThrough);
+    ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> message =
+        ProducerMessage.single(new ProducerRecord<>("topicName", key, value), passThrough);
     // #singleMessage
-
+    return message;
   }
 
   <KeyType, ValueType, PassThroughType>
       ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> createMultiMessage(
           KeyType key, ValueType value, PassThroughType passThrough) {
-    return
     // #multiMessage
-    ProducerMessage.multi(
-        Arrays.asList(
-            new ProducerRecord<>("topicName", key, value),
-            new ProducerRecord<>("anotherTopic", key, value)),
-        passThrough);
+    ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> multiMessage =
+        ProducerMessage.multi(
+            Arrays.asList(
+                new ProducerRecord<>("topicName", key, value),
+                new ProducerRecord<>("anotherTopic", key, value)),
+            passThrough);
     // #multiMessage
-
+    return multiMessage;
   }
 
   <KeyType, ValueType, PassThroughType>
       ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> createPassThroughMessage(
           KeyType key, ValueType value, PassThroughType passThrough) {
-
+    // #passThroughMessage
     ProducerMessage.Envelope<KeyType, ValueType, PassThroughType> ptm =
-        // #passThroughMessage
         ProducerMessage.passThrough(passThrough);
     // #passThroughMessage
     return ptm;
