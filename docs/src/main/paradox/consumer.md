@@ -273,3 +273,11 @@ Scala
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #shutdownCommitableSource }
+
+
+@@@ index
+
+* [subscription](subscription.md)
+* [metadata](consumer-metadata.md)
+
+@@@
