@@ -24,7 +24,7 @@ import akka.actor.{
 import akka.annotation.InternalApi
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
-import akka.kafka.{ConsumerSettings, Metadata}
+import akka.kafka._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -388,13 +388,13 @@ import scala.util.control.{NoStackTrace, NonFatal}
         case w: WakeupException =>
           wakeups = wakeups + 1
           if (wakeups == settings.maxWakeups) {
-            log.error(
-              "WakeupException limit exceeded during poll({}), stopping (max-wakeups = {}, wakeup-timeout = {}).",
-              timeout,
-              settings.maxWakeups,
-              settings.wakeupTimeout.toCoarsest
-            )
-            context.stop(self)
+            if (initialPoll)
+              throw new InitialPollFailed(
+                timeout,
+                settings.properties.getOrElse(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "not set")
+              )
+            else
+              throw new WakeupsExceeded(timeout, settings.maxWakeups, settings.wakeupTimeout)
           } else {
             if (log.isWarningEnabled && wakeups > settings.maxWakeups / 2) {
               log.warning(
