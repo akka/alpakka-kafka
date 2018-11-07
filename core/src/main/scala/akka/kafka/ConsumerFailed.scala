@@ -5,6 +5,8 @@
 
 package akka.kafka
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Kafka consumer stages fail with this exception.
  */
@@ -19,3 +21,14 @@ class ConsumerFailed(msg: String) extends RuntimeException(msg) {
     initCause(cause)
   }
 }
+
+class InitialPollFailed(val timeout: Long, val bootstrapServers: String)
+    extends ConsumerFailed(
+      s"Initial consumer poll($timeout) with bootstrap servers " +
+      s"$bootstrapServers did not succeed, correct address?"
+    )
+
+class WakeupsExceeded(val timeout: Long, val maxWakeups: Int, val wakeupTimeout: FiniteDuration)
+    extends ConsumerFailed(
+      s"WakeupException limit exceeded during poll($timeout), stopping (max-wakeups = $maxWakeups, wakeup-timeout = ${wakeupTimeout.toCoarsest})."
+    )

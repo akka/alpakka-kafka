@@ -212,6 +212,31 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       Await.ready(control.shutdown(), remainingOrDefault)
     }
 
+    "fail if Kafka broker disappears too long" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+
+      // produce messages
+      val messagesProduced = 1
+      produce(topic, 1 to messagesProduced)
+
+      // create a consumer
+      val (control, probe) = createProbe(consumerDefaults
+                                           .withGroupId(group)
+                                           .withWakeupTimeout(2.second)
+                                           .withMaxWakeups(2),
+                                         topic)
+
+      // expect an element and kill the Kafka instance
+      probe.requestNext() should be("1")
+      EmbeddedKafka.stop()
+      sleep(1.second)
+
+      probe.request(1)
+      val failed = probe.expectError()
+      failed shouldBe a[WakeupsExceeded]
+      failed.getMessage should startWith("WakeupException limit exceeded during poll")
+    }
   }
 
   /**
