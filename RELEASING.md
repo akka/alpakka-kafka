@@ -16,6 +16,11 @@
 # Publishing docs
 
 1. Checkout the newly released tag.
+1. If you need to make any changes to the already released docs, create `version.sbt` and set the project version explicitly:
+    ```
+    ThisBuild / version := "<released-version>"
+    ThisBuild / isSnapshot := false
+    ```
 1. Build paradox and API documentation:
     ```
     sbt docs/paradox core/doc
