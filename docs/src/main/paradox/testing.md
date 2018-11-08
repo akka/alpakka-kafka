@@ -66,3 +66,7 @@ With this `SpecBase` class test classes can extend it to automatically start and
 
 Scala
 : @@snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #testkit }
+
+## Alternative testing libraries
+
+If using Maven and Java, an alternative library that provides running Kafka broker instance during testing is [kafka-unit by salesforce](https://github.com/salesforce/kafka-junit). It has support for Junit 4 and 5 and supports many different versions of Kafka.
