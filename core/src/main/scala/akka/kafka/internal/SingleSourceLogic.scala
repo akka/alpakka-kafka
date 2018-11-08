@@ -48,18 +48,19 @@ import scala.concurrent.{Future, Promise}
         log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
       }
 
+    def rebalanceListener(autoSubscription: AutoSubscription): KafkaConsumerActor.ListenerCallbacks =
       KafkaConsumerActor.ListenerCallbacks(
         assignedTps => {
-          subscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+          autoSubscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(autoSubscription, assignedTps), sourceActor.ref)
           }
           if (assignedTps.nonEmpty) {
             partitionAssignedCB.invoke(assignedTps)
           }
         },
         revokedTps => {
-          subscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+          autoSubscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(autoSubscription, revokedTps), sourceActor.ref)
           }
           if (revokedTps.nonEmpty) {
             partitionRevokedCB.invoke(revokedTps)
@@ -69,10 +70,11 @@ import scala.concurrent.{Future, Promise}
     }
 
     subscription match {
-      case TopicSubscription(topics, _) =>
-        consumerActor.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), sourceActor.ref)
-      case TopicSubscriptionPattern(topics, _) =>
-        consumerActor.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), sourceActor.ref)
+      case sub @ TopicSubscription(topics, _) =>
+        consumerActor.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener(sub)), sourceActor.ref)
+      case sub @ TopicSubscriptionPattern(topics, _) =>
+        consumerActor.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener(sub)),
+                           sourceActor.ref)
       case s: ManualSubscription => configureManualSubscription(s)
     }
 
