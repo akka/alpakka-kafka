@@ -19,6 +19,7 @@ before_install:
 
 script:
   - jabba use ${JDK:=adopt@1.8.192-12}
+  - java -version
   - sbt -jvm-opts .jvmopts-travis "$CMD"
 
 jobs:
