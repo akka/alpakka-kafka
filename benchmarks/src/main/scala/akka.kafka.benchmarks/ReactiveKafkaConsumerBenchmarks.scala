@@ -20,13 +20,13 @@ import scala.util.Success
 
 object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   val streamingTimeout = 30 minutes
-  type NonCommitableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
-  type CommitableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
+  type NonCommittableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
+  type CommittableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
   /**
    * Creates a predefined stream, reads N elements, discarding them into a Sink.ignore. Does not commit.
    */
-  def consumePlainNoKafka(fixture: NonCommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumePlainNoKafka(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     meter.mark()
     val future = Source
@@ -43,7 +43,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   /**
    * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit.
    */
-  def consumePlain(fixture: NonCommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumePlain(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val future = fixture.source
       .take(fixture.msgCount.toLong)
@@ -59,7 +59,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
    * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
    * size is accumulated.
    */
-  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommitableFixture,
+  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture,
                                                  meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
@@ -89,7 +89,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   /**
    * Reads elements from Kafka source and commits each one immediately after read.
    */
-  def consumeCommitAtMostOnce(fixture: CommitableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumeCommitAtMostOnce(fixture: CommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
     val control = fixture.source

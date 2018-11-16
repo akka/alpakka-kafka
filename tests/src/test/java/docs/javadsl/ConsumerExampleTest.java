@@ -278,7 +278,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
                     ProducerMessage.<String, String, ConsumerMessage.Committable>single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
-            .toMat(Producer.commitableSink(producerSettings), Keep.both())
+            .toMat(Producer.committableSink(producerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink
@@ -556,7 +556,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
     CommitterSettings committerSettings = committerDefaults();
     // TODO there is a problem with combining `take` and committing.
     int messageCount = 1;
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
     final Executor ec = Executors.newCachedThreadPool();
 
     Consumer.DrainingControl<Done> control =
@@ -573,12 +573,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
     assertDone(produceString(topic, messageCount, partition0()));
     assertDone(control.isShutdown());
     assertEquals(Done.done(), resultOf(control.drainAndShutdown(ec), 20));
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
     control.drainAndShutdown(ec);
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
   }
 }
