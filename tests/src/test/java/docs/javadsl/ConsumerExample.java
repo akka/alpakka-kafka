@@ -165,8 +165,7 @@ class AtLeastOnceExample extends ConsumerExample {
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
-            .mapAsync(1, offset -> offset.commitJavadsl())
-            .to(Sink.ignore())
+            .to(Committer.sink(committerSettings.withMaxBatch(1)))
             .run(materializer);
     // #atLeastOnce
   }
@@ -182,7 +181,7 @@ class AtLeastOnceExample extends ConsumerExample {
 // Consume messages at-least-once, and commit with a committer sink
 class AtLeastOnceWithCommitterSinkExample extends ConsumerExample {
   public static void main(String[] args) {
-    new AtLeastOnceWithBatchCommitExample().demo();
+    new AtLeastOnceWithCommitterSinkExample().demo();
   }
 
   public void demo() {
@@ -197,36 +196,6 @@ class AtLeastOnceWithCommitterSinkExample extends ConsumerExample {
             .to(Committer.sink(committerSettings))
             .run(materializer);
     // #committerSink
-  }
-
-  CompletionStage<String> business(String key, byte[] value) { // .... }
-    return CompletableFuture.completedFuture("");
-  }
-}
-
-// Consume messages at-least-once, and commit in batches
-class AtLeastOnceWithBatchCommitExample extends ConsumerExample {
-  public static void main(String[] args) {
-    new AtLeastOnceWithBatchCommitExample().demo();
-  }
-
-  public void demo() {
-    // #atLeastOnceBatch
-    Consumer.Control control =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-            .mapAsync(
-                1,
-                msg ->
-                    business(msg.record().key(), msg.record().value())
-                        .thenApply(done -> msg.committableOffset()))
-            .batch(
-                20,
-                ConsumerMessage::createCommittableOffsetBatch,
-                ConsumerMessage.CommittableOffsetBatch::updated)
-            .mapAsync(3, c -> c.commitJavadsl())
-            .to(Sink.ignore())
-            .run(materializer);
-    // #atLeastOnceBatch
   }
 
   CompletionStage<String> business(String key, byte[] value) { // .... }
@@ -252,12 +221,7 @@ class CommitWithMetadataExample extends ConsumerExample {
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
-            .batch(
-                20,
-                ConsumerMessage::createCommittableOffsetBatch,
-                ConsumerMessage.CommittableOffsetBatch::updated)
-            .mapAsync(3, c -> c.commitJavadsl())
-            .to(Sink.ignore())
+            .to(Committer.sink(committerSettings))
             .run(materializer);
     // #commitWithMetadata
   }
@@ -274,8 +238,9 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
   }
 
   public void demo() {
+    final Executor ec = Executors.newSingleThreadExecutor();
     // #consumerToProducerSink
-    Consumer.Control control =
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1", "topic2"))
             .map(
                 msg ->
@@ -283,10 +248,11 @@ class ConsumerToProducerSinkExample extends ConsumerExample {
                         new ProducerRecord<>(
                             "targetTopic", msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
-            .to(Producer.commitableSink(producerSettings))
+            .toMat(Producer.commitableSink(producerSettings), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink
-    control.shutdown();
+    control.drainAndShutdown(ec);
   }
 }
 
@@ -307,13 +273,8 @@ class ConsumerToProducerFlowExample extends ConsumerExample {
                         msg.committableOffset() // the passThrough
                         ))
             .via(Producer.flexiFlow(producerSettings))
-            .mapAsync(
-                producerSettings.parallelism(),
-                result -> {
-                  ConsumerMessage.Committable committable = result.passThrough();
-                  return committable.commitJavadsl();
-                })
-            .toMat(Sink.ignore(), Keep.both())
+            .map(m -> m.passThrough())
+            .toMat(Committer.sink(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerFlow
@@ -338,13 +299,11 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
             .via(Producer.flexiFlow(producerSettings))
             .map(result -> result.passThrough());
 
-    source
-        .batch(
-            20,
-            ConsumerMessage::createCommittableOffsetBatch,
-            ConsumerMessage.CommittableOffsetBatch::updated)
-        .mapAsync(3, c -> c.commitJavadsl())
-        .runWith(Sink.ignore(), materializer);
+    Consumer.DrainingControl<Done> control =
+        source
+            .toMat(Committer.sink(committerSettings), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
     // #consumerToProducerFlowBatch
   }
 }
@@ -383,19 +342,14 @@ class ConsumerWithPerPartitionBackpressure extends ConsumerExample {
   }
 
   public void demo() {
-    final Executor ec = Executors.newCachedThreadPool();
+    final Executor ec = Executors.newSingleThreadExecutor();
     // #committablePartitionedSource
     Consumer.DrainingControl<Done> control =
         Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
             .flatMapMerge(maxPartitions, Pair::second)
             .via(business())
             .map(msg -> msg.committableOffset())
-            .batch(
-                100,
-                ConsumerMessage::createCommittableOffsetBatch,
-                ConsumerMessage.CommittableOffsetBatch::updated)
-            .mapAsync(3, offsets -> offsets.commitJavadsl())
-            .toMat(Sink.ignore(), Keep.both())
+            .toMat(Committer.sink(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committablePartitionedSource
@@ -419,8 +373,8 @@ class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
                       pair.second();
                   return source
                       .via(business())
-                      .mapAsync(1, message -> message.committableOffset().commitJavadsl())
-                      .runWith(Sink.ignore(), materializer);
+                      .map(message -> message.committableOffset())
+                      .runWith(Committer.sink(committerSettings), materializer);
                 })
             .mapAsyncUnordered(maxPartitions, completion -> completion)
             .toMat(Sink.ignore(), Keep.both())
@@ -561,13 +515,14 @@ class ShutdownPlainSourceExample extends ConsumerExample {
   }
 
   public void demo() {
+    final Executor ec = Executors.newSingleThreadExecutor();
     // #shutdownPlainSource
     final OffsetStorage db = new OffsetStorage();
 
     db.loadOffset()
         .thenAccept(
             fromOffset -> {
-              Consumer.Control control =
+              Consumer.DrainingControl<Done> control =
                   Consumer.plainSource(
                           consumerSettings,
                           Subscriptions.assignmentWithOffset(
@@ -578,11 +533,12 @@ class ShutdownPlainSourceExample extends ConsumerExample {
                             return business(record.key(), record.value())
                                 .thenApply(res -> db.storeProcessedOffset(record.offset()));
                           })
-                      .toMat(Sink.ignore(), Keep.left())
+                      .toMat(Sink.ignore(), Keep.both())
+                      .mapMaterializedValue(Consumer::createDrainingControl)
                       .run(materializer);
 
               // Shutdown the consumer when desired
-              control.shutdown();
+              control.drainAndShutdown(ec);
             });
     // #shutdownPlainSource
   }
@@ -623,12 +579,7 @@ class ShutdownCommittableSourceExample extends ConsumerExample {
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
-            .batch(
-                20,
-                first -> ConsumerMessage.createCommittableOffsetBatch(first),
-                (batch, elem) -> batch.updated(elem))
-            .mapAsync(3, c -> c.commitJavadsl())
-            .toMat(Sink.ignore(), Keep.both())
+            .toMat(Committer.sink(committerSettings.withMaxBatch(1)), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 

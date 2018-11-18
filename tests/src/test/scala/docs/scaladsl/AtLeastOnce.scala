@@ -7,11 +7,11 @@ package docs.scaladsl
 
 // #oneToMany
 import akka.Done
-import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
-import akka.kafka.ProducerMessage.{Envelope, Message, MultiMessage, PassThroughMessage}
+import akka.kafka.ConsumerMessage.CommittableOffset
+import akka.kafka.ProducerMessage.Envelope
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
-import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.scaladsl.{Committer, Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink}
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -33,6 +33,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic1, topic2, topic3) = createTopics(1, 2, 3)
     val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
     val control =
       // #oneToMany
       Consumer
@@ -49,9 +50,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
         )
         .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
-        .batch(max = 20, CommittableOffsetBatch(_))(_.updated(_))
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
+        .toMat(Committer.sink(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #oneToMany
@@ -74,6 +73,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic1, topic2, topic3, topic4) = createTopics(1, 2, 3, 4)
     val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
     val control =
       // #oneToConditional
       Consumer
@@ -99,9 +99,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
         })
         .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
-        .batch(max = 20, CommittableOffsetBatch(_))(_.updated(_))
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
+        .toMat(Committer.sink(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #oneToConditional

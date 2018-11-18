@@ -84,9 +84,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atLeastOnce }
 
-The above example uses separate `mapAsync` stages for processing and committing. This guarantees that for `parallelism` higher than 1 we will keep correct ordering of messages sent for commit. 
-
-Committing the offset for each message as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
+Committing the offset for each message (`withMaxBatch(1)`) as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
 
 You can use a pre-defined `Committer.sink` to perform commits in batches:
 
@@ -100,16 +98,9 @@ When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scala
 
 * `max-batch` — maximum number of messages to commit at once,
 * `max-interval` — maximum interval between commits.
+* `parallelism` — parallelsim for async committing
 
 The bigger the values are, the less load you put on Kafka and the smaller are chances that committing offsets will become a bottleneck. However, increasing these values also means that in case of a failure you will have to re-process more messages. 
-
-You can also make a manual batching using the Akka Stream `batch` combinator to perform the batching. Note that it will only aggregate elements into batches if the downstream consumer is slower than the upstream producer.
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atLeastOnceBatch }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atLeastOnceBatch }
 
 If you consume from a topic with low activity, and possibly no messages arrive for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
 
@@ -261,7 +252,7 @@ Java
 When you are using offset storage in Kafka, the shutdown process involves several steps:
 
 1. `Consumer.Control.stop()` to stop producing messages from the `Source`. This does not stop the underlying Kafka Consumer.
-2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `commitScaladsl()` or `commitJavadsl()`).
+2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `Committer.sink/flow`, `commitScaladsl()` or `commitJavadsl()`).
 3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
 
 To manage this shutdown process, use the `Consumer.DrainingControl` 

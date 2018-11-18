@@ -7,8 +7,8 @@ package docs.scaladsl
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerMessage, ProducerMessage}
+import akka.kafka.scaladsl.{Committer, Consumer}
+import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{ActorMaterializer, Materializer}
@@ -40,6 +40,7 @@ class TestkitSamplesSpec
     val groupId = "group1"
     val startOffset = 100L
     val partition = 0
+    val committerSettings = CommitterSettings(system)
 
     // #factories
     import akka.kafka.testkit.scaladsl.ConsumerControlFactory
@@ -85,10 +86,7 @@ class TestkitSamplesSpec
       )
       .via(mockedKafkaProducerFlow)
       .map(_.passThrough)
-      .groupedWithin(10, 500.millis)
-      .map(CommittableOffsetBatch(_))
-      .mapAsync(3)(_.commitScaladsl())
-      .toMat(Sink.ignore)(Keep.both)
+      .toMat(Committer.sink(committerSettings))(Keep.both)
       .run()
     // #factories
 

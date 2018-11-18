@@ -55,12 +55,12 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         )
         .mapAsync(1)(db.businessLogicAndStoreOffset)
         .toMat(Sink.seq)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     }
     // #plainSource
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.flatMap(_._1.shutdown()), 1.seconds) should be(Done)
-    control.futureValue._2.futureValue should have size (10)
+    control.flatMap(_.drainAndShutdown()).futureValue should have size (10)
   }
 
   // #plainSource
@@ -116,7 +116,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()
     // #atMostOnce
-    val (control, result) =
+    val control: DrainingControl[immutable.Seq[Done]] =
       Consumer
         .atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1)(record => business(record.key, record.value()))
@@ -125,12 +125,12 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
           it
         })
         .toMat(Sink.seq)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #atMostOnce
 
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.shutdown(), 5.seconds) should be(Done)
-    result.futureValue should have size (10)
+    control.drainAndShutdown().futureValue should have size (10)
   }
   // #atMostOnce
 
@@ -150,7 +150,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .mapAsync(10) { msg =>
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
-        .mapAsync(5)(offset => offset.commitScaladsl())
+        .via(Committer.flow(committerDefaults.withMaxBatch(1)))
         .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
@@ -167,30 +167,6 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Future.successful(Done)
   // format: on
 
-  "Consume messages at-least-once, and commit in batches with metadata" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
-    // #atLeastOnceBatch
-    val control =
-      Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic))
-        .mapAsync(1) { msg =>
-          business(msg.record.key, msg.record.value)
-            .map(_ => msg.committableOffset)
-        }
-        .batch(
-          max = 20,
-          CommittableOffsetBatch(_)
-        )(_.updated(_))
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.seq)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
-    // #atLeastOnceBatch
-    awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
-  }
-
   "Consume messages at-least-once, and commit in batches" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
@@ -205,17 +181,12 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
           business(msg.record.key, msg.record.value)
             .map(_ => msg.committableOffset)
         }
-        .batch(
-          max = 20,
-          CommittableOffsetBatch(_)
-        )(_.updated(_))
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.seq)(Keep.both)
+        .toMat(Committer.sink(committerDefaults))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #commitWithMetadata
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.drainAndShutdown(), 5.seconds).size should be >= 4
+    control.drainAndShutdown().futureValue should be(Done)
   }
 
   "Consume messages at-least-once, and commit with a committer sink" should "work" in {
@@ -285,11 +256,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         )
       }
       .via(Producer.flexiFlow(producerSettings))
-      .mapAsync(producerSettings.parallelism) { result =>
-        val committable = result.passThrough
-        committable.commitScaladsl()
-      }
-      .toMat(Sink.ignore)(Keep.both)
+      .map(_.passThrough)
+      .toMat(Committer.sink(committerDefaults))(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlow
@@ -309,6 +277,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
     // #consumerToProducerFlowBatch
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(topic))
@@ -321,9 +290,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       )
       .via(Producer.flexiFlow(producerSettings))
       .map(_.passThrough)
-      .batch(max = 20, CommittableOffsetBatch.apply)(_.updated(_))
-      .mapAsync(3)(_.commitScaladsl())
-      .toMat(Sink.ignore)(Keep.both)
+      .toMat(Committer.sink(committerSettings))(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlowBatch
@@ -340,11 +307,11 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   }
 
   "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val group1 = createGroupId()
     val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
     val source = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics(topic))
+      .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic))
       .map(
         msg =>
           ProducerMessage.single(
@@ -354,7 +321,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       )
       .via(Producer.flexiFlow(producerSettings))
       .map(_.passThrough)
-    val (control, done) =
+    val control =
       // #groupedWithin
       source
         .groupedWithin(10, 5.seconds)
@@ -362,17 +329,18 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .mapAsync(3)(_.commitScaladsl())
         // #groupedWithin
         .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.shutdown(), 10.seconds)
-    val consumerSettings2 = consumerDefaults.withGroupId(createGroupId())
+    control.drainAndShutdown().futureValue
+    val group2 = createGroupId()
     val receiveControl = Consumer
-      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
+      .plainSource(consumerDefaults.withGroupId(group2), Subscriptions.topics(targetTopic))
       .toMat(Sink.seq)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
+    receiveControl.drainAndShutdown().futureValue should have size (10)
   }
 
   "Backpressure per partition with batch commit" should "work" in {
@@ -380,42 +348,40 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource
-    val (control, result) = Consumer
+    val control = Consumer
       .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
       .flatMapMerge(maxPartitions, _._2)
       .via(businessFlow)
       .map(_.committableOffset)
-      .batch(max = 100, CommittableOffsetBatch.apply)(_.updated(_))
-      .mapAsync(3)(_.commitScaladsl())
-      .toMat(Sink.seq)(Keep.both)
+      .toMat(Committer.sink(committerDefaults))(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #committablePartitionedSource
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.shutdown(), 5.seconds)
-    result.futureValue should have size 4
+    control.drainAndShutdown().futureValue should be(Done)
   }
 
   "Flow per partition" should "Process each assigned partition separately" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val comitterSettings = committerDefaults
     val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource-stream-per-partition
-    val (control, result) = Consumer
+    val control = Consumer
       .committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
-      .map {
+      .mapAsyncUnordered(maxPartitions) {
         case (topicPartition, source) =>
           source
             .via(businessFlow)
-            .mapAsync(1)(_.committableOffset.commitScaladsl())
-            .runWith(Sink.ignore)
+            .map(_.committableOffset)
+            .runWith(Committer.sink(comitterSettings))
       }
-      .mapAsyncUnordered(maxPartitions)(identity)
       .toMat(Sink.ignore)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #committablePartitionedSource-stream-per-partition
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.shutdown(), 5.seconds)
-    result.futureValue should be(Done)
+    control.drainAndShutdown().futureValue should be(Done)
   }
 
   "Rebalance Listener" should "get messages" in {
@@ -489,6 +455,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   "Shutdown when batching commits" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
+    val committerSettings = committerDefaults
     // #shutdownCommitableSource
     val drainingControl =
       Consumer
@@ -496,11 +463,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .mapAsync(1) { msg =>
           business(msg.record).map(_ => msg.committableOffset)
         }
-        .batch(max = 20, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-          batch.updated(elem)
-        }
-        .mapAsync(3)(_.commitScaladsl())
-        .toMat(Sink.ignore)(Keep.both)
+        .toMat(Committer.sink(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 

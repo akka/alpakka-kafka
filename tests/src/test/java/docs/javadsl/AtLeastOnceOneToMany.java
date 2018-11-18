@@ -13,6 +13,7 @@ import akka.kafka.ConsumerMessage.CommittableOffsetBatch;
 import akka.kafka.ProducerMessage;
 import akka.kafka.ProducerMessage.Envelope;
 import akka.kafka.Subscriptions;
+import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.stream.javadsl.Sink;
@@ -45,10 +46,7 @@ public class AtLeastOnceOneToMany extends ConsumerExample {
                 })
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
-            .batch(
-                20, ConsumerMessage::createCommittableOffsetBatch, CommittableOffsetBatch::updated)
-            .mapAsync(3, m -> m.commitJavadsl())
-            .runWith(Sink.<Done>ignore(), materializer);
+            .runWith(Committer.sink(committerSettings), materializer);
     // #oneToMany
 
     done.thenAccept(m -> system.terminate());
@@ -95,10 +93,7 @@ class AtLeastOnceOneToConditional extends ConsumerExample {
                 })
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
-            .batch(
-                20, ConsumerMessage::createCommittableOffsetBatch, CommittableOffsetBatch::updated)
-            .mapAsync(3, m -> m.commitJavadsl())
-            .runWith(Sink.<Done>ignore(), materializer);
+            .runWith(Committer.sink(committerSettings), materializer);
     // #oneToConditional
 
     done.thenAccept(m -> system.terminate());

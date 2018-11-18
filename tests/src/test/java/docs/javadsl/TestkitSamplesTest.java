@@ -9,8 +9,10 @@ import akka.Done;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.japi.Pair;
+import akka.kafka.CommitterSettings;
 import akka.kafka.ConsumerMessage;
 import akka.kafka.ProducerMessage;
+import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
@@ -63,6 +65,7 @@ public class TestkitSamplesTest {
     String groupId = "group1";
     long startOffset = 100L;
     int partition = 0;
+    CommitterSettings committerSettings = CommitterSettings.create(sys);
 
     // #factories
 
@@ -120,10 +123,7 @@ public class TestkitSamplesTest {
                 })
             .via(mockedKafkaProducerFlow)
             .map(ProducerMessage.Results::passThrough)
-            .groupedWithin(10, Duration.ofSeconds(5))
-            .map(ConsumerMessage::createCommittableOffsetBatch)
-            .mapAsync(3, ConsumerMessage.Committable::commitJavadsl)
-            .toMat(Sink.ignore(), Keep.both())
+            .toMat(Committer.sink(committerSettings), Keep.both())
             .run(mat);
     // #factories
 
