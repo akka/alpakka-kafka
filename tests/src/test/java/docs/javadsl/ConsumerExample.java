@@ -158,14 +158,15 @@ class AtLeastOnceExample extends ConsumerExample {
 
   public void demo() {
     // #atLeastOnce
-    Consumer.Control control =
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(
                 1,
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
-            .to(Committer.sink(committerSettings.withMaxBatch(1)))
+            .toMat(Committer.sink(committerSettings.withMaxBatch(1)), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #atLeastOnce
   }
@@ -186,14 +187,17 @@ class AtLeastOnceWithCommitterSinkExample extends ConsumerExample {
 
   public void demo() {
     // #committerSink
-    Consumer.Control control =
+    CommitterSettings committerSettings = CommitterSettings.create(config);
+
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .mapAsync(
                 1,
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .<ConsumerMessage.Committable>thenApply(done -> msg.committableOffset()))
-            .to(Committer.sink(committerSettings))
+            .toMat(Committer.sink(committerSettings), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committerSink
   }
@@ -289,7 +293,7 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
 
   public void demo() {
     // #consumerToProducerFlowBatch
-    Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
+    Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
             .map(
                 msg ->
@@ -297,41 +301,11 @@ class ConsumerToProducerWithBatchCommitsExample extends ConsumerExample {
                         new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
             .via(Producer.flexiFlow(producerSettings))
-            .map(result -> result.passThrough());
-
-    Consumer.DrainingControl<Done> control =
-        source
+            .map(result -> result.passThrough())
             .toMat(Committer.sink(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerFlowBatch
-  }
-}
-
-// Connect a Consumer to Producer, and commit in batches
-class ConsumerToProducerWithBatchCommits2Example extends ConsumerExample {
-  public static void main(String[] args) {
-    new ConsumerToProducerWithBatchCommits2Example().demo();
-  }
-
-  public void demo() {
-    Source<ConsumerMessage.CommittableOffset, Consumer.Control> source =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics("topic1"))
-            .map(
-                msg ->
-                    ProducerMessage.single(
-                        new ProducerRecord<>("topic2", msg.record().key(), msg.record().value()),
-                        msg.committableOffset()))
-            .via(Producer.flexiFlow(producerSettings))
-            .map(result -> result.passThrough());
-
-    // #groupedWithin
-    source
-        .groupedWithin(20, java.time.Duration.of(5, ChronoUnit.SECONDS))
-        .map(ConsumerMessage::createCommittableOffsetBatch)
-        .mapAsync(3, c -> c.commitJavadsl())
-        // #groupedWithin
-        .runWith(Sink.ignore(), materializer);
   }
 }
 
@@ -367,7 +341,7 @@ class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
     // #committablePartitionedSource-stream-per-partition
     Consumer.DrainingControl<Done> control =
         Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
-            .map(
+            .mapAsyncUnordered(maxPartitions,
                 pair -> {
                   Source<ConsumerMessage.CommittableMessage<String, byte[]>, NotUsed> source =
                       pair.second();
@@ -376,7 +350,6 @@ class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
                       .map(message -> message.committableOffset())
                       .runWith(Committer.sink(committerSettings), materializer);
                 })
-            .mapAsyncUnordered(maxPartitions, completion -> completion)
             .toMat(Sink.ignore(), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);

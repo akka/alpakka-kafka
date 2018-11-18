@@ -25,8 +25,8 @@ object Committer {
       .mapAsync(settings.parallelism)(_.commitScaladsl())
 
   /**
-    * Batches offsets and commits them to Kafka.
-    */
+   * Batches offsets and commits them to Kafka.
+   */
   def sink(settings: CommitterSettings): Sink[Committable, Future[Done]] =
     flow(settings)
       .toMat(Sink.ignore)(Keep.right)

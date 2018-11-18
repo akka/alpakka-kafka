@@ -16,14 +16,14 @@ import scala.compat.java8.FutureConverters.FutureOps
 object Committer {
 
   /**
-    * Batches offsets and commits them to Kafka, emits `Done` for every committed batch.
-    */
+   * Batches offsets and commits them to Kafka, emits `Done` for every committed batch.
+   */
   def flow[C <: Committable](settings: CommitterSettings): Flow[C, Done, NotUsed] =
     scaladsl.Committer.flow(settings).asJava
 
   /**
-    * Batches offsets and commits them to Kafka.
-    */
+   * Batches offsets and commits them to Kafka.
+   */
   def sink[C <: Committable](settings: CommitterSettings): Sink[C, CompletionStage[Done]] =
     scaladsl.Committer.sink(settings).mapMaterializedValue(_.toJava).asJava
 

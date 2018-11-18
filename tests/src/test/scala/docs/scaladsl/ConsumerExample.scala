@@ -191,10 +191,11 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Consume messages at-least-once, and commit with a committer sink" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val committerSettings = committerDefaults
     val topic = createTopic()
     // #committerSink
-    val control =
+    val committerSettings = CommitterSettings(system)
+
+    val control: DrainingControl[Done] =
       Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1) { msg =>
@@ -304,43 +305,6 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       .run()
     waitBeforeValidation()
     Await.result(receiveControl.drainAndShutdown(), 1.seconds) should have size (10)
-  }
-
-  "Connect a Consumer to Producer, and commit in batches" should "work with groupedWithin" in {
-    val group1 = createGroupId()
-    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
-    val producerSettings = producerDefaults
-    val source = Consumer
-      .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic))
-      .map(
-        msg =>
-          ProducerMessage.single(
-            new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
-            msg.committableOffset
-        )
-      )
-      .via(Producer.flexiFlow(producerSettings))
-      .map(_.passThrough)
-    val control =
-      // #groupedWithin
-      source
-        .groupedWithin(10, 5.seconds)
-        .map(CommittableOffsetBatch(_))
-        .mapAsync(3)(_.commitScaladsl())
-        // #groupedWithin
-        .toMat(Sink.ignore)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
-    awaitProduce(produce(topic, 1 to 10))
-    control.drainAndShutdown().futureValue
-    val group2 = createGroupId()
-    val receiveControl = Consumer
-      .plainSource(consumerDefaults.withGroupId(group2), Subscriptions.topics(targetTopic))
-      .toMat(Sink.seq)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
-      .run()
-    waitBeforeValidation()
-    receiveControl.drainAndShutdown().futureValue should have size (10)
   }
 
   "Backpressure per partition with batch commit" should "work" in {
