@@ -69,12 +69,12 @@ resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
-  homepage := Some(url("https://github.com/akka/reactive-kafka")),
-  scmInfo := Some(ScmInfo(url("https://github.com/akka/reactive-kafka"), "git@github.com:akka/reactive-kafka.git")),
+  homepage := Some(url("https://doc.akka.io/docs/akka-stream-kafka/current/")),
+  scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
                           "https://gitter.im/akka/dev",
-                          url("https://github.com/akka/reactive-kafka/graphs/contributors")),
+                          url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   crossScalaVersions := Seq("2.12.7", "2.11.12"),
@@ -132,7 +132,7 @@ lazy val `alpakka-kafka` =
             |
             |Other modules:
             |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
-            |  benchmarks - for instructions read benchmarks/README.md
+            |  benchmarks - compare direct Kafka API usage with Alpakka Kafka
             |
             |Useful sbt tasks:
             |
