@@ -1,0 +1,3 @@
+# Committer parallelism
+# https://github.com/akka/alpakka-kafka/pull/647
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings.this")

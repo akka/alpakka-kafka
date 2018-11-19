@@ -84,9 +84,10 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atLeastOnce }
 
-The above example uses separate `mapAsync` stages for processing and committing. This guarantees that for `parallelism` higher than 1 we will keep correct ordering of messages sent for commit. 
+Committing the offset for each message (`withMaxBatch(1)`) as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
 
-Committing the offset for each message as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
+
+### Committer sink
 
 You can use a pre-defined `Committer.sink` to perform commits in batches:
 
@@ -96,30 +97,24 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #committerSink }
  
-When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scaladoc[API](akka.kafka.CommitterSettings)) that defines:
+When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scaladoc[API](akka.kafka.CommitterSettings)). These may be created by passing the actor system to read the defaults from the config section `akka.kafka.committer`, or by passing a `Config` (@scaladoc[API](com.typesafe.config.Config)) instance with the same structure.
 
-* `max-batch` — maximum number of messages to commit at once,
-* `max-interval` — maximum interval between commits.
+Table
+: | Setting   | Description                                  | Default Value |
+|-------------|----------------------------------------------|-----|
+| maxBatch    | maximum number of messages to commit at once | 1000 |
+| maxInterval | maximum interval between commits             | 10 seconds |
+| parallelism | parallelsim for async committing             | 1 |
+
+reference.conf
+: @@snip [snip](/core/src/main/resources/reference.conf) { #committer-settings }
+
 
 The bigger the values are, the less load you put on Kafka and the smaller are chances that committing offsets will become a bottleneck. However, increasing these values also means that in case of a failure you will have to re-process more messages. 
 
-You can also make a manual batching using the Akka Stream `batch` combinator to perform the batching. Note that it will only aggregate elements into batches if the downstream consumer is slower than the upstream producer.
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atLeastOnceBatch }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atLeastOnceBatch }
-
 If you consume from a topic with low activity, and possibly no messages arrive for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
 
-For less active topics timing-based aggregation with `groupedWithin` might be a better choice than the `batch` operator.
-                                                                                              
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #groupedWithin }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #groupedWithin }
+### Commit with meta-data
 
 The `Consumer.commitWithMetadataSource` allows you to add metadata to the committed offset based on the last consumed record.
 
@@ -131,7 +126,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #commitWithMetadata }
 
-If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` commits the offset for each message and that is rather slow, batching of commits is recommended.
+If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atMostOnce }
@@ -179,7 +174,6 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
 , `Consumer.committablePartitionedSource`, and `Consumer.commitWithMetadataPartitionedSource` support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
 
-Backpressure per partition with batch commit:
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committablePartitionedSource }
@@ -261,7 +255,7 @@ Java
 When you are using offset storage in Kafka, the shutdown process involves several steps:
 
 1. `Consumer.Control.stop()` to stop producing messages from the `Source`. This does not stop the underlying Kafka Consumer.
-2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `commitScaladsl()` or `commitJavadsl()`).
+2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `Committer.sink/flow`, `commitScaladsl()` or `commitJavadsl()`).
 3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
 
 To manage this shutdown process, use the `Consumer.DrainingControl` 

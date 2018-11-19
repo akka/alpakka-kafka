@@ -14,12 +14,14 @@ import scala.concurrent.duration._
 
 object CommitterSettings {
 
+  val configPath = "akka.kafka.committer"
+
   /**
    * Create settings from the default configuration
    * `akka.kafka.committer`.
    */
   def apply(actorSystem: ActorSystem): CommitterSettings =
-    apply(actorSystem.settings.config.getConfig("akka.kafka.committer"))
+    apply(actorSystem.settings.config.getConfig(configPath))
 
   /**
    * Create settings from a configuration with the same layout as
@@ -28,7 +30,8 @@ object CommitterSettings {
   def apply(config: Config): CommitterSettings = {
     val maxBatch = config.getLong("max-batch")
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
-    new CommitterSettings(maxBatch, maxInterval)
+    val parallelism = config.getInt("parallelism")
+    new CommitterSettings(maxBatch, maxInterval, parallelism)
   }
 
   /**
@@ -55,7 +58,8 @@ object CommitterSettings {
  */
 class CommitterSettings private (
     val maxBatch: Long,
-    val maxInterval: FiniteDuration
+    val maxInterval: FiniteDuration,
+    val parallelism: Int
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -67,13 +71,19 @@ class CommitterSettings private (
   def withMaxInterval(maxInterval: java.time.Duration): CommitterSettings =
     copy(maxInterval = maxInterval.asScala)
 
-  private def copy(maxBatch: Long = maxBatch, maxInterval: FiniteDuration = maxInterval): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval)
+  def withParallelism(value: Int): CommitterSettings =
+    copy(parallelism = parallelism)
+
+  private def copy(maxBatch: Long = maxBatch,
+                   maxInterval: FiniteDuration = maxInterval,
+                   parallelism: Int = parallelism): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval, parallelism)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
     s"maxBatch=$maxBatch," +
-    s"maxInterval=${maxInterval.toCoarsest}" +
+    s"maxInterval=${maxInterval.toCoarsest}," +
+    s"parallelism=$parallelism" +
     ")"
 
 }
