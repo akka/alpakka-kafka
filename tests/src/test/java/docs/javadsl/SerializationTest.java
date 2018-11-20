@@ -74,6 +74,11 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   }
 
   @Override
+  public Materializer materializer() {
+    return mat;
+  }
+
+  @Override
   public String bootstrapServers() {
     return "localhost:" + kafkaPort;
   }

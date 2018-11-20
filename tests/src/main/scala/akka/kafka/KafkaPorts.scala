@@ -30,5 +30,6 @@ object KafkaPorts {
   val ScalaAvroSerialization = 9152
   val SerializationTest = 9162
   val NoBrokerSpec = 9172
+  val AtLeastOnceToManyTest = 9182
 
 }
