@@ -46,7 +46,7 @@ import scala.concurrent.{Future, Promise}
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
     }
 
-    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks =
+    val rebalanceListener: KafkaConsumerActor.ListenerCallbacks =
       KafkaConsumerActor.ListenerCallbacks(
         assignedTps => {
           subscription.rebalanceListener.foreach {
