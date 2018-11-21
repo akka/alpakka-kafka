@@ -193,6 +193,7 @@ lazy val tests = project
     libraryDependencies ++= testDependencies ++ integrationTestDependencies,
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
+    whitesourceIgnore := true,
     Test / fork := true,
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
@@ -221,6 +222,7 @@ lazy val docs = project
   .settings(
     name := "Alpakka Kafka",
     skip in publish := true,
+    whitesourceIgnore := true,
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
@@ -252,6 +254,7 @@ lazy val benchmarks = project
   .settings(
     name := "akka-stream-kafka-benchmarks",
     skip in publish := true,
+    whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= benchmarkDependencies,
     kafkaScale := 1,
