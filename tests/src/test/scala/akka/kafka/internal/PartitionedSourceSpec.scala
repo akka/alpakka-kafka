@@ -589,7 +589,7 @@ object PartitionedSourceSpec {
     override def resume(partitions: java.util.Collection[TopicPartition]): Unit = {
       val ps = partitions.asScala
       log.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
-      tps = tps ++ ps.map(_ -> Resumed)
+      tps = tps ++ ps.filter(tp => tps.contains(tp)).map(_ -> Resumed)
     }
   }
 
