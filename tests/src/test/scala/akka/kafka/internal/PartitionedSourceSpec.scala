@@ -72,15 +72,17 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.setNextPollData(tp1 -> singleRecord)
     sink.requestNext().record.value() should be("value")
 
-    dummy.tpsResumed should contain allOf (tp0, tp1)
-    dummy.tpsPaused should be('empty)
+    eventually {
+      dummy.tpsResumed should contain allOf (tp0, tp1)
+      dummy.tpsPaused should be('empty)
+    }
+
     dummy.assignWithCallback(tp0)
 
     eventually {
       dummy.tpsResumed should contain only tp0
+      dummy.tpsPaused should be('empty)
     }
-
-    dummy.tpsPaused should be('empty)
 
     sink.cancel()
   }
