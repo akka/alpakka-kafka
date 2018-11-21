@@ -528,7 +528,7 @@ object PartitionedSourceSpec {
       extends ConsumerDummy[K, V] {
     import ConsumerDummy._
 
-    var tps: Map[TopicPartition, TpState] = Map.empty
+    var tps: AtomicReference[Map[TopicPartition, TpState]] = new AtomicReference(Map.empty)
     var callbacks: ConsumerRebalanceListener = null
     val emptyPollData = Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
     val nextPollData: AtomicReference[Map[TopicPartition, java.util.List[ConsumerRecord[K, V]]]] =
@@ -537,9 +537,14 @@ object PartitionedSourceSpec {
 
     def assignWithCallback(partitions: TopicPartition*): Unit = {
       // revoke all
+
+      // tps can be changed from other threads (that run KafkaConsumerActor), therefore update atomically and keep
+      // the actual previous value that was used for successful update
+      val previousAssignment = tps.getAndUpdate(_ => partitions.map(_ -> Assigned).toMap)
+
       // See ConsumerCoordinator.onJoinPrepare
-      callbacks.onPartitionsRevoked(assignment())
-      tps = partitions.map(_ -> Assigned).toMap
+      callbacks.onPartitionsRevoked(previousAssignment.keys.toList.asJava)
+
       // See ConsumerCoordinator.onJoinComplete
       callbacks.onPartitionsAssigned(partitions.asJava)
     }
@@ -549,16 +554,17 @@ object PartitionedSourceSpec {
       nextPollData.set(tpRecord.toMap)
     }
 
-    def tpsRevoked: Set[TopicPartition] = tps.filter(_._2 == Revoked).keys.toSet
-    def tpsAssigned: Set[TopicPartition] = tps.filter(_._2 == Assigned).keys.toSet
-    def tpsResumed: Set[TopicPartition] = tps.filter(_._2 == Resumed).keys.toSet
-    def tpsPaused: Set[TopicPartition] = tps.filter(_._2 == Paused).keys.toSet
+    def tpsRevoked: Set[TopicPartition] = tps.get.filter(_._2 == Revoked).keys.toSet
+    def tpsAssigned: Set[TopicPartition] = tps.get.filter(_._2 == Assigned).keys.toSet
+    def tpsResumed: Set[TopicPartition] = tps.get.filter(_._2 == Resumed).keys.toSet
+    def tpsPaused: Set[TopicPartition] = tps.get.filter(_._2 == Paused).keys.toSet
 
-    override def assignment(): java.util.Set[TopicPartition] = (tpsAssigned ++ tpsResumed ++ tpsPaused).asJava
+    override def assignment(): java.util.Set[TopicPartition] = tps.get.filter(_._2 != Revoked).keys.toSet.asJava
     override def subscribe(topics: java.util.Collection[String], callback: ConsumerRebalanceListener): Unit =
       callbacks = callback
     override def assign(partitions: java.util.Collection[TopicPartition]): Unit =
-      tps = partitions.asScala.map(_ -> Assigned).toMap
+      tps.set(partitions.asScala.map(_ -> Assigned).toMap)
+
     override def poll(timeout: Long): ConsumerRecords[K, V] = {
       val data = nextPollData.get()
       val (data2, dataPaused) = data.partition {
@@ -584,12 +590,12 @@ object PartitionedSourceSpec {
       super.pause(partitions)
       val ps = partitions.asScala
       log.debug(s"pausing ${ps.mkString("(", ", ", ")")}")
-      tps = tps ++ ps.filter(tp => tps.contains(tp)).map(_ -> Paused)
+      tps.updateAndGet(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Paused))
     }
     override def resume(partitions: java.util.Collection[TopicPartition]): Unit = {
       val ps = partitions.asScala
       log.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
-      tps = tps ++ ps.filter(tp => tps.contains(tp)).map(_ -> Resumed)
+      tps.updateAndGet(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Resumed))
     }
   }
 
