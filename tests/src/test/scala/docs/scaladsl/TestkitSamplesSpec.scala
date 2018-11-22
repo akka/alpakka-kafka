@@ -6,10 +6,10 @@
 package docs.scaladsl
 
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{CommittableOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit

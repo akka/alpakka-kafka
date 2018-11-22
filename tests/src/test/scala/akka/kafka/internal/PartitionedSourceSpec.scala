@@ -6,6 +6,7 @@
 package akka.kafka.internal
 
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.UnaryOperator
 
 import akka.Done
 import akka.actor.ActorSystem
@@ -540,7 +541,7 @@ object PartitionedSourceSpec {
 
       // tps can be changed from other threads (that run KafkaConsumerActor), therefore update atomically and keep
       // the actual previous value that was used for successful update
-      val previousAssignment = tps.getAndUpdate(_ => partitions.map(_ -> Assigned).toMap)
+      val previousAssignment = tps.getAndUpdate(unary(_ => partitions.map(_ -> Assigned).toMap))
 
       // See ConsumerCoordinator.onJoinPrepare
       callbacks.onPartitionsRevoked(previousAssignment.keys.toList.asJava)
@@ -590,13 +591,17 @@ object PartitionedSourceSpec {
       super.pause(partitions)
       val ps = partitions.asScala
       log.debug(s"pausing ${ps.mkString("(", ", ", ")")}")
-      tps.updateAndGet(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Paused))
+      tps.updateAndGet(unary(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Paused)))
     }
     override def resume(partitions: java.util.Collection[TopicPartition]): Unit = {
       val ps = partitions.asScala
       log.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
-      tps.updateAndGet(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Resumed))
+      tps.updateAndGet(unary(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Resumed)))
     }
+  }
+
+  private def unary[T](f: T => T) = new UnaryOperator[T] {
+    override def apply(t: T): T = f(t)
   }
 
 }
