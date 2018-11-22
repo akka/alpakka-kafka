@@ -465,6 +465,33 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(result, 5.seconds) should have size 10
   }
 
+  it should "work with committable source" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val committerSettings = committerDefaults
+    val topic = createTopic()
+    val partitionNumber = 0
+    val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
+
+    val result = RestartSource
+      .onFailuresWithBackoff(
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      ) { () =>
+        val subscription = Subscriptions.assignment(new TopicPartition(topic, partitionNumber))
+        Consumer
+          .committableSource(consumerSettings, subscription)
+          .mapMaterializedValue(c => control.set(c))
+          .via(businessFlow)
+          .map(_.committableOffset)
+          .via(Committer.flow(committerSettings))
+      }
+      .runWith(Sink.ignore)
+    awaitProduce(produce(topic, 1 to 10))
+    // when shut down is desired
+    val drainingControl = DrainingControl(Tuple2(control.get(), result))
+    drainingControl.drainAndShutdown().futureValue shouldBe Done
+  }
 }
 
 // Join flows based on automatically assigned partitions
