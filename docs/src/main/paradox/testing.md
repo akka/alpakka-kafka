@@ -5,10 +5,14 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka-testkit_$scala.binary.version$
-  version=$version$
+  version=$project.version$
 }
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between minor versions.
+
+The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively.
+
+@@dependencies { module="testkit" }
 
 
 ## Mocking the Consumer or Producer

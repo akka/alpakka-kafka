@@ -38,11 +38,14 @@ If you want to try out a connector that has not yet been released, give @ref[sna
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka_$scala.binary.version$
-  version=$version$
+  version=$project.version$
 }
 
 This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
 
+The table below shows Alpakka Kafka's direct dependencies and the second tab shows all libraries it depends on transitively.
+
+@@dependencies { module="core" }
 
 ## Scala and Java APIs
 
