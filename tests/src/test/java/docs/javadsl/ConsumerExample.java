@@ -341,7 +341,8 @@ class ConsumerWithIndependentFlowsPerPartition extends ConsumerExample {
     // #committablePartitionedSource-stream-per-partition
     Consumer.DrainingControl<Done> control =
         Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
-            .mapAsyncUnordered(maxPartitions,
+            .mapAsyncUnordered(
+                maxPartitions,
                 pair -> {
                   Source<ConsumerMessage.CommittableMessage<String, byte[]>, NotUsed> source =
                       pair.second();
