@@ -1,3 +1,9 @@
 # Committer parallelism
 # https://github.com/akka/alpakka-kafka/pull/647
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings.this")
+
+# Include requested partition in CommittedOffset
+# https://github.com/akka/alpakka-kafka/pull/626
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Metadata#CommittedOffset.*")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Metadata$CommittedOffset$")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Metadata#CommittedOffset.apply")
