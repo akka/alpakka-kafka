@@ -170,7 +170,7 @@ object Metadata {
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
   final case class GetCommittedOffset(partition: TopicPartition) extends Request with NoSerializationVerificationNeeded
-  final case class CommittedOffset(response: Try[OffsetAndMetadata])
+  final case class CommittedOffset(response: Try[OffsetAndMetadata], requestedPartition: TopicPartition)
       extends Response
       with NoSerializationVerificationNeeded {
 

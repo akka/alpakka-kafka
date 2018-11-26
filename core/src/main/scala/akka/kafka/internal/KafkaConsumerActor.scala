@@ -641,8 +641,9 @@ import scala.util.control.{NoStackTrace, NonFatal}
       })
 
     case Metadata.GetCommittedOffset(partition) =>
-      Metadata.CommittedOffset(Try {
-        consumer.committed(partition, settings.getMetadataRequestTimeout)
-      })
+      Metadata.CommittedOffset(
+        Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },
+        partition
+      )
   }
 }

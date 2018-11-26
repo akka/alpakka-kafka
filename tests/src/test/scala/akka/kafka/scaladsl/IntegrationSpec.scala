@@ -477,7 +477,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         // GetCommittedOffset
         inside(Await.result(consumer ? GetCommittedOffset(partition0), 10.seconds)) {
-          case CommittedOffset(Success(offsetMeta)) =>
+          case CommittedOffset(Success(offsetMeta), _) =>
             assert(offsetMeta == null, "Wrong offset in GetCommittedOffset")
         }
 
