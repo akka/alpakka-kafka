@@ -35,13 +35,13 @@ import scala.concurrent.{Future, Promise}
   private val partitionLogLevel = if (settings.wakeupDebug) Logging.InfoLevel else Logging.DebugLevel
 
   final def configureSubscription(): Unit = {
-    val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
+    def partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
       tps ++= assignedTps
       log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", assignedTps, tps)
       requestMessages()
     }
 
-    val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
+    def partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
       tps --= revokedTps
       log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
     }
