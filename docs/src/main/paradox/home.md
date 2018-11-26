@@ -9,13 +9,13 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 The examples in this documentation use
 
 * Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/alpakka-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/akka/kafka/index.html))
-* Scala $scala.binary.version$ (also available for Scala 2.11)
 * Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
 * Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
 
-Release notes are found at @ref:[Release Notes](release-notes/index.md).
+@@project-info{ project="core" }
 
 If you want to try out a connector that has not yet been released, give @ref[snapshots](snapshots.md) a spin which are published after every commit on master.
+
 
 
 ## Matching Kafka Versions

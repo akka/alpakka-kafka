@@ -8,6 +8,8 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
   version=$project.version$
 }
 
+@@project-info{ project="testkit" }
+
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between minor versions.
 
 The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively.
