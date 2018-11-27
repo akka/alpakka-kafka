@@ -12,8 +12,14 @@ before_install:
   - sudo mv docker-compose /usr/local/bin
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
+  # using jabba for custom jdk management
+  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.0/install.sh | bash && . ~/.jabba/jabba.sh
+  - jabba install adopt@1.8.192-12
+  - jabba install adopt@1.11.0-1
 
 script:
+  - jabba use ${JDK:=adopt@1.8.192-12}
+  - java -version
   - sbt -jvm-opts .jvmopts-travis "$CMD"
 
 jobs:
@@ -29,27 +35,22 @@ jobs:
 
     - stage: test
       env: CMD="+test"
-      jdk: oraclejdk8
 
-    - env: CMD="+test"
-      jdk: oraclejdk9
+    - env:
+      - JDK="adopt@1.11.0-1"
+      - CMD="+test"
 
     - env: CMD="mimaReportBinaryIssues"
-      jdk: oraclejdk8
 
     - stage: integration
       env: CMD="dockerComposeTestAll"
-      jdk: oraclejdk8
     - env: CMD="benchmarks/dockerComposeTest it:test"
-      jdk: oraclejdk8
 
     - stage: whitesource
       env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
-      jdk: oraclejdk8
 
     - stage: publish
       env: CMD="+publish"
-      jdk: oraclejdk8
 
 stages:
   # runs on master commits and PRs
@@ -84,6 +85,7 @@ cache:
   directories:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
+    - $HOME/.jabba/jdk
 
 env:
   global:
