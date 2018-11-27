@@ -46,6 +46,11 @@ public class FetchMetadataTest extends EmbeddedKafkaTest {
   }
 
   @Override
+  public Materializer materializer() {
+    return mat;
+  }
+
+  @Override
   public String bootstrapServers() {
     return "localhost:" + kafkaPort;
   }
