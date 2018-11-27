@@ -7,101 +7,147 @@ package docs.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
-import akka.kafka.ProducerMessage;
-import akka.kafka.ProducerSettings;
+import akka.kafka.*;
+import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
+import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import akka.stream.testkit.javadsl.StreamTestKit;
+import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.Config;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.*;
 
-abstract class ProducerExample {
-  protected final ActorSystem system = ActorSystem.create("example");
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
-  protected final Materializer materializer = ActorMaterializer.create(system);
+public class ProducerExampleTest extends EmbeddedKafkaTest {
 
-  // #producer
-  // #settings
-  final Config config = system.settings().config().getConfig("akka.kafka.producer");
-  final ProducerSettings<String, String> producerSettings =
-      ProducerSettings.create(config, new StringSerializer(), new StringSerializer())
-          .withBootstrapServers("localhost:9092");
-  // #settings
-  final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-      producerSettings.createKafkaProducer();
-  // #producer
+  private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
+  private static final Materializer materializer = ActorMaterializer.create(system);
+  private static final int kafkaPort = KafkaPorts.JavaProducerExamples();
+  private static final int defaultResultTimeoutSeconds = 5;
+  private final ExecutorService ec = Executors.newSingleThreadExecutor();
+  private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
-  protected void terminateWhenDone(CompletionStage<Done> result) {
-    result
-        .exceptionally(
-            e -> {
-              system.log().error(e, e.getMessage());
-              return Done.getInstance();
-            })
-        .thenAccept(d -> system.terminate());
-  }
-}
-
-class PlainSinkExample extends ProducerExample {
-  public static void main(String[] args) {
-    new PlainSinkExample().demo();
+  @Override
+  public ActorSystem system() {
+    return system;
   }
 
-  public void demo() {
+  @Override
+  public String bootstrapServers() {
+    return "localhost:" + kafkaPort;
+  }
+
+  @BeforeClass
+  public static void beforeClass() {
+    startEmbeddedKafka(kafkaPort, 1);
+  }
+
+  @After
+  public void after() {
+    StreamTestKit.assertAllStagesStopped(materializer);
+  }
+
+  @AfterClass
+  public static void afterClass() {
+    stopEmbeddedKafka();
+    TestKit.shutdownActorSystem(system);
+  }
+
+  private <T> T resultOf(CompletionStage<T> stage) throws Exception {
+    return stage.toCompletableFuture().get(defaultResultTimeoutSeconds, TimeUnit.SECONDS);
+  }
+
+  void createProducer() {
+    // #producer
+    // #settings
+    final Config config = system.settings().config().getConfig("akka.kafka.producer");
+    final ProducerSettings<String, String> producerSettings =
+        ProducerSettings.create(config, new StringSerializer(), new StringSerializer())
+            .withBootstrapServers("localhost:9092");
+    // #settings
+    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
+        producerSettings.createKafkaProducer();
+    // #producer
+  }
+
+  @Test
+  public void plainSink() throws Exception {
+    String topic = createTopic(1, 1, 1);
     // #plainSink
     CompletionStage<Done> done =
         Source.range(1, 100)
             .map(number -> number.toString())
-            .map(value -> new ProducerRecord<String, String>("topic1", value))
+            .map(value -> new ProducerRecord<String, String>(topic, value))
             .runWith(Producer.plainSink(producerSettings), materializer);
     // #plainSink
 
-    terminateWhenDone(done);
-  }
-}
-
-class PlainSinkWithProducerExample extends ProducerExample {
-  public static void main(String[] args) {
-    new PlainSinkExample().demo();
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100);
+    assertEquals(Done.done(), resultOf(done));
+    assertEquals(Done.done(), resultOf(control.isShutdown()));
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    assertEquals(100, resultOf(result).size());
   }
 
-  public void demo() {
+  @Test
+  public void plainSinkWithSharedProducer() throws Exception {
+    String topic = createTopic(1, 1, 1);
+    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
+        producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
     CompletionStage<Done> done =
         Source.range(1, 100)
             .map(number -> number.toString())
-            .map(value -> new ProducerRecord<String, String>("topic1", value))
+            .map(value -> new ProducerRecord<String, String>(topic, value))
             .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
     // #plainSinkWithProducer
 
-    terminateWhenDone(done);
-  }
-}
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100);
+    assertEquals(Done.done(), resultOf(done));
+    assertEquals(Done.done(), resultOf(control.isShutdown()));
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    assertEquals(100, resultOf(result).size());
 
-class ObserveMetricsExample extends ProducerExample {
-  public static void main(String[] args) {
-    new PlainSinkExample().demo();
+    kafkaProducer.close();
   }
 
-  public void demo() {
+  private Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consume(
+      String topic, long take) {
+    return Consumer.plainSource(
+            consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
+        .take(take)
+        .toMat(Sink.seq(), Keep.both())
+        .mapMaterializedValue(Consumer::createDrainingControl)
+        .run(materializer);
+  }
+
+  @Test
+  public void observeMetrics() throws Exception {
+    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
+        producerSettings.createKafkaProducer();
     // #producerMetrics
     Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
         kafkaProducer.metrics(); // observe metrics
     // #producerMetrics
-  }
-}
-
-class ProducerFlowExample extends ProducerExample {
-  public static void main(String[] args) {
-    new ProducerFlowExample().demo();
+    assertFalse(metrics.isEmpty());
+    kafkaProducer.close();
   }
 
   <KeyType, ValueType, PassThroughType>
@@ -138,7 +184,9 @@ class ProducerFlowExample extends ProducerExample {
     return ptm;
   }
 
-  public void demo() {
+  @Test
+  public void producerFlowExample() throws Exception {
+    String topic = createTopic(1, 1, 1);
     // #flow
     CompletionStage<Done> done =
         Source.range(1, 100)
@@ -148,7 +196,7 @@ class ProducerFlowExample extends ProducerExample {
                   String value = String.valueOf(number);
                   ProducerMessage.Envelope<String, String, Integer> msg =
                       ProducerMessage.single(
-                          new ProducerRecord<>("topic1", partition, "key", value), number);
+                          new ProducerRecord<>(topic, partition, "key", value), number);
                   return msg;
                 })
             .via(Producer.flexiFlow(producerSettings))
@@ -190,6 +238,10 @@ class ProducerFlowExample extends ProducerExample {
             .runWith(Sink.foreach(System.out::println), materializer);
     // #flow
 
-    terminateWhenDone(done);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100L);
+    assertEquals(Done.done(), resultOf(done));
+    assertEquals(Done.done(), resultOf(control.isShutdown()));
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    assertEquals(100, resultOf(result).size());
   }
 }

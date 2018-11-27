@@ -35,4 +35,4 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadata }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/FetchMetadata.java) { #metadata }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/FetchMetadataTest.java) { #metadata }

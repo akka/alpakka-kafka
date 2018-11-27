@@ -16,7 +16,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #settings }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #settings }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #settings }
 
 In addition to programmatic construction of the `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) it can also be created from configuration (`application.conf`). 
 
@@ -45,7 +45,7 @@ Scala
   The materialized value of the sink is a `Future[Done]` which is completed with `Done` when the stream completes, or with with an exception in case an error occurs.
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #plainSink }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #plainSink }
   The materialized value of the sink is a `CompletionStage<Done>` which is completed with `Done` when the stream completes, or with an exception in case an error occurs.
 
 
@@ -62,7 +62,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #singleMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #singleMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #singleMessage }
 
 
 For flows the `ProducerMessage.Message`s continue as `ProducerMessage.Result` elements containing: 
@@ -80,7 +80,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #multiMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #multiMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #multiMessage }
 
 For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.MultiResult` elements containing: 
  
@@ -99,7 +99,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #passThroughMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #passThroughMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #passThroughMessage }
 
 
 For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage.PassThroughResult` elements containing the `passThrough` data.  
@@ -114,7 +114,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #flow }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #flow }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #flow }
 
 
 The `passThrough` can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` that can be committed after publishing to Kafka. 
@@ -141,7 +141,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #producer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producer }
 
 The `KafkaProducer` instance is passed as a parameter to the `Producer` factory methods.
 
@@ -149,7 +149,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #plainSinkWithProducer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #plainSinkWithProducer }
 
 
 ## Accessing KafkaProducer metrics
@@ -160,4 +160,4 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producerMetrics }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExample.java) { #producerMetrics }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producerMetrics }
