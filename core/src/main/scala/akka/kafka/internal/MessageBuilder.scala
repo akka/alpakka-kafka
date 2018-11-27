@@ -59,7 +59,7 @@ private[kafka] trait TransactionalMessageBuilder[K, V] extends MessageBuilder[K,
 @InternalApi
 private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
   def groupId: String
-  def committer: Committer
+  def committer: InternalCommitter
   def metadataFromRecord(record: ConsumerRecord[K, V]): String
 
   override def createMessage(rec: ConsumerRecord[K, V]) = {
@@ -80,7 +80,7 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
     override val partitionOffset: ConsumerMessage.PartitionOffset,
     override val metadata: String
 )(
-    val committer: Committer
+    val committer: InternalCommitter
 ) extends CommittableOffsetMetadata {
   override def commitScaladsl(): Future[Done] =
     committer.commit(immutable.Seq(partitionOffset.withMetadata(metadata)))
@@ -90,7 +90,7 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
 
 /** Internal API */
 @InternalApi
-private[kafka] trait Committer {
+private[kafka] trait InternalCommitter {
   // Commit all offsets (of different topics) belonging to the same stage
   def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done]
   def commit(batch: CommittableOffsetBatch): Future[Done]
@@ -100,7 +100,7 @@ private[kafka] trait Committer {
 @InternalApi
 private[kafka] final class CommittableOffsetBatchImpl(
     val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-    val committers: Map[String, Committer],
+    val committers: Map[String, InternalCommitter],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.mapValues(_.offset())
