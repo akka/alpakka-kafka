@@ -55,6 +55,11 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   @Override
+  public Materializer materializer() {
+    return mat;
+  }
+
+  @Override
   public String bootstrapServers() {
     return "localhost:" + kafkaPort;
   }
