@@ -51,6 +51,11 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
   }
 
   @Override
+  public Materializer materializer() {
+    return materializer;
+  }
+
+  @Override
   public String bootstrapServers() {
     return "localhost:" + kafkaPort;
   }

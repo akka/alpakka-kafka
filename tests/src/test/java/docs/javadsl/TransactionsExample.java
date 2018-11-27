@@ -5,43 +5,125 @@
 
 package docs.javadsl;
 
+import akka.Done;
 import akka.NotUsed;
-import akka.kafka.ConsumerMessage;
-import akka.kafka.ProducerMessage;
-import akka.kafka.Subscriptions;
+import akka.actor.ActorSystem;
+import akka.japi.Pair;
+import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Transactional;
-import akka.stream.javadsl.RestartSource;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.stream.ActorMaterializer;
+import akka.stream.Materializer;
+import akka.stream.javadsl.*;
+import akka.stream.testkit.javadsl.StreamTestKit;
+import akka.testkit.javadsl.TestKit;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
-import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-class TransactionsSink extends ConsumerExample {
-  public static void main(String[] args) {
-    new TransactionsFailureRetryExample().demo();
+import static org.junit.Assert.assertEquals;
+
+public class TransactionsExample extends EmbeddedKafkaTest {
+
+  private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
+  private static final Materializer materializer = ActorMaterializer.create(system);
+  private static final int kafkaPort = KafkaPorts.JavaTransactionsExamples();
+  private static final int defaultResultTimeoutSeconds = 5;
+  private final ExecutorService ec = Executors.newSingleThreadExecutor();
+  private final ProducerSettings<String, String> producerSettings = producerDefaults();
+
+  @Override
+  public ActorSystem system() {
+    return system;
   }
 
-  public void demo() {
+  @Override
+  public Materializer materializer() {
+    return materializer;
+  }
+
+  @Override
+  public String bootstrapServers() {
+    return "localhost:" + kafkaPort;
+  }
+
+  @BeforeClass
+  public static void beforeClass() {
+    startEmbeddedKafka(kafkaPort, 1);
+  }
+
+  @After
+  public void after() {
+    StreamTestKit.assertAllStagesStopped(materializer);
+  }
+
+  @AfterClass
+  public static void afterClass() {
+    stopEmbeddedKafka();
+    TestKit.shutdownActorSystem(system);
+  }
+
+  private <T> T resultOf(CompletionStage<T> stage) throws Exception {
+    return stage.toCompletableFuture().get(defaultResultTimeoutSeconds, TimeUnit.SECONDS);
+  }
+
+  protected <T> Flow<T, T, NotUsed> business() {
+    return Flow.create();
+  }
+
+  private Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consume(
+      String topic, long take) {
+    return Consumer.plainSource(
+            consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
+        .take(take)
+        .toMat(Sink.seq(), Keep.both())
+        .mapMaterializedValue(Consumer::createDrainingControl)
+        .run(materializer);
+  }
+
+  @Test
+  public void demo() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId(1));
+    String sourceTopic = createTopic(1, 1, 1);
+    String targetTopic = createTopic(2, 1, 1);
+    String transactionalId = createTransactionalId(1);
     // #transactionalSink
-    Consumer.Control control =
-        Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
+    Consumer.DrainingControl<Done> control =
+        Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
             .via(business())
             .map(
                 msg ->
                     ProducerMessage.single(
-                        new ProducerRecord<>(
-                            "sink-topic", msg.record().key(), msg.record().value()),
+                        new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.partitionOffset()))
-            .to(Transactional.sink(producerSettings, "transactional-id"))
+            .toMat(Transactional.sink(producerSettings, transactionalId), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
     // ...
 
-    control.shutdown();
     // #transactionalSink
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
+        consume(targetTopic, 10);
+    produceString(sourceTopic, 10, partition0());
+    assertEquals(Done.done(), resultOf(consumer.isShutdown()));
+    // #transactionalSink
+    control.drainAndShutdown(ec);
+    // #transactionalSink
+    assertEquals(Done.done(), resultOf(control.isShutdown()));
+    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
   }
 }
 
@@ -57,8 +139,8 @@ class TransactionsFailureRetryExample extends ConsumerExample {
     Source<ProducerMessage.Results<String, byte[], ConsumerMessage.PartitionOffset>, NotUsed>
         stream =
             RestartSource.onFailuresWithBackoff(
-                java.time.Duration.of(3, ChronoUnit.SECONDS), // min backoff
-                java.time.Duration.of(30, ChronoUnit.SECONDS), // max backoff
+                java.time.Duration.ofSeconds(3), // min backoff
+                java.time.Duration.ofSeconds(30), // max backoff
                 0.2, // adds 20% "noise" to vary the intervals slightly
                 () ->
                     Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
