@@ -8,7 +8,6 @@ package docs.javadsl;
 import akka.Done;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
-import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Transactional;
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
@@ -39,7 +37,6 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private static final int kafkaPort = KafkaPorts.JavaTransactionsExamples();
-  private static final int defaultResultTimeoutSeconds = 5;
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
@@ -74,22 +71,12 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
     TestKit.shutdownActorSystem(system);
   }
 
-  private <T> T resultOf(CompletionStage<T> stage) throws Exception {
-    return stage.toCompletableFuture().get(defaultResultTimeoutSeconds, TimeUnit.SECONDS);
+  protected void assertDone(CompletionStage<Done> stage) throws Exception {
+    assertEquals(Done.done(), resultOf(stage));
   }
 
   protected <T> Flow<T, T, NotUsed> business() {
     return Flow.create();
-  }
-
-  private Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consume(
-      String topic, long take) {
-    return Consumer.plainSource(
-            consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
-        .take(take)
-        .toMat(Sink.seq(), Keep.both())
-        .mapMaterializedValue(Consumer::createDrainingControl)
-        .run(materializer);
   }
 
   @Test
@@ -116,13 +103,13 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
 
     // #transactionalSink
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consume(targetTopic, 10);
+        consumeString(targetTopic, 10);
     produceString(sourceTopic, 10, partition0());
-    assertEquals(Done.done(), resultOf(consumer.isShutdown()));
+    assertDone(consumer.isShutdown());
     // #transactionalSink
     control.drainAndShutdown(ec);
     // #transactionalSink
-    assertEquals(Done.done(), resultOf(control.isShutdown()));
+    assertDone(control.isShutdown());
     assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
   }
 
@@ -168,10 +155,10 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
     // #transactionalFailureRetry
     int messages = 10;
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consume(targetTopic, messages);
-    assertEquals(Done.done(), resultOf(produceString(sourceTopic, messages, partition0())));
-    assertEquals(Done.done(), resultOf(consumer.isShutdown()));
-    assertEquals(Done.done(), resultOf(innerControl.get().shutdown()));
+        consumeString(targetTopic, messages);
+    assertDone(produceString(sourceTopic, messages, partition0()));
+    assertDone(consumer.isShutdown());
+    assertDone(innerControl.get().shutdown());
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());
   }
 }

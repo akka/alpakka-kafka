@@ -13,7 +13,6 @@ import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.stream.testkit.javadsl.StreamTestKit;
@@ -41,7 +40,6 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private static final int kafkaPort = KafkaPorts.JavaProducerExamples();
-  private static final int defaultResultTimeoutSeconds = 5;
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
@@ -76,10 +74,6 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
     TestKit.shutdownActorSystem(system);
   }
 
-  private <T> T resultOf(CompletionStage<T> stage) throws Exception {
-    return stage.toCompletableFuture().get(defaultResultTimeoutSeconds, TimeUnit.SECONDS);
-  }
-
   void createProducer() {
     // #producer
     // #settings
@@ -104,7 +98,7 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Producer.plainSink(producerSettings), materializer);
     // #plainSink
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
@@ -124,23 +118,13 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
     // #plainSinkWithProducer
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
     assertEquals(100, resultOf(result).size());
 
     kafkaProducer.close();
-  }
-
-  private Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consume(
-      String topic, long take) {
-    return Consumer.plainSource(
-            consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
-        .take(take)
-        .toMat(Sink.seq(), Keep.both())
-        .mapMaterializedValue(Consumer::createDrainingControl)
-        .run(materializer);
   }
 
   @Test
@@ -243,7 +227,7 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Sink.foreach(System.out::println), materializer);
     // #flow
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consume(topic, 100L);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100L);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
