@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 
-public class TransactionsExample extends EmbeddedKafkaTest {
+public class TransactionsExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -93,7 +93,7 @@ public class TransactionsExample extends EmbeddedKafkaTest {
   }
 
   @Test
-  public void demo() throws Exception {
+  public void sourceSink() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String sourceTopic = createTopic(1, 1, 1);
@@ -125,31 +125,32 @@ public class TransactionsExample extends EmbeddedKafkaTest {
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
   }
-}
 
-class TransactionsFailureRetryExample extends ConsumerExample {
-  public static void main(String[] args) {
-    new TransactionsFailureRetryExample().demo();
-  }
-
-  public void demo() {
+  @Test
+  public void usingRestartSource() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId(1));
+    String sourceTopic = createTopic(1, 1, 1);
+    String targetTopic = createTopic(2, 1, 1);
+    String transactionalId = createTransactionalId(1);
     // #transactionalFailureRetry
-    AtomicReference<Consumer.Control> innerControl = null;
+    AtomicReference<Consumer.Control> innerControl =
+        new AtomicReference<>(Consumer.createNoopControl());
 
-    Source<ProducerMessage.Results<String, byte[], ConsumerMessage.PartitionOffset>, NotUsed>
+    Source<ProducerMessage.Results<String, String, ConsumerMessage.PartitionOffset>, NotUsed>
         stream =
             RestartSource.onFailuresWithBackoff(
                 java.time.Duration.ofSeconds(3), // min backoff
                 java.time.Duration.ofSeconds(30), // max backoff
                 0.2, // adds 20% "noise" to vary the intervals slightly
                 () ->
-                    Transactional.source(consumerSettings, Subscriptions.topics("source-topic"))
+                    Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
                         .via(business())
                         .map(
                             msg ->
                                 ProducerMessage.single(
                                     new ProducerRecord<>(
-                                        "sink-topic", msg.record().key(), msg.record().value()),
+                                        targetTopic, msg.record().key(), msg.record().value()),
                                     msg.partitionOffset()))
                         // side effect out the `Control` materialized value because it can't be
                         // propagated through the `RestartSource`
@@ -158,12 +159,19 @@ class TransactionsFailureRetryExample extends ConsumerExample {
                               innerControl.set(control);
                               return control;
                             })
-                        .via(Transactional.flow(producerSettings, "transactional-id")));
+                        .via(Transactional.flow(producerSettings, transactionalId)));
 
     stream.runWith(Sink.ignore(), materializer);
 
     // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
     Runtime.getRuntime().addShutdownHook(new Thread(() -> innerControl.get().shutdown()));
     // #transactionalFailureRetry
+    int messages = 10;
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
+        consume(targetTopic, messages);
+    assertEquals(Done.done(), resultOf(produceString(sourceTopic, messages, partition0())));
+    assertEquals(Done.done(), resultOf(consumer.isShutdown()));
+    assertEquals(Done.done(), resultOf(innerControl.get().shutdown()));
+    assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());
   }
 }
