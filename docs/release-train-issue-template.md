@@ -36,7 +36,7 @@ Key links:
 
 - [ ] Make sure there are no stray staging repos on Sonatype
 - [ ] Wait until master build finished after merging the release notes
-- [ ] Create a [new release](https://github.com/akka/alpakka-kafka/releases/new) with the next tag version `$ALPAKKA_KAFKA_VERSION$`, title and release description linking to announcement, release notes and milestone
+- [ ] Create a [new release](https://github.com/akka/alpakka-kafka/releases/new) with the next tag version `v$ALPAKKA_KAFKA_VERSION$`, title and release description linking to announcement, release notes and milestone
 - [ ] Check that Travis CI release build has executed successfully (Travis will start a [CI build](https://travis-ci.org/akka/alpakka-kafka/builds) for the new tag and publish artifacts to Bintray)
 - [ ] Go to [Bintray](https://bintray.com/akka/maven/alpakka-kafka) and select the just released version
 - [ ] Go to the Maven Central tab and sync with Sonatype
@@ -49,7 +49,7 @@ Key links:
 1. Checkout the newly released tag.
 1. If you need to make any changes to the already released docs, create `version.sbt` and set the project version explicitly:
     ```
-    ThisBuild / version := "<released-version>"
+    ThisBuild / version := "$ALPAKKA_KAFKA_VERSION$"
     ThisBuild / isSnapshot := false
     ```
 1. Build paradox and API documentation:
@@ -58,19 +58,19 @@ Key links:
     ```
 1. Upload docs to *gustav*:
     ```
-    rsync -azP docs/target/paradox/site/main/ gustav.akka.io:www/docs/akka-stream-kafka/<new-version>/
-    rsync -azP core/target/scala-2.12/api/ gustav.akka.io:www/api/akka-stream-kafka/<new-version>/
+    rsync -azP docs/target/paradox/site/main/ gustav.akka.io:www/docs/akka-stream-kafka/$ALPAKKA_KAFKA_VERSION$/
+    rsync -azP core/target/scala-2.12/api/ gustav.akka.io:www/api/akka-stream-kafka/$ALPAKKA_KAFKA_VERSION$/
     ```
 
 ### Check availability
-- [ ] Check release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/)
-- [ ] Check the release on [Maven central](http://central.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.12/)
+- [ ] Check release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
+- [ ] Check the release on [Maven central](http://central.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
 
 ### When everything is on maven central
 - [ ] Log into `gustav.akka.io` as `akkarepo` and update the `current` links on `repo.akka.io` to point to the latest version with
      ```
-     ln -nsf <latestversion> www/docs/akka-stream-kafka/current
-     ln -nsf <latestversion> www/api/akka-stream-kafka/current
+     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/docs/akka-stream-kafka/current
+     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/api/akka-stream-kafka/current
      ```
      
 ### Announcements
@@ -81,4 +81,5 @@ Key links:
 
 ### Afterwards
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository seed templates
+- [ ] Create/update issue in Lagom to upgrade to $ALPAKKA_KAFKA_VERSION$
 - Close this issue
