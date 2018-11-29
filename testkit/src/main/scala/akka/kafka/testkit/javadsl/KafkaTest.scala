@@ -18,7 +18,6 @@ import akka.stream.javadsl.{Keep, Sink}
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.run
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters._
