@@ -18,7 +18,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #settings }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #settings }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #settings }
 
 In addition to programmatic construction of the `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) it can also be created from configuration (`application.conf`). 
 
@@ -46,7 +46,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #settings-autocommit }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #settings-autocommit }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #settings-autocommit }
 
 The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
 choosing. The primary use case for this is allowing the application to store both the offset and the results of the
@@ -58,7 +58,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #plainSource }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #plainSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #plainSource }
 
 For `Consumer.plainSource` the `Subscriptions.assignmentWithOffset` specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the `ConsumerSettings`.
 
@@ -82,7 +82,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atLeastOnce }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atLeastOnce }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #atLeastOnce }
 
 Committing the offset for each message (`withMaxBatch(1)`) as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
 
@@ -95,7 +95,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committerSink }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #committerSink }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #committerSink }
  
 When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scaladoc[API](akka.kafka.CommitterSettings)). These may be created by passing the actor system to read the defaults from the config section `akka.kafka.committer`, or by passing a `Config` (@scaladoc[API](com.typesafe.config.Config)) instance with the same structure.
 
@@ -124,7 +124,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #commitWithMetadata }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #commitWithMetadata }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #commitWithMetadata }
 
 If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended.
 
@@ -132,7 +132,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atMostOnce }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #atMostOnce }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #atMostOnce }
 
 Maintaining at-least-once delivery semantics requires care, many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
@@ -149,15 +149,15 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerToProducerSink }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerSink }
 
-As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits.
+As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits with `Committer.sink`.
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlowBatch }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerToProducerFlowBatch }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
 
 @@@note 
 
@@ -179,7 +179,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committablePartitionedSource }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #committablePartitionedSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #committablePartitionedSource }
 
 Separate streams per partition:
 
@@ -187,7 +187,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committablePartitionedSource-stream-per-partition }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #committablePartitionedSource-stream-per-partition }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #committablePartitionedSource-stream-per-partition }
 
 
 Join flows based on automatically assigned partitions:
@@ -206,7 +206,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/PartitionExamples.scala) { #consumerActor }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerActor }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerActor }
 
 
 ## Accessing KafkaConsumer metrics
@@ -217,7 +217,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/PartitionExamples.scala) { #consumerMetrics }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerMetrics }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerMetrics }
 
 
 ## Accessing KafkaConsumer metadata
@@ -237,7 +237,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #withRebalanceListenerActor }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #withRebalanceListenerActor }
 
 
 ## Controlled shutdown
@@ -250,7 +250,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownPlainSource }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #shutdownPlainSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #shutdownPlainSource }
 
 When you are using offset storage in Kafka, the shutdown process involves several steps:
 
@@ -266,7 +266,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #shutdownCommitableSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #shutdownCommitableSource }
 
 
 @@@ index

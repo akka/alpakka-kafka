@@ -34,5 +34,6 @@ object KafkaPorts {
   val FetchMetadataTest = 9192
   val JavaProducerExamples = 9202
   val JavaTransactionsExamples = 9212
+  val ConsumerExamplesTest = 9222
 
 }

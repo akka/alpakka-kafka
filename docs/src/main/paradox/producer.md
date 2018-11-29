@@ -123,7 +123,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExample.java) { #consumerToProducerFlow }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
 
 
 ## Connecting a Producer to a Consumer

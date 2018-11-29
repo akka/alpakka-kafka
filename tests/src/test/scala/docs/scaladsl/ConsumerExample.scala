@@ -247,6 +247,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
     // #consumerToProducerFlow
     val control = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(topic))
@@ -258,7 +259,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       }
       .via(Producer.flexiFlow(producerSettings))
       .map(_.passThrough)
-      .toMat(Committer.sink(committerDefaults))(Keep.both)
+      .toMat(Committer.sink(committerSettings))(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     // #consumerToProducerFlow
@@ -272,39 +273,6 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       .run()
     waitBeforeValidation()
     Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
-  }
-
-  "Connect a Consumer to Producer, and commit in batches" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
-    val producerSettings = producerDefaults
-    val committerSettings = committerDefaults
-    // #consumerToProducerFlowBatch
-    val control = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics(topic))
-      .map(
-        msg =>
-          ProducerMessage.single(
-            new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
-            msg.committableOffset
-        )
-      )
-      .via(Producer.flexiFlow(producerSettings))
-      .map(_.passThrough)
-      .toMat(Committer.sink(committerSettings))(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
-      .run()
-    // #consumerToProducerFlowBatch
-    awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.drainAndShutdown(), 5.seconds)
-    val consumerSettings2 = consumerDefaults.withGroupId(createGroupId())
-    val receiveControl = Consumer
-      .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
-      .toMat(Sink.seq)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
-      .run()
-    waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 1.seconds) should have size (10)
   }
 
   "Backpressure per partition with batch commit" should "work" in {

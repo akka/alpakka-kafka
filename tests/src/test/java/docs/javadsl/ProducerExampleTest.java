@@ -98,7 +98,8 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Producer.plainSink(producerSettings), materializer);
     // #plainSink
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
+        consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
@@ -118,7 +119,8 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
     // #plainSinkWithProducer
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
+        consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
@@ -227,7 +229,8 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
             .runWith(Sink.foreach(System.out::println), materializer);
     // #flow
 
-    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control = consumeString(topic, 100L);
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
+        consumeString(topic, 100L);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
     CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
