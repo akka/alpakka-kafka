@@ -1,8 +1,8 @@
 Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![travis-badge][]][travis] [![gitter-badge][]][gitter]
 =======================
 
-[scaladex]:            https://index.scala-lang.org/akka/reactive-kafka
-[scaladex-badge]:      https://index.scala-lang.org/akka/reactive-kafka/latest.svg
+[scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka
+[scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/latest.svg
 [maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12
 [maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12/badge.svg
 [travis]:              https://travis-ci.org/akka/alpakka-kafka
