@@ -66,6 +66,8 @@ val kafkaScale = settingKey[Int]("Number of kafka docker containers")
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
+// TODO read version or master
+val githubTree = "master"
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
@@ -94,6 +96,18 @@ val commonSettings = Seq(
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
     "-Xfuture"
+  ),
+  scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
+    "-doc-title",
+    "Alpakka Kafka",
+    "-doc-version",
+    version.value,
+    "-sourcepath",
+    (baseDirectory in ThisBuild).value.toString,
+    "-doc-source-url",
+    s"https://github.com/akka/alpakka-kafka/tree/${githubTree}€{FILE_PATH}.scala",
+    "-skip-packages",
+    "akka.pattern" // for some reason Scaladoc creates this
   ),
   // show full stack traces and test case durations
   testOptions += Tests.Argument("-oDF"),
