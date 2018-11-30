@@ -8,7 +8,7 @@ package docs.scaladsl
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.Done
-import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
@@ -39,7 +39,8 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
         .map { msg =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
         }
-        .to(Transactional.sink(producerSettings, transactionalId))
+        .toMat(Transactional.sink(producerSettings, transactionalId))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
         .run()
 
     // ...
@@ -54,7 +55,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     control.shutdown().futureValue should be(Done)
     control2.shutdown().futureValue should be(Done)
     // #transactionalSink
-    control.shutdown()
+    control.drainAndShutdown()
     // #transactionalSink
     result.futureValue should have size (10)
   }

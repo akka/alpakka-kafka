@@ -38,7 +38,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #transactionalSink }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExample.java) { #transactionalSink }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #transactionalSink }
 
 ### Recovery From Failure
 
@@ -50,7 +50,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExample.java) { #transactionalFailureRetry }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #transactionalFailureRetry }
 
 ## Caveats
 

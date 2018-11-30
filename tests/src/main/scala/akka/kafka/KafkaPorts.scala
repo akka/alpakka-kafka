@@ -31,5 +31,9 @@ object KafkaPorts {
   val SerializationTest = 9162
   val NoBrokerSpec = 9172
   val AtLeastOnceToManyTest = 9182
+  val FetchMetadataTest = 9192
+  val JavaProducerExamples = 9202
+  val JavaTransactionsExamples = 9212
+  val ConsumerExamplesTest = 9222
 
 }
