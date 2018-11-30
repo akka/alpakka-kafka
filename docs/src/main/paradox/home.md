@@ -12,7 +12,7 @@ The examples in this documentation use
 * Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
 * Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
 
-@@project-info{ project="core" }
+@@project-info{ projectId="core" }
 
 If you want to try out a connector that has not yet been released, give @ref[snapshots](snapshots.md) a spin which are published after every commit on master.
 
@@ -28,10 +28,6 @@ If you want to try out a connector that has not yet been released, give @ref[sna
 |0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
 |0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1)
 
-
-## Reported issues
-
-[Issues at Github](https://github.com/akka/reactive-kafka/issues)
 
 ## Dependencies
 
