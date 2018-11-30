@@ -1,4 +1,3 @@
-import com.lightbend.paradox.markdown.GitHubResolver
 import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
