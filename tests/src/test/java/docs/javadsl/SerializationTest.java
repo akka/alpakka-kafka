@@ -212,7 +212,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
     // #de-serializer
 
     assertThat(
-        controlCompletionStagePair.isShutdown().toCompletableFuture().get(4, TimeUnit.SECONDS),
+        controlCompletionStagePair.isShutdown().toCompletableFuture().get(20, TimeUnit.SECONDS),
         is(Done.getInstance()));
     List<ConsumerRecord<String, Object>> result =
         controlCompletionStagePair
