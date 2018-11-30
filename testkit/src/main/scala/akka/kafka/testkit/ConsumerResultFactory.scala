@@ -9,7 +9,7 @@ import akka.Done
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffset}
-import akka.kafka.internal.{CommittableOffsetImpl, Committer}
+import akka.kafka.internal.{CommittableOffsetImpl, InternalCommitter}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.collection.immutable
@@ -21,7 +21,7 @@ import scala.concurrent.Future
 @ApiMayChange
 object ConsumerResultFactory {
 
-  val fakeCommitter = new Committer {
+  val fakeCommitter = new InternalCommitter {
     override def commit(
         offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]
     ): Future[Done] = Future.successful(Done)

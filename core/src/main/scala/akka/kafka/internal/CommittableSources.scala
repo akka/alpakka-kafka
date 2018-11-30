@@ -39,7 +39,7 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
     with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: Committer = {
+      lazy val committer: InternalCommitter = {
         val ec = materializer.executionContext
         KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
       }
@@ -60,7 +60,7 @@ private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
     with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
       override def groupId: String = _groupId
-      lazy val committer: Committer = {
+      lazy val committer: InternalCommitter = {
         val ec = materializer.executionContext
         KafkaAsyncConsumerCommitterRef(consumerActor, commitTimeout)(ec)
       }
@@ -83,7 +83,7 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
     with CommittableMessageBuilder[K, V] with MetricsControl {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: Committer = {
+      lazy val committer: InternalCommitter = {
         val ec = materializer.executionContext
         KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
       }
@@ -93,7 +93,7 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
 /**
  * Internal API.
  *
- * [[Committer]] implementation for committable sources.
+ * [[InternalCommitter]] implementation for committable sources.
  *
  * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit Commit]] messages to the consumer actor.
  *
@@ -101,7 +101,7 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
  */
 private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
-) extends Committer {
+) extends InternalCommitter {
   import akka.pattern.ask
   import scala.collection.breakOut
 
