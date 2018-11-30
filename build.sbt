@@ -1,3 +1,4 @@
+import com.lightbend.paradox.markdown.GitHubResolver
 import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
@@ -66,8 +67,6 @@ val kafkaScale = settingKey[Int]("Number of kafka docker containers")
 
 resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
 
-// TODO read version or master
-val githubTree = "master"
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
@@ -104,8 +103,10 @@ val commonSettings = Seq(
     version.value,
     "-sourcepath",
     (baseDirectory in ThisBuild).value.toString,
-    "-doc-source-url",
-    s"https://github.com/akka/alpakka-kafka/tree/${githubTree}€{FILE_PATH}.scala",
+    "-doc-source-url", {
+      val branch = if (isSnapshot.value) "master" else s"v$version"
+      s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
+    },
     "-skip-packages",
     "akka.pattern" // for some reason Scaladoc creates this
   ),
