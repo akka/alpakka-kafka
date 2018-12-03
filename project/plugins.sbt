@@ -6,7 +6,6 @@ addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.0.0")
 addSbtPlugin("se.marcuslonnberg" % "sbt-docker" % "1.5.0")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox" % "0.4.2")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "26-c0c675cf")
-addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2+10-148ba0ff") // pre-release in 2m repository
 addSbtPlugin("com.lightbend.akka" % "sbt-paradox-akka" % "0.14")
 addSbtPlugin("com.lightbend" % "sbt-whitesource" % "0.1.13")
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.0")
