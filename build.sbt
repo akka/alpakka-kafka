@@ -18,21 +18,18 @@ val coreDependencies = Seq(
 val testkitDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
-  "org.scalatest" %% "scalatest" % scalatestVersion,
+  "org.scalatest" %% "scalatest" % scalatestVersion % "provided",
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 
-val confluentAvroSerializerVersion = "5.0.0"
+val confluentAvroSerializerVersion = "5.0.1"
 
 val testDependencies = Seq(
   "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
-  // See https://github.com/sbt/sbt/issues/3618
-  "javax.ws.rs" % "javax.ws.rs-api" % "2.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
   "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
-  "org.reactivestreams" % "reactive-streams-tck" % "1.0.2" % Test,
-  "io.spray" %% "spray-json" % "1.3.4" % Test,
-  "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.6" % Test, // ApacheV2
+  "io.spray" %% "spray-json" % "1.3.5" % Test,
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % "4.12" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
@@ -229,6 +226,7 @@ lazy val docs = project
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,
+      "scalatest.version" -> scalatestVersion,
       "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
       "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
