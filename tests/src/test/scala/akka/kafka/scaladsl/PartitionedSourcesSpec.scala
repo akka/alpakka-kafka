@@ -21,7 +21,7 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec
     extends SpecBase(kafkaPort = KafkaPorts.PartitionedSourcesSpec)
@@ -30,6 +30,9 @@ class PartitionedSourcesSpec
 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
+
+  override val consumerDefaults: ConsumerSettings[String, String] = super.consumerDefaults
+    .withStopTimeout(10.millis)
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
@@ -404,5 +407,75 @@ class PartitionedSourcesSpec
       consumerCompletion.futureValue
     }
 
+    "handle exceptions in stream without commit failures" in assertAllStagesStopped {
+      val partitions = 4
+      val totalMessages = 100L
+
+      val topic = createTopic(1, partitions)
+      val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
+      val group = createGroupId(1)
+      val sourceSettings = consumerDefaults
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+        .withGroupId(group)
+        .withStopTimeout(2.seconds)
+
+      var createdSubSources = List.empty[TopicPartition]
+
+      var commitFailures = List.empty[(TopicPartition, Throwable)]
+
+      val control = Consumer
+        .committablePartitionedSource(sourceSettings, Subscriptions.topics(topic))
+        .groupBy(partitions, _._1)
+        .mapAsync(8) {
+          case (tp, source) =>
+            createdSubSources = tp :: createdSubSources
+            source
+              .log(s"subsource $tp", _.record.value())
+              .mapAsync(4) { m =>
+                // fail on first partition; otherwise delay slightly and emit
+                if (tp.partition() == 0) {
+                  log.debug(s"failing $tp source")
+                  Future.failed(new RuntimeException("FAIL"))
+                } else {
+                  akka.pattern.after(50.millis, system.scheduler)(Future.successful(m))
+                }
+              }
+              .log(s"subsource $tp pre commmit")
+              .mapAsync(1)(_.committableOffset.commitScaladsl().andThen {
+                case Failure(e) =>
+                  log.error("commit failure", e)
+                  commitFailures ::= tp -> e
+              })
+              .scan(0L)((c, _) => c + 1)
+              .runWith(Sink.last)
+              .map { res =>
+                log.info(s"Sub-source for $tp completed: Received [$res] messages in total.")
+                res
+              }
+        }
+        .mergeSubstreams
+        .scan(0L)((c, n) => c + n)
+        .toMat(Sink.last)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+      }
+
+      awaitProduce(
+        Source(1L to totalMessages)
+          .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+          .runWith(Producer.plainSink(producerDefaults, testProducer))
+      )
+
+      val exception = control.drainAndShutdown().failed.futureValue
+      createdSubSources should contain allElementsOf allTps
+      exception.getMessage shouldBe "FAIL"
+
+      // commits will fail if we shut down the consumer too early
+      commitFailures shouldBe empty
+    }
   }
 }

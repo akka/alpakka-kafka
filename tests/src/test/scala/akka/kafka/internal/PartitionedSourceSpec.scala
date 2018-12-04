@@ -54,6 +54,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     ConsumerSettings
       .create(system, new StringDeserializer, new StringDeserializer)
       .withGroupId("group")
+      .withStopTimeout(10.millis)
       .withConsumerFactory(_ => dummy)
 
   "partitioned source" should "resume topics with demand" in assertAllStagesStopped {

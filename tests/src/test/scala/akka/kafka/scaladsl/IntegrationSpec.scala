@@ -537,7 +537,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       awaitProduce(produce(topic, 1 to 100))
 
       val (control, probe) = Consumer
-        .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .plainPartitionedSource(consumerDefaults.withGroupId(group).withStopTimeout(10.millis),
+                                Subscriptions.topics(topic))
         .flatMapMerge(1, _._2)
         .map(_.value())
         .toMat(TestSink.probe)(Keep.both)

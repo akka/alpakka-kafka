@@ -276,7 +276,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   }
 
   "Backpressure per partition with batch commit" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource
@@ -294,7 +294,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   }
 
   "Flow per partition" should "Process each assigned partition separately" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val comitterSettings = committerDefaults
     val topic = createTopic()
     val maxPartitions = 100
