@@ -258,9 +258,13 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 2. Wait for the stream to complete, so that a commit request has been made for all offsets of all processed messages (via `Committer.sink/flow`, `commitScaladsl()` or `commitJavadsl()`).
 3. `Consumer.Control.shutdown()` to wait for all outstanding commit requests to finish and stop the Kafka Consumer.
 
+### Draining control
+
 To manage this shutdown process, use the `Consumer.DrainingControl` 
 (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$DrainingControl)])
-by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue'. That control offers the method `drainAndShutdown` which implements the process descibed above. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
+by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue`. That control offers the method `drainAndShutdown` which implements the process descibed above.
+
+Note: The `ConsummerSettings` `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }

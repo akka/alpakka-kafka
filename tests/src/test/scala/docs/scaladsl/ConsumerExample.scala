@@ -120,10 +120,6 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       Consumer
         .atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1)(record => business(record.key, record.value()))
-        .map(it => {
-          println(s"Done with $it")
-          it
-        })
         .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
@@ -391,7 +387,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     // #shutdownCommitableSource
     val drainingControl =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic))
+        .committableSource(consumerSettings.withStopTimeout(Duration.Zero), Subscriptions.topics(topic))
         .mapAsync(1) { msg =>
           business(msg.record).map(_ => msg.committableOffset)
         }

@@ -561,7 +561,8 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
     final Executor ec = Executors.newCachedThreadPool();
 
     Consumer.DrainingControl<Done> control =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics(topic))
+        Consumer.committableSource(
+                consumerSettings.withStopTimeout(Duration.ZERO), Subscriptions.topics(topic))
             .mapAsync(
                 1,
                 msg ->
