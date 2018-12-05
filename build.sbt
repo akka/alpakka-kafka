@@ -118,7 +118,8 @@ val commonSettings = Seq(
   // -a Show stack traces and exception class name for AssertionErrors.
   // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
   // -q Suppress stdout for successful tests.
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
+//  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
+  testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q"),
   scalafmtOnCompile := true,
   headerLicense := Some(
     HeaderLicense.Custom(
@@ -172,6 +173,8 @@ lazy val `alpakka-kafka` =
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
+  // see https://github.com/maichler/sbt-jupiter-interface/issues/24
+  .disablePlugins(JupiterPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
@@ -186,7 +189,7 @@ lazy val core = project
 lazy val testkit = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin)
+  .disablePlugins(MimaPlugin, JupiterPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-testkit",
@@ -236,6 +239,7 @@ commands += Command.command("dockerComposeTestAll") { state ⇒
 lazy val docs = project
   .in(file("docs"))
   .enablePlugins(AkkaParadoxPlugin)
+  .disablePlugins(JupiterPlugin)
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
@@ -266,6 +270,7 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
+  .disablePlugins(JupiterPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
