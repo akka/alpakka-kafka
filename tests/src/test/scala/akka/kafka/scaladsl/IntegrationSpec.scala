@@ -144,7 +144,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
 
-      val rebalanceActor = TestProbe()
+      val rebalanceActor1 = TestProbe()
+      val rebalanceActor2 = TestProbe()
 
       val (counterQueue, counterCompletion) = Source
         .queue[String](8, OverflowStrategy.fail)
@@ -154,7 +155,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         .run()
 
       val topicSubscription = Subscriptions.topics(topic)
-      val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor.ref)
+      val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor1.ref)
+      val subscription2 = topicSubscription.withRebalanceListener(rebalanceActor2.ref)
 
       def createAndRunConsumer(subscription: Subscription) =
         Consumer
@@ -177,13 +179,13 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
       }
 
-      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
-      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
+      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
+      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       createAndRunProducer(0L until totalMessages / 2).futureValue
 
       // create another consumer with the same groupId to trigger re-balancing
-      val control2 = createAndRunConsumer(topicSubscription)
+      val control2 = createAndRunConsumer(subscription2)
 
       // waits until partitions are assigned across both consumers
       waitUntilConsumerSummary(group, timeout = 10.seconds) {
@@ -192,8 +194,10 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
           consumer1.assignment.size == half && consumer2.assignment.size == half
       }
 
-      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
-      rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
+      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
+      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
+      rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
+      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
 
       createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
 
