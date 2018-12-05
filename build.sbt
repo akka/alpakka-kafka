@@ -39,6 +39,7 @@ val testDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % junit4Version % Test,
+  "org.junit.jupiter" % "junit-jupiter-api" % "5.1.0" % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
