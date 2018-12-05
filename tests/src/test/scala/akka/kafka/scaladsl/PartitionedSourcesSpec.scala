@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.atomic.AtomicLong
+
 import akka.Done
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -149,6 +151,7 @@ class PartitionedSourcesSpec
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
 
+      val receivedMessages = new AtomicLong(0)
       var createdSubSources = List.empty[TopicPartition]
 
       val control = Consumer
@@ -160,6 +163,10 @@ class PartitionedSourcesSpec
             log.info(s"Sub-source for $tp")
             source
               .scan(0L)((c, _) => c + 1)
+              .map { v =>
+                receivedMessages.incrementAndGet()
+                v
+              }
               .runWith(Sink.last)
               .map { res =>
                 log.info(s"Sub-source for $tp completed: Received [$res] messages in total.")
@@ -193,6 +200,10 @@ class PartitionedSourcesSpec
                   createdInnerSubSources = tp :: createdInnerSubSources
                   source
                     .scan(0L)((c, _) => c + 1)
+                    .map { v =>
+                      receivedMessages.incrementAndGet()
+                      v
+                    }
                     .runWith(Sink.last)
                     .map { res =>
                       log.info(s"Inner Sub-source for $tp completed: Received [$res] messages in total.")
@@ -221,7 +232,9 @@ class PartitionedSourcesSpec
       }
 
       control2 should not be null
-      sleep(1.seconds, "to have all messages consumed")
+      eventually {
+        receivedMessages.get() should be >= totalMessages
+      }
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
       createdSubSources should contain allElementsOf allTps
