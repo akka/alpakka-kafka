@@ -566,9 +566,9 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
                 msg ->
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
-            // #shutdownCommitableSource
+            // #shutdownCommittableSource
             .take(messageCount)
-            // #shutdownCommitableSource
+            // #shutdownCommittableSource
             .toMat(Committer.sink(committerSettings.withMaxBatch(1)), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
