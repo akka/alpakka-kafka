@@ -315,6 +315,8 @@ import scala.util.control.{NoStackTrace, NonFatal}
   override def preStart(): Unit = {
     super.preStart()
     try {
+      if (log.isDebugEnabled)
+        log.debug(s"Creating Kafka consumer with ${settings.toString}")
       consumer = settings.createKafkaConsumer()
     } catch {
       case e: Exception =>
