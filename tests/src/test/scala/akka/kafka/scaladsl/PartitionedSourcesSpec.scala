@@ -126,7 +126,7 @@ class PartitionedSourcesSpec
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       val producer = Source(1L to totalMessages)
@@ -181,7 +181,7 @@ class PartitionedSourcesSpec
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       var createdInnerSubSources = List.empty[TopicPartition]
@@ -228,7 +228,7 @@ class PartitionedSourcesSpec
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
-          consumer1.assignment.size == half && consumer2.assignment.size == half
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
       }
 
       control2 should not be null
@@ -263,6 +263,7 @@ class PartitionedSourcesSpec
       val control = Consumer
         .plainPartitionedSource(sourceSettings, subscription1)
         .flatMapMerge(partitions, _._2)
+        .log("consumer1")
         .map { v =>
           receivedMessages.incrementAndGet()
           v
@@ -274,7 +275,7 @@ class PartitionedSourcesSpec
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       var control2: DrainingControl[Long] = null
@@ -286,6 +287,7 @@ class PartitionedSourcesSpec
             control2 = Consumer
               .plainPartitionedSource(sourceSettings, topicSubscription)
               .flatMapMerge(partitions, _._2)
+              .log("consumer2")
               .map { v =>
                 receivedMessages.incrementAndGet()
                 v
@@ -310,7 +312,7 @@ class PartitionedSourcesSpec
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
-          consumer1.assignment.size == half && consumer2.assignment.size == half
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
       }
 
       control2 should not be null
@@ -485,7 +487,7 @@ class PartitionedSourcesSpec
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       awaitProduce(

@@ -176,7 +176,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
@@ -191,7 +191,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       waitUntilConsumerSummary(group, timeout = 10.seconds) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
-          consumer1.assignment.size == half && consumer2.assignment.size == half
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
       }
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))

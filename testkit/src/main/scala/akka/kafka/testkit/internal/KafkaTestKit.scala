@@ -12,7 +12,6 @@ import java.util.{Arrays, Properties}
 
 import akka.actor.ActorSystem
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
-import kafka.admin.{AdminClient => OldAdminClient}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
@@ -64,14 +63,6 @@ trait KafkaTestKit {
 
   def adminClient(): AdminClient =
     AdminClient.create(adminDefaults)
-
-  /**
-   * Get an old admin client which is deprecated. However only this client allows access
-   * to consumer group summaries
-   *
-   */
-  def oldAdminClient(): OldAdminClient =
-    OldAdminClient.create(adminDefaults)
 
   /**
    * Create a topic with given partition number and replication factor.
