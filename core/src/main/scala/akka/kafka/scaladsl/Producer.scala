@@ -88,7 +88,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  @deprecated("use committableSink instead", "1.0-M2")
+  @deprecated("use committableSink instead", "1.0-RC1")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings)
@@ -139,7 +139,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  @deprecated("use committableSink instead", "1.0-M2")
+  @deprecated("use committableSink instead", "1.0-RC1")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
