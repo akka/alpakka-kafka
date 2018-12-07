@@ -36,7 +36,7 @@ import scala.concurrent.{Future, Promise}
 
   final def configureSubscription(): Unit = {
 
-    def rebalanceListener: KafkaConsumerActor.ListenerCallbacks = {
+    def rebalanceListener(autoSubscription: AutoSubscription): KafkaConsumerActor.ListenerCallbacks = {
       val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
         tps ++= assignedTps
         log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", assignedTps, tps)
@@ -50,16 +50,16 @@ import scala.concurrent.{Future, Promise}
 
       KafkaConsumerActor.ListenerCallbacks(
         assignedTps => {
-          subscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor.ref)
+          autoSubscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(autoSubscription, assignedTps), sourceActor.ref)
           }
           if (assignedTps.nonEmpty) {
             partitionAssignedCB.invoke(assignedTps)
           }
         },
         revokedTps => {
-          subscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor.ref)
+          autoSubscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(autoSubscription, revokedTps), sourceActor.ref)
           }
           if (revokedTps.nonEmpty) {
             partitionRevokedCB.invoke(revokedTps)
@@ -69,10 +69,11 @@ import scala.concurrent.{Future, Promise}
     }
 
     subscription match {
-      case TopicSubscription(topics, _) =>
-        consumerActor.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener), sourceActor.ref)
-      case TopicSubscriptionPattern(topics, _) =>
-        consumerActor.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener), sourceActor.ref)
+      case sub @ TopicSubscription(topics, _) =>
+        consumerActor.tell(KafkaConsumerActor.Internal.Subscribe(topics, rebalanceListener(sub)), sourceActor.ref)
+      case sub @ TopicSubscriptionPattern(topics, _) =>
+        consumerActor.tell(KafkaConsumerActor.Internal.SubscribePattern(topics, rebalanceListener(sub)),
+                           sourceActor.ref)
       case s: ManualSubscription => configureManualSubscription(s)
     }
 

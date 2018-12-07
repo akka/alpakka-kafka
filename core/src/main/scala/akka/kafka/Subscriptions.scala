@@ -21,17 +21,31 @@ sealed trait Subscription {
 
   def renderStageAttribute: String
 
-  protected def renderListener: String =
+  protected def renderListener: String = ""
+}
+sealed trait ManualSubscription extends Subscription {
+
+  /** @deprecated Manual subscriptions do never rebalance */
+  @deprecated("Manual subscription does never rebalance", "1.0-M2")
+  def rebalanceListener: Option[ActorRef] = None
+
+  /** @deprecated Manual subscriptions do never rebalance */
+  @deprecated("Manual subscription does never rebalance", "1.0-M2")
+  def withRebalanceListener(ref: ActorRef): ManualSubscription
+}
+sealed trait AutoSubscription extends Subscription {
+
+  /** ActorRef which is to receive [[akka.kafka.ConsumerRebalanceEvent]] signals when rebalancing happens */
+  def rebalanceListener: Option[ActorRef]
+
+  /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
+  def withRebalanceListener(ref: ActorRef): AutoSubscription
+
+  override protected def renderListener: String =
     rebalanceListener match {
       case Some(ref) => s" rebalanceListener $ref"
       case None => ""
     }
-}
-sealed trait ManualSubscription extends Subscription {
-  def withRebalanceListener(ref: ActorRef): ManualSubscription
-}
-sealed trait AutoSubscription extends Subscription {
-  def withRebalanceListener(ref: ActorRef): AutoSubscription
 }
 
 sealed trait ConsumerRebalanceEvent
@@ -62,33 +76,26 @@ object Subscriptions {
 
   /** INTERNAL API */
   @akka.annotation.InternalApi
-  private[kafka] final case class Assignment(tps: Set[TopicPartition], rebalanceListener: Option[ActorRef])
-      extends ManualSubscription {
-    def withRebalanceListener(ref: ActorRef): Assignment =
-      Assignment(tps, Some(ref))
-    def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
+  private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription {
+    def withRebalanceListener(ref: ActorRef): Assignment = this
+    def renderStageAttribute: String = s"${tps.mkString(" ")}"
   }
 
   /** INTERNAL API */
   @akka.annotation.InternalApi
-  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long],
-                                                       rebalanceListener: Option[ActorRef])
-      extends ManualSubscription {
-    def withRebalanceListener(ref: ActorRef): AssignmentWithOffset =
-      AssignmentWithOffset(tps, Some(ref))
+  private[kafka] final case class AssignmentWithOffset(tps: Map[TopicPartition, Long]) extends ManualSubscription {
+    def withRebalanceListener(ref: ActorRef): AssignmentWithOffset = this
     def renderStageAttribute: String =
-      s"${tps.map { case (tp, offset) => s"$tp offset$offset" }.mkString(" ")}$renderListener"
+      s"${tps.map { case (tp, offset) => s"$tp offset$offset" }.mkString(" ")}"
   }
 
   /** INTERNAL API */
   @akka.annotation.InternalApi
-  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long],
-                                                            rebalanceListener: Option[ActorRef])
+  private[kafka] final case class AssignmentOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
       extends ManualSubscription {
-    def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes =
-      AssignmentOffsetsForTimes(timestampsToSearch, Some(ref))
+    def withRebalanceListener(ref: ActorRef): AssignmentOffsetsForTimes = this
     def renderStageAttribute: String =
-      s"${timestampsToSearch.map { case (tp, timestamp) => s"$tp timestamp$timestamp" }.mkString(" ")}$renderListener"
+      s"${timestampsToSearch.map { case (tp, timestamp) => s"$tp timestamp$timestamp" }.mkString(" ")}"
   }
 
   /** Creates subscription for given set of topics */
@@ -115,7 +122,7 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions
    */
-  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps, None)
+  def assignment(tps: Set[TopicPartition]): ManualSubscription = Assignment(tps)
 
   /**
    * JAVA API
@@ -133,12 +140,12 @@ object Subscriptions {
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps, None)
+  def assignmentWithOffset(tps: Map[TopicPartition, Long]): ManualSubscription = AssignmentWithOffset(tps)
 
   /**
    * Manually assign given topics and partitions with offsets
    */
-  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap, None)
+  def assignmentWithOffset(tps: (TopicPartition, Long)*): ManualSubscription = AssignmentWithOffset(tps.toMap)
 
   /**
    * JAVA API
@@ -157,13 +164,13 @@ object Subscriptions {
    * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tps: Map[TopicPartition, Long]): ManualSubscription =
-    AssignmentOffsetsForTimes(tps, None)
+    AssignmentOffsetsForTimes(tps)
 
   /**
    * Manually assign given topics and partitions with timestamps
    */
   def assignmentOffsetsForTimes(tps: (TopicPartition, Long)*): ManualSubscription =
-    AssignmentOffsetsForTimes(tps.toMap, None)
+    AssignmentOffsetsForTimes(tps.toMap)
 
   /**
    * JAVA API

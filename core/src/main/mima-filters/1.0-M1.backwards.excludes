@@ -9,3 +9,21 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Metadata#CommittedOffset.*")
 ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Metadata$CommittedOffset$")
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Metadata#CommittedOffset.apply")
+
+# PR #639 Remove rebalance listener for manual subscriptions
+# https://github.com/akka/alpakka-kafka/pull/639
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#Assignment.copy$default$2")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#Assignment.copy")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#Assignment.this")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#Assignment.apply")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$Assignment$")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentWithOffset.copy$default$2")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentWithOffset.copy")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentWithOffset.this")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentWithOffset.apply")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$AssignmentWithOffset$")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.copy$default$2")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.copy")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.this")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.apply")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$AssignmentOffsetsForTimes$")

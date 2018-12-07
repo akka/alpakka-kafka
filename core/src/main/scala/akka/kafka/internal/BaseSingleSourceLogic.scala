@@ -71,13 +71,13 @@ import scala.concurrent.{ExecutionContext, Future}
   protected def configureSubscription(): Unit
 
   protected def configureManualSubscription(subscription: ManualSubscription): Unit = subscription match {
-    case Assignment(topics, _) =>
+    case Assignment(topics) =>
       consumerActor.tell(KafkaConsumerActor.Internal.Assign(topics), sourceActor.ref)
       tps ++= topics
-    case AssignmentWithOffset(topics, _) =>
+    case AssignmentWithOffset(topics) =>
       consumerActor.tell(KafkaConsumerActor.Internal.AssignWithOffset(topics), sourceActor.ref)
       tps ++= topics.keySet
-    case AssignmentOffsetsForTimes(topics, _) =>
+    case AssignmentOffsetsForTimes(topics) =>
       consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
       tps ++= topics.keySet
   }
