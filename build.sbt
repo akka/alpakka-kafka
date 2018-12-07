@@ -18,7 +18,7 @@ val coreDependencies = Seq(
 val testkitDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
-  "org.scalatest" %% "scalatest" % scalatestVersion % "provided",
+  "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 
