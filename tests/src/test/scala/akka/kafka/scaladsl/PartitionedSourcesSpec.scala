@@ -247,6 +247,7 @@ class PartitionedSourcesSpec
     "signal rebalance events to actor" in assertAllStagesStopped {
       val partitions = 4
       val totalMessages = 400L
+      val receivedMessages = new AtomicLong(0)
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
@@ -262,6 +263,10 @@ class PartitionedSourcesSpec
       val control = Consumer
         .plainPartitionedSource(sourceSettings, subscription1)
         .flatMapMerge(partitions, _._2)
+        .map { v =>
+          receivedMessages.incrementAndGet()
+          v
+        }
         .scan(0L)((c, _) => c + 1)
         .toMat(Sink.last)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
@@ -281,6 +286,10 @@ class PartitionedSourcesSpec
             control2 = Consumer
               .plainPartitionedSource(sourceSettings, topicSubscription)
               .flatMapMerge(partitions, _._2)
+              .map { v =>
+                receivedMessages.incrementAndGet()
+                v
+              }
               .scan(0L)((c, _) => c + 1)
               .toMat(Sink.last)(Keep.both)
               .mapMaterializedValue(DrainingControl.apply)
@@ -305,10 +314,12 @@ class PartitionedSourcesSpec
       }
 
       control2 should not be null
+      eventually {
+        receivedMessages.get() should be >= totalMessages
+      }
 
       rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
       rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
-      sleep(1.seconds, "to have all messages consumed")
 
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
