@@ -120,10 +120,6 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
       Consumer
         .atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1)(record => business(record.key, record.value()))
-        .map(it => {
-          println(s"Done with $it")
-          it
-        })
         .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
@@ -276,7 +272,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   }
 
   "Backpressure per partition with batch commit" should "work" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource
@@ -294,7 +290,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   }
 
   "Flow per partition" should "Process each assigned partition separately" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val comitterSettings = committerDefaults
     val topic = createTopic()
     val maxPartitions = 100
@@ -391,7 +387,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     // #shutdownCommittableSource
     val drainingControl =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic))
+        .committableSource(consumerSettings.withStopTimeout(Duration.Zero), Subscriptions.topics(topic))
         .mapAsync(1) { msg =>
           business(msg.record).map(_ => msg.committableOffset)
         }

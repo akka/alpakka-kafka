@@ -26,18 +26,24 @@ trait KafkaTestKit {
 
   val DefaultKey = "key"
 
-  val producerDefaults =
+  private val producerDefaultsInstance: ProducerSettings[String, String] =
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  val consumerDefaults: ConsumerSettings[String, String] =
+  def producerDefaults: ProducerSettings[String, String] = producerDefaultsInstance
+
+  private val consumerDefaultsInstance: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withWakeupTimeout(10.seconds)
       .withMaxWakeups(10)
 
-  val committerDefaults = CommitterSettings(system)
+  def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
+
+  private val committerDefaultsInstance = CommitterSettings(system)
+
+  def committerDefaults: CommitterSettings = committerDefaultsInstance
 
   def nextNumber(): Int = KafkaTestKit.topicCounter.incrementAndGet()
 

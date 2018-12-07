@@ -271,7 +271,10 @@ private abstract class SubSourceLogic[K, V, Msg](
         onShutdown()
         completeStage()
     }
-    consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
+    materializer.scheduleOnce(settings.stopTimeout, new Runnable {
+      override def run(): Unit =
+        consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
+    })
   }
 
 }

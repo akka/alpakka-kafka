@@ -36,6 +36,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -325,7 +326,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   public void committableParitionedSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
     int maxPartitions = 2;
     String topic = createTopic(1, maxPartitions, 1);
@@ -346,7 +347,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   public void streamPerPartition() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
     int maxPartitions = 2;
     String topic = createTopic(1, maxPartitions, 1);
@@ -560,7 +561,8 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
     final Executor ec = Executors.newCachedThreadPool();
 
     Consumer.DrainingControl<Done> control =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics(topic))
+        Consumer.committableSource(
+                consumerSettings.withStopTimeout(Duration.ZERO), Subscriptions.topics(topic))
             .mapAsync(
                 1,
                 msg ->
