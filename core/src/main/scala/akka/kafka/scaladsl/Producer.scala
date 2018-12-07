@@ -139,6 +139,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated("use committableSink instead", "1.0-M2")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
