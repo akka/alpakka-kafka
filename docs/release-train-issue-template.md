@@ -74,12 +74,13 @@ Key links:
      ```
      
 ### Announcements
-- [ ] Merge draft news item at https://github.com/akka/akka.github.com
-- [ ] Send a release notification to https://discuss.akka.io
-- [ ] Tweet using the akka account (or ask someone to) about the new release
-- [ ] Announce on Gitter at https://gitter.im/akka/alpakka-kafka
+- [ ] Merge draft news item for [akka.io](https://github.com/akka/akka.github.com)
+- [ ] Send a release notification to [Lightbend discuss](https://discuss.akka.io)
+- [ ] Tweet using the akkateam account (or ask someone to) about the new release
+- [ ] Announce on [Gitter akka/alpakka-kafka](https://gitter.im/akka/alpakka-kafka)
 
 ### Afterwards
-- [ ] Update Alpakka Kafka dependency in Alpakka main repository seed templates
-- [ ] Create/update issue in Lagom to upgrade to $ALPAKKA_KAFKA_VERSION$
+- [ ] Update Alpakka Kafka dependency in Alpakka main repository
+- [ ] Create/update PR in [Lagom](https://github.com/lagom/lagom) to upgrade to $ALPAKKA_KAFKA_VERSION$
+- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/reactive-platform/2.0/supported-modules/#other-akka-modules) in [private project](https://github.com/lightbend/reactive-platform-docs/blob/master/build.sbt#L77)
 - Close this issue
