@@ -13,6 +13,7 @@ Key links:
 
 ### ~ 1 week before the release
 
+- [ ] Check that any new `deprecated` annotations use the correct version name
 - [ ] Check that open PRs and issues assigned to the milestone are reasonable
 - [ ] Decide on planned release date
 - [ ] Notify depending projects (notably Lagom) about the upcoming release
