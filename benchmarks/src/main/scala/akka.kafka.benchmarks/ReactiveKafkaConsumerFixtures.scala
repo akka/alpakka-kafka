@@ -37,7 +37,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
       }
     )
 
-  def commitableSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
+  def committableSources(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
     FixtureGen[ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]](
       c,
       msgCount => {

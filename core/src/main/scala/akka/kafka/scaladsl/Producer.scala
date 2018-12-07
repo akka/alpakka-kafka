@@ -11,7 +11,7 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.{Done, NotUsed}
-import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
+import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.Future
 
@@ -42,7 +42,7 @@ object Producer {
    */
   def plainSink[K, V](
       settings: ProducerSettings[K, V],
-      producer: KProducer[K, V]
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]]
       .map(Message(_, NotUsed))
@@ -65,10 +65,58 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def commitableSink[K, V](
+  def committableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flexiFlow[K, V, ConsumerMessage.Committable](settings)
+      .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
+      .toMat(Sink.ignore)(Keep.right)
+
+  /**
+   * Create a sink that is aware of the [[ConsumerMessage.CommittableOffset committable offset]]
+   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
+   * been published successfully to the topic.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
+   *
+   * Note that there is a risk that something fails after publishing but before
+   * committing, so it is "at-least once delivery" semantics.
+   */
+  @deprecated("use committableSink instead", "1.0-M2")
+  def commitableSink[K, V](
+      settings: ProducerSettings[K, V]
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings)
+
+  /**
+   * Create a sink that is aware of the [[ConsumerMessage.CommittableOffset committable offset]]
+   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
+   * been published successfully to the topic.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
+   *
+   *
+   * Note that there is always a risk that something fails after publishing but before
+   * committing, so it is "at-least once delivery" semantics.
+   *
+   * Supports sharing a Kafka Producer instance.
+   */
+  def committableSink[K, V](
+      settings: ProducerSettings[K, V],
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
+    flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
 
@@ -91,13 +139,11 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated("use committableSink instead", "1.0-M2")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V],
-      producer: KProducer[K, V]
-  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
-      .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
-      .toMat(Sink.ignore)(Keep.right)
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
+  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings, producer)
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
@@ -170,7 +216,7 @@ object Producer {
   @deprecated("prefer flexiFlow over this flow implementation", "0.21")
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
-      producer: KProducer[K, V]
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
@@ -204,7 +250,7 @@ object Producer {
    */
   def flexiFlow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
-      producer: KProducer[K, V]
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(

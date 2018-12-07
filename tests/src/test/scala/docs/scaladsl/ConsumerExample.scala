@@ -225,7 +225,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
             msg.committableOffset
           )
         }
-        .toMat(Producer.commitableSink(producerSettings))(Keep.both)
+        .toMat(Producer.committableSink(producerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -388,7 +388,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val committerSettings = committerDefaults
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
     val drainingControl =
       Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic))
@@ -400,7 +400,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .run()
 
     val streamComplete = drainingControl.drainAndShutdown()
-    // #shutdownCommitableSource
+    // #shutdownCommittableSource
     Await.result(streamComplete, 5.seconds) should be(Done)
   }
 

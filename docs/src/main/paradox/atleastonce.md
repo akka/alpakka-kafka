@@ -24,9 +24,9 @@ Java
 
 ### Batches
 
-If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting `CommitableOffsetBatch` only after all messages in the batch are fully processed.
+If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting `CommittableOffsetBatch` only after all messages in the batch are fully processed.
 
-Should the batch need to be split up again, using mapConcat, care should be taken to associate the `CommitableOffsetBatch` only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
+Should the batch need to be split up again, using mapConcat, care should be taken to associate the `CommittableOffsetBatch` only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
 
 ### Multiple Destinations
 

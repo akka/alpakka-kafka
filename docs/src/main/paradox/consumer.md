@@ -139,11 +139,11 @@ Maintaining at-least-once delivery semantics requires care, many risks and solut
 
 ## Connecting Producer and Consumer
 
-For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.commitableSink`. The `commitableSink` will commit the offset back to the consumer when it has successfully published the message.
+For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.committableSink`. The `committableSink` will commit the offset back to the consumer when it has successfully published the message.
 
 The `committableSink` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
 
-Note that there is a risk that something fails after publishing but before committing, so `commitableSink` has "at-least-once" delivery semantics. 
+Note that there is a risk that something fails after publishing but before committing, so `committableSink` has "at-least-once" delivery semantics. 
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -161,7 +161,7 @@ Java
 
 @@@note 
 
-There is a risk that something fails after publishing, but before committing, so `commitableSink` has "at-least-once" delivery semantics.
+There is a risk that something fails after publishing, but before committing, so `committableSink` has "at-least-once" delivery semantics.
 
 To get delivery guarantees, please read about @ref[transactions](transactions.md).
 
@@ -263,10 +263,10 @@ To manage this shutdown process, use the `Consumer.DrainingControl`
 by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue'. That control offers the method `drainAndShutdown` which implements the process descibed above. It is recommended to use the same shutdown mechanism also when not using batching to avoid potential race conditions, depending on the exact layout of the stream.
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommitableSource }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommittableSource }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #shutdownCommitableSource }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #shutdownCommittableSource }
 
 
 @@@ index

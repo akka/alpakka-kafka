@@ -32,13 +32,13 @@ object Benchmarks {
                     KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
       case "alpakka-kafka-batched-consumer" =>
         runPerfTest(cmd,
-                    ReactiveKafkaConsumerFixtures.commitableSources(cmd),
+                    ReactiveKafkaConsumerFixtures.committableSources(cmd),
                     ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
       case "apache-kafka-at-most-once-consumer" =>
         runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumeCommitAtMostOnce)
       case "alpakka-kafka-at-most-once-consumer" =>
         runPerfTest(cmd,
-                    ReactiveKafkaConsumerFixtures.commitableSources(cmd),
+                    ReactiveKafkaConsumerFixtures.committableSources(cmd),
                     ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
       case "apache-kafka-plain-producer" =>
         runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
