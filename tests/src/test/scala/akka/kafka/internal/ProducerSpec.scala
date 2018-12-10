@@ -50,7 +50,7 @@ class ProducerSpec(_system: ActorSystem)
   )
   implicit val ec = _system.dispatcher
 
-  val checksum = new java.lang.Long(-1)
+  val checksum = java.lang.Long.valueOf(-1)
   val group = "group"
 
   type K = String

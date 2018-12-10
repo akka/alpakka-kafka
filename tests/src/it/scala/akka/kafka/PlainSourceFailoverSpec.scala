@@ -56,7 +56,7 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
         .runWith(Sink.last)
 
       waitUntilConsumerSummary(groupId, timeout = 5.seconds) {
-        case singleConsumer :: Nil => singleConsumer.assignment.size == partitions
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
       val result = Source(1 to totalMessages)

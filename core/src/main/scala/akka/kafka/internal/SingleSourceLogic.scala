@@ -7,7 +7,6 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
-import akka.event.Logging
 import akka.kafka.Subscriptions._
 import akka.kafka._
 import akka.stream.{ActorMaterializerHelper, SourceShape}
@@ -32,20 +31,18 @@ import scala.concurrent.{Future, Promise}
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   final def consumerFuture: Future[ActorRef] = consumerPromise.future
 
-  private val partitionLogLevel = if (settings.wakeupDebug) Logging.InfoLevel else Logging.DebugLevel
-
   final def configureSubscription(): Unit = {
 
     def rebalanceListener(autoSubscription: AutoSubscription): KafkaConsumerActor.ListenerCallbacks = {
       val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
         tps ++= assignedTps
-        log.log(partitionLogLevel, "Assigned partitions: {}. All partitions: {}", assignedTps, tps)
+        log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
         requestMessages()
       }
 
       val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
         tps --= revokedTps
-        log.log(partitionLogLevel, "Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+        log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
       }
 
       KafkaConsumerActor.ListenerCallbacks(

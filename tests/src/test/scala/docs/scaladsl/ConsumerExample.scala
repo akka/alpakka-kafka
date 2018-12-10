@@ -115,6 +115,14 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   "Consume messages at-most-once" should "work" in {
     val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()
+    val totalMessages = 10
+    val lastMessage = Promise[Done]
+
+    def business(key: String, value: Array[Byte]): Future[Done] = {
+      if (value.toList == totalMessages.toString.getBytes.toList) lastMessage.success(Done)
+      Future.successful(Done)
+    }
+
     // #atMostOnce
     val control: DrainingControl[immutable.Seq[Done]] =
       Consumer
@@ -125,8 +133,10 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
         .run()
     // #atMostOnce
 
-    awaitProduce(produce(topic, 1 to 10))
-    control.drainAndShutdown().futureValue should have size (10)
+    awaitProduce(produce(topic, 1 to totalMessages))
+    lastMessage.future
+      .flatMap(_ => control.drainAndShutdown())
+      .futureValue should have size (10)
   }
   // #atMostOnce
 

@@ -80,10 +80,7 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
         .run()
 
       waitUntilConsumerGroup(groupId) {
-        _.consumers match {
-          case Some(consumers) if consumers.nonEmpty => true
-          case _ => false
-        }
+        !_.members().isEmpty
       }
 
       val result = Source(0L until totalMessages)

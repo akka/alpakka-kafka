@@ -567,7 +567,7 @@ object PartitionedSourceSpec {
     override def assign(partitions: java.util.Collection[TopicPartition]): Unit =
       tps.set(partitions.asScala.map(_ -> Assigned).toMap)
 
-    override def poll(timeout: Long): ConsumerRecords[K, V] = {
+    override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = {
       val data = nextPollData.get()
       val (data2, dataPaused) = data.partition {
         case (tp, _) => tpsResumed.contains(tp)

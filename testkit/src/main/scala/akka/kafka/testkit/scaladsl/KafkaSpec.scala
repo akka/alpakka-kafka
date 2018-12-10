@@ -6,6 +6,7 @@
 package akka.kafka.testkit.scaladsl
 
 import java.util
+import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 import akka.Done
@@ -21,8 +22,9 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.apache.kafka.clients.admin.{DescribeClusterResult, NewTopic}
+import org.apache.kafka.clients.admin._
 import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.common.ConsumerGroupState
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.annotation.tailrec
@@ -122,10 +124,18 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       groupId: String,
       timeout: Duration = 1.second,
       sleepInBetween: FiniteDuration = 100.millis
-  )(predicate: kafka.admin.AdminClient#ConsumerGroupSummary => Boolean): Unit = {
-    val admin = oldAdminClient()
+  )(predicate: ConsumerGroupDescription => Boolean): Unit = {
+    val admin = adminClient()
     periodicalCheck("consumer group state", (timeout / sleepInBetween).toInt, sleepInBetween)(
-      () => admin.describeConsumerGroup(groupId, timeout.toMillis)
+      () =>
+        admin
+          .describeConsumerGroups(
+            Collections.singleton(groupId),
+            new DescribeConsumerGroupsOptions().timeoutMs(timeout.toMillis.toInt)
+          )
+          .describedGroups()
+          .get(groupId)
+          .get(timeout.toMillis, TimeUnit.MILLISECONDS)
     )(predicate)
   }
 
@@ -138,12 +148,10 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       groupId: String,
       timeout: Duration = 1.second,
       sleepInBetween: FiniteDuration = 100.millis
-  )(predicate: PartialFunction[List[kafka.admin.AdminClient#ConsumerSummary], Boolean]): Unit =
-    waitUntilConsumerGroup(groupId, timeout, sleepInBetween) {
-      _.consumers match {
-        case Some(consumers) => Try(predicate(consumers)).getOrElse(false)
-        case _ => false
-      }
+  )(predicate: PartialFunction[List[MemberDescription], Boolean]): Unit =
+    waitUntilConsumerGroup(groupId, timeout, sleepInBetween) { group =>
+      group.state() == ConsumerGroupState.STABLE &&
+      Try(predicate(group.members().asScala.toList)).getOrElse(false)
     }
 
   def periodicalCheck[T](description: String, maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
