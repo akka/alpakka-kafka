@@ -25,12 +25,12 @@ sealed trait Subscription {
 }
 sealed trait ManualSubscription extends Subscription {
 
-  /** @deprecated Manual subscriptions do never rebalance */
-  @deprecated("Manual subscription does never rebalance", "1.0-M2")
+  /** @deprecated Manual subscriptions do never rebalance, since 1.0-RC1 */
+  @deprecated("Manual subscription does never rebalance", "1.0-RC1")
   def rebalanceListener: Option[ActorRef] = None
 
-  /** @deprecated Manual subscriptions do never rebalance */
-  @deprecated("Manual subscription does never rebalance", "1.0-M2")
+  /** @deprecated Manual subscriptions do never rebalance, since 1.0-RC1 */
+  @deprecated("Manual subscription does never rebalance", "1.0-RC1")
   def withRebalanceListener(ref: ActorRef): ManualSubscription
 }
 sealed trait AutoSubscription extends Subscription {
