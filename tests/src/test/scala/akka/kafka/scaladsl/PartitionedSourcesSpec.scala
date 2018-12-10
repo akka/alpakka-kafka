@@ -22,7 +22,7 @@ import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
 import scala.concurrent.duration._
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec
@@ -144,77 +144,69 @@ class PartitionedSourcesSpec
       val partitions = 4
       val totalMessages = 400L
 
+      val initialMessage = 0L
+      val initialized = Promise[Unit]
+
       val topic = createTopic(1, partitions)
-      val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
 
       val receivedMessages = new AtomicLong(0)
-      var createdSubSources = List.empty[TopicPartition]
 
-      val control = Consumer
-        .plainPartitionedSource(sourceSettings, Subscriptions.topics(topic))
-        .groupBy(partitions, _._1)
-        .mapAsync(8) {
-          case (tp, source) =>
-            createdSubSources = tp :: createdSubSources
-            log.info(s"Sub-source for $tp")
-            source
-              .scan(0L)((c, _) => c + 1)
-              .map { v =>
-                receivedMessages.incrementAndGet()
-                v
-              }
-              .runWith(Sink.last)
-              .map { res =>
-                log.info(s"Sub-source for $tp completed: Received [$res] messages in total.")
-                res
-              }
-        }
-        .mergeSubstreams
-        .scan(0L)((c, subValue) => c + subValue)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
+      def createAndRunConsumer() =
+        Consumer
+          .plainPartitionedSource(sourceSettings, Subscriptions.topics(topic))
+          .groupBy(partitions, _._1)
+          .mapAsync(8) {
+            case (tp, source) =>
+              log.info(s"Sub-source for $tp")
+              source
+                .map { v =>
+                  initialized.trySuccess(())
+                  v
+                }
+                .filter(_.value() != initialMessage.toString)
+                .map { v =>
+                  receivedMessages.incrementAndGet()
+                  v
+                }
+                .scan(0L)((c, _) => c + 1)
+                .runWith(Sink.last)
+                .map { res =>
+                  log.info(s"Sub-source for $tp completed: Received [$res] messages in total.")
+                  res
+                }
+          }
+          .mergeSubstreams
+          .scan(0L)((c, subValue) => c + subValue)
+          .toMat(Sink.last)(Keep.both)
+          .mapMaterializedValue(DrainingControl.apply)
+          .run()
+
+      val control = createAndRunConsumer()
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
-      var createdInnerSubSources = List.empty[TopicPartition]
       var control2: DrainingControl[Long] = null
 
-      val producer = Source(1L to totalMessages)
+      val producer = Source
+        .unfold(()) { _ =>
+          if (!initialized.future.isCompleted) {
+            Some(((), initialMessage))
+          } else {
+            None
+          }
+        }
+        .concat(Source(1L to totalMessages))
         .map { number =>
           if (number == totalMessages / 2) {
             // create another consumer with the same groupId to trigger re-balancing
-            control2 = Consumer
-              .plainPartitionedSource(sourceSettings, Subscriptions.topics(topic))
-              .groupBy(partitions, _._1)
-              .mapAsync(8) {
-                case (tp, source) =>
-                  log.info(s"Inner Sub-source for $tp")
-                  createdInnerSubSources = tp :: createdInnerSubSources
-                  source
-                    .scan(0L)((c, _) => c + 1)
-                    .map { v =>
-                      receivedMessages.incrementAndGet()
-                      v
-                    }
-                    .runWith(Sink.last)
-                    .map { res =>
-                      log.info(s"Inner Sub-source for $tp completed: Received [$res] messages in total.")
-                      res
-                    }
-              }
-              .mergeSubstreams
-              .scan(0L)((c, subValue) => c + subValue)
-              .toMat(Sink.last)(Keep.both)
-              .mapMaterializedValue(DrainingControl.apply)
-              .run()
+            control2 = createAndRunConsumer()
             sleep(4.seconds, "to let the new consumer start")
           }
           number
@@ -237,8 +229,6 @@ class PartitionedSourcesSpec
       }
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
-      createdSubSources should contain allElementsOf allTps
-      createdInnerSubSources should have size 2
       stream1messages + stream2messages shouldBe totalMessages
       stream2messages should be >= (totalMessages / 4)
     }
@@ -248,6 +238,8 @@ class PartitionedSourcesSpec
       val partitions = 4
       val totalMessages = 400L
       val receivedMessages = new AtomicLong(0)
+      val initialMessage = 0L
+      val initialized = Promise[Unit]
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
@@ -260,18 +252,26 @@ class PartitionedSourcesSpec
 
       val topicSubscription = Subscriptions.topics(topic)
       val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor.ref)
-      val control = Consumer
-        .plainPartitionedSource(sourceSettings, subscription1)
-        .flatMapMerge(partitions, _._2)
-        .log("consumer1")
-        .map { v =>
-          receivedMessages.incrementAndGet()
-          v
-        }
-        .scan(0L)((c, _) => c + 1)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
+
+      def createAndRunConsumer(subscription: AutoSubscription) =
+        Consumer
+          .plainPartitionedSource(sourceSettings, subscription)
+          .flatMapMerge(partitions, _._2)
+          .map { v =>
+            initialized.trySuccess(())
+            v
+          }
+          .filter(_.value() != initialMessage.toString)
+          .map { v =>
+            receivedMessages.incrementAndGet()
+            v
+          }
+          .scan(0L)((c, _) => c + 1)
+          .toMat(Sink.last)(Keep.both)
+          .mapMaterializedValue(DrainingControl.apply)
+          .run()
+
+      val control = createAndRunConsumer(subscription1)
 
       // waits until all partitions are assigned to the single consumer
       waitUntilConsumerSummary(group, timeout = 5.seconds) {
@@ -280,22 +280,19 @@ class PartitionedSourcesSpec
 
       var control2: DrainingControl[Long] = null
 
-      val producer = Source(1L to totalMessages)
+      val producer = Source
+        .unfold(()) { _ =>
+          if (!initialized.future.isCompleted) {
+            Some(((), initialMessage))
+          } else {
+            None
+          }
+        }
+        .concat(Source(1L to totalMessages))
         .map { number =>
           if (number == totalMessages / 2) {
             // create another consumer with the same groupId to trigger re-balancing
-            control2 = Consumer
-              .plainPartitionedSource(sourceSettings, topicSubscription)
-              .flatMapMerge(partitions, _._2)
-              .log("consumer2")
-              .map { v =>
-                receivedMessages.incrementAndGet()
-                v
-              }
-              .scan(0L)((c, _) => c + 1)
-              .toMat(Sink.last)(Keep.both)
-              .mapMaterializedValue(DrainingControl.apply)
-              .run()
+            control2 = createAndRunConsumer(topicSubscription)
             sleep(4.seconds, "to let the new consumer start")
           }
           number
