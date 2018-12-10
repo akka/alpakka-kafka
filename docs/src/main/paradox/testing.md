@@ -12,7 +12,7 @@ Note that Akka testkits do not promise binary compatibility. The API might be ch
 
 The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively.
 
-@@dependencies { module="testkit" }
+@@dependencies { projectId="testkit" }
 
 
 ## Mocking the Consumer or Producer

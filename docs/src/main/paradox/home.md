@@ -45,7 +45,7 @@ This connector depends on Akka 2.5.x and note that it is important that all `akk
 
 The table below shows Alpakka Kafka's direct dependencies and the second tab shows all libraries it depends on transitively.
 
-@@dependencies { module="core" }
+@@dependencies { projectId="core" }
 
 ## Scala and Java APIs
 
