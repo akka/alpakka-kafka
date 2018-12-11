@@ -35,12 +35,12 @@ Key links:
 
 ### Cutting the release
 
-- [ ] Make sure there are no stray staging repos on Sonatype
-- [ ] Wait until master build finished after merging the release notes
+- [ ] Make sure there are no stray staging repos on [Sonatype](https://oss.sonatype.org/#stagingRepositories)
+- [ ] Wait until [master build finished](https://travis-ci.org/akka/alpakka-kafka/builds/) after merging the release notes 
 - [ ] Create a [new release](https://github.com/akka/alpakka-kafka/releases/new) with the next tag version `v$ALPAKKA_KAFKA_VERSION$`, title and release description linking to announcement, release notes and milestone
 - [ ] Check that Travis CI release build has executed successfully (Travis will start a [CI build](https://travis-ci.org/akka/alpakka-kafka/builds) for the new tag and publish artifacts to Bintray)
 - [ ] Go to [Bintray](https://bintray.com/akka/maven/alpakka-kafka) and select the just released version
-- [ ] Go to the Maven Central tab and sync with Sonatype
+- [ ] Go to the Maven Central tab and sync with Sonatype (using your Sonatype TOKEN key and password)
 - [ ] Log in to Sonatype to close the staging repository (optional, should happen automatically if selected in Bintray)
 - [ ] Release the staging repository to Maven Central
 
@@ -84,4 +84,5 @@ Key links:
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository
 - [ ] Create/update PR in [Lagom](https://github.com/lagom/lagom) to upgrade to $ALPAKKA_KAFKA_VERSION$
 - [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/reactive-platform/2.0/supported-modules/#other-akka-modules) in [private project](https://github.com/lightbend/reactive-platform-docs/blob/master/build.sbt#L77)
+- [ ] Close the [$ALPAKKA_KAFKA_VERSION$ milestone](https://github.com/akka/alpakka-kafka/milestones?direction=asc&sort=due_date)
 - Close this issue
