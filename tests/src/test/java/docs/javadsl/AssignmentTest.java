@@ -13,7 +13,7 @@ import akka.kafka.ManualSubscription;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 // #testkit
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 // #testkit
 import akka.kafka.javadsl.Producer;
 import akka.stream.ActorMaterializer;
@@ -21,15 +21,12 @@ import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 // #testkit
-import akka.stream.testkit.javadsl.StreamTestKit;
 // #testkit
 import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -43,7 +40,7 @@ import static org.junit.Assert.assertEquals;
 
 // #testkit
 
-public class AssignmentTest extends EmbeddedKafkaTest {
+public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
   private static final Materializer mat = ActorMaterializer.create(sys);

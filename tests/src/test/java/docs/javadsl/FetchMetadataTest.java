@@ -22,19 +22,16 @@ import org.apache.kafka.common.PartitionInfo;
 // #metadata
 import akka.actor.ActorSystem;
 import java.util.concurrent.TimeUnit;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import static junit.framework.TestCase.assertTrue;
 
-public class FetchMetadataTest extends EmbeddedKafkaTest {
+public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
   private static final Materializer mat = ActorMaterializer.create(sys);

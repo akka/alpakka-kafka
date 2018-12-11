@@ -16,11 +16,10 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.kafka.javadsl.Committer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -31,9 +30,7 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -48,7 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 
-public class ConsumerExampleTest extends EmbeddedKafkaTest {
+public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -571,7 +568,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
     // #shutdownCommittableSource
     assertDone(produceString(topic, messageCount, partition0()));
     assertDone(control.isShutdown());
-    assertEquals(Done.done(), resultOf(control.drainAndShutdown(ec), 20));
+    assertEquals(Done.done(), resultOf(control.drainAndShutdown(ec), Duration.ofSeconds(20)));
     // #shutdownCommittableSource
     control.drainAndShutdown(ec);
     // #shutdownCommittableSource

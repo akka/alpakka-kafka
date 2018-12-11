@@ -24,7 +24,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters._
 
-abstract class KafkaTest extends KafkaTestKit {
+abstract class KafkaJunit4Test extends KafkaTestKit {
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
@@ -45,9 +45,9 @@ abstract class KafkaTest extends KafkaTestKit {
   @After def checkForStageLeaks() = StreamTestKit.assertAllStagesStopped(materializer)
 
   /**
-   * Overwrite to set different default timout for [[KafkaTest.resultOf]].
+   * Overwrite to set different default timeout for [[KafkaJunit4Test.resultOf]].
    */
-  def defaultTimeoutSeconds: Int = 5
+  def resultOfTimeout: java.time.Duration = java.time.Duration.ofSeconds(5)
 
   def produceString(topic: String, messageCount: Int, partition: Int): CompletionStage[Done] =
     Source(1 to messageCount)
@@ -78,11 +78,10 @@ abstract class KafkaTest extends KafkaTestKit {
       .run(materializer)
 
   @throws[Exception]
-  protected def resultOf[T](stage: CompletionStage[T]): T =
-    stage.toCompletableFuture.get(defaultTimeoutSeconds.toLong, TimeUnit.SECONDS)
+  protected def resultOf[T](stage: CompletionStage[T]): T = resultOf(stage, resultOfTimeout)
 
   @throws[Exception]
-  protected def resultOf[T](stage: CompletionStage[T], seconds: Int): T =
-    stage.toCompletableFuture.get(seconds.toLong, TimeUnit.SECONDS)
+  protected def resultOf[T](stage: CompletionStage[T], timeout: java.time.Duration): T =
+    stage.toCompletableFuture.get(timeout.toMillis, TimeUnit.MILLISECONDS)
 
 }

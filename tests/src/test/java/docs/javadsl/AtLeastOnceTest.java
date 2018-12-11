@@ -9,12 +9,11 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
 
 import akka.actor.ActorSystem;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 import org.junit.*;
 import java.util.Arrays;
@@ -38,7 +37,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 // #oneToMany #oneToConditional
 
-public class AtLeastOnceTest extends EmbeddedKafkaTest {
+public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
 
   private static final ActorSystem system = ActorSystem.create("AssignmentTest");
   private static final Materializer materializer = ActorMaterializer.create(system);

@@ -4,7 +4,7 @@
  */
 
 package akka.kafka.javadsl
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test
 import net.manub.embeddedkafka.schemaregistry.{
   EmbeddedKWithSR,
   EmbeddedKafkaConfigWithSchemaRegistryImpl,
@@ -12,7 +12,7 @@ import net.manub.embeddedkafka.schemaregistry.{
 }
 import org.junit.{After, Before}
 
-abstract class EmbeddedKafkaWithSchemaRegistryTest extends EmbeddedKafkaTest {
+abstract class EmbeddedKafkaWithSchemaRegistryTest extends EmbeddedKafkaJunit4Test {
   import EmbeddedKafkaWithSchemaRegistryTest._
 
   @Before override def setupEmbeddedKafka() =
