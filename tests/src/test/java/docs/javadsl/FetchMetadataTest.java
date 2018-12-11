@@ -11,7 +11,7 @@ import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaConsumerActor;
 import akka.kafka.KafkaPorts;
 import akka.kafka.Metadata;
-import akka.pattern.PatternsCS;
+import akka.pattern.Patterns;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -73,7 +73,7 @@ public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
     ActorRef consumer = system().actorOf((KafkaConsumerActor.props(settings)));
 
     CompletionStage<Metadata.Topics> topicsStage =
-        PatternsCS.ask(consumer, Metadata.createListTopics(), timeout)
+        Patterns.ask(consumer, Metadata.createListTopics(), timeout)
             .thenApply(reply -> ((Metadata.Topics) reply));
 
     // convert response

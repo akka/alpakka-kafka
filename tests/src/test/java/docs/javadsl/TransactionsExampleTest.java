@@ -138,7 +138,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
                             })
                         .via(Transactional.flow(producerSettings, transactionalId)));
 
-    stream.runWith(Sink.ignore(), materializer);
+    CompletionStage<Done> streamCompletion = stream.runWith(Sink.ignore(), materializer);
 
     // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
     Runtime.getRuntime().addShutdownHook(new Thread(() -> innerControl.get().shutdown()));
@@ -150,5 +150,6 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     assertDone(consumer.isShutdown());
     assertDone(innerControl.get().shutdown());
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());
+    assertDone(streamCompletion);
   }
 }

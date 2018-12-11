@@ -4,8 +4,8 @@ enablePlugins(AutomateHeaderPlugin)
 name := "akka-stream-kafka"
 
 val akkaVersion = "2.5.19"
-val kafkaVersion = "2.0.0"
-val kafkaVersionForDocs = "20"
+val kafkaVersion = "2.1.0"
+val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
 val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
