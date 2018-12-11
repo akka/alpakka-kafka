@@ -180,7 +180,7 @@ object ConsumerSettings {
 
 /**
  * Settings for consumers. See `akka.kafka.consumer` section in
- * `reference.conf`. Note that the [[akka.kafka.ConsumerSetting$ companion]] object provides
+ * `reference.conf`. Note that the [[akka.kafka.ConsumerSettings$ companion]] object provides
  * `apply` and `create` functions for convenient construction of the settings, together with
  * the `with` methods.
  *

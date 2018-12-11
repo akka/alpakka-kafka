@@ -92,6 +92,20 @@ val commonSettings = Seq(
     "-Ywarn-numeric-widen",
     "-Xfuture"
   ),
+  scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
+    "-doc-title",
+    "Alpakka Kafka",
+    "-doc-version",
+    version.value,
+    "-sourcepath",
+    (baseDirectory in ThisBuild).value.toString,
+    "-doc-source-url", {
+      val branch = if (isSnapshot.value) "master" else s"v$version"
+      s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
+    },
+    "-skip-packages",
+    "akka.pattern" // for some reason Scaladoc creates this
+  ),
   // show full stack traces and test case durations
   testOptions += Tests.Argument("-oDF"),
   // -a Show stack traces and exception class name for AssertionErrors.
