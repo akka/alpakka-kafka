@@ -16,8 +16,10 @@ import akka.kafka.testkit.internal.KafkaTestKit
 import akka.stream.Materializer
 import akka.stream.javadsl.{Keep, Sink}
 import akka.stream.scaladsl.Source
+import akka.stream.testkit.javadsl.StreamTestKit
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.junit.{After, Before}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters._
@@ -29,6 +31,18 @@ abstract class KafkaTest extends KafkaTestKit {
   final val partition0 = 0
 
   def materializer: Materializer
+
+  /**
+   * Sets up the Admin client. Override if you want custom initialization of the admin client.
+   */
+  @Before def setUpAdmin() = setUpAdminClient()
+
+  /**
+   * Cleans up the Admin client. Override if you want custom cleaning up of the admin client.
+   */
+  @After def cleanUpAdmin() = cleanUpAdminClient()
+
+  @After def checkForStageLeaks() = StreamTestKit.assertAllStagesStopped(materializer)
 
   /**
    * Overwrite to set different default timout for [[KafkaTest.resultOf]].

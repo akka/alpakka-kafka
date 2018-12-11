@@ -38,7 +38,6 @@ public class FetchMetadataTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
-  private static final int kafkaPort = KafkaPorts.FetchMetadataTest();
 
   @Override
   public ActorSystem system() {
@@ -52,22 +51,16 @@ public class FetchMetadataTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    startEmbeddedKafka(kafkaPort, 1);
-  }
-
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(mat);
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.FetchMetadataTest();
   }
 
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(sys);
   }
 

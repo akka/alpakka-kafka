@@ -61,11 +61,6 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   private static final ActorSystem sys =
       ActorSystem.create(SerializationTest.class.getSimpleName());
   private static final Materializer mat = ActorMaterializer.create(sys);
-
-  private static final int kafkaPort = KafkaPorts.SerializationTest();
-  private static final int zooKeeperPort = KafkaPorts.SerializationTest() + 1;
-  private static final int schemaRegistryPort = KafkaPorts.SerializationTest() + 2;
-  private static final String schemaRegistryUrl = "http://localhost:" + schemaRegistryPort;
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   @Override
@@ -80,15 +75,21 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
+
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.SerializationTest();
+  }
+
+  private final String schemaRegistryUrl = "http://localhost:" + schemaRegistryPort(kafkaPort());
 
   @BeforeClass
   public static void beforeClass() {
     // Schema registry uses Glassfish which uses java.util.logging
     SLF4JBridgeHandler.removeHandlersForRootLogger();
     SLF4JBridgeHandler.install();
-    startEmbeddedKafka(kafkaPort, zooKeeperPort, schemaRegistryPort, 1);
   }
 
   @Test
@@ -152,7 +153,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
         badlyFormattedProducer.toCompletableFuture().get(4, TimeUnit.SECONDS),
         is(Done.getInstance()));
     assertThat(
-        control.isShutdown().toCompletableFuture().get(4, TimeUnit.SECONDS),
+        control.isShutdown().toCompletableFuture().get(10, TimeUnit.SECONDS),
         is(Done.getInstance()));
 
     List<SampleData> result =
@@ -222,14 +223,8 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
     assertThat(result.size(), is(samples.size()));
   }
 
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(mat);
-  }
-
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(sys);
   }
 }

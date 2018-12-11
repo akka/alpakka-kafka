@@ -47,7 +47,6 @@ public class AssignmentTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
-  private static final int kafkaPort = KafkaPorts.AssignmentTest();
 
   @Override
   public ActorSystem system() {
@@ -61,12 +60,12 @@ public class AssignmentTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    startEmbeddedKafka(kafkaPort, 1);
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.AssignmentTest();
   }
 
   // #testkit
@@ -244,14 +243,8 @@ public class AssignmentTest extends EmbeddedKafkaTest {
   }
 
   // #testkit
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(mat);
-  }
-
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(sys);
   }
 }

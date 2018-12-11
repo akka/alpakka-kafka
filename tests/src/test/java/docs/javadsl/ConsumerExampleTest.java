@@ -52,7 +52,6 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private static final int kafkaPort = KafkaPorts.AtLeastOnceToManyTest();
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   @Override
@@ -67,22 +66,16 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    startEmbeddedKafka(kafkaPort, 1);
-  }
-
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(materializer);
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.ConsumerExamplesTest();
   }
 
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(system);
   }
 

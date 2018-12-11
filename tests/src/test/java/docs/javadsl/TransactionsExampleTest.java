@@ -36,7 +36,6 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private static final int kafkaPort = KafkaPorts.JavaTransactionsExamples();
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
@@ -52,22 +51,16 @@ public class TransactionsExampleTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    startEmbeddedKafka(kafkaPort, 1);
-  }
-
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(materializer);
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.JavaTransactionsExamples();
   }
 
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(system);
   }
 
