@@ -64,11 +64,8 @@ object ConsumerSettings {
     val closeTimeout = config.getDuration("close-timeout").asScala
     val commitTimeout = config.getDuration("commit-timeout").asScala
     val commitTimeWarning = config.getDuration("commit-time-warning").asScala
-    val wakeupTimeout = config.getDuration("wakeup-timeout").asScala
-    val maxWakeups = config.getInt("max-wakeups")
     val commitRefreshInterval = ConfigSettings.getPotentiallyInfiniteDuration(config, "commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
-    val wakeupDebug = config.getBoolean("wakeup-debug")
     val waitClosePartition = config.getDuration("wait-close-partition").asScala
     val positionTimeout = config.getDuration("position-timeout").asScala
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
@@ -82,12 +79,9 @@ object ConsumerSettings {
       stopTimeout,
       closeTimeout,
       commitTimeout,
-      wakeupTimeout,
-      maxWakeups,
       commitRefreshInterval,
       dispatcher,
       commitTimeWarning,
-      wakeupDebug,
       waitClosePartition,
       positionTimeout,
       offsetForTimesTimeout,
@@ -195,12 +189,9 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val stopTimeout: FiniteDuration,
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
-    val wakeupTimeout: FiniteDuration,
-    val maxWakeups: Int,
     val commitRefreshInterval: Duration,
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration,
-    val wakeupDebug: Boolean,
     val waitClosePartition: FiniteDuration,
     val positionTimeout: FiniteDuration,
     val offsetForTimesTimeout: FiniteDuration,
@@ -232,12 +223,9 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     stopTimeout,
     closeTimeout,
     commitTimeout,
-    wakeupTimeout,
-    maxWakeups,
     commitRefreshInterval,
     dispatcher,
     commitTimeWarning,
-    wakeupDebug,
     waitClosePartition,
     positionTimeout = 5.seconds,
     offsetForTimesTimeout = 5.seconds,
@@ -385,23 +373,19 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(commitTimeWarning = commitTimeWarning.asScala)
 
   /**
-   * If for any reason `KafkaConsumer.poll` blocks for longer than the configured
-   * poll-timeout then it is forcefully woken up with `KafkaConsumer.wakeup`.
-   *
-   * @see https://kafka.apache.org/20/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#wakeup--
+   * Not used anymore
+   * @deprecated not used anymore, since 1.0-RC1
    */
-  def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] =
-    copy(wakeupTimeout = wakeupTimeout)
+  @deprecated("not used anymore", "1.0-RC1")
+  def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] = this
 
   /**
    * Java API:
-   * If for any reason `KafkaConsumer.poll` blocks for longer than the configured
-   * poll-timeout then it is forcefully woken up with `KafkaConsumer.wakeup`.
-   *
-   * @see https://kafka.apache.org/20/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#wakeup--
+   * Not used anymore
+   * @deprecated not used anymore, since 1.0-RC1
    */
-  def withWakeupTimeout(wakeupTimeout: java.time.Duration): ConsumerSettings[K, V] =
-    copy(wakeupTimeout = wakeupTimeout.asScala)
+  @deprecated("not used anymore", "1.0-RC1")
+  def withWakeupTimeout(wakeupTimeout: java.time.Duration): ConsumerSettings[K, V] = this
 
   /**
    * Fully qualified config path which holds the dispatcher configuration
@@ -411,11 +395,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(dispatcher = dispatcher)
 
   /**
-   * After exceeding maximum wakeups the consumer will stop and the stage will fail.
-   * Setting it to 0 will let it ignore the wakeups and try to get the polling done forever.
+   * Not used anymore
+   * @deprecated not used anymore, since 1.0-RC1
    */
-  def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] =
-    copy(maxWakeups = maxWakeups)
+  @deprecated("not used anymore", "1.0-RC1")
+  def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] = this
 
   /**
    * If set to a finite duration, the consumer will re-send the last committed offsets periodically
@@ -439,12 +423,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     else copy(commitRefreshInterval = commitRefreshInterval.asScala)
 
   /**
-   * If enabled, log stack traces before waking up the KafkaConsumer to give
-   * some indication why the KafkaConsumer is not honouring the `poll-timeout`.
+   * Not used anymore
+   * @deprecated not used anymore, since 1.0-RC1
    */
-  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] =
-    if (wakeupDebug == this.wakeupDebug) this
-    else copy(wakeupDebug = wakeupDebug)
+  @deprecated("not used anymore", "1.0-RC1")
+  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] = this
 
   /**
    * Time to wait for pending requests when a partition is closed.
@@ -506,11 +489,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       closeTimeout: FiniteDuration = closeTimeout,
       commitTimeout: FiniteDuration = commitTimeout,
       commitTimeWarning: FiniteDuration = commitTimeWarning,
-      wakeupTimeout: FiniteDuration = wakeupTimeout,
-      maxWakeups: Int = maxWakeups,
       commitRefreshInterval: Duration = commitRefreshInterval,
       dispatcher: String = dispatcher,
-      wakeupDebug: Boolean = wakeupDebug,
       waitClosePartition: FiniteDuration = waitClosePartition,
       positionTimeout: FiniteDuration = positionTimeout,
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
@@ -526,12 +506,9 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       stopTimeout,
       closeTimeout,
       commitTimeout,
-      wakeupTimeout,
-      maxWakeups,
       commitRefreshInterval,
       dispatcher,
       commitTimeWarning,
-      wakeupDebug,
       waitClosePartition,
       positionTimeout,
       offsetForTimesTimeout,
@@ -554,12 +531,9 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"stopTimeout=${stopTimeout.toCoarsest}," +
     s"closeTimeout=${closeTimeout.toCoarsest}," +
     s"commitTimeout=${commitTimeout.toCoarsest}," +
-    s"wakeupTimeout=${wakeupTimeout.toCoarsest}," +
-    s"maxWakeups=$maxWakeups," +
     s"commitRefreshInterval=${commitRefreshInterval.toCoarsest}," +
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
-    s"wakeupDebug=$wakeupDebug," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}" +
     ")"

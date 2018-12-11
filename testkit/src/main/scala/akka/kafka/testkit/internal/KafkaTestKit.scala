@@ -35,8 +35,6 @@ trait KafkaTestKit {
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-      .withWakeupTimeout(10.seconds)
-      .withMaxWakeups(10)
 
   def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
 
