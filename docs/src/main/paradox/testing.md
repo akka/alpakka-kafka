@@ -2,6 +2,8 @@
 
 To simplify testing of streaming integrations with Alpakka Kafka, it provides the **Alpakka Kafka testkit**.
 
+@@project-info{ projectId="testkit" }
+
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka-testkit_$scala.binary.version$

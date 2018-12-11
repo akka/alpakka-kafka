@@ -4,19 +4,9 @@ The [Alpakka project](https://developer.lightbend.com/docs/alpakka/current/) is 
 
 This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
-## Versions
+## Project Info
 
-The examples in this documentation use
-
-* Alpakka Kafka connector $project.version$ ([Github](https://github.com/akka/alpakka-kafka), [API docs](https://doc.akka.io/api/akka-stream-kafka/current/akka/kafka/index.html))
-* Scala $scala.binary.version$ (also available for Scala 2.11)
-* Akka Streams $akka.version$ (@extref[Docs](akka-docs:stream/index.html), [Github](https://github.com/akka/akka))
-* Apache Kafka client $kafka.version$ (@extref[Docs](kafka-docs:index.html), [Github](https://github.com/apache/kafka))
-
-Release notes are found at @ref:[Release Notes](release-notes/index.md).
-
-If you want to try out a connector that has not yet been released, give @ref[snapshots](snapshots.md) a spin which are published after every commit on master.
-
+@@project-info{ projectId="core" }
 
 ## Matching Kafka Versions
 
@@ -28,10 +18,6 @@ If you want to try out a connector that has not yet been released, give @ref[sna
 |0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
 |0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1)
 
-
-## Reported issues
-
-[Issues at Github](https://github.com/akka/reactive-kafka/issues)
 
 ## Dependencies
 
@@ -46,6 +32,10 @@ This connector depends on Akka 2.5.x and note that it is important that all `akk
 The table below shows Alpakka Kafka's direct dependencies and the second tab shows all libraries it depends on transitively.
 
 @@dependencies { projectId="core" }
+
+* Akka Streams $akka.version$ @extref[documentation](akka-docs:stream/index.html) and [sources](https://github.com/akka/akka)
+* Apache Kafka client $kafka.version$ @extref[documentation](kafka-docs:index.html) and [sources](https://github.com/apache/kafka)
+
 
 ## Scala and Java APIs
 
