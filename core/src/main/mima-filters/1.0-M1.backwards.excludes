@@ -27,3 +27,11 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#Ass
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.this")
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Subscriptions#AssignmentOffsetsForTimes.apply")
 ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$AssignmentOffsetsForTimes$")
+
+# PR #686 Remove wakeup settings
+# https://github.com/akka/alpakka-kafka/pull/686
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.maxWakeups")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.wakeupTimeout")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.wakeupDebug")
+# the public, deprecated constructor is unchanged
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
