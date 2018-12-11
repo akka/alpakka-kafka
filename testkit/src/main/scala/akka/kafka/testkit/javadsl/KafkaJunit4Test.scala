@@ -16,13 +16,15 @@ import akka.kafka.testkit.internal.KafkaTestKit
 import akka.stream.Materializer
 import akka.stream.javadsl.{Keep, Sink}
 import akka.stream.scaladsl.Source
+import akka.stream.testkit.javadsl.StreamTestKit
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.junit.{After, Before}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters._
 
-abstract class KafkaTest extends KafkaTestKit {
+abstract class KafkaJunit4Test extends KafkaTestKit {
 
   val log: Logger = LoggerFactory.getLogger(getClass)
 
@@ -31,9 +33,21 @@ abstract class KafkaTest extends KafkaTestKit {
   def materializer: Materializer
 
   /**
-   * Overwrite to set different default timout for [[KafkaTest.resultOf]].
+   * Sets up the Admin client. Override if you want custom initialization of the admin client.
    */
-  def defaultTimeoutSeconds: Int = 5
+  @Before def setUpAdmin() = setUpAdminClient()
+
+  /**
+   * Cleans up the Admin client. Override if you want custom cleaning up of the admin client.
+   */
+  @After def cleanUpAdmin() = cleanUpAdminClient()
+
+  @After def checkForStageLeaks() = StreamTestKit.assertAllStagesStopped(materializer)
+
+  /**
+   * Overwrite to set different default timeout for [[KafkaJunit4Test.resultOf]].
+   */
+  def resultOfTimeout: java.time.Duration = java.time.Duration.ofSeconds(5)
 
   def produceString(topic: String, messageCount: Int, partition: Int): CompletionStage[Done] =
     Source(1 to messageCount)
@@ -64,11 +78,10 @@ abstract class KafkaTest extends KafkaTestKit {
       .run(materializer)
 
   @throws[Exception]
-  protected def resultOf[T](stage: CompletionStage[T]): T =
-    stage.toCompletableFuture.get(defaultTimeoutSeconds.toLong, TimeUnit.SECONDS)
+  protected def resultOf[T](stage: CompletionStage[T]): T = resultOf(stage, resultOfTimeout)
 
   @throws[Exception]
-  protected def resultOf[T](stage: CompletionStage[T], seconds: Int): T =
-    stage.toCompletableFuture.get(seconds.toLong, TimeUnit.SECONDS)
+  protected def resultOf[T](stage: CompletionStage[T], timeout: java.time.Duration): T =
+    stage.toCompletableFuture.get(timeout.toMillis, TimeUnit.MILLISECONDS)
 
 }

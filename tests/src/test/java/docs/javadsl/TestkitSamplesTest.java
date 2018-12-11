@@ -53,11 +53,6 @@ public class TestkitSamplesTest {
     TestKit.shutdownActorSystem(sys);
   }
 
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(mat);
-  }
-
   @Test
   public void withoutBrokerTesting() throws Exception {
     String topic = "topic";

@@ -72,11 +72,14 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   val InitialMsg =
     "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
-  def setUp(): Unit =
+  def setUp(): Unit = {
     testProducer = producerDefaults.createKafkaProducer()
+    setUpAdminClient()
+  }
 
   def cleanUp(): Unit = {
     testProducer.close(60, TimeUnit.SECONDS)
+    cleanUpAdminClient()
     TestKit.shutdownActorSystem(system)
   }
 
@@ -110,10 +113,8 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
    */
   def waitUntilCluster(maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
       predicate: DescribeClusterResult => Boolean
-  ): Unit = {
-    val admin = adminClient()
-    periodicalCheck("cluster state", maxTries, sleepInBetween)(() => admin.describeCluster())(predicate)
-  }
+  ): Unit =
+    periodicalCheck("cluster state", maxTries, sleepInBetween)(() => adminClient.describeCluster())(predicate)
 
   /**
    * Periodically checks if the given predicate on consumer group state holds.
@@ -125,7 +126,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       timeout: Duration = 1.second,
       sleepInBetween: FiniteDuration = 100.millis
   )(predicate: ConsumerGroupDescription => Boolean): Unit = {
-    val admin = adminClient()
+    val admin = adminClient
     periodicalCheck("consumer group state", (timeout / sleepInBetween).toInt, sleepInBetween)(
       () =>
         admin
@@ -184,7 +185,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     val newTopics = topicNames.map { topicName =>
       new NewTopic(topicName, 1, 1.toShort).configs(configs)
     }
-    val createResult = adminClient().createTopics(newTopics.asJava)
+    val createResult = adminClient.createTopics(newTopics.asJava)
     createResult.all().get(10, TimeUnit.SECONDS)
     topicNames
   }

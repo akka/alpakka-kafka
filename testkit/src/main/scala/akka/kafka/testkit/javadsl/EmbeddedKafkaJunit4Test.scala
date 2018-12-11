@@ -6,10 +6,21 @@
 package akka.kafka.testkit.javadsl
 
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import org.junit.{After, Before}
 
-abstract class EmbeddedKafkaTest extends KafkaTest {}
+abstract class EmbeddedKafkaJunit4Test extends KafkaJunit4Test {
+  import EmbeddedKafkaJunit4Test._
 
-object EmbeddedKafkaTest {
+  def kafkaPort: Int
+  def replicationFactor = 1
+
+  @Before def setupEmbeddedKafka() = startEmbeddedKafka(kafkaPort, replicationFactor)
+
+  @After def cleanUpEmbeddedKafka() =
+    stopEmbeddedKafka()
+}
+
+object EmbeddedKafkaJunit4Test {
   private def embeddedKafkaConfig(kafkaPort: Int, zooKeeperPort: Int, replicationFactor: Int) =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,

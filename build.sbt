@@ -7,6 +7,7 @@ val akkaVersion = "2.5.19"
 val kafkaVersion = "2.0.0"
 val kafkaVersionForDocs = "20"
 val scalatestVersion = "3.0.5"
+val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -19,6 +20,7 @@ val testkitDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
   "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
+  "junit" % "junit" % junit4Version % Provided,
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 
@@ -31,7 +33,7 @@ val testDependencies = Seq(
   "io.spray" %% "spray-json" % "1.3.5" % Test,
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
-  "junit" % "junit" % "4.12" % Test,
+  "junit" % "junit" % junit4Version % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,

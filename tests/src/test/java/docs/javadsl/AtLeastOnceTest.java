@@ -9,12 +9,11 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
 
 import akka.actor.ActorSystem;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 import org.junit.*;
 import java.util.Arrays;
@@ -38,11 +37,10 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 // #oneToMany #oneToConditional
 
-public class AtLeastOnceTest extends EmbeddedKafkaTest {
+public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
 
   private static final ActorSystem system = ActorSystem.create("AssignmentTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private static final int kafkaPort = KafkaPorts.AtLeastOnceToManyTest();
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   @Override
@@ -57,22 +55,16 @@ public class AtLeastOnceTest extends EmbeddedKafkaTest {
 
   @Override
   public String bootstrapServers() {
-    return "localhost:" + kafkaPort;
+    return "localhost:" + kafkaPort();
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    startEmbeddedKafka(kafkaPort, 1);
-  }
-
-  @After
-  public void after() {
-    StreamTestKit.assertAllStagesStopped(materializer);
+  @Override
+  public int kafkaPort() {
+    return KafkaPorts.AtLeastOnceToManyTest();
   }
 
   @AfterClass
   public static void afterClass() {
-    stopEmbeddedKafka();
     TestKit.shutdownActorSystem(system);
   }
 
