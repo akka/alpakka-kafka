@@ -5,7 +5,7 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 import akka.Done
 import akka.kafka._
@@ -433,6 +433,7 @@ class PartitionedSourcesSpec
     "handle exceptions in stream without commit failures" in assertAllStagesStopped {
       val partitions = 4
       val totalMessages = 100L
+      val exceptionTriggered = new AtomicBoolean(false)
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
@@ -458,6 +459,7 @@ class PartitionedSourcesSpec
                 // fail on first partition; otherwise delay slightly and emit
                 if (tp.partition() == 0) {
                   log.debug(s"failing $tp source")
+                  exceptionTriggered.set(true)
                   Future.failed(new RuntimeException("FAIL"))
                 } else {
                   akka.pattern.after(50.millis, system.scheduler)(Future.successful(m))
@@ -492,6 +494,9 @@ class PartitionedSourcesSpec
           .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
           .runWith(Producer.plainSink(producerDefaults, testProducer))
       )
+      eventually {
+        exceptionTriggered.get() shouldBe true
+      }
 
       val exception = control.drainAndShutdown().failed.futureValue
       createdSubSources should contain allElementsOf allTps
