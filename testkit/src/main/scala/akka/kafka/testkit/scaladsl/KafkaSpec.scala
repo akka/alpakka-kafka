@@ -160,7 +160,9 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
   )(predicate: T => Boolean): Unit = {
     @tailrec def check(triesLeft: Int): Unit =
       Try(predicate(data())).recover {
-        case e: org.apache.kafka.common.errors.TimeoutException => false
+        case ex =>
+          log.debug(s"Ignoring [${ex.getClass.getName}: ${ex.getMessage}] while waiting for desired state")
+          false
       } match {
         case Success(false) if triesLeft > 0 =>
           sleepQuietly(sleepInBetween)
