@@ -39,7 +39,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
 
-  private static final ActorSystem system = ActorSystem.create("AssignmentTest");
+  private static final ActorSystem system = ActorSystem.create("AtLeastOnceTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 

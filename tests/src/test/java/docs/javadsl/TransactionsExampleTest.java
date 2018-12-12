@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 
 public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
 
-  private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
+  private static final ActorSystem system = ActorSystem.create("TransactionsExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();

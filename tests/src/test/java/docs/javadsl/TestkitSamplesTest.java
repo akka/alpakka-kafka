@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TestkitSamplesTest {
 
-  private static final ActorSystem sys = ActorSystem.create("TestkitTest");
+  private static final ActorSystem sys = ActorSystem.create("TestkitSamplesTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
 
   @AfterClass
