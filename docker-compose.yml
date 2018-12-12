@@ -9,7 +9,7 @@ services:
       - "2181:2181"
   kafka:
     scale: ${KAFKA_SCALE:-1}
-    image: wurstmeister/kafka:1.1.0
+    image: wurstmeister/kafka:2.11-0.11.0.3
     ports:
       - "9094"
     environment:
