@@ -8,6 +8,7 @@ val kafkaVersion = "2.1.0"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
 val junit4Version = "4.12"
+val junit5Version = "5.1.0"
 val slf4jVersion = "1.7.25"
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -23,6 +24,7 @@ val testkitDependencies = Seq(
   "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
   "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
   "junit" % "junit" % junit4Version % Provided,
+  "org.junit.jupiter" % "junit-jupiter-api" % junit5Version % Provided,
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
 )
 

@@ -10,7 +10,7 @@ import akka.actor.ActorSystem;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -21,8 +21,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.AfterClass;
-import org.junit.Test;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +32,8 @@ import java.util.concurrent.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
+@TestInstance(Lifecycle.PER_CLASS)
+public class ProducerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -59,8 +60,8 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
     return KafkaPorts.JavaProducerExamples();
   }
 
-  @AfterClass
-  public static void afterClass() {
+  @AfterAll
+  public void shutdownActorSystem() {
     TestKit.shutdownActorSystem(system);
   }
 
