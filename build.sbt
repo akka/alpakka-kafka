@@ -115,11 +115,11 @@ val commonSettings = Seq(
     "akka.pattern" // for some reason Scaladoc creates this
   ),
   // show full stack traces and test case durations
-  testOptions += Tests.Argument("-oDF"),
+  testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
   // -a Show stack traces and exception class name for AssertionErrors.
   // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
   // -q Suppress stdout for successful tests.
-//  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q"),
   scalafmtOnCompile := true,
   headerLicense := Some(

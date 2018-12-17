@@ -28,7 +28,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.AfterClass;
 import org.junit.Test;
-//import org.junit.jupiter.api.*;
 
 import java.util.Arrays;
 import java.util.List;
