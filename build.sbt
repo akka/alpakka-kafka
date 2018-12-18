@@ -8,7 +8,8 @@ val kafkaVersion = "2.1.0"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
 val junit4Version = "4.12"
-val junit5Version = "5.1.0"
+val jupiterInterfaceVersion = "0.8.0" // from sbt-jupiter-interface plugin
+val junit5Version = "5.1.0" // from sbt-jupiter-interface plugin
 val slf4jVersion = "1.7.25"
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
@@ -41,7 +42,7 @@ val testDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % junit4Version % Test,
-  "org.junit.jupiter" % "junit-jupiter-api" % "5.1.0" % Test,
+  "net.aichler" % "jupiter-interface" % jupiterInterfaceVersion % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
   "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
@@ -177,7 +178,6 @@ lazy val `alpakka-kafka` =
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
   // see https://github.com/maichler/sbt-jupiter-interface/issues/24
-  .disablePlugins(JupiterPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
@@ -192,7 +192,7 @@ lazy val core = project
 lazy val testkit = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, JupiterPlugin)
+  .disablePlugins(MimaPlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-testkit",
@@ -242,7 +242,6 @@ commands += Command.command("dockerComposeTestAll") { state ⇒
 lazy val docs = project
   .in(file("docs"))
   .enablePlugins(AkkaParadoxPlugin)
-  .disablePlugins(JupiterPlugin)
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
@@ -273,7 +272,6 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
-  .disablePlugins(JupiterPlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
