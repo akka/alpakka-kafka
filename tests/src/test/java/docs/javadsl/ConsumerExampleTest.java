@@ -13,10 +13,10 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.japi.Pair;
 import akka.kafka.*;
+import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.kafka.javadsl.Committer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -30,8 +30,9 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.junit.AfterClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Duration;
 import java.util.List;
@@ -45,7 +46,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 
-public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class ConsumerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -71,8 +73,8 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
     return KafkaPorts.ConsumerExamplesTest();
   }
 
-  @AfterClass
-  public static void afterClass() {
+  @AfterAll
+  public void afterClass() {
     TestKit.shutdownActorSystem(system);
   }
 
