@@ -12,7 +12,7 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between minor versions.
 
-The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively.
+The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively. We've overriden the `commons-compress` library to use a version with [fewer known security vulnerabilities](https://commons.apache.org/proper/commons-compress/security-reports.html).
 
 @@dependencies { projectId="testkit" }
 

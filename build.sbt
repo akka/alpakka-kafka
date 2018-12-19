@@ -19,6 +19,7 @@ val coreDependencies = Seq(
 val testkitDependencies = Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
+  "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
   "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
   "junit" % "junit" % junit4Version % Provided,
   "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
@@ -29,6 +30,7 @@ val confluentAvroSerializerVersion = "5.0.1"
 val testDependencies = Seq(
   "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
   "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+  "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md 
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "io.spray" %% "spray-json" % "1.3.5" % Test,
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
