@@ -28,6 +28,8 @@ val confluentAvroSerializerVersion = "5.0.1"
 
 val testDependencies = Seq(
   "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
+  // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
+  "javax.ws.rs" % "javax.ws.rs-api" % "2.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
   "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "io.spray" %% "spray-json" % "1.3.5" % Test,

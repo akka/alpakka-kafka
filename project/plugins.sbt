@@ -16,4 +16,7 @@ addSbtPlugin("lt.dvim.paradox" % "sbt-paradox-local" % "0.2")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 // latest version with https://github.com/ehsanyou/sbt-docker-compose/pull/10
 addSbtPlugin("com.github.ehsanyou" % "sbt-docker-compose" % "67284e73-envvars-2m")
+// patched version of sbt-dependency-graph
+// depend directly on the patched version see https://github.com/akka/alpakka/issues/1388
+addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2+10-148ba0ff")
 resolvers += Resolver.bintrayIvyRepo("2m", "sbt-plugins")
