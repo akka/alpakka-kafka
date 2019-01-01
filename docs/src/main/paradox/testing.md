@@ -32,7 +32,7 @@ Java
 
 ## Testing with an embedded Kafka server
 
-To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.com/manub/scalatest-embedded-kafka) is an important tool as it helps to easily start and stop Kafka brokers from test cases.
+To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.com/embeddedkafka/embedded-kafka) is an important tool as it helps to easily start and stop Kafka brokers from test cases.
 
 The testkit contains helper classes used by the tests in the Alpakka Kafka connector and may be used for other testing, as well.
 
