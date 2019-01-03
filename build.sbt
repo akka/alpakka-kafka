@@ -42,6 +42,9 @@ val testDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
   "com.novocode" % "junit-interface" % "0.11" % Test,
   "junit" % "junit" % junit4Version % Test,
+  // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
+  "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
+  "org.hamcrest" % "hamcrest" % "2.1" % Test,
   "net.aichler" % "jupiter-interface" % jupiterInterfaceVersion % Test,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
   "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
