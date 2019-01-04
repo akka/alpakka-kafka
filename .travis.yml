@@ -44,7 +44,7 @@ jobs:
 
     - stage: integration
       env: CMD="dockerComposeTestAll"
-    - env: CMD="benchmarks/dockerComposeTest it:test"
+    - env: CMD="benchmarks/It/compile"
 
     - stage: whitesource
       env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
