@@ -20,11 +20,11 @@ abstract class BenchmarksBase(name: String) extends ScalatestKafkaSpec(0) with F
 }
 
 class ApacheKafkaConsumerNokafka extends BenchmarksBase("ApacheKafkaConsumerNokafka") {
-  it should "bench" in Benchmarks.run(RunTestCommand("apache-kafka-consumer-nokafka", bootstrapServers, 2000000))
+  it should "bench" in Benchmarks.run(RunTestCommand("apache-kafka-plain-consumer-nokafka", bootstrapServers, 2000000))
 }
 
 class AlpakkaKafkaConsumerNokafka extends BenchmarksBase("AlpakkaKafkaConsumerNokafka") {
-  it should "bench" in Benchmarks.run(RunTestCommand("alpakka-kafka-consumer-nokafka", bootstrapServers, 2000000))
+  it should "bench" in Benchmarks.run(RunTestCommand("alpakka-kafka-plain-consumer-nokafka", bootstrapServers, 2000000))
 }
 
 class ApacheKafkaPlainConsumer extends BenchmarksBase("ApacheKafkaPlainConsumer") {
