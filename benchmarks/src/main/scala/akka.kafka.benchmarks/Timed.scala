@@ -5,10 +5,11 @@
 
 package akka.kafka.benchmarks
 
+import java.nio.file.Paths
 import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
 import akka.kafka.benchmarks.app.RunTestCommand
-import com.codahale.metrics.{Meter, MetricRegistry, ScheduledReporter, Slf4jReporter}
+import com.codahale.metrics._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext
@@ -25,6 +26,13 @@ object Timed extends LazyLogging {
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build()
 
+  def csvReporter(metricRegistry: MetricRegistry): ScheduledReporter =
+    CsvReporter
+      .forRegistry(metricRegistry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .build(Paths.get("benchmarks", "target").toFile)
+
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
     val name = command.testName
     val msgCount = command.msgCount
@@ -39,5 +47,6 @@ object Timed extends LazyLogging {
     val took = (after - now).nanos
     logger.info(s"Test ${name}_$msgCount took ${took.toMillis} ms")
     reporter(metrics).report()
+    csvReporter(metrics).report()
   }
 }
