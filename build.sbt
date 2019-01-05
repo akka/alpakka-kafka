@@ -17,6 +17,7 @@ val coreDependencies = Seq(
 )
 
 val testkitDependencies = Seq(
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
   "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
   "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
