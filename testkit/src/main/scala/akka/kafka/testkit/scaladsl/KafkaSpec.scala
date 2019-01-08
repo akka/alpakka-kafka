@@ -216,9 +216,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
       .map(n => new ProducerRecord(topic, partition0, DefaultKey, n.toString))
       .runWith(Producer.plainSink(settings))
 
-  def produceTimestamped(topic: String,
-                         timestampedRange: immutable.Seq[(Int, Long)],
-                         partiion: Int = partition0): Future[Done] =
+  def produceTimestamped(topic: String, timestampedRange: immutable.Seq[(Int, Long)]): Future[Done] =
     Source(timestampedRange)
       .map {
         case (n, ts) => new ProducerRecord(topic, partition0, ts, DefaultKey, n.toString)
