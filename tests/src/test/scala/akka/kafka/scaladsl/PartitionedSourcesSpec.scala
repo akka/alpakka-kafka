@@ -465,7 +465,7 @@ class PartitionedSourcesSpec
                   akka.pattern.after(50.millis, system.scheduler)(Future.successful(m))
                 }
               }
-              .log(s"subsource $tp pre commmit")
+              .log(s"subsource $tp pre commit")
               .mapAsync(1)(_.committableOffset.commitScaladsl().andThen {
                 case Failure(e) =>
                   log.error("commit failure", e)
