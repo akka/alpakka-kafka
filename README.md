@@ -72,3 +72,12 @@ Caveat Emptor
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
 Support for the Alpakka Kafka connector is available via [Lightbend subscription](https://www.lightbend.com/subscription). 
+
+### Code Visualization:
+
+Here is a cool visualization of the code evolution
+
+ [![Watch the video](https://img.youtube.com/vi/PXTlugGq-r8/0.jpg)](https://www.youtube.com/watch?v=PXTlugGq-r8)
+
+ [https://www.youtube.com/watch?v=PXTlugGq-r8](https://www.youtube.com/watch?v=PXTlugGq-r8)
+
