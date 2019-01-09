@@ -58,8 +58,7 @@ import static org.junit.Assert.assertThat;
 
 public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
-  private static final ActorSystem sys =
-      ActorSystem.create("SerializationTest");
+  private static final ActorSystem sys = ActorSystem.create("SerializationTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
