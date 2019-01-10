@@ -131,8 +131,8 @@ object Metadata {
    *
    * Warning: KafkaConsumer documentation states that this method may block indefinitely if the partition does not exist.
    */
-  def createGetEndOffsets(paritions: java.util.Set[TopicPartition]): GetEndOffsets =
-    GetEndOffsets(paritions.asScala.toSet)
+  def createGetEndOffsets(partitions: java.util.Set[TopicPartition]): GetEndOffsets =
+    GetEndOffsets(partitions.asScala.toSet)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#offsetsForTimes()]]

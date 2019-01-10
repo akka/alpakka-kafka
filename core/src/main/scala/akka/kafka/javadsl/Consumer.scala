@@ -165,7 +165,7 @@ object Consumer {
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
-   * before emitted downstreams.
+   * before being emitted downstream.
    */
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =

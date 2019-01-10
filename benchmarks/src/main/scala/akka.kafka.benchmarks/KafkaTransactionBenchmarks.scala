@@ -19,7 +19,7 @@ import scala.concurrent.duration.FiniteDuration
 object KafkaTransactionBenchmarks extends LazyLogging {
 
   /**
-   * Process records in a consume-transform-produce transacational workflow and commit every interval.
+   * Process records in a consume-transform-produce transactional workflow and commit every interval.
    */
   def consumeTransformProduceTransaction(commitInterval: FiniteDuration)(fixture: KafkaTransactionTestFixture,
                                                                          meter: Meter): Unit = {

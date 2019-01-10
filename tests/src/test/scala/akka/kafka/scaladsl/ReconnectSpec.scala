@@ -155,7 +155,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
       produce(topic1, 1 to messagesProduced)
 
       // create a TCP proxy and set up a consumer through it
-      val (proxyBinding, proxyKillSwtich) = createProxy()
+      val (proxyBinding, proxyKillSwitch) = createProxy()
       Await.ready(proxyBinding, remainingOrDefault)
       val consumerSettings = consumerDefaults
         .withGroupId(group1)
@@ -164,7 +164,7 @@ class ReconnectSpec extends SpecBase(kafkaPort = KafkaPorts.ReconnectSpec) {
 
       // expect an element and kill the proxy
       probe.requestNext() should be("1")
-      proxyKillSwtich.futureValue.shutdown()
+      proxyKillSwitch.futureValue.shutdown()
       sleep(100.millis)
 
       probe.request(messagesProduced.toLong)
