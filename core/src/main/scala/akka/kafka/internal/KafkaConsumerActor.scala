@@ -343,9 +343,8 @@ import scala.util.control.NonFatal
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
-      if (commitRefreshDeadlines.exists(_._2.isOverdue())) {
-        val overdueTps = commitRefreshDeadlines.filter(_._2.isOverdue()).keySet
-
+      val overdueTps = commitRefreshDeadlines.filter(_._2.isOverdue()).keySet
+      if (overdueTps.nonEmpty) {
         val refreshOffsets = committedOffsets.filter {
           case (tp, offset) if overdueTps.contains(tp) =>
             commitRequestedOffsets.get(tp).contains(offset)
