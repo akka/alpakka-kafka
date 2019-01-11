@@ -107,7 +107,7 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
       override def onPull(): Unit = tryPull(stage.in)
     })
     // kick off demand for more messages if we're resuming demand
-    if (tryToPull && !hasBeenPulled(stage.in)) {
+    if (tryToPull && isAvailable(stage.out) && !hasBeenPulled(stage.in)) {
       tryPull(stage.in)
     }
   }
