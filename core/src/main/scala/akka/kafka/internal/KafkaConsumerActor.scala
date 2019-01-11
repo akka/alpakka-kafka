@@ -164,7 +164,7 @@ import scala.util.control.NonFatal
   private var commitsInProgress = 0
   private var commitRequestedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
   private var committedOffsets = Map.empty[TopicPartition, OffsetAndMetadata]
-  private var commitRefreshDeadline: Option[Deadline] = None
+  private var commitRefreshDeadlines = Map.empty[TopicPartition, Deadline]
   private var stopInProgress = false
   private var delayedPollInFlight = false
 
@@ -244,11 +244,12 @@ import scala.util.control.NonFatal
         case (partition, offset) =>
           partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
       }
-      commitRefreshDeadline = nextCommitRefreshDeadline()
+      updateCommitRefreshDeadlines(assignedOffsets.keySet)
 
     case PartitionRevoked(revokedTps) =>
       commitRequestedOffsets --= revokedTps
       committedOffsets --= revokedTps
+      commitRefreshDeadlines --= revokedTps
 
     case Committed(offsets) =>
       committedOffsets ++= offsets
@@ -342,13 +343,19 @@ import scala.util.control.NonFatal
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
-      if (commitRefreshDeadline.exists(_.isOverdue())) {
+      val overdueTps = commitRefreshDeadlines.filter(_._2.isOverdue()).keySet
+      if (overdueTps.nonEmpty) {
         val refreshOffsets = committedOffsets.filter {
-          case (tp, offset) =>
+          case (tp, offset) if overdueTps.contains(tp) =>
             commitRequestedOffsets.get(tp).contains(offset)
+          case _ =>
+            false
         }
-        log.debug("Refreshing committed offsets: {}", refreshOffsets)
-        commit(refreshOffsets, context.system.deadLetters)
+
+        if (refreshOffsets.nonEmpty) {
+          log.debug("Refreshing committed offsets: {}", refreshOffsets)
+          commit(refreshOffsets, context.system.deadLetters)
+        }
       }
       poll()
       if (p.periodic)
@@ -407,13 +414,15 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def nextCommitRefreshDeadline(): Option[Deadline] = settings.commitRefreshInterval match {
-    case finite: FiniteDuration => Some(finite.fromNow)
-    case infinite => None
-  }
+  private def updateCommitRefreshDeadlines(tps: Set[TopicPartition]): Unit =
+    settings.commitRefreshInterval match {
+      case finite: FiniteDuration =>
+        commitRefreshDeadlines ++= tps.map(_ -> finite.fromNow)
+      case _ =>
+    }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], reply: ActorRef): Unit = {
-    commitRefreshDeadline = nextCommitRefreshDeadline()
+    updateCommitRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
     consumer.commitAsync(
