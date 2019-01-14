@@ -13,22 +13,6 @@ val junit5Version = "5.1.0" // from sbt-jupiter-interface plugin
 val slf4jVersion = "1.7.25"
 val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
 
-val coreDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-  kafkaClients,
-)
-
-val testkitDependencies = Seq(
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
-  "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
-  "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-  "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-  "junit" % "junit" % junit4Version % Provided,
-  "org.junit.jupiter" % "junit-jupiter-api" % junit5Version % Provided,
-  "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
-)
-
 val confluentAvroSerializerVersion = "5.0.1"
 
 val testDependencies = Seq(
@@ -75,7 +59,12 @@ val benchmarkDependencies = Seq(
 
 val kafkaScale = settingKey[Int]("Number of kafka docker containers")
 
-resolvers in ThisBuild ++= Seq(Resolver.bintrayRepo("manub", "maven"))
+resolvers in ThisBuild ++= Seq(
+  // for Embedded Kafka
+  Resolver.bintrayRepo("manub", "maven"),
+  // for Jupiter interface (JUnit 5)
+  Resolver.jcenterRepo
+)
 
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
@@ -180,12 +169,14 @@ lazy val `alpakka-kafka` =
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
-  // see https://github.com/maichler/sbt-jupiter-interface/issues/24
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
-    libraryDependencies ++= coreDependencies,
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      kafkaClients,
+    ),
     mimaPreviousArtifacts := Set(
       organization.value %% name.value % previousStableVersion.value
         .getOrElse(throw new Error("Unable to determine previous version"))
@@ -200,7 +191,15 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    libraryDependencies ++= testkitDependencies,
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
+      "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
+      "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+      "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
+      "junit" % "junit" % junit4Version % Provided,
+      "org.junit.jupiter" % "junit-jupiter-api" % junit5Version % Provided,
+      "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
+    ),
     mimaPreviousArtifacts := Set(
       organization.value %% name.value % previousStableVersion.value
         .getOrElse(throw new Error("Unable to determine previous version"))
@@ -217,7 +216,36 @@ lazy val tests = project
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
-    libraryDependencies ++= testDependencies ++ integrationTestDependencies,
+    libraryDependencies ++= Seq(
+      "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
+      // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
+      "javax.ws.rs" % "javax.ws.rs-api" % "2.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
+      "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+      "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
+      "org.scalatest" %% "scalatest" % scalatestVersion % Test,
+      "io.spray" %% "spray-json" % "1.3.5" % Test,
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
+      "com.novocode" % "junit-interface" % "0.11" % Test,
+      "junit" % "junit" % junit4Version % Test,
+      // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
+      "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
+      "org.hamcrest" % "hamcrest" % "2.1" % Test,
+      "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+      "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
+      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
+      // Schema registry uses Glassfish which uses java.util.logging
+      "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
+      "org.mockito" % "mockito-core" % "2.23.4" % Test
+    ) ++
+    Seq( // integration test dependencies
+      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
+      "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
+      "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
+      "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
+    ),
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -284,7 +312,15 @@ lazy val benchmarks = project
     skip in publish := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
-    libraryDependencies ++= benchmarkDependencies,
+    libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+      "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
+      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+      "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+    ),
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
