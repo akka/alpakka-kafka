@@ -9,8 +9,6 @@ val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
 val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
-val kafkaClients = "org.apache.kafka" % "kafka-clients" % kafkaVersion
-
 val confluentAvroSerializerVersion = "5.0.1"
 
 val testDependencies = Seq(
@@ -173,7 +171,7 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      kafkaClients,
+      "org.apache.kafka" % "kafka-clients" % kafkaVersion,
     ),
     mimaPreviousArtifacts := Set(
       organization.value %% name.value % previousStableVersion.value
