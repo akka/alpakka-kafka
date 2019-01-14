@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.javadsl;
@@ -58,8 +58,7 @@ import static org.junit.Assert.assertThat;
 
 public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
-  private static final ActorSystem sys =
-      ActorSystem.create("SerializationTest");
+  private static final ActorSystem sys = ActorSystem.create("SerializationTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
