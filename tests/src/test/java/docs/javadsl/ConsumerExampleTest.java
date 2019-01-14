@@ -117,12 +117,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
                     Consumer.plainSource(
                             consumerSettings,
                             Subscriptions.assignmentWithOffset(
-                                new TopicPartition(topic, /* partition: */ 0), fromOffset))
+                                new TopicPartition(topic, partition0), fromOffset))
                         .mapAsync(1, db::businessLogicAndStoreOffset)
                         .to(Sink.ignore())
                         .run(materializer));
     // #plainSource
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     while (db.offsetStore.get() < 9L) {
       sleepMillis(100, "until offsets have increased");
     }
@@ -172,7 +172,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .run(materializer);
 
     // #atMostOnce
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.shutdown());
   }
 
@@ -201,7 +201,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .run(materializer);
 
     // #atLeastOnce
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(ec));
   }
 
@@ -225,7 +225,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committerSink
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(ec));
   }
 
@@ -250,7 +250,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #commitWithMetadata
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(ec));
   }
 
@@ -275,8 +275,8 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink
-    assertDone(produceString(topic1, 10, partition0()));
-    assertDone(produceString(topic2, 10, partition0()));
+    assertDone(produceString(topic1, 10, partition0));
+    assertDone(produceString(topic2, 10, partition0));
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 20);
     assertDone(consumer.isShutdown());
@@ -307,7 +307,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerFlow
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 10);
     assertDone(consumer.isShutdown());
@@ -332,7 +332,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committablePartitionedSource
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(ec));
   }
 
@@ -360,7 +360,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committablePartitionedSource-stream-per-partition
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(ec));
   }
 
@@ -428,7 +428,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
         .runWith(Sink.ignore(), materializer);
 
     // #restartSource
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     // #restartSource
     control.get().shutdown();
     // #restartSource
@@ -480,7 +480,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #withRebalanceListenerActor
-    assertDone(produceString(topic, messageCount, partition0()));
+    assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
     assertEquals(messageCount, resultOf(control.drainAndShutdown(ec)).size());
   }
@@ -568,7 +568,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaTest {
             .run(materializer);
 
     // #shutdownCommittableSource
-    assertDone(produceString(topic, messageCount, partition0()));
+    assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
     assertEquals(Done.done(), resultOf(control.drainAndShutdown(ec), Duration.ofSeconds(20)));
     // #shutdownCommittableSource

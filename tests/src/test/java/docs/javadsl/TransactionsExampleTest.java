@@ -94,7 +94,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     // #transactionalSink
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 10);
-    produceString(sourceTopic, 10, partition0());
+    produceString(sourceTopic, 10, partition0);
     assertDone(consumer.isShutdown());
     // #transactionalSink
     control.drainAndShutdown(ec);
@@ -146,7 +146,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     int messages = 10;
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, messages);
-    assertDone(produceString(sourceTopic, messages, partition0()));
+    assertDone(produceString(sourceTopic, messages, partition0));
     assertDone(consumer.isShutdown());
     assertDone(innerControl.get().shutdown());
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());

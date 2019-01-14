@@ -17,8 +17,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
 
-import scala.concurrent.duration._
-
 trait KafkaTestKit {
 
   def log: Logger
@@ -42,7 +40,7 @@ trait KafkaTestKit {
 
   def committerDefaults: CommitterSettings = committerDefaultsInstance
 
-  def nextNumber(): Int = KafkaTestKit.topicCounter.incrementAndGet()
+  def nextNumber(): Int = KafkaTestKitClass.topicCounter.incrementAndGet()
 
   def createTopicName(number: Int) = s"topic-$number-${nextNumber}"
 
@@ -109,6 +107,11 @@ trait KafkaTestKit {
   }
 }
 
-object KafkaTestKit {
+abstract class KafkaTestKitClass extends KafkaTestKit
+
+object KafkaTestKitClass {
   val topicCounter = new AtomicInteger()
+  def createReplicationFactorBrokerProps(replicationFactor: Int): Map[String, String] = Map(
+    "offsets.topic.replication.factor" -> s"$replicationFactor"
+  )
 }
