@@ -7,6 +7,7 @@ val akkaVersion = "2.5.19"
 val kafkaVersion = "2.1.0"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
+val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
 val confluentAvroSerializerVersion = "5.0.1"
 
@@ -80,8 +81,6 @@ val commonSettings = Seq(
   bintrayOrganization := Some("akka"),
   bintrayPackage := "alpakka-kafka",
   bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven"),
-  // See https://github.com/maichler/sbt-jupiter-interface/issues/30
-  JupiterKeys.junitVintageVersion := "4.12",
 )
 
 lazy val `alpakka-kafka` =
@@ -151,7 +150,7 @@ lazy val testkit = project
       "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
       "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-      "junit" % "junit" % JupiterKeys.junitVintageVersion.value % Provided,
+      "junit" % "junit" % junit4Version % Provided,
       "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
       "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
     ),
@@ -181,7 +180,7 @@ lazy val tests = project
       "io.spray" %% "spray-json" % "1.3.5" % Test,
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
       "com.novocode" % "junit-interface" % "0.11" % Test,
-      "junit" % "junit" % JupiterKeys.junitVintageVersion.value % Test,
+      "junit" % "junit" % junit4Version % Test,
       // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
       "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
       "org.hamcrest" % "hamcrest" % "2.1" % Test,
