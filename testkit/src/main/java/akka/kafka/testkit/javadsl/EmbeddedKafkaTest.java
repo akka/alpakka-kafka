@@ -20,6 +20,9 @@ import scala.collection.immutable.HashMap$;
  */
 public abstract class EmbeddedKafkaTest extends KafkaTest {
 
+  protected final int kafkaPort;
+  protected final int replicationFactor;
+
   private static EmbeddedKafkaConfig embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int replicationFactor) {
     return EmbeddedKafkaConfig$.MODULE$.apply(
@@ -30,6 +33,24 @@ public abstract class EmbeddedKafkaTest extends KafkaTest {
         HashMap$.MODULE$.empty());
   }
 
+  protected EmbeddedKafkaTest(int kafkaPort, int replicationFactor) {
+    this.kafkaPort = kafkaPort;
+    this.replicationFactor = replicationFactor;
+  }
+
+  protected EmbeddedKafkaTest(int kafkaPort) {
+    this(kafkaPort, 1);
+  }
+
+  @Override
+  public String bootstrapServers() {
+    if (kafkaPort == 0) {
+      throw new IllegalStateException(
+          "initialisation order failed, kafkaPort has no valid value, yet");
+    }
+    return "localhost:" + kafkaPort;
+  }
+
   protected void startEmbeddedKafka(int kafkaPort, int replicationFactor) {
     EmbeddedKafka$.MODULE$.start(embeddedKafkaConfig(kafkaPort, kafkaPort + 1, replicationFactor));
   }
@@ -38,15 +59,9 @@ public abstract class EmbeddedKafkaTest extends KafkaTest {
     EmbeddedKafka$.MODULE$.stop();
   }
 
-  public abstract int kafkaPort();
-
-  int replicationFactor() {
-    return 1;
-  }
-
   @BeforeAll
   void setupEmbeddedKafka() {
-    startEmbeddedKafka(kafkaPort(), replicationFactor());
+    startEmbeddedKafka(kafkaPort, replicationFactor);
   }
 
   @AfterAll

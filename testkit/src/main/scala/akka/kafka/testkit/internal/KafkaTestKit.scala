@@ -23,13 +23,13 @@ trait KafkaTestKit {
 
   val DefaultKey = "key"
 
-  private val producerDefaultsInstance: ProducerSettings[String, String] =
+  private lazy val producerDefaultsInstance: ProducerSettings[String, String] =
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
   def producerDefaults: ProducerSettings[String, String] = producerDefaultsInstance
 
-  private val consumerDefaultsInstance: ConsumerSettings[String, String] =
+  private lazy val consumerDefaultsInstance: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
@@ -51,7 +51,7 @@ trait KafkaTestKit {
   def system: ActorSystem
   def bootstrapServers: String
 
-  private val adminDefaults = {
+  private lazy val adminDefaults = {
     val config = new Properties()
     config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
     config

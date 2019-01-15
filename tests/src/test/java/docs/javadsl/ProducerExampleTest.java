@@ -33,12 +33,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class ProducerExampleTest extends EmbeddedKafkaTest {
+class ProducerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private final ExecutorService ec = Executors.newSingleThreadExecutor();
+  private final Executor executor = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
+
+  ProducerExampleTest() {
+    super(KafkaPorts.JavaProducerExamples());
+  }
 
   @Override
   public ActorSystem system() {
@@ -50,21 +54,12 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
     return materializer;
   }
 
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.JavaProducerExamples();
-  }
-
   @AfterAll
-  public void shutdownActorSystem() {
+  void shutdownActorSystem() {
     TestKit.shutdownActorSystem(system);
   }
 
+  @Test
   void createProducer() {
     // #producer
     // #settings
@@ -76,10 +71,11 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #producer
+    kafkaProducer.close();
   }
 
   @Test
-  public void plainSink() throws Exception {
+  void plainSink() throws Exception {
     String topic = createTopic(1, 1, 1);
     // #plainSink
     CompletionStage<Done> done =
@@ -93,12 +89,12 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
         consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
   }
 
   @Test
-  public void plainSinkWithSharedProducer() throws Exception {
+  void plainSinkWithSharedProducer() throws Exception {
     String topic = createTopic(1, 1, 1);
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
@@ -114,14 +110,14 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
         consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
 
     kafkaProducer.close();
   }
 
   @Test
-  public void observeMetrics() throws Exception {
+  void observeMetrics() throws Exception {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #producerMetrics
@@ -167,7 +163,7 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
   }
 
   @Test
-  public void producerFlowExample() throws Exception {
+  void producerFlowExample() throws Exception {
     String topic = createTopic(1, 1, 1);
     // #flow
     CompletionStage<Done> done =
@@ -224,7 +220,7 @@ public class ProducerExampleTest extends EmbeddedKafkaTest {
         consumeString(topic, 100L);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
   }
 }
