@@ -5,6 +5,8 @@
 
 package akka.kafka.testkit.javadsl;
 
+import akka.actor.ActorSystem;
+import akka.stream.Materializer;
 import akka.stream.testkit.javadsl.StreamTestKit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +20,10 @@ import org.junit.jupiter.api.BeforeAll;
  */
 public abstract class KafkaTest extends BaseKafkaTest {
 
+  protected KafkaTest(ActorSystem system, Materializer materializer, String bootstrapServers) {
+    super(system, materializer, bootstrapServers);
+  }
+
   @BeforeAll
   public void setupAdmin() {
     setUpAdminClient();
@@ -30,6 +36,6 @@ public abstract class KafkaTest extends BaseKafkaTest {
 
   @AfterEach
   public void checkForStageLeaks() {
-    StreamTestKit.assertAllStagesStopped(materializer());
+    StreamTestKit.assertAllStagesStopped(materializer);
   }
 }

@@ -36,24 +36,8 @@ public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
 
-  @Override
-  public ActorSystem system() {
-    return sys;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return mat;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.FetchMetadataTest();
+  public FetchMetadataTest() {
+    super(sys, mat, KafkaPorts.FetchMetadataTest());
   }
 
   @AfterClass

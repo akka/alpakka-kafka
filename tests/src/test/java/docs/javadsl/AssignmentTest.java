@@ -21,13 +21,15 @@ import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 // #testkit
-// #testkit
 import akka.testkit.javadsl.TestKit;
+// #testkit
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
+// #testkit
 import org.junit.AfterClass;
 import org.junit.Test;
+// #testkit
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,24 +47,8 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
 
-  @Override
-  public ActorSystem system() {
-    return sys;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return mat;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.AssignmentTest();
+  public AssignmentTest() {
+    super(sys, mat, KafkaPorts.AssignmentTest());
   }
 
   // #testkit

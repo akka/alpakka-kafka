@@ -37,7 +37,6 @@ import akka.kafka.testkit.ProducerResultFactory;
 import akka.kafka.testkit.javadsl.ConsumerControlFactory;
 // #factories
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;

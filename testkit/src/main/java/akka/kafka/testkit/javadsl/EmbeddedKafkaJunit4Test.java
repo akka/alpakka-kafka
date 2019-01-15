@@ -5,6 +5,8 @@
 
 package akka.kafka.testkit.javadsl;
 
+import akka.actor.ActorSystem;
+import akka.stream.Materializer;
 import net.manub.embeddedkafka.EmbeddedKafka$;
 import net.manub.embeddedkafka.EmbeddedKafkaConfig;
 import net.manub.embeddedkafka.EmbeddedKafkaConfig$;
@@ -30,6 +32,20 @@ public abstract class EmbeddedKafkaJunit4Test extends KafkaTest {
         HashMap$.MODULE$.empty());
   }
 
+  protected final int kafkaPort;
+  protected final int replicationFactor;
+
+  public EmbeddedKafkaJunit4Test(
+      ActorSystem system, Materializer materializer, int kafkaPort, int replicationFactor) {
+    super(system, materializer, "localhost:" + kafkaPort);
+    this.kafkaPort = kafkaPort;
+    this.replicationFactor = replicationFactor;
+  }
+
+  protected EmbeddedKafkaJunit4Test(ActorSystem system, Materializer materializer, int kafkaPort) {
+    this(system, materializer, kafkaPort, 1);
+  }
+
   protected static void startEmbeddedKafka(int kafkaPort, int replicationFactor) {
     EmbeddedKafka$.MODULE$.start(embeddedKafkaConfig(kafkaPort, kafkaPort + 1, replicationFactor));
   }
@@ -38,15 +54,9 @@ public abstract class EmbeddedKafkaJunit4Test extends KafkaTest {
     EmbeddedKafka$.MODULE$.stop();
   }
 
-  public abstract int kafkaPort();
-
-  public int replicationFactor() {
-    return 1;
-  }
-
   @Before
   public void setupEmbeddedKafka() {
-    EmbeddedKafkaJunit4Test.startEmbeddedKafka(kafkaPort(), replicationFactor());
+    EmbeddedKafkaJunit4Test.startEmbeddedKafka(kafkaPort, replicationFactor);
     setUpAdminClient();
   }
 

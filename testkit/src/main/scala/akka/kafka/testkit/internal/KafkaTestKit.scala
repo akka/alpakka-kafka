@@ -36,7 +36,7 @@ trait KafkaTestKit {
 
   def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
 
-  private val committerDefaultsInstance = CommitterSettings(system)
+  private lazy val committerDefaultsInstance = CommitterSettings(system)
 
   def committerDefaults: CommitterSettings = committerDefaultsInstance
 
@@ -71,15 +71,18 @@ trait KafkaTestKit {
    * be sure to call `cleanUpAdminClient` after the tests are done.
    */
   def setUpAdminClient(): Unit =
-    adminClientVar = AdminClient.create(adminDefaults)
+    if (adminClientVar == null) {
+      adminClientVar = AdminClient.create(adminDefaults)
+    }
 
   /**
    * Close internal admin client instances.
    */
-  def cleanUpAdminClient(): Unit = {
-    adminClient.close(60, TimeUnit.SECONDS)
-    adminClientVar = null
-  }
+  def cleanUpAdminClient(): Unit =
+    if (adminClientVar != null) {
+      adminClientVar.close(60, TimeUnit.SECONDS)
+      adminClientVar = null
+    }
 
   /**
    * Create a topic with given partition number and replication factor.
@@ -107,7 +110,8 @@ trait KafkaTestKit {
   }
 }
 
-abstract class KafkaTestKitClass extends KafkaTestKit
+abstract class KafkaTestKitClass(override val system: ActorSystem, override val bootstrapServers: String)
+    extends KafkaTestKit
 
 object KafkaTestKitClass {
   val topicCounter = new AtomicInteger()

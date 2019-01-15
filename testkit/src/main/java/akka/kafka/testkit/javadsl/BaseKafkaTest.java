@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.Done;
+import akka.actor.ActorSystem;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
@@ -27,16 +28,21 @@ import java.util.stream.IntStream;
 
 public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
+  public static final int partition0 = 0;
+
   public final Logger log = LoggerFactory.getLogger(getClass());
+
+  protected final Materializer materializer;
+
+  protected BaseKafkaTest(ActorSystem system, Materializer materializer, String bootstrapServers) {
+    super(system, bootstrapServers);
+    this.materializer = materializer;
+  }
 
   @Override
   public Logger log() {
     return log;
   }
-
-  public static final int partition0 = 0;
-
-  protected abstract Materializer materializer();
 
   /** Overwrite to set different default timeout for [[#resultOf]]. */
   protected Duration resultOfTimeout() {
@@ -47,7 +53,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
     return Source.fromIterator(() -> IntStream.range(0, messageCount).iterator())
         .map(Object::toString)
         .map(n -> new ProducerRecord<String, String>(topic, partition, DefaultKey(), n))
-        .runWith(Producer.plainSink(producerDefaults()), materializer());
+        .runWith(Producer.plainSink(producerDefaults()), materializer);
   }
 
   protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
@@ -57,7 +63,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         .take(take)
         .toMat(Sink.seq(), Keep.both())
         .mapMaterializedValue(Consumer::createDrainingControl)
-        .run(materializer());
+        .run(materializer);
   }
 
   protected <T> T resultOf(CompletionStage<T> stage) throws Exception {

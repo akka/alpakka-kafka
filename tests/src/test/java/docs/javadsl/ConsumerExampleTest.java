@@ -54,17 +54,7 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   private static final Executor executor = Executors.newSingleThreadExecutor();
 
   ConsumerExampleTest() {
-    super(KafkaPorts.ConsumerExamplesTest());
-  }
-
-  @Override
-  public ActorSystem system() {
-    return system;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return materializer;
+    super(system, materializer, KafkaPorts.ConsumerExamplesTest());
   }
 
   @AfterAll

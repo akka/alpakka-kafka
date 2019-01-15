@@ -5,6 +5,8 @@
 
 package akka.kafka.testkit.javadsl;
 
+import akka.actor.ActorSystem;
+import akka.stream.Materializer;
 import net.manub.embeddedkafka.EmbeddedKafka$;
 import net.manub.embeddedkafka.EmbeddedKafkaConfig;
 import net.manub.embeddedkafka.EmbeddedKafkaConfig$;
@@ -20,9 +22,6 @@ import scala.collection.immutable.HashMap$;
  */
 public abstract class EmbeddedKafkaTest extends KafkaTest {
 
-  protected final int kafkaPort;
-  protected final int replicationFactor;
-
   private static EmbeddedKafkaConfig embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int replicationFactor) {
     return EmbeddedKafkaConfig$.MODULE$.apply(
@@ -33,22 +32,18 @@ public abstract class EmbeddedKafkaTest extends KafkaTest {
         HashMap$.MODULE$.empty());
   }
 
-  protected EmbeddedKafkaTest(int kafkaPort, int replicationFactor) {
+  protected final int kafkaPort;
+  protected final int replicationFactor;
+
+  protected EmbeddedKafkaTest(
+      ActorSystem system, Materializer materializer, int kafkaPort, int replicationFactor) {
+    super(system, materializer, "localhost:" + kafkaPort);
     this.kafkaPort = kafkaPort;
     this.replicationFactor = replicationFactor;
   }
 
-  protected EmbeddedKafkaTest(int kafkaPort) {
-    this(kafkaPort, 1);
-  }
-
-  @Override
-  public String bootstrapServers() {
-    if (kafkaPort == 0) {
-      throw new IllegalStateException(
-          "initialisation order failed, kafkaPort has no valid value, yet");
-    }
-    return "localhost:" + kafkaPort;
+  protected EmbeddedKafkaTest(ActorSystem system, Materializer materializer, int kafkaPort) {
+    this(system, materializer, kafkaPort, 1);
   }
 
   protected void startEmbeddedKafka(int kafkaPort, int replicationFactor) {

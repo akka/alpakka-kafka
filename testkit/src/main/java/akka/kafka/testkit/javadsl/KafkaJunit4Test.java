@@ -5,6 +5,8 @@
 
 package akka.kafka.testkit.javadsl;
 
+import akka.actor.ActorSystem;
+import akka.stream.Materializer;
 import akka.stream.testkit.javadsl.StreamTestKit;
 import org.junit.After;
 import org.junit.Before;
@@ -16,6 +18,11 @@ import org.junit.Before;
  * framework.
  */
 public abstract class KafkaJunit4Test extends BaseKafkaTest {
+
+  protected KafkaJunit4Test(
+      ActorSystem system, Materializer materializer, String bootstrapServers) {
+    super(system, materializer, bootstrapServers);
+  }
 
   @Before
   public void setUpAdmin() {
@@ -29,6 +36,6 @@ public abstract class KafkaJunit4Test extends BaseKafkaTest {
 
   @After
   public void checkForStageLeaks() {
-    StreamTestKit.assertAllStagesStopped(materializer());
+    StreamTestKit.assertAllStagesStopped(materializer);
   }
 }

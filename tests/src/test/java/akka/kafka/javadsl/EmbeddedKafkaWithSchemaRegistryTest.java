@@ -5,9 +5,9 @@
 
 package akka.kafka.javadsl;
 
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
-import akka.kafka.testkit.javadsl.KafkaTest;
-import net.manub.embeddedkafka.EmbeddedKafka$;
+import akka.actor.ActorSystem;
+import akka.kafka.testkit.javadsl.KafkaJunit4Test;
+import akka.stream.Materializer;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKWithSR;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfigWithSchemaRegistry;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfigWithSchemaRegistry$;
@@ -16,13 +16,31 @@ import org.junit.After;
 import org.junit.Before;
 import scala.collection.immutable.HashMap$;
 
-public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaTest {
+public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaJunit4Test {
 
   /**
    * Workaround for https://github.com/manub/scalatest-embedded-kafka/issues/166 Keeping track of
    * all embedded servers, so we can shut the down later
    */
   private static EmbeddedKWithSR embeddedServer;
+
+  protected final int kafkaPort;
+  protected final int replicationFactor;
+  protected final int schemaRegistryPort;
+  protected final String schemaRegistryUrl;
+
+  public EmbeddedKafkaWithSchemaRegistryTest(
+      ActorSystem system,
+      Materializer materializer,
+      int kafkaPort,
+      int replicationFactor,
+      int schemaRegistryPort) {
+    super(system, materializer, "localhost:" + kafkaPort);
+    this.kafkaPort = kafkaPort;
+    this.replicationFactor = replicationFactor;
+    this.schemaRegistryPort = schemaRegistryPort;
+    this.schemaRegistryUrl = "http://localhost:" + schemaRegistryPort;
+  }
 
   private static EmbeddedKafkaConfigWithSchemaRegistry embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int schemaRegistryPort, int replicationFactor) {
@@ -36,30 +54,17 @@ public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaTest {
         HashMap$.MODULE$.empty());
   }
 
-  public static int schemaRegistryPort(int kafkaPort) {
-    return kafkaPort + 2;
-  }
-
-  protected static void startEmbeddedKafka(int kafkaPort, int replicationFactor) {
+  protected static void startEmbeddedKafka(
+      int kafkaPort, int replicationFactor, int schemaRegistryPort) {
     embeddedServer =
         EmbeddedKafkaWithSchemaRegistry$.MODULE$.start(
-            embeddedKafkaConfig(
-                kafkaPort, kafkaPort + 1, schemaRegistryPort(kafkaPort), replicationFactor));
-  }
-
-  protected static void stopEmbeddedKafka() {
-    EmbeddedKafka$.MODULE$.stop();
-  }
-
-  public abstract int kafkaPort();
-
-  public int replicationFactor() {
-    return 1;
+            embeddedKafkaConfig(kafkaPort, kafkaPort + 1, schemaRegistryPort, replicationFactor));
   }
 
   @Before
-  public void setupEmbeddedKafka() {
-    EmbeddedKafkaWithSchemaRegistryTest.startEmbeddedKafka(kafkaPort(), replicationFactor());
+  public void setUpEmbeddedKafka() {
+    EmbeddedKafkaWithSchemaRegistryTest.startEmbeddedKafka(
+        kafkaPort, replicationFactor, schemaRegistryPort);
     setUpAdminClient();
   }
 

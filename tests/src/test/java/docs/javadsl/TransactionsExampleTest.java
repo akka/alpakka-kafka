@@ -36,24 +36,8 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
-  @Override
-  public ActorSystem system() {
-    return system;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return materializer;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.JavaTransactionsExamples();
+  public TransactionsExampleTest() {
+    super(system, materializer, KafkaPorts.JavaTransactionsExamples());
   }
 
   @AfterClass
