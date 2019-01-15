@@ -11,48 +11,6 @@ val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
 val confluentAvroSerializerVersion = "5.0.1"
 
-val testDependencies = Seq(
-  "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
-  // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
-  "javax.ws.rs" % "javax.ws.rs-api" % "2.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-  "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
-  "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
-  "org.scalatest" %% "scalatest" % scalatestVersion % Test,
-  "io.spray" %% "spray-json" % "1.3.5" % Test,
-  "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
-  "com.novocode" % "junit-interface" % "0.11" % Test,
-  "junit" % "junit" % junit4Version % Test,
-  // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
-  "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
-  "org.hamcrest" % "hamcrest" % "2.1" % Test,
-  "net.aichler" % "jupiter-interface" % jupiterInterfaceVersion % Test,
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-  "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
-  "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
-  // Schema registry uses Glassfish which uses java.util.logging
-  "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-  "org.mockito" % "mockito-core" % "2.23.4" % Test
-)
-
-val integrationTestDependencies = Seq(
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-  "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-  "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-  "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.25" % IntegrationTest
-)
-
-val benchmarkDependencies = Seq(
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-  "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
-  "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-  "org.scalatest" %% "scalatest" % scalatestVersion % "it"
-)
-
 val kafkaScale = settingKey[Int]("Number of kafka docker containers")
 
 resolvers in ThisBuild ++= Seq(
