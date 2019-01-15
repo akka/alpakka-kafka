@@ -229,6 +229,6 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
         control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
   }
-// #testkit
+  // #testkit
 }
 // #testkit

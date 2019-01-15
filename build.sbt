@@ -7,7 +7,6 @@ val akkaVersion = "2.5.19"
 val kafkaVersion = "2.1.0"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
-val junit4Version = "4.12"
 val slf4jVersion = "1.7.25"
 val confluentAvroSerializerVersion = "5.0.1"
 
@@ -65,11 +64,12 @@ val commonSettings = Seq(
   ),
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
+  // https://github.com/maichler/sbt-jupiter-interface#framework-options
   // -a Show stack traces and exception class name for AssertionErrors.
   // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
   // -q Suppress stdout for successful tests.
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v", "-q"),
-  testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q"),
+  // -s Try to decode Scala names in stack traces and test names.
+  testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
   scalafmtOnCompile := true,
   headerLicense := Some(
     HeaderLicense.Custom(
@@ -150,7 +150,7 @@ lazy val testkit = project
       "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
       "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-      "junit" % "junit" % junit4Version % Provided,
+      "junit" % "junit" % "4.12" % Provided,
       "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
       "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
     ),
@@ -179,8 +179,7 @@ lazy val tests = project
       "org.scalatest" %% "scalatest" % scalatestVersion % Test,
       "io.spray" %% "spray-json" % "1.3.5" % Test,
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.7" % Test, // ApacheV2
-      "com.novocode" % "junit-interface" % "0.11" % Test,
-      "junit" % "junit" % junit4Version % Test,
+      "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
       // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
       "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
       "org.hamcrest" % "hamcrest" % "2.1" % Test,
