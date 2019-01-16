@@ -36,24 +36,8 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
-  @Override
-  public ActorSystem system() {
-    return system;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return materializer;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.JavaTransactionsExamples();
+  public TransactionsExampleTest() {
+    super(system, materializer, KafkaPorts.JavaTransactionsExamples());
   }
 
   @AfterClass
@@ -94,7 +78,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     // #transactionalSink
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 10);
-    produceString(sourceTopic, 10, partition0());
+    produceString(sourceTopic, 10, partition0);
     assertDone(consumer.isShutdown());
     // #transactionalSink
     control.drainAndShutdown(ec);
@@ -146,7 +130,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     int messages = 10;
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, messages);
-    assertDone(produceString(sourceTopic, messages, partition0()));
+    assertDone(produceString(sourceTopic, messages, partition0));
     assertDone(consumer.isShutdown());
     assertDone(innerControl.get().shutdown());
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());

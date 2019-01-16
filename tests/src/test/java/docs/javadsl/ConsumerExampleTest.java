@@ -13,10 +13,10 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.japi.Pair;
 import akka.kafka.*;
+import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.kafka.javadsl.Committer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -30,8 +30,9 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.junit.AfterClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Duration;
 import java.util.List;
@@ -45,42 +46,27 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 
-public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class ConsumerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private static final Executor ec = Executors.newSingleThreadExecutor();
+  private static final Executor executor = Executors.newSingleThreadExecutor();
 
-  @Override
-  public ActorSystem system() {
-    return system;
+  ConsumerExampleTest() {
+    super(system, materializer, KafkaPorts.ConsumerExamplesTest());
   }
 
-  @Override
-  public Materializer materializer() {
-    return materializer;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.ConsumerExamplesTest();
-  }
-
-  @AfterClass
-  public static void afterClass() {
+  @AfterAll
+  void afterClass() {
     TestKit.shutdownActorSystem(system);
   }
 
-  protected void assertDone(CompletionStage<Done> stage) throws Exception {
+  void assertDone(CompletionStage<Done> stage) throws Exception {
     assertEquals(Done.done(), resultOf(stage));
   }
 
-  protected <T> Flow<T, T, NotUsed> business() {
+  private <T> Flow<T, T, NotUsed> business() {
     return Flow.create();
   }
 
@@ -101,7 +87,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
   // #settings-autocommit
 
   @Test
-  public void plainSourceWithExternalOffsetStorage() throws Exception {
+  void plainSourceWithExternalOffsetStorage() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -115,12 +101,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
                     Consumer.plainSource(
                             consumerSettings,
                             Subscriptions.assignmentWithOffset(
-                                new TopicPartition(topic, /* partition: */ 0), fromOffset))
+                                new TopicPartition(topic, partition0), fromOffset))
                         .mapAsync(1, db::businessLogicAndStoreOffset)
                         .to(Sink.ignore())
                         .run(materializer));
     // #plainSource
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     while (db.offsetStore.get() < 9L) {
       sleepMillis(100, "until offsets have increased");
     }
@@ -158,7 +144,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
   // #plainSource
 
   @Test
-  public void atMostOnce() throws Exception {
+  void atMostOnce() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -170,7 +156,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .run(materializer);
 
     // #atMostOnce
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     assertDone(control.shutdown());
   }
 
@@ -181,7 +167,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
   }
 
   @Test
-  public void atLeastOnce() throws Exception {
+  void atLeastOnce() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     CommitterSettings committerSettings = committerDefaults();
@@ -199,12 +185,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .run(materializer);
 
     // #atLeastOnce
-    assertDone(produceString(topic, 10, partition0()));
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(produceString(topic, 10, partition0));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void atLeastOnceWithCommitterSink() throws Exception {
+  void atLeastOnceWithCommitterSink() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -223,12 +209,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committerSink
-    assertDone(produceString(topic, 10, partition0()));
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(produceString(topic, 10, partition0));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void commitWithMetadata() throws Exception {
+  void commitWithMetadata() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     CommitterSettings committerSettings = committerDefaults();
@@ -248,12 +234,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #commitWithMetadata
-    assertDone(produceString(topic, 10, partition0()));
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(produceString(topic, 10, partition0));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void consumerToProducer() throws Exception {
+  void consumerToProducer() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     ProducerSettings<String, String> producerSettings = producerDefaults();
@@ -273,17 +259,17 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink
-    assertDone(produceString(topic1, 10, partition0()));
-    assertDone(produceString(topic2, 10, partition0()));
+    assertDone(produceString(topic1, 10, partition0));
+    assertDone(produceString(topic2, 10, partition0));
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 20);
     assertDone(consumer.isShutdown());
-    assertEquals(20, resultOf(consumer.drainAndShutdown(ec)).size());
-    assertDone(control.drainAndShutdown(ec));
+    assertEquals(20, resultOf(consumer.drainAndShutdown(executor)).size());
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void consumerToProducerFlow() throws Exception {
+  void consumerToProducerFlow() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     ProducerSettings<String, String> producerSettings = producerDefaults();
@@ -305,16 +291,16 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerFlow
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
         consumeString(targetTopic, 10);
     assertDone(consumer.isShutdown());
-    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
-    assertDone(control.drainAndShutdown(ec));
+    assertEquals(10, resultOf(consumer.drainAndShutdown(executor)).size());
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void committableParitionedSource() throws Exception {
+  void committableParitionedSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
@@ -330,12 +316,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committablePartitionedSource
-    assertDone(produceString(topic, 10, partition0()));
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(produceString(topic, 10, partition0));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void streamPerPartition() throws Exception {
+  void streamPerPartition() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
@@ -358,12 +344,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #committablePartitionedSource-stream-per-partition
-    assertDone(produceString(topic, 10, partition0()));
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(produceString(topic, 10, partition0));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void consumerActor() throws Exception {
+  void consumerActor() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     ActorRef self = system.deadLetters();
@@ -404,7 +390,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
   }
 
   @Test
-  public void restartSource() throws Exception {
+  void restartSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 2, 1);
@@ -426,7 +412,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
         .runWith(Sink.ignore(), materializer);
 
     // #restartSource
-    assertDone(produceString(topic, 10, partition0()));
+    assertDone(produceString(topic, 10, partition0));
     // #restartSource
     control.get().shutdown();
     // #restartSource
@@ -455,7 +441,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
   // #withRebalanceListenerActor
 
   @Test
-  public void withRebalanceListener() throws Exception {
+  void withRebalanceListener() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -478,13 +464,13 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #withRebalanceListenerActor
-    assertDone(produceString(topic, messageCount, partition0()));
+    assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
-    assertEquals(messageCount, resultOf(control.drainAndShutdown(ec)).size());
+    assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
   }
 
   @Test
-  public void consumerMetrics() throws Exception {
+  void consumerMetrics() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -506,11 +492,11 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
     CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
     metrics.thenAccept(map -> System.out.println("Metrics: " + map));
     // #consumerMetrics
-    assertDone(control.drainAndShutdown(ec));
+    assertDone(control.drainAndShutdown(executor));
   }
 
   @Test
-  public void shutdownPlainSource() {
+  void shutdownPlainSource() {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -535,12 +521,12 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
                         .run(materializer));
 
     // Shutdown the consumer when desired
-    control.thenAccept(c -> c.drainAndShutdown(ec));
+    control.thenAccept(c -> c.drainAndShutdown(executor));
     // #shutdownPlainSource
   }
 
   @Test
-  public void shutdownCommittable() throws Exception {
+  void shutdownCommittable() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(1));
     String topic = createTopic(1, 1, 1);
@@ -566,7 +552,7 @@ public class ConsumerExampleTest extends EmbeddedKafkaJunit4Test {
             .run(materializer);
 
     // #shutdownCommittableSource
-    assertDone(produceString(topic, messageCount, partition0()));
+    assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
     assertEquals(Done.done(), resultOf(control.drainAndShutdown(ec), Duration.ofSeconds(20)));
     // #shutdownCommittableSource

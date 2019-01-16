@@ -17,32 +17,30 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
 
-import scala.concurrent.duration._
-
 trait KafkaTestKit {
 
   def log: Logger
 
   val DefaultKey = "key"
 
-  private val producerDefaultsInstance: ProducerSettings[String, String] =
+  private lazy val producerDefaultsInstance: ProducerSettings[String, String] =
     ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withBootstrapServers(bootstrapServers)
 
   def producerDefaults: ProducerSettings[String, String] = producerDefaultsInstance
 
-  private val consumerDefaultsInstance: ConsumerSettings[String, String] =
+  private lazy val consumerDefaultsInstance: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
   def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
 
-  private val committerDefaultsInstance = CommitterSettings(system)
+  private lazy val committerDefaultsInstance = CommitterSettings(system)
 
   def committerDefaults: CommitterSettings = committerDefaultsInstance
 
-  def nextNumber(): Int = KafkaTestKit.topicCounter.incrementAndGet()
+  def nextNumber(): Int = KafkaTestKitClass.topicCounter.incrementAndGet()
 
   def createTopicName(number: Int) = s"topic-$number-${nextNumber}"
 
@@ -53,7 +51,7 @@ trait KafkaTestKit {
   def system: ActorSystem
   def bootstrapServers: String
 
-  private val adminDefaults = {
+  private lazy val adminDefaults = {
     val config = new Properties()
     config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
     config
@@ -73,15 +71,18 @@ trait KafkaTestKit {
    * be sure to call `cleanUpAdminClient` after the tests are done.
    */
   def setUpAdminClient(): Unit =
-    adminClientVar = AdminClient.create(adminDefaults)
+    if (adminClientVar == null) {
+      adminClientVar = AdminClient.create(adminDefaults)
+    }
 
   /**
    * Close internal admin client instances.
    */
-  def cleanUpAdminClient(): Unit = {
-    adminClient.close(60, TimeUnit.SECONDS)
-    adminClientVar = null
-  }
+  def cleanUpAdminClient(): Unit =
+    if (adminClientVar != null) {
+      adminClientVar.close(60, TimeUnit.SECONDS)
+      adminClientVar = null
+    }
 
   /**
    * Create a topic with given partition number and replication factor.
@@ -109,6 +110,12 @@ trait KafkaTestKit {
   }
 }
 
-object KafkaTestKit {
+abstract class KafkaTestKitClass(override val system: ActorSystem, override val bootstrapServers: String)
+    extends KafkaTestKit
+
+object KafkaTestKitClass {
   val topicCounter = new AtomicInteger()
+  def createReplicationFactorBrokerProps(replicationFactor: Int): Map[String, String] = Map(
+    "offsets.topic.replication.factor" -> s"$replicationFactor"
+  )
 }

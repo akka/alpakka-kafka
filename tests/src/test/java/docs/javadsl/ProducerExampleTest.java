@@ -10,19 +10,25 @@ import akka.actor.ActorSystem;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+// #testkit
+import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+// #testkit
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+// #testkit
 import akka.testkit.javadsl.TestKit;
+// #testkit
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.AfterClass;
-import org.junit.Test;
+// #testkit
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
+// #testkit
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,38 +38,31 @@ import java.util.concurrent.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
+// #testkit
+
+@TestInstance(Lifecycle.PER_CLASS)
+class ProducerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private final ExecutorService ec = Executors.newSingleThreadExecutor();
+  // #testkit
+
+  private final Executor executor = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
-  @Override
-  public ActorSystem system() {
-    return system;
+  // #testkit
+
+  ProducerExampleTest() {
+    super(system, materializer, KafkaPorts.JavaProducerExamples());
   }
 
-  @Override
-  public Materializer materializer() {
-    return materializer;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.JavaProducerExamples();
-  }
-
-  @AfterClass
-  public static void afterClass() {
+  @AfterAll
+  void shutdownActorSystem() {
     TestKit.shutdownActorSystem(system);
   }
 
+  // #testkit
+  @Test
   void createProducer() {
     // #producer
     // #settings
@@ -75,10 +74,11 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #producer
+    kafkaProducer.close();
   }
 
   @Test
-  public void plainSink() throws Exception {
+  void plainSink() throws Exception {
     String topic = createTopic(1, 1, 1);
     // #plainSink
     CompletionStage<Done> done =
@@ -92,12 +92,13 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
         consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result =
+        control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
   }
 
   @Test
-  public void plainSinkWithSharedProducer() throws Exception {
+  void plainSinkWithSharedProducer() throws Exception {
     String topic = createTopic(1, 1, 1);
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
@@ -113,14 +114,15 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
         consumeString(topic, 100);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result =
+        control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
 
     kafkaProducer.close();
   }
 
   @Test
-  public void observeMetrics() throws Exception {
+  void observeMetrics() throws Exception {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #producerMetrics
@@ -166,7 +168,7 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
   }
 
   @Test
-  public void producerFlowExample() throws Exception {
+  void producerFlowExample() throws Exception {
     String topic = createTopic(1, 1, 1);
     // #flow
     CompletionStage<Done> done =
@@ -223,7 +225,10 @@ public class ProducerExampleTest extends EmbeddedKafkaJunit4Test {
         consumeString(topic, 100L);
     assertEquals(Done.done(), resultOf(done));
     assertEquals(Done.done(), resultOf(control.isShutdown()));
-    CompletionStage<List<ConsumerRecord<String, String>>> result = control.drainAndShutdown(ec);
+    CompletionStage<List<ConsumerRecord<String, String>>> result =
+        control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
   }
+  // #testkit
 }
+// #testkit

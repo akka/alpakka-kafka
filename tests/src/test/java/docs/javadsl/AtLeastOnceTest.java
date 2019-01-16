@@ -43,24 +43,8 @@ public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
   private static final Materializer materializer = ActorMaterializer.create(system);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
-  @Override
-  public ActorSystem system() {
-    return system;
-  }
-
-  @Override
-  public Materializer materializer() {
-    return materializer;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.AtLeastOnceToManyTest();
+  public AtLeastOnceTest() {
+    super(system, materializer, KafkaPorts.AtLeastOnceToManyTest());
   }
 
   @AfterClass
@@ -101,7 +85,7 @@ public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
             .toMat(Sink.seq(), Keep.both())
             .run(materializer);
 
-    produceString(topic1, 10, partition0()).toCompletableFuture().get(1, TimeUnit.SECONDS);
+    produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
     sleepSeconds(10, "to make produce happen");
     assertThat(
         control.drainAndShutdown(ec).toCompletableFuture().get(5, TimeUnit.SECONDS),
@@ -164,7 +148,7 @@ public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
             .toMat(Sink.seq(), Keep.both())
             .run(materializer);
 
-    produceString(topic1, 10, partition0()).toCompletableFuture().get(1, TimeUnit.SECONDS);
+    produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
     sleepSeconds(10, "to make produce happen");
     assertThat(
         control.drainAndShutdown(ec).toCompletableFuture().get(5, TimeUnit.SECONDS),

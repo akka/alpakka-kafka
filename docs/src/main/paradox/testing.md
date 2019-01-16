@@ -39,7 +39,7 @@ The testkit contains helper classes used by the tests in the Alpakka Kafka conne
 
 ### Testing from Java code
 
-Test classes may extend `akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test` to automatically start and stop an embedded Kafka broker.
+Test classes may extend `akka.kafka.testkit.javadsl.EmbeddedKafkaTest` (JUnit 5) or `akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test` (JUnit 4) to automatically start and stop an embedded Kafka broker.
 
 Furthermore it provides
 
@@ -48,10 +48,13 @@ Furthermore it provides
 * unique topic creation (`createTopic(int number, int partitions, int replication)`), and
 * `CompletionStage` value extraction helper (`<T> T resultOf(CompletionStage<T> stage, java.time.Duration timeout)`).
 
-The example below shows a skeleton test class for use with JUnit 4.
+The example below shows skeleton test classes for JUnit 4 and JUnit 5.
 
-Java
+Java JUnit 4
 : @@snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #testkit }
+
+Java JUnit 5
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #testkit }
 
 
 ### Testing from Scala code

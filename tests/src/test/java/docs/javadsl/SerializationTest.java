@@ -18,7 +18,6 @@ import akka.stream.*;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 // #jackson-imports
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,10 +40,7 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 // #imports
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.util.Arrays;
@@ -62,27 +58,9 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
-  @Override
-  public ActorSystem system() {
-    return sys;
+  public SerializationTest() {
+    super(sys, mat, KafkaPorts.SerializationTest(), 1, KafkaPorts.SerializationTest() + 2);
   }
-
-  @Override
-  public Materializer materializer() {
-    return mat;
-  }
-
-  @Override
-  public String bootstrapServers() {
-    return "localhost:" + kafkaPort();
-  }
-
-  @Override
-  public int kafkaPort() {
-    return KafkaPorts.SerializationTest();
-  }
-
-  private final String schemaRegistryUrl = "http://localhost:" + schemaRegistryPort(kafkaPort());
 
   @BeforeClass
   public static void beforeClass() {
