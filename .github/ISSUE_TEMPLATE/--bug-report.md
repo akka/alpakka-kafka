@@ -7,14 +7,14 @@ about: Create a report to improve Alpakka Kafka
 
 If you have a [Lightbend Subscription](https://www.lightbend.com/lightbend-platform-subscription), please reach out via the [Lightbend Portal](https://portal.lightbend.com/).
 
-This is an issue tracker, used to manage and track the development of **Alpakka Kafka**. 
+This is an issue tracker used to manage and track the development of **Alpakka Kafka**.
 
 Please report issues regarding specific projects in their respective issue trackers, e.g.:
  - Akka:      https://github.com/akka/akka/issues 
  - Akka HTTP: https://github.com/akka/akka-http/issues 
  - Alpakka:   https://github.com/akka/alpakka/issues 
 
-This is not a support system, ask questions or discuss ideas in the [Lightbend discuss forum](https://discuss.lightbend.com/c/akka/streams-and-alpakka).
+This is not a support system, please ask questions or discuss ideas in the [Lightbend discuss forum](https://discuss.lightbend.com/c/akka/streams-and-alpakka).
 
 We've collected a few tips for [debugging Alpakka Kafka](https://doc.akka.io/docs/akka-stream-kafka/current/debugging.html).
 
@@ -22,7 +22,7 @@ We've collected a few tips for [debugging Alpakka Kafka](https://doc.akka.io/doc
 ## Please add the following sections to your bug report
 
 ### Versions used 
-Akka Kafka version: ____ (1.0-M1 / 1.0-RC1 / etc)
+Alpakka Kafka version: ____ (1.0-M1 / 1.0-RC1 / etc)
 
 Akka version: ____ (2.5.19 / etc)
 
