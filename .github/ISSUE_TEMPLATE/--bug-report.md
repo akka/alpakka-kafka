@@ -9,14 +9,14 @@ If you have a [Lightbend Subscription](https://www.lightbend.com/lightbend-platf
 
 This is an issue tracker used to manage and track the development of **Alpakka Kafka**.
 
-Please report issues regarding specific projects in their respective issue trackers, e.g.:
+Please report issues regarding other projects in their respective issue trackers, e.g.:
  - Akka:      https://github.com/akka/akka/issues 
  - Akka HTTP: https://github.com/akka/akka-http/issues 
  - Alpakka:   https://github.com/akka/alpakka/issues 
 
-This is not a support system, please ask questions or discuss ideas in the [Lightbend discuss forum](https://discuss.lightbend.com/c/akka/streams-and-alpakka).
+Please ask questions or discuss ideas in the [Lightbend discuss forum](https://discuss.lightbend.com/c/akka/streams-and-alpakka).
 
-We've collected a few tips for [debugging Alpakka Kafka](https://doc.akka.io/docs/akka-stream-kafka/current/debugging.html).
+To get debug level logging, and for other troubleshooting tips, take a look at [debugging Alpakka Kafka](https://doc.akka.io/docs/akka-stream-kafka/current/debugging.html).
 
 
 ## Please add the following sections to your bug report
