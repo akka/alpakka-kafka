@@ -73,7 +73,7 @@ abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem
     "initial msg in topic, required to create the topic before any consumer subscribes to it"
 
   def setUp(): Unit = {
-    testProducer = producerDefaults.createKafkaProducer()
+    testProducer = producerDefaults.createProducer()
     setUpAdminClient()
   }
 

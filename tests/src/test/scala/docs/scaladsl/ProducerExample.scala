@@ -55,7 +55,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
   "PlainSink with shared producer" should "work" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val kafkaProducer = producerSettings.createKafkaProducer()
+    val kafkaProducer = producerSettings.createProducer()
     val topic = createTopic()
     // #plainSinkWithProducer
     val done = Source(1 to 100)
@@ -80,7 +80,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     val producerSettings =
       ProducerSettings(config, new StringSerializer, new StringSerializer)
         .withBootstrapServers(bootstrapServers)
-    val kafkaProducer = producerSettings.createKafkaProducer()
+    val kafkaProducer = producerSettings.createProducer()
     // #producer
     // #producerMetrics
     val metrics: java.util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =

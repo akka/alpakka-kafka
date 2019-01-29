@@ -62,7 +62,7 @@ object Transactional {
         new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](
           txSettings.closeTimeout,
           closeProducerOnStop = true,
-          () => txSettings.createKafkaProducer(),
+          () => txSettings.createProducer(),
           settings.eosCommitInterval
         )
       )
