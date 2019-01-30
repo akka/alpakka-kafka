@@ -269,10 +269,9 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
   /**
-   * Internal API.
    * Replaces the default Kafka producer creation logic.
    */
-  @InternalApi private[kafka] def withProducerFactory(
+  private[kafka] def withProducerFactory(
       factory: ProducerSettings[K, V] => Producer[K, V]
   ): ProducerSettings[K, V] = copy(producerFactory = factory)
 
@@ -309,5 +308,5 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Create a `Producer` instance from the settings.
    */
-  def createProducer(): Producer[K, V] = producerFactory.apply(this)
+  def createKafkaProducer(): Producer[K, V] = producerFactory.apply(this)
 }

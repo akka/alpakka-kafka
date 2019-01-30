@@ -72,7 +72,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
             .withBootstrapServers("localhost:9092");
     // #settings
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createProducer();
+        producerSettings.createKafkaProducer();
     // #producer
     kafkaProducer.close();
   }
@@ -101,7 +101,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   void plainSinkWithSharedProducer() throws Exception {
     String topic = createTopic(1, 1, 1);
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createProducer();
+        producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
     CompletionStage<Done> done =
         Source.range(1, 100)
@@ -124,7 +124,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   @Test
   void observeMetrics() throws Exception {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createProducer();
+        producerSettings.createKafkaProducer();
     // #producerMetrics
     Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
         kafkaProducer.metrics(); // observe metrics
