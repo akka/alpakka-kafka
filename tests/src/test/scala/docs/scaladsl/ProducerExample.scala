@@ -8,6 +8,7 @@ package docs.scaladsl
 import akka.kafka.{KafkaPorts, ProducerMessage, ProducerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 
@@ -26,7 +27,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)
 
-  "PlainSink" should "work" in {
+  "PlainSink" should "work" in assertAllStagesStopped {
     // #settings
     val config = system.settings.config.getConfig("akka.kafka.producer")
     val producerSettings =
@@ -52,7 +53,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     result.futureValue should have size (100)
   }
 
-  "PlainSink with shared producer" should "work" in {
+  "PlainSink with shared producer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
     val kafkaProducer = producerSettings.createKafkaProducer()
@@ -74,7 +75,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     kafkaProducer.close()
   }
 
-  "Metrics" should "be observed" in {
+  "Metrics" should "be observed" in assertAllStagesStopped {
     // #producer
     val config = system.settings.config.getConfig("akka.kafka.producer")
     val producerSettings =
@@ -143,7 +144,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     ptm
   }
 
-  "flexiFlow" should "work" in {
+  "flexiFlow" should "work" in assertAllStagesStopped {
     val producerSettings = producerDefaults
     val topic = createTopic()
     def println(s: String): Unit = {}

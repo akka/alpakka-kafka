@@ -12,6 +12,7 @@ import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -26,7 +27,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
-  "Transactional sink" should "work" in {
+  "Transactional sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
     val immutable.Seq(sourceTopic, sinkTopic) = createTopics(1, 2)
@@ -60,7 +61,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     result.futureValue should have size (10)
   }
 
-  "TransactionsFailureRetryExample" should "work" in {
+  "TransactionsFailureRetryExample" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
     val immutable.Seq(sourceTopic, sinkTopic) = createTopics(1, 2)

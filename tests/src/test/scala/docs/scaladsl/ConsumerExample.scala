@@ -14,6 +14,7 @@ import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -39,7 +40,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
 
-  "ExternalOffsetStorage" should "work" in {
+  "ExternalOffsetStorage" should "work" in assertAllStagesStopped {
     val topic = createTopic()
     val consumerSettings = consumerDefaults.withClientId("externalOffsetStorage")
     // format: off
@@ -112,7 +113,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     consumerSettingsWithAutoCommit
   }
 
-  "Consume messages at-most-once" should "work" in {
+  "Consume messages at-most-once" should "work" in assertAllStagesStopped {
     val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()
     val totalMessages = 10
@@ -146,7 +147,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   def business(rec: ConsumerRecord[String, String]): Future[Done] = Future.successful(Done)
 
-  "Consume messages at-least-once" should "work" in {
+  "Consume messages at-least-once" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #atLeastOnce
@@ -173,7 +174,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Future.successful(Done)
   // format: on
 
-  "Consume messages at-least-once, and commit in batches" should "work" in {
+  "Consume messages at-least-once, and commit in batches" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #commitWithMetadata
@@ -195,7 +196,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     control.drainAndShutdown().futureValue should be(Done)
   }
 
-  "Consume messages at-least-once, and commit with a committer sink" should "work" in {
+  "Consume messages at-least-once, and commit with a committer sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #committerSink
@@ -216,7 +217,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(control.drainAndShutdown(), 5.seconds)
   }
 
-  "Connect a Consumer to Producer" should "work" in {
+  "Connect a Consumer to Producer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic1, topic2, targetTopic) = createTopics(1, 2, 3)
     val producerSettings = producerDefaults
@@ -249,7 +250,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   }
 
-  "Connect a Consumer to Producer" should "support flows" in {
+  "Connect a Consumer to Producer" should "support flows" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
     val producerSettings = producerDefaults
@@ -281,7 +282,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
   }
 
-  "Backpressure per partition with batch commit" should "work" in {
+  "Backpressure per partition with batch commit" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val topic = createTopic()
     val maxPartitions = 100
@@ -299,7 +300,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     control.drainAndShutdown().futureValue should be(Done)
   }
 
-  "Flow per partition" should "Process each assigned partition separately" in {
+  "Flow per partition" should "Process each assigned partition separately" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val comitterSettings = committerDefaults
     val topic = createTopic()
@@ -322,7 +323,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     control.drainAndShutdown().futureValue should be(Done)
   }
 
-  "Rebalance Listener" should "get messages" in {
+  "Rebalance Listener" should "get messages" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val assignedPromise = Promise[Done]
@@ -370,7 +371,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     revokedPromise.future.futureValue should be(Done)
   }
 
-  "Shutdown via Consumer.Control" should "work" in {
+  "Shutdown via Consumer.Control" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val offset = 123456L
@@ -390,7 +391,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(consumerControl.shutdown(), 5.seconds) should be(Done)
   }
 
-  "Shutdown when batching commits" should "work" in {
+  "Shutdown when batching commits" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val committerSettings = committerDefaults
@@ -410,7 +411,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(streamComplete, 5.seconds) should be(Done)
   }
 
-  "Restarting Stream" should "work" in {
+  "Restarting Stream" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     //#restartSource
@@ -439,7 +440,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
     Await.result(result, 5.seconds) should have size 10
   }
 
-  it should "work with committable source" in {
+  it should "work with committable source" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val committerSettings = committerDefaults
     val topic = createTopic()

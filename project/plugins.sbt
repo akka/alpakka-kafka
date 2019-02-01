@@ -21,5 +21,5 @@ addSbtPlugin("com.github.ehsanyou" % "sbt-docker-compose" % "67284e73-envvars-2m
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2+10-148ba0ff")
 resolvers += Resolver.bintrayIvyRepo("2m", "sbt-plugins")
 
-addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.0")
+addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.1")
 resolvers += Resolver.jcenterRepo
