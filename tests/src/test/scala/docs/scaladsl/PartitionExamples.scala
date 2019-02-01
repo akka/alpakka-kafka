@@ -9,6 +9,7 @@ import akka.actor.ActorRef
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.{KafkaConsumerActor, KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
@@ -27,7 +28,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
                           "offsets.topic.num.partitions" -> "3"
                         ))
 
-  "Externally controlled kafka consumer" should "work" in {
+  "Externally controlled kafka consumer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic(partitions = 3)
     val partition1 = 1
@@ -77,7 +78,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
     result2.futureValue should have size 10
   }
 
-  "Consumer Metrics" should "work" in {
+  "Consumer Metrics" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic(partitions = 3)
     val partition = 1

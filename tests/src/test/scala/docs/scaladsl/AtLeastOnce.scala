@@ -13,6 +13,7 @@ import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -29,7 +30,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
-  "Connect a Consumer to Producer" should "map messages one-to-many, and commit in batches" in {
+  "Connect a Consumer to Producer" should "map messages one-to-many, and commit in batches" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val immutable.Seq(topic1, topic2, topic3) = createTopics(1, 2, 3)
     val producerSettings = producerDefaults
@@ -65,7 +66,7 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
     result.futureValue should have size (20)
   }
 
-  "At-Least-Once One To Conditional" should "work" in {
+  "At-Least-Once One To Conditional" should "work" in assertAllStagesStopped {
 
     def duplicate(value: String): Boolean = "1" == value
     def ignore(value: String): Boolean = "2" == value
