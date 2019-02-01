@@ -17,7 +17,6 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 |1.1.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
 |1.0.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
 |0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
-|0.11.x | 2.4.x        | [release 0.18](https://github.com/akka/reactive-kafka/milestone/18?closed=1)
 
 
 ## Dependencies
