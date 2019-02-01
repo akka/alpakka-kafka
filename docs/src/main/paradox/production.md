@@ -3,8 +3,8 @@
 
 ## Alpakka Kafka API
 
-1. Do not use `Consumer.atMostOnceSource` in production
-1. If you create `Producer` sinks in "inner flows", be sure to [share the `Producer` instance](https://doc.akka.io/docs/akka-stream-kafka/current/producer.html#sharing-the-kafkaproducer-instance)
+1. Do not use `Consumer.atMostOnceSource` in production as it internally commits the offset after every element.
+1. If you create `Producer` sinks in "inner flows", be sure to [share the `Producer` instance](https://doc.akka.io/docs/akka-stream-kafka/current/producer.html#sharing-the-kafkaproducer-instance). This avoids the expensive creation of `KafkaProducer` instances. 
 
 @@@ note
 
