@@ -146,8 +146,7 @@ object ProducerSettings {
    * Create a [[org.apache.kafka.clients.producer.KafkaProducer KafkaProducer]] instance from the settings.
    */
   def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] = {
-    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
-    new KafkaProducer[K, V](javaProps, settings.keySerializerOpt.orNull, settings.valueSerializerOpt.orNull)
+    new KafkaProducer[K, V](settings.getProperties, settings.keySerializerOpt.orNull, settings.valueSerializerOpt.orNull)
   }
 
 }
@@ -271,9 +270,14 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Replaces the default Kafka producer creation logic.
    */
-  private[kafka] def withProducerFactory(
+  def withProducerFactory(
       factory: ProducerSettings[K, V] => Producer[K, V]
   ): ProducerSettings[K, V] = copy(producerFactory = factory)
+
+  /**
+    * Get the Kafka producer settings as map.
+    */
+  def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
 
   private def copy(
       properties: Map[String, String] = properties,
