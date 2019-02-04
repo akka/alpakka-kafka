@@ -145,9 +145,10 @@ object ProducerSettings {
   /**
    * Create a [[org.apache.kafka.clients.producer.KafkaProducer KafkaProducer]] instance from the settings.
    */
-  def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] = {
-    new KafkaProducer[K, V](settings.getProperties, settings.keySerializerOpt.orNull, settings.valueSerializerOpt.orNull)
-  }
+  def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] =
+    new KafkaProducer[K, V](settings.getProperties,
+                            settings.keySerializerOpt.orNull,
+                            settings.valueSerializerOpt.orNull)
 
 }
 
@@ -275,8 +276,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   ): ProducerSettings[K, V] = copy(producerFactory = factory)
 
   /**
-    * Get the Kafka producer settings as map.
-    */
+   * Get the Kafka producer settings as map.
+   */
   def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
 
   private def copy(
