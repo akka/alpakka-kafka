@@ -37,6 +37,11 @@ To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.
 The testkit contains helper classes used by the tests in the Alpakka Kafka connector and may be used for other testing, as well.
 
 
+### Testing with Avro and Schema Registry
+
+If you need to run tests using [Confluent's Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html), you might include [embedded-kafka-schema-registry](https://github.com/embeddedkafka/embedded-kafka-schema-registry) instead.
+
+
 ### Testing from Java code
 
 Test classes may extend `akka.kafka.testkit.javadsl.EmbeddedKafkaTest` (JUnit 5) or `akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test` (JUnit 4) to automatically start and stop an embedded Kafka broker.
