@@ -1,0 +1,3 @@
+# PR #710 Generalize API for ProducerSettings
+# https://github.com/akka/alpakka-kafka/pull/710
+ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.kafka.ProducerSettings.createKafkaProducer")

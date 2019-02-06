@@ -11,7 +11,7 @@ import akka.actor.ActorSystem
 import akka.annotation.InternalApi
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
+import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig}
 import org.apache.kafka.common.serialization.Serializer
 
 import scala.collection.JavaConverters._
@@ -145,10 +145,10 @@ object ProducerSettings {
   /**
    * Create a [[org.apache.kafka.clients.producer.KafkaProducer KafkaProducer]] instance from the settings.
    */
-  def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] = {
-    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
-    new KafkaProducer[K, V](javaProps, settings.keySerializerOpt.orNull, settings.valueSerializerOpt.orNull)
-  }
+  def createKafkaProducer[K, V](settings: ProducerSettings[K, V]): KafkaProducer[K, V] =
+    new KafkaProducer[K, V](settings.getProperties,
+                            settings.keySerializerOpt.orNull,
+                            settings.valueSerializerOpt.orNull)
 
 }
 
@@ -168,7 +168,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val parallelism: Int,
     val dispatcher: String,
     val eosCommitInterval: FiniteDuration,
-    val producerFactory: ProducerSettings[K, V] => KafkaProducer[K, V]
+    val producerFactory: ProducerSettings[K, V] => Producer[K, V]
 ) {
 
   @deprecated("use the factory methods `ProducerSettings.apply` and `create` instead", "1.0-M1")
@@ -269,12 +269,16 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
   /**
-   * Internal API.
    * Replaces the default Kafka producer creation logic.
    */
-  @InternalApi private[kafka] def withProducerFactory(
-      factory: ProducerSettings[K, V] => KafkaProducer[K, V]
+  def withProducerFactory(
+      factory: ProducerSettings[K, V] => Producer[K, V]
   ): ProducerSettings[K, V] = copy(producerFactory = factory)
+
+  /**
+   * Get the Kafka producer settings as map.
+   */
+  def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
 
   private def copy(
       properties: Map[String, String] = properties,
@@ -284,7 +288,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       parallelism: Int = parallelism,
       dispatcher: String = dispatcher,
       eosCommitInterval: FiniteDuration = eosCommitInterval,
-      producerFactory: ProducerSettings[K, V] => KafkaProducer[K, V] = producerFactory
+      producerFactory: ProducerSettings[K, V] => Producer[K, V] = producerFactory
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
                                keySerializer,
@@ -307,7 +311,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     ")"
 
   /**
-   * Create a `KafkaProducer` instance from the settings.
+   * Create a `Producer` instance from the settings.
    */
-  def createKafkaProducer(): KafkaProducer[K, V] = producerFactory.apply(this)
+  def createKafkaProducer(): Producer[K, V] = producerFactory.apply(this)
 }
