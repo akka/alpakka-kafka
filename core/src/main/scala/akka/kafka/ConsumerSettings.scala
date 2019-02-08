@@ -467,10 +467,9 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
   /**
-   * Internal API.
    * Replaces the default Kafka consumer creation logic.
    */
-  @InternalApi private[kafka] def withConsumerFactory(
+  def withConsumerFactory(
       factory: ConsumerSettings[K, V] => Consumer[K, V]
   ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
 
