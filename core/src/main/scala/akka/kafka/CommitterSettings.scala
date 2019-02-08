@@ -71,7 +71,7 @@ class CommitterSettings private (
   def withMaxInterval(maxInterval: java.time.Duration): CommitterSettings =
     copy(maxInterval = maxInterval.asScala)
 
-  def withParallelism(value: Int): CommitterSettings =
+  def withParallelism(parallelism: Int): CommitterSettings =
     copy(parallelism = parallelism)
 
   private def copy(maxBatch: Long = maxBatch,
