@@ -165,10 +165,8 @@ object ConsumerSettings {
   /**
    * Create a [[org.apache.kafka.clients.consumer.KafkaConsumer KafkaConsumer]] instance from the settings.
    */
-  def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] = {
-    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
-    new KafkaConsumer[K, V](javaProps, settings.keyDeserializerOpt.orNull, settings.valueDeserializerOpt.orNull)
-  }
+  def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] =
+    new KafkaConsumer[K, V](settings.getProperties, settings.keyDeserializerOpt.orNull, settings.valueDeserializerOpt.orNull)
 
 }
 
