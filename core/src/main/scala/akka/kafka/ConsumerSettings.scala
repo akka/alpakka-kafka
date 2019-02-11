@@ -166,7 +166,9 @@ object ConsumerSettings {
    * Create a [[org.apache.kafka.clients.consumer.KafkaConsumer KafkaConsumer]] instance from the settings.
    */
   def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] =
-    new KafkaConsumer[K, V](settings.getProperties, settings.keyDeserializerOpt.orNull, settings.valueDeserializerOpt.orNull)
+    new KafkaConsumer[K, V](settings.getProperties,
+                            settings.keyDeserializerOpt.orNull,
+                            settings.valueDeserializerOpt.orNull)
 
 }
 
@@ -472,8 +474,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
 
   /**
-    * Get the Kafka consumer settings as map.
-    */
+   * Get the Kafka consumer settings as map.
+   */
   def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
 
   def getCloseTimeout: java.time.Duration = closeTimeout.asJava
