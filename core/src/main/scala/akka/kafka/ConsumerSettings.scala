@@ -473,6 +473,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       factory: ConsumerSettings[K, V] => Consumer[K, V]
   ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
 
+  /**
+    * Get the Kafka consumer settings as map.
+    */
+  def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
+
   def getCloseTimeout: java.time.Duration = closeTimeout.asJava
   def getPositionTimeout: java.time.Duration = positionTimeout.asJava
   def getOffsetForTimesTimeout: java.time.Duration = offsetForTimesTimeout.asJava
