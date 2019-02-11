@@ -165,10 +165,10 @@ object ConsumerSettings {
   /**
    * Create a [[org.apache.kafka.clients.consumer.KafkaConsumer KafkaConsumer]] instance from the settings.
    */
-  def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] = {
-    val javaProps = settings.properties.asInstanceOf[Map[String, AnyRef]].asJava
-    new KafkaConsumer[K, V](javaProps, settings.keyDeserializerOpt.orNull, settings.valueDeserializerOpt.orNull)
-  }
+  def createKafkaConsumer[K, V](settings: ConsumerSettings[K, V]): Consumer[K, V] =
+    new KafkaConsumer[K, V](settings.getProperties,
+                            settings.keyDeserializerOpt.orNull,
+                            settings.valueDeserializerOpt.orNull)
 
 }
 
@@ -467,12 +467,16 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
   /**
-   * Internal API.
    * Replaces the default Kafka consumer creation logic.
    */
-  @InternalApi private[kafka] def withConsumerFactory(
+  def withConsumerFactory(
       factory: ConsumerSettings[K, V] => Consumer[K, V]
   ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
+
+  /**
+   * Get the Kafka consumer settings as map.
+   */
+  def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
 
   def getCloseTimeout: java.time.Duration = closeTimeout.asJava
   def getPositionTimeout: java.time.Duration = positionTimeout.asJava
