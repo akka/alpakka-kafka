@@ -125,7 +125,7 @@ object Consumer {
                         subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .plainSource(settings, subscription)
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -145,7 +145,7 @@ object Consumer {
                               subscription: Subscription): Source[CommittableMessage[K, V], Control] =
     scaladsl.Consumer
       .committableSource(settings, subscription)
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -160,7 +160,7 @@ object Consumer {
   ): Source[CommittableMessage[K, V], Control] =
     scaladsl.Consumer
       .commitWithMetadataSource(settings, subscription, (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -171,7 +171,7 @@ object Consumer {
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .atMostOnceSource(settings, subscription)
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -188,7 +188,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -215,7 +215,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -245,7 +245,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -260,7 +260,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -278,7 +278,7 @@ object Consumer {
       .map {
         case (tp, source) => Pair(tp, source.asJava)
       }
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
@@ -289,9 +289,8 @@ object Consumer {
                                 subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
     scaladsl.Consumer
       .plainExternalSource(consumer, subscription)
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
-      .asInstanceOf[Source[ConsumerRecord[K, V], Control]]
 
   /**
    * The same as [[#plainExternalSource]] but with offset commit support

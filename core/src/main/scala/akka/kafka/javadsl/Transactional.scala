@@ -30,7 +30,7 @@ object Transactional {
                    subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
     scaladsl.Transactional
       .source(consumerSettings, subscription)
-      .mapMaterializedValue(new ConsumerControlAsJava(_))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**
