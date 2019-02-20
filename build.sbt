@@ -228,16 +228,20 @@ commands += Command.command("dockerComposeTestAll") { state ⇒
 }
 
 lazy val docs = project
-  .in(file("docs"))
-  .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin)
+  .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin, PreprocessPlugin, PublishRsyncPlugin)
+  .disablePlugins(BintrayPlugin, MimaPlugin)
   .settings(commonSettings)
-  .settings(addMappingsToSiteDir(LocalRootProject / ScalaUnidoc / packageDoc / mappings, SiteScaladoc / siteSubdirName))
   .settings(
     name := "Alpakka Kafka",
-    skip in publish := true,
+    publish / skip := true,
     whitesourceIgnore := true,
-    SiteScaladoc / siteSubdirName := s"api/alpakka-kafka/${version.value}",
-    Paradox / siteSubdirName := s"docs/alpakka-kafka/${version.value}",
+    makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
+    Preprocess / siteSubdirName := s"api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
+    Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
+    Preprocess / preprocessRules := Seq(
+      ("\\.java\\.scala".r, _ => ".java")
+    ),
+    Paradox / siteSubdirName := s"docs/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
     Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
     Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     Paradox / paradoxProperties ++= Map(
@@ -255,12 +259,14 @@ lazy val docs = project
         val docsHost = sys.env.get("CI")
           .map(_ => "https://doc.akka.io")
           .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
-        s"$docsHost/api/alpakka-kafka/${version.value}/"
+        s"$docsHost/api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}/"
       },
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
-    resolvers += Resolver.jcenterRepo
+    resolvers += Resolver.jcenterRepo,
+    publishRsyncArtifact := makeSite.value -> "www/",
+    publishRsyncHost := "akkarepo@gustav.akka.io"
   )
 
 lazy val benchmarks = project
