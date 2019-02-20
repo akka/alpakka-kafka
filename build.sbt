@@ -264,7 +264,7 @@ lazy val docs = project
         s"$docsHost/api/alpakka-kafka/${projectInfoVersion.value}/"
       },
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
-      "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
+      "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
     ),
     resolvers += Resolver.jcenterRepo,
     publishRsyncArtifact := makeSite.value -> "www/",
