@@ -22,7 +22,7 @@ resolvers in ThisBuild ++= Seq(
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
-  homepage := Some(url("https://doc.akka.io/docs/akka-stream-kafka/current/")),
+  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current/")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
@@ -81,6 +81,7 @@ val commonSettings = Seq(
   bintrayOrganization := Some("akka"),
   bintrayPackage := "alpakka-kafka",
   bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven"),
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
 )
 
 lazy val `alpakka-kafka` =
@@ -103,7 +104,7 @@ lazy val `alpakka-kafka` =
             |  testkit - framework for testing the connector
             |
             |Other modules:
-            |  docs - the sources for generating https://doc.akka.io/docs/akka-stream-kafka/current
+            |  docs - the sources for generating https://doc.akka.io/docs/alpakka-kafka/current
             |  benchmarks - compare direct Kafka API usage with Alpakka Kafka
             |
             |Useful sbt tasks:
@@ -236,16 +237,16 @@ lazy val docs = project
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
-    Preprocess / siteSubdirName := s"api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
+    Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
       ("\\.java\\.scala".r, _ => ".java")
     ),
-    Paradox / siteSubdirName := s"docs/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
+    Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
     Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     Paradox / paradoxProperties ++= Map(
-      "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
+      "project.url" -> "https://doc.akka.io/docs/alpakka-kafka/current/",
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,
@@ -260,7 +261,7 @@ lazy val docs = project
           .get("CI")
           .map(_ => "https://doc.akka.io")
           .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
-        s"$docsHost/api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}/"
+        s"$docsHost/api/alpakka-kafka/${projectInfoVersion.value}/"
       },
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
