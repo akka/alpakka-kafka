@@ -86,10 +86,13 @@ val commonSettings = Seq(
 lazy val `alpakka-kafka` =
   project
     .in(file("."))
+    .enablePlugins(ScalaUnidocPlugin)
+    .disablePlugins(SitePlugin)
     .settings(commonSettings)
     .settings(
       skip in publish := true,
       dockerComposeIgnore := true,
+      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
         """
             |** Welcome to the Alpakka Kafka connector! **
@@ -105,9 +108,9 @@ lazy val `alpakka-kafka` =
             |
             |Useful sbt tasks:
             |
-            |  docs/Local/paradox
-            |    builds documentation, which is generated at
-            |    docs/target/paradox/site/local/index.html
+            |  docs/previewSite
+            |    builds Paradox and Scaladoc documentation, starts a webserver and
+            |    opens a new browser window
             |
             |  test
             |    runs all the tests
@@ -123,6 +126,7 @@ lazy val `alpakka-kafka` =
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(SitePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka",
@@ -140,7 +144,7 @@ lazy val core = project
 lazy val testkit = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-testkit",
@@ -163,7 +167,7 @@ lazy val testkit = project
 lazy val tests = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
-  .disablePlugins(MimaPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
@@ -224,15 +228,23 @@ commands += Command.command("dockerComposeTestAll") { state ⇒
 }
 
 lazy val docs = project
-  .in(file("docs"))
-  .enablePlugins(AkkaParadoxPlugin)
+  .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin, PreprocessPlugin, PublishRsyncPlugin)
+  .disablePlugins(BintrayPlugin, MimaPlugin)
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
-    skip in publish := true,
+    publish / skip := true,
     whitesourceIgnore := true,
-    paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
-    paradoxProperties ++= Map(
+    makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
+    Preprocess / siteSubdirName := s"api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
+    Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
+    Preprocess / preprocessRules := Seq(
+      ("\\.java\\.scala".r, _ => ".java")
+    ),
+    Paradox / siteSubdirName := s"docs/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}",
+    Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
+    Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
+    Paradox / paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/akka-stream-kafka/current/",
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
@@ -243,19 +255,25 @@ lazy val docs = project
       "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
       "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
       "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
-      "scaladoc.akka.kafka.base_url" -> s"https://doc.akka.io/api/akka-stream-kafka/${version.value}/",
+      "scaladoc.akka.kafka.base_url" -> {
+        val docsHost = sys.env.get("CI")
+          .map(_ => "https://doc.akka.io")
+          .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
+        s"$docsHost/api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}/"
+      },
       "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
       "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
     ),
     resolvers += Resolver.jcenterRepo,
-    paradoxLocalApiKey := "scaladoc.akka.kafka.base_url",
-    paradoxLocalApiDir := (core / Compile / doc).value,
+    publishRsyncArtifact := makeSite.value -> "www/",
+    publishRsyncHost := "akkarepo@gustav.akka.io"
   )
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
+  .disablePlugins(SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
