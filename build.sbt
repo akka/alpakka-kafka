@@ -256,7 +256,8 @@ lazy val docs = project
       "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
       "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
       "scaladoc.akka.kafka.base_url" -> {
-        val docsHost = sys.env.get("CI")
+        val docsHost = sys.env
+          .get("CI")
           .map(_ => "https://doc.akka.io")
           .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
         s"$docsHost/api/alpakka-kafka/${if (isSnapshot.value) "snapshot" else version.value}/"
