@@ -42,7 +42,7 @@ Key links:
 - [ ] Go to [Bintray](https://bintray.com/akka/maven/alpakka-kafka) and select the just released version
 - [ ] Go to the Maven Central tab and sync with Sonatype (using your Sonatype TOKEN key and password)
 - [ ] Log in to Sonatype to close the staging repository (optional, should happen automatically if selected in Bintray)
-- [ ] Release the staging repository to Maven Central
+- [ ] Release the staging repository to Maven Central (optional, should happen automatically if selected in Bintray)
 
 ### Check availability
 - [ ] Check the release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
