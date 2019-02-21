@@ -26,21 +26,27 @@ jobs:
   include:
     - stage: check
       script: sbt scalafmtCheck || { echo "[error] Unformatted code found. Please run 'Test/compile' and commit the reformatted code."; false; }
-      env: SCALAFMT_CHECK
+      name: "Code style check (fixed with `sbt Test/compile`)"
     - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
-      env: SCALAFMT_SBT_CHECK
-    - env: CMD="Test/compile"
-    - env: CMD="Compile/doc"
-    - env: CMD="docs/paradox"
+      name: "Build code style check (fixed with `sbt scalafmtSbt`)"
+    - env: CMD="++2.11.12 Test/compile"
+      name: "Compile all tests (with Scala 2.11)"
+    - env: CMD="unidoc"
+      name: "Create all API docs"
+    - env: CMD="docs/Paradox/paradox"
+      name: "Create site with Paradox"
 
     - stage: test
       env: CMD="+test"
+      name: "Run tests (AdoptOpenJDK 8)"
 
     - env:
       - JDK="adopt@1.11.0-1"
       - CMD="+test"
+      name: "Run tests (AdoptOpenJDK 11)"
 
     - env: CMD="mimaReportBinaryIssues"
+      name: "Check binary compatibility"
 
     - stage: integration
       env: CMD="dockerComposeTestAll"
