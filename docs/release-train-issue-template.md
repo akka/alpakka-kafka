@@ -45,7 +45,6 @@ Key links:
 - [ ] Release the staging repository to Maven Central (optional, should happen automatically if selected in Bintray)
 
 ### Check availability
-- [ ] Check the release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
 - [ ] Check the release on [Maven central](http://central.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$ALPAKKA_KAFKA_VERSION$/) and [reference](https://doc.akka.io/docs/alpakka-kafka/$ALPAKKA_KAFKA_VERSION$/) documentation
 
