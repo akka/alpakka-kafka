@@ -44,34 +44,16 @@ Key links:
 - [ ] Log in to Sonatype to close the staging repository (optional, should happen automatically if selected in Bintray)
 - [ ] Release the staging repository to Maven Central
 
-### Publish docs to Gustav
-
-- [ ] Execute steps below (This requires access to *gustav*)
-1. Checkout the newly released tag.
-1. If you need to make any changes to the already released docs, create `version.sbt` and set the project version explicitly:
-    ```
-    ThisBuild / version := "$ALPAKKA_KAFKA_VERSION$"
-    ThisBuild / isSnapshot := false
-    ```
-1. Build paradox and API documentation:
-    ```
-    sbt docs/paradox core/doc
-    ```
-1. Upload docs to *gustav*:
-    ```
-    rsync -azP docs/target/paradox/site/main/ gustav.akka.io:www/docs/akka-stream-kafka/$ALPAKKA_KAFKA_VERSION$/
-    rsync -azP core/target/scala-2.12/api/ gustav.akka.io:www/api/akka-stream-kafka/$ALPAKKA_KAFKA_VERSION$/
-    ```
-
 ### Check availability
-- [ ] Check release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
+- [ ] Check the release on [Sonatype](https://oss.sonatype.org/content/repositories/releases/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
 - [ ] Check the release on [Maven central](http://central.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.12/$ALPAKKA_KAFKA_VERSION$/)
+- [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$ALPAKKA_KAFKA_VERSION$/) and [reference](https://doc.akka.io/docs/alpakka-kafka/$ALPAKKA_KAFKA_VERSION$/) documentation
 
 ### When everything is on maven central
 - [ ] Log into `gustav.akka.io` as `akkarepo` and update the `current` links on `repo.akka.io` to point to the latest version with
      ```
-     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/docs/akka-stream-kafka/current
-     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/api/akka-stream-kafka/current
+     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/docs/alpakka-kafka/current
+     ln -nsf $ALPAKKA_KAFKA_VERSION$ www/api/alpakka-kafka/current
      ```
      
 ### Announcements
