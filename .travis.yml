@@ -31,7 +31,7 @@ jobs:
       env: SCALAFMT_SBT_CHECK
     - env: CMD="Test/compile"
     - env: CMD="Compile/doc"
-    - env: CMD="docs/paradox"
+    - env: CMD="docs/Paradox/paradox"
 
     - stage: test
       env: CMD="+test"
