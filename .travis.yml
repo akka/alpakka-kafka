@@ -13,12 +13,12 @@ before_install:
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
-  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.0/install.sh | bash && . ~/.jabba/jabba.sh
-  - jabba install adopt@1.8.192-12
-  - jabba install adopt@1.11.0-1
+  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash && . ~/.jabba/jabba.sh
+  - jabba install adopt@~1.8.202-08
+  - jabba install adopt@~1.11.0-2
 
 script:
-  - jabba use ${JDK:=adopt@1.8.192-12}
+  - jabba use ${JDK:=adopt@~1.8.202-08}
   - java -version
   - sbt -jvm-opts .jvmopts-travis "$CMD"
 
@@ -41,7 +41,7 @@ jobs:
       name: "Run tests (AdoptOpenJDK 8)"
 
     - env:
-      - JDK="adopt@1.11.0-1"
+      - JDK="adopt@~1.11.0-2"
       - CMD="+test"
       name: "Run tests (AdoptOpenJDK 11)"
 
