@@ -17,8 +17,8 @@ These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.
 |-----------------------------------|-----------------|---------------------|-----------------|----------------|---------------------|
 | No (auto commit can be enabled)   | No              | Topic or Partition  | No              | `plainSource` | `ConsumerRecord` |
 | No (auto commit can be enabled)   | No              | Partition           | Yes             | `plainExternalSource` | `ConsumerRecord` |
-| Explicit committing               | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |  
-| Explicit committing               | No              | Parittion           | Yes             | `committableExternalSource` | `CommittableMessage` |  
+| Explicit committing               | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |
+| Explicit committing               | No              | Partition           | Yes             | `committableExternalSource` | `CommittableMessage` |
 | Explicit committing with metadata | No              | Topic or Partition  | No              | `commitWithMetadataSource` | `CommittableMessage` |
 | Offset committed per element      | No              | Topic or Partition  | No              | `atMostOnceSource` | `ConsumerRecord` |
 | No (auto commit can be enabled)   | Yes             | Topic or Partition  | No              | `plainPartitionedSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
