@@ -5,6 +5,36 @@ A consumer subscribes to Kafka topics and passes the messages into an Akka Strea
 The underlying implementation is using the `KafkaConsumer`, see @javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer) for a description of consumer groups, offsets, and other details.
 
 
+## Choosing a consumer
+
+Alpakka Kafka offers a large variety of consumers that connect to Kafka and stream data. The tables below may help you to find the consumer best suited for your use-case.
+
+### Consumers
+
+These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)].
+
+| Offsets handling                  | Partition aware | Subscription        | Shared consumer | Factory method | Stream element type |
+|-----------------------------------|-----------------|---------------------|-----------------|----------------|---------------------|
+| No (auto commit can be enabled)   | No              | Topic or Partition  | No              | `plainSource` | `ConsumerRecord` |
+| No (auto commit can be enabled)   | No              | Partition           | Yes             | `plainExternalSource` | `ConsumerRecord` |
+| Explicit committing               | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |
+| Explicit committing               | No              | Partition           | Yes             | `committableExternalSource` | `CommittableMessage` |
+| Explicit committing with metadata | No              | Topic or Partition  | No              | `commitWithMetadataSource` | `CommittableMessage` |
+| Offset committed per element      | No              | Topic or Partition  | No              | `atMostOnceSource` | `ConsumerRecord` |
+| No (auto commit can be enabled)   | Yes             | Topic or Partition  | No              | `plainPartitionedSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
+| External to Kafka                 | Yes             | Topic or Partition  | No              | `plainPartitionedManualOffsetSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
+| Explicit committing               | Yes             | Topic or Partition  | No              | `committablePartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])` |
+| Explicit committing with metadata | Yes             | Topic or Partition  | No              | `commitWithMetadataPartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])` |
+
+### Transactional consumers
+
+These factory methods are part of the @scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]. For details see @ref[Transactions](transactions.md).
+
+| Offsets handling                  | Partition aware | Shared consumer | Factory method | Stream element type |
+|-----------------------------------|-----------------|-----------------|----------------|---------------------|
+| Transactional                     | No              | No              | `Transactional.source` | `TransactionalMessage` |
+
+
 ## Settings
 
 When creating a consumer stream you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
