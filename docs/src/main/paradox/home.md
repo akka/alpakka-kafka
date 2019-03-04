@@ -12,7 +12,8 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 |Kafka  | Akka version | Alpakka Kafka Connector
 |-------|--------------|-------------------------
-|[2.1.x](https://dist.apache.org/repos/dist/release/kafka/2.1.0/RELEASE_NOTES.html) | 2.5.x        | @ref:[release 1.0-RC1](release-notes/1.0-RC1.md)
+|[2.1.1](https://dist.apache.org/repos/dist/release/kafka/2.1.1/RELEASE_NOTES.html) | 2.5.x        | @ref:[release 1.1](release-notes/1.1.md)
+|[2.1.0](https://dist.apache.org/repos/dist/release/kafka/2.1.0/RELEASE_NOTES.html) | 2.5.x        | @ref:[release 1.0](release-notes/1.0.md)
 |2.0.x  | 2.5.x        | @ref:[release 1.0-M1](release-notes/1.0-M1.md)
 |1.1.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
 |1.0.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
