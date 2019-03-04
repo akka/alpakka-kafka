@@ -27,7 +27,8 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
                         zooKeeperPort,
                         Map(
                           "offsets.topic.replication.factor" -> "1",
-                          "max.partition.fetch.bytes" -> "2048"
+                          "max.partition.fetch.bytes" -> "2048",
+                          "num.partitions" -> "4"
                         ))
 
   "A consume-transform-produce cycle" must {
@@ -253,7 +254,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       Await.result(innerControl.shutdown(), remainingOrDefault)
     }
 
-    "provide consistency when partitions rebalanced" in {
+    "provide consistency when partitions are rebalanced" in {
       val sourceTopic = createTopicName(1)
       val sinkTopic = createTopicName(2)
       val group = createGroupId(1)
@@ -302,7 +303,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       probeConsumer
         .request(elements)
-        .expectNextN((1 to elements).map(_.toString))
+        .expectNextUnorderedN((1 to elements).map(_.toString))
 
       probeConsumer.cancel()
 
