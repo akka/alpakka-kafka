@@ -23,6 +23,7 @@ Key links:
 ### 1 day before the release
 
 - [ ] Make sure all important / big PRs have been merged by now
+- [ ] Check versions listed in [home.md](https://github.com/akka/alpakka-kafka/blob/master/docs/src/main/paradox/home.md)
 - [ ] Communicate that a new version is about to be released in [Gitter Akka Dev Channel](https://gitter.im/akka/dev), so that no new Pull Requests are merged
 
 ### Preparing release notes in the documentation / announcement
