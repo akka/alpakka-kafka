@@ -45,24 +45,7 @@ import scala.concurrent.{Future, Promise}
         log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
       }
 
-      KafkaConsumerActor.ListenerCallbacks(
-        assignedTps => {
-          autoSubscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsAssigned(autoSubscription, assignedTps), sourceActor.ref)
-          }
-          if (assignedTps.nonEmpty) {
-            partitionAssignedCB.invoke(assignedTps)
-          }
-        },
-        revokedTps => {
-          autoSubscription.rebalanceListener.foreach {
-            _.tell(TopicPartitionsRevoked(autoSubscription, revokedTps), sourceActor.ref)
-          }
-          if (revokedTps.nonEmpty) {
-            partitionRevokedCB.invoke(revokedTps)
-          }
-        }
-      )
+      KafkaConsumerActor.ListenerCallbacks(autoSubscription, sourceActor.ref, partitionAssignedCB, partitionRevokedCB)
     }
 
     subscription match {
