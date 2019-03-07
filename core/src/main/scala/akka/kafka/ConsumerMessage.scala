@@ -98,7 +98,7 @@ object ConsumerMessage {
   )
 
   object CommittableOffsetBatch {
-    val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty, 0)
+    val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, 0)
 
     /**
      * Scala API:

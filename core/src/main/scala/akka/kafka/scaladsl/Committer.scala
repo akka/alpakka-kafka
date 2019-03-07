@@ -19,7 +19,6 @@ object Committer {
    */
   def flow(settings: CommitterSettings): Flow[Committable, Done, NotUsed] =
     Flow[Committable]
-    // Not very efficient, ideally we should merge offsets instead of grouping them
       .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
       .map(CommittableOffsetBatch.apply)
       .mapAsync(settings.parallelism)(_.commitScaladsl())

@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch, PartitionOffsetMetadata}
+import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.Commit
 import akka.kafka.scaladsl.Consumer.Control
@@ -21,7 +21,6 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, Offset
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -103,43 +102,12 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
     implicit ec: ExecutionContext
 ) extends InternalCommitter {
   import akka.pattern.ask
-  import scala.collection.breakOut
 
-  override def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
-    val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = offsets.map { offset =>
-      new TopicPartition(offset.key.topic, offset.key.partition) ->
-      new OffsetAndMetadata(offset.offset + 1, offset.metadata)
-    }(breakOut)
-
+  def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done] =
     consumerActor
-      .ask(Commit(offsetsMap))(Timeout(commitTimeout))
-      .map(_ => Done)
-      .recoverWith {
-        case _: AskTimeoutException =>
-          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
-        case other => Future.failed(other)
-      }
-  }
-
-  override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
-    case b: CommittableOffsetBatchImpl =>
-      val futures = b.offsetsAndMetadata.groupBy(_._1.groupId).map {
-        case (groupId, offsetsMap) =>
-          val committer = b.committers.getOrElse(
-            groupId,
-            throw new IllegalStateException(s"Unknown committer, got [$groupId]")
-          )
-          val offsets: immutable.Seq[PartitionOffsetMetadata] = offsetsMap.map {
-            case (ctp, offset) => PartitionOffsetMetadata(ctp, offset.offset(), offset.metadata())
-          }(breakOut)
-          committer.commit(offsets)
-      }
-      Future.sequence(futures).map(_ => Done)
-
-    case _ =>
-      throw new IllegalArgumentException(
-        s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
-        s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
-      )
-  }
+      .ask(Commit(offsets))(Timeout(commitTimeout))
+      .transform(_ => Done, {
+        case _: AskTimeoutException => new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout")
+        case other => other
+      })
 }
