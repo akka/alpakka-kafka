@@ -36,7 +36,7 @@ private[kafka] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Resu
  * INTERNAL API
  */
 @InternalApi
-private object ProducerStage {
+private[kafka] object ProducerStage {
 
   trait ProducerCompletionState {
     def onCompletionSuccess(): Unit
