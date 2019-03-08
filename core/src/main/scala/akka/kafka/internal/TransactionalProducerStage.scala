@@ -54,7 +54,12 @@ private object TransactionalProducerStage {
   final class NonemptyTransactionBatch(head: PartitionOffset,
                                        tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
       extends TransactionBatch {
-    private val offsets = tail + (head.key -> head.offset)
+    // There is no guarantee that offsets adding callbacks will be called in any particular order.
+    // Decreasing an offset stored for the KTP would mean possible data duplication.
+    // Since `awaitingConfirmation` counter guarantees that all writes finished, we can safely assume
+    // that all all data up to maximal offsets has been wrote to Kafka.
+    private val previousHighest = tail.getOrElse(head.key, -1L)
+    private val offsets = tail + (head.key -> head.offset.max(previousHighest))
 
     def group: String = head.key.groupId
     def offsetMap(): Map[TopicPartition, OffsetAndMetadata] = offsets.map {
