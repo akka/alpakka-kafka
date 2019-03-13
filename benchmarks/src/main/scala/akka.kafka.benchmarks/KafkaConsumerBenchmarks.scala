@@ -5,7 +5,9 @@
 
 package akka.kafka.benchmarks
 
+import java.time.Duration
 import java.util
+
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.{OffsetAndMetadata, OffsetCommitCallback}
@@ -15,7 +17,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object KafkaConsumerBenchmarks extends LazyLogging {
-  val pollTimeoutMs = 50L
+  val pollTimeoutMs: Duration = Duration.ofMillis(50L)
 
   /**
    * Reads messages from topic in a loop, then discards immediately. Does not commit.
