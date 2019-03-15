@@ -59,7 +59,7 @@ When creating `ConsumerSettings` with the `ActorSystem` (@scaladoc[API](akka.act
 
 `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) can also be created from any other `Config` section with the same layout as above.
 
-See @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig) for more details regarding settings.
+The Kafka documentation [Consumer Configs](http://kafka.apache.org/documentation/#consumerconfigs) lists the settings, their defaults and importance. More detailed explanations are given in the @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and constants are defined in @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig).
 
 
 ## Offset Storage external to Kafka
