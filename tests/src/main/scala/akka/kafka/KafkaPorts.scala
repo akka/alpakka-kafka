@@ -35,5 +35,6 @@ object KafkaPorts {
   val JavaProducerExamples = 9202
   val JavaTransactionsExamples = 9212
   val ConsumerExamplesTest = 9222
+  val CommittingSpec = 9232
 
 }
