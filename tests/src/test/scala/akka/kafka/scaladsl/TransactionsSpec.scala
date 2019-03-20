@@ -259,9 +259,12 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
   }
 
-  private def transactionalCopyStream(consumerSettings: ConsumerSettings[String, String], sourceTopic: String,
-                                      sinkTopic: String, transactionalId: String):
-  Source[ProducerMessage.Results[String, String, PartitionOffset], Control] = {
+  private def transactionalCopyStream(
+      consumerSettings: ConsumerSettings[String, String],
+      sourceTopic: String,
+      sinkTopic: String,
+      transactionalId: String
+  ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
     Transactional
       .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
       .filterNot(_.record.value() == InitialMsg)
@@ -269,20 +272,17 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
       .via(Transactional.flow(producerDefaults, transactionalId))
-  }
 
-  private def probeConsumerSettings(groupId: String): ConsumerSettings[String, String] = {
+  private def probeConsumerSettings(groupId: String): ConsumerSettings[String, String] =
     consumerDefaults
       .withGroupId(groupId)
       .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")
-  }
 
-  private def valuesProbeConsumer(settings: ConsumerSettings[String, String], topic: String):
-  TestSubscriber.Probe[String] = {
+  private def valuesProbeConsumer(settings: ConsumerSettings[String, String],
+                                  topic: String): TestSubscriber.Probe[String] =
     Consumer
-        .plainSource(settings, TopicSubscription(Set(topic), None))
-        .filterNot(_.value == InitialMsg)
-        .map(_.value())
-        .runWith(TestSink.probe)
-  }
+      .plainSource(settings, TopicSubscription(Set(topic), None))
+      .filterNot(_.value == InitialMsg)
+      .map(_.value())
+      .runWith(TestSink.probe)
 }

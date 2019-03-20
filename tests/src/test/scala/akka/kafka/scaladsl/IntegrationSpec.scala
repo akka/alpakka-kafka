@@ -5,8 +5,6 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
@@ -24,7 +22,6 @@ import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -59,78 +56,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
         probe.cancel()
       }
-    }
-
-    "resume consumer from committed offset" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
-      val group2 = createGroupId(2)
-
-      givenInitializedTopic(topic1)
-
-      // NOTE: If no partition is specified but a key is present a partition will be chosen
-      // using a hash of the key. If neither key nor partition is present a partition
-      // will be assigned in a round-robin fashion.
-
-      Source(1 to 100)
-        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults))
-
-      val committedElements = new ConcurrentLinkedQueue[Int]()
-
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-
-      val (control, probe1) = Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .filterNot(_.record.value == InitialMsg)
-        .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ =>
-            committedElements.add(elem.record.value.toInt)
-            Done
-          }
-        }
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
-
-      probe1
-        .request(25)
-        .expectNextN(25)
-        .toSet should be(Set(Done))
-
-      probe1.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-
-      val probe2 = Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .map(_.record.value)
-        .runWith(TestSink.probe)
-
-      // Note that due to buffers and mapAsync(10) the committed offset is more
-      // than 26, and that is not wrong
-
-      // some concurrent publish
-      Source(101 to 200)
-        .map(n => new ProducerRecord(topic1, partition0, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults))
-
-      probe2
-        .request(100)
-        .expectNextN(((committedElements.asScala.max + 1) to 100).map(_.toString))
-
-      probe2.cancel()
-
-      // another consumer should see all
-      val probe3 = Consumer
-        .committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(topic1))
-        .filterNot(_.record.value == InitialMsg)
-        .map(_.record.value)
-        .runWith(TestSink.probe)
-
-      probe3
-        .request(100)
-        .expectNextN((1 to 100).map(_.toString))
-
-      probe3.cancel()
     }
 
     "signal rebalance events to actor" in assertAllStagesStopped {
@@ -206,123 +131,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
       stream1messages + stream2messages shouldBe totalMessages
-    }
-
-    "handle commit without demand" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
-
-      givenInitializedTopic(topic1)
-
-      // important to use more messages than the internal buffer sizes
-      // to trigger the intended scenario
-      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-
-      val (control, probe1) = Consumer
-        .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
-        .filterNot(_.record.value == InitialMsg)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
-
-      // request one, only
-      probe1.request(1)
-
-      val committableOffset = probe1.expectNext().committableOffset
-
-      // enqueue some more
-      Await.result(produce(topic1, 101 to 110), remainingOrDefault)
-
-      probe1.expectNoMessage(200.millis)
-
-      // then commit, which triggers a new poll while we haven't drained
-      // previous buffer
-      val done1 = committableOffset.commitScaladsl()
-
-      Await.result(done1, remainingOrDefault)
-
-      probe1.request(1)
-      val done2 = probe1.expectNext().committableOffset.commitScaladsl()
-      Await.result(done2, remainingOrDefault)
-
-      probe1.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-    }
-
-    "consume and commit in batches" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
-
-      givenInitializedTopic(topic1)
-
-      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-
-      def consumeAndBatchCommit(topic: String) =
-        Consumer
-          .committableSource(
-            consumerSettings,
-            Subscriptions.topics(topic)
-          )
-          .map(_.committableOffset)
-          .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
-          .mapAsync(1)(_.commitScaladsl())
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
-
-      val (control, probe) = consumeAndBatchCommit(topic1)
-
-      // Request one batch
-      probe.request(1).expectNextN(1)
-
-      probe.cancel()
-      Await.result(control.isShutdown, remainingOrDefault)
-
-      // Resume consumption
-      val (control2, probe2) = createProbe(consumerSettings, topic1)
-
-      val element = probe2.request(1).expectNext(60.seconds)
-
-      Assertions.assert(element.toInt > 1, "Should start after first element")
-      probe2.cancel()
-    }
-
-    "consume and commit with a committer sink" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
-
-      givenInitializedTopic(topic1)
-
-      Await.result(produce(topic1, 1 to 100), remainingOrDefault)
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-      val committerSettings = committerDefaults.withMaxBatch(5)
-
-      def consumeAndCommitUntil(topic: String, failAt: String) =
-        Consumer
-          .committableSource(
-            consumerSettings,
-            Subscriptions.topics(topic)
-          )
-          .map {
-            case msg if msg.record.value() == failAt => throw new Exception
-            case other => other
-          }
-          .map(_.committableOffset)
-          .toMat(Committer.sink(committerSettings))(Keep.right)
-          .run()
-
-      // Consume and fail in the middle of the commit batch
-      val failAt = 32
-      val done1 = consumeAndCommitUntil(topic1, failAt.toString)
-
-      Await.result(done1.failed, remainingOrDefault)
-
-      // Check offset
-      val (_, probe1) = createProbe(consumerSettings, topic1)
-      val element1 = probe1.request(1).expectNext(60.seconds)
-
-      Assertions.assert(element1.toInt >= failAt - committerSettings.maxBatch,
-                        "Should re-process at most maxBatch elements")
-      probe1.cancel()
     }
 
     "connect consumer to producer and commit in batches" in {
