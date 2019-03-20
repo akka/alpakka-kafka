@@ -7,14 +7,17 @@ package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
-import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
+import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.apache.kafka.clients.consumer.CommitFailedException
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
@@ -39,11 +42,12 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
   "Committing" must {
 
     "ensure uncommitted messages are redelivered" in assertAllStagesStopped {
+      val Messages = Numbers.take(100)
       val topic1 = createTopic(1)
       val group1 = createGroupId(1)
       val group2 = createGroupId(2)
 
-      produceString(topic1, Numbers.take(100))
+      produceString(topic1, Messages)
 
       val committedElements = new AtomicInteger()
 
@@ -62,7 +66,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
 
       probe1
         .request(25)
-        .expectNextN(Numbers.take(25))
+        .expectNextN(Messages.take(25))
 
       probe1.cancel()
       control.isShutdown.futureValue shouldBe Done
@@ -76,11 +80,11 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
       // than 26, and that is not wrong
 
       // some concurrent publish
-      produceString(topic1, Numbers.drop(100))
+      produceString(topic1, Messages.drop(100))
 
       probe2
-        .request(200)
-        .expectNextN(Numbers.drop(committedElements.get()))
+        .request(Messages.size.toLong)
+        .expectNextN(Messages.drop(committedElements.get()))
 
       probe2.cancel()
 
@@ -92,23 +96,30 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
 
       probe3
         .request(100)
-        .expectNextN(Numbers.take(100))
+        .expectNextN(Messages.take(100))
 
       probe3.cancel()
     }
 
-    "work even if the partition gets balanced away" in assertAllStagesStopped {
+    "work even if the partition gets balanced away SHOWS issue #750" in assertAllStagesStopped {
+      val count = 10
       val topic1 = createTopic(1, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
         .withGroupId(group1)
 
-      val NumbersPartition0 = Numbers.take(100).map(_ + "-0")
-      val NumbersPartition1 = Numbers.take(100).map(_ + "-1")
-      produceString(topic1, NumbersPartition0, partition0)
-      produceString(topic1, NumbersPartition1, partition1)
+      Source(Numbers.take(count))
+        .map { n =>
+          MultiMessage(List(
+                         new ProducerRecord(topic1, partition0, DefaultKey, n + "-p0"),
+                         new ProducerRecord(topic1, partition1, DefaultKey, n + "-p1")
+                       ),
+                       NotUsed)
+        }
+        .via(Producer.flexiFlow(producerDefaults, testProducer))
+        .runWith(Sink.ignore)
 
-      val lastCommitted1 = new AtomicInteger()
+      // Subscribe to the topic (without demand)
       val rebalanceActor1 = TestProbe()
       val subscription1 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor1.ref)
       val (control1, probe1) = Consumer
@@ -116,52 +127,58 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
+      // Await initial partition assignment
       rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
       rebalanceActor1.expectMsg(
         TopicPartitionsAssigned(subscription1,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
+      // read all messages from both partitions
       val committables1: immutable.Seq[ConsumerMessage.CommittableMessage[String, String]] = probe1
-        .request(200)
-        .expectNextN(200)
+        .request(count * 2L)
+        .expectNextN(count * 2L)
 
-      val lastCommitted2 = new AtomicInteger()
+      // Subscribe to the topic (without demand)
       val rebalanceActor2 = TestProbe()
       val subscription2 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor2.ref)
       val (control2, probe2) = Consumer
         .committableSource(consumerSettings, subscription2)
-        .mapAsync(10) { elem =>
+        .mapAsync(1) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
-            lastCommitted2.set(elem.record.value.substring(0, elem.record.value().length - 2).toInt)
             elem.record.value
           }
         }
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
+      // Await a revoke to both consumers
       rebalanceActor1.expectMsg(
         TopicPartitionsRevoked(subscription1,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
       rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
-      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
 
-      probe2
-        .request(25)
-        .expectNextN(NumbersPartition1.take(25))
-
-      val eventualStrings = Future.sequence(
+      // commit BEFORE the reassign finishes with an assignment
+      val consumer1Read = Future.sequence(
         committables1
           .map { elem =>
             elem.committableOffset.commitScaladsl().map { _ =>
-              lastCommitted1.set(elem.record.value.substring(0, elem.record.value().length - 2).toInt)
               elem.record.value
             }
           }
       )
-      eventualStrings.futureValue should contain theSameElementsAs NumbersPartition0 ++ NumbersPartition1
+
+      // the rebalance finishes
+      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
+      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
+
+      // ... but committing failed
+      val commitFailed = consumer1Read.failed.futureValue
+      commitFailed shouldBe a[CommitFailedException]
+      commitFailed.getMessage should startWith(
+        "Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member."
+      )
 
       probe1.cancel()
       probe2.cancel()
