@@ -26,6 +26,7 @@ import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
 import akka.kafka._
+import akka.stream.stage.AsyncCallback
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
@@ -98,6 +99,31 @@ import scala.util.control.NonFatal
 
   final case class ListenerCallbacks(onAssign: Set[TopicPartition] => Unit, onRevoke: Set[TopicPartition] => Unit)
       extends NoSerializationVerificationNeeded
+
+  object ListenerCallbacks {
+    def apply(subscription: AutoSubscription,
+              sourceActor: ActorRef,
+              partitionAssignedCB: AsyncCallback[Set[TopicPartition]],
+              partitionRevokedCB: AsyncCallback[Set[TopicPartition]]): ListenerCallbacks =
+      KafkaConsumerActor.ListenerCallbacks(
+        assignedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsAssigned(subscription, assignedTps), sourceActor)
+          }
+          if (assignedTps.nonEmpty) {
+            partitionAssignedCB.invoke(assignedTps)
+          }
+        },
+        revokedTps => {
+          subscription.rebalanceListener.foreach {
+            _.tell(TopicPartitionsRevoked(subscription, revokedTps), sourceActor)
+          }
+          if (revokedTps.nonEmpty) {
+            partitionRevokedCB.invoke(revokedTps)
+          }
+        }
+      )
+  }
 
   /**
    * Copied from the implemented interface:
