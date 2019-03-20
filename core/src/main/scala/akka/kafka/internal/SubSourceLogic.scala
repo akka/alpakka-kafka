@@ -80,8 +80,8 @@ private abstract class SubSourceLogic[K, V, Msg](
     consumerPromise.success(consumerActor)
     sourceActor.watch(consumerActor)
 
-    def rebalanceListener = KafkaConsumerActor.ListenerCallbacks(subscription, sourceActor.ref,
-      partitionAssignedCB, partitionRevokedCB)
+    def rebalanceListener =
+      KafkaConsumerActor.ListenerCallbacks(subscription, sourceActor.ref, partitionAssignedCB, partitionRevokedCB)
 
     subscription match {
       case TopicSubscription(topics, _) =>

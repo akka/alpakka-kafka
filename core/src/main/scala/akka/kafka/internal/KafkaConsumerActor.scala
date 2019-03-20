@@ -101,9 +101,10 @@ import scala.util.control.NonFatal
       extends NoSerializationVerificationNeeded
 
   object ListenerCallbacks {
-    def apply(subscription: AutoSubscription, sourceActor: ActorRef,
+    def apply(subscription: AutoSubscription,
+              sourceActor: ActorRef,
               partitionAssignedCB: AsyncCallback[Set[TopicPartition]],
-              partitionRevokedCB: AsyncCallback[Set[TopicPartition]]): ListenerCallbacks = {
+              partitionRevokedCB: AsyncCallback[Set[TopicPartition]]): ListenerCallbacks =
       KafkaConsumerActor.ListenerCallbacks(
         assignedTps => {
           subscription.rebalanceListener.foreach {
@@ -122,7 +123,6 @@ import scala.util.control.NonFatal
           }
         }
       )
-    }
   }
 
   /**
