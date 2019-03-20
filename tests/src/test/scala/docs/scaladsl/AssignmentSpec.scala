@@ -5,6 +5,7 @@
 
 package docs.scaladsl
 
+import akka.Done
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Sink, Source}
@@ -66,10 +67,10 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
           .mapConcat { msg =>
             topics.map(topic => new ProducerRecord(topic, 0, DefaultKey, msg.toString))
           }
-          .concat(Source.single(new ProducerRecord(topics.head, 0, DefaultKey, (totalMessages + 1).toString)))
+          .concat(Source.single(new ProducerRecord(topics.last, 0, DefaultKey, (totalMessages + 1).toString)))
           .runWith(Producer.plainSink(producerDefaults))
 
-      producerCompletion.futureValue
+      producerCompletion.futureValue shouldBe Done
 
       // #topic-pattern
       val pattern = "topic-1-[0-9]+"
