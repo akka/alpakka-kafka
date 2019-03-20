@@ -118,13 +118,10 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   }
 
   private def suspendDemand(): Unit =
-    setHandler(
-      stage.out,
-      new OutHandler {
-        // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
-        override def onPull(): Unit = ()
-      }
-    )
+    setHandler(stage.out, new OutHandler {
+      // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
+      override def onPull(): Unit = ()
+    })
 
   override protected def onTimer(timerKey: Any): Unit =
     if (timerKey == commitSchedulerKey) {
@@ -188,6 +185,7 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   }
 
   private def abortTransaction(): Unit = {
+    println("aborting transaction")
     log.debug("Aborting transaction")
     producer.abortTransaction()
   }

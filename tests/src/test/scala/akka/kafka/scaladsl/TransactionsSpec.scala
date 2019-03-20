@@ -5,12 +5,15 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.{ProducerMessage, _}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -18,8 +21,9 @@ import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec) {
 
@@ -257,6 +261,103 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       val futures: Seq[Future[Done]] = controls.map(_.shutdown())
       Await.result(Future.sequence(futures), remainingOrDefault)
     }
+
+    "provide consistency when multiple transactional streams are being restarted" in {
+      val sourcePartitions = 10
+      val destinationPartitions = 4
+      val consumers = 3
+
+      val sourceTopic = createTopic(1, sourcePartitions)
+      val sinkTopic = createTopic(2, destinationPartitions)
+      val group = createGroupId(1)
+
+      givenInitializedTopic(sourceTopic)
+      givenInitializedTopic(sinkTopic)
+
+      val elements = 900 * 1000
+      val restartAfter = 10 * 1000
+
+      val partitionSize = elements / sourcePartitions
+      val producers =
+        (0 until sourcePartitions).map(
+          part => produce(sourceTopic, ((part * partitionSize) + 1) to (partitionSize * (part + 1)), part)
+        )
+      Await.result(Future.sequence(producers), remainingOrDefault)
+
+      val consumerSettings = consumerDefaults.withGroupId(group)
+
+      val uniqueId = new AtomicInteger(0)
+      val completedCopy = new AtomicInteger(0)
+
+      def runStream(id: String): UniqueKillSwitch =
+        RestartSource
+          .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
+            () => {
+              val transactionId = s"$group-$id"
+              println(s"Recreating source [$transactionId]")
+              transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, transactionId)
+                .scan(0) { case (count, _) => count + 1 }
+                .map { count =>
+                  if (count >= restartAfter) throw new Error("Restarting transactional copy stream")
+                  count
+                }
+                .idleTimeout(20.seconds)
+                .recover {
+                  case e: TimeoutException => "no more messages to copy"
+                }
+            }
+          )
+          .viaMat(KillSwitches.single)(Keep.right)
+          .toMat(Sink.onComplete {
+            case Success(_) =>
+              println("Transactional copy completed normally")
+              completedCopy.incrementAndGet()
+            case Failure(ex) => // restart
+          })(Keep.left)
+          .run()
+
+      val controls: Seq[UniqueKillSwitch] = (0 until consumers)
+        .map(_.toString)
+        .map(runStream)
+
+      val probeConsumerGroup = createGroupId(2)
+
+      println("waiting for all transactional copy to finish")
+      while (completedCopy.get() < consumers) {
+        Thread.sleep(2000)
+      }
+
+      println("starting to count copied elements")
+
+      val consumer = valuesSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
+        .take(elements)
+        .idleTimeout(30.seconds)
+        .alsoTo(
+          Flow[String].scan(0) { case (count, _) => count + 1 }.filter(_ % 10000 == 0).log("received").to(Sink.ignore)
+        )
+        .recover {
+          case t => "no-more-elements"
+        }
+        .filter(_ != "no-more-elements")
+        .runWith(Sink.seq)
+      val values = Await.result(consumer, 10.minutes)
+
+      val expected = (1 to elements).map(_.toString)
+      withClue("Checking for duplicates: ") {
+        val duplicates = values diff expected
+        if (duplicates.nonEmpty) {
+          fail(s"Got ${duplicates.size} duplicates. First ten: ${duplicates.take(10).mkString(", ")}")
+        }
+      }
+      withClue("Checking for missing: ") {
+        val missing = expected diff values
+        if (missing.nonEmpty) {
+          fail(s"Did not get ${missing.size} expected messages. First ten: ${missing.take(10).mkString(", ")}")
+        }
+      }
+
+      controls.map(_.shutdown())
+    }
   }
 
   private def transactionalCopyStream(
@@ -280,9 +381,13 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
   private def valuesProbeConsumer(settings: ConsumerSettings[String, String],
                                   topic: String): TestSubscriber.Probe[String] =
+    valuesSource(settings, topic)
+      .runWith(TestSink.probe)
+
+  private def valuesSource(settings: ConsumerSettings[String, String],
+                           topic: String): Source[String, Consumer.Control] =
     Consumer
       .plainSource(settings, TopicSubscription(Set(topic), None))
       .filterNot(_.value == InitialMsg)
       .map(_.value())
-      .runWith(TestSink.probe)
 }
