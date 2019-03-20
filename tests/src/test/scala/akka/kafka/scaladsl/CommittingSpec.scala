@@ -144,11 +144,6 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
       val subscription2 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor2.ref)
       val (control2, probe2) = Consumer
         .committableSource(consumerSettings, subscription2)
-        .mapAsync(1) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ =>
-            elem.record.value
-          }
-        }
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
