@@ -116,61 +116,79 @@ import scala.util.control.NonFatal
       )
   }
 
-  private[KafkaConsumerActor] case class CommitRefreshing(
-      requestedOffsets: Map[TopicPartition, OffsetAndMetadata] = Map.empty[TopicPartition, OffsetAndMetadata],
-      committedOffsets: Map[TopicPartition, OffsetAndMetadata] = Map.empty[TopicPartition, OffsetAndMetadata],
-      refreshDeadlines: Map[TopicPartition, Deadline] = Map.empty[TopicPartition, Deadline]
-  ) {
+  private[KafkaConsumerActor] trait CommitRefreshing {
+    def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
+    def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
+    def revoke(revokedTps: Set[TopicPartition]): Unit
+    def assign(assignedOffsets: Map[TopicPartition, Long]): Unit
+    def refresh(): Map[TopicPartition, OffsetAndMetadata]
+    def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit
+  }
 
-    def add(offsets: Map[TopicPartition, OffsetAndMetadata]): CommitRefreshing =
-      copy(requestedOffsets = requestedOffsets ++ offsets)
+  private[KafkaConsumerActor] object CommitRefreshing {
+    def apply(commitRefreshInterval: Duration): CommitRefreshing =
+      commitRefreshInterval match {
+        case finite: FiniteDuration => new Impl(finite)
+        case _ => NoOp
+      }
 
-    def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): CommitRefreshing =
-      copy(committedOffsets = committedOffsets ++ offsets)
+    private object NoOp extends CommitRefreshing {
+      def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+      def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+      def revoke(revokedTps: Set[TopicPartition]): Unit = {}
+      def assign(assignedOffsets: Map[TopicPartition, Long]): Unit = {}
+      def refresh(): Map[TopicPartition, OffsetAndMetadata] = Map.empty
+      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {}
+    }
 
-    def revoke(revokedTps: Set[TopicPartition]): CommitRefreshing =
-      copy(
-        requestedOffsets = requestedOffsets -- revokedTps,
-        committedOffsets = committedOffsets -- revokedTps,
+    private final class Impl(commitRefreshInterval: FiniteDuration) extends CommitRefreshing {
+      private var requestedOffsets: Map[TopicPartition, OffsetAndMetadata] =
+        Map.empty[TopicPartition, OffsetAndMetadata]
+      private var committedOffsets: Map[TopicPartition, OffsetAndMetadata] =
+        Map.empty[TopicPartition, OffsetAndMetadata]
+      private var refreshDeadlines: Map[TopicPartition, Deadline] = Map.empty[TopicPartition, Deadline]
+
+      def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
+        requestedOffsets = requestedOffsets ++ offsets
+
+      def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
+        committedOffsets = committedOffsets ++ offsets
+
+      def revoke(revokedTps: Set[TopicPartition]): Unit = {
+        requestedOffsets = requestedOffsets -- revokedTps
+        committedOffsets = committedOffsets -- revokedTps
         refreshDeadlines = refreshDeadlines -- revokedTps
-      )
+      }
 
-    def assign(assignedOffsets: Map[TopicPartition, Long]): CommitRefreshing =
-      copy(
+      def assign(assignedOffsets: Map[TopicPartition, Long]): Unit = {
         requestedOffsets = requestedOffsets ++ assignedOffsets.map {
           case (partition, offset) =>
             partition -> requestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-        },
+        }
         committedOffsets = committedOffsets ++ assignedOffsets.map {
           case (partition, offset) =>
             partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
         }
-      )
+      }
 
-    def refresh(): Map[TopicPartition, OffsetAndMetadata] = {
-      val overdueTps = refreshDeadlines.filter(_._2.isOverdue()).keySet
-      if (overdueTps.nonEmpty) {
-        val refreshOffsets = committedOffsets.filter {
-          case (tp, offset) if overdueTps.contains(tp) =>
-            requestedOffsets.get(tp).contains(offset)
-          case _ =>
-            false
+      def refresh(): Map[TopicPartition, OffsetAndMetadata] = {
+        val overdueTps = refreshDeadlines.filter(_._2.isOverdue()).keySet
+        if (overdueTps.nonEmpty) {
+          val refreshOffsets = committedOffsets.filter {
+            case (tp, offset) if overdueTps.contains(tp) =>
+              requestedOffsets.get(tp).contains(offset)
+            case _ =>
+              false
+          }
+          refreshOffsets
+        } else {
+          Map.empty
         }
-        refreshOffsets
-      } else {
-        Map.empty
       }
-    }
 
-    def updateRefreshDeadlines(commitRefreshInterval: Duration, tps: Set[TopicPartition]): CommitRefreshing =
-      commitRefreshInterval match {
-        case finite: FiniteDuration =>
-          copy(
-            refreshDeadlines = refreshDeadlines ++ tps.map(_ -> finite.fromNow)
-          )
-        case _ =>
-          this
-      }
+      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit =
+        refreshDeadlines = refreshDeadlines ++ tps.map(_ -> commitRefreshInterval.fromNow)
+    }
   }
 
   private val oneMilli = java.time.Duration.ofMillis(1)
@@ -204,7 +222,7 @@ import scala.util.control.NonFatal
   private var consumer: Consumer[K, V] = _
   private var subscriptions = Set.empty[SubscriptionRequest]
   private var commitsInProgress = 0
-  private var commitRefreshing = CommitRefreshing()
+  private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
   private var delayedPollInFlight = false
 
@@ -246,7 +264,7 @@ import scala.util.control.NonFatal
       partitionAssigned(assignedOffsets)
 
     case Commit(offsets) =>
-      commitRefreshing = commitRefreshing.add(offsets)
+      commitRefreshing.add(offsets)
       commit(offsets, sender())
 
     case s: SubscriptionRequest =>
@@ -276,7 +294,7 @@ import scala.util.control.NonFatal
       }
 
     case Committed(offsets) =>
-      commitRefreshing = commitRefreshing.committed(offsets)
+      commitRefreshing.committed(offsets)
 
     case Stop =>
       if (commitsInProgress == 0) {
@@ -428,15 +446,15 @@ import scala.util.control.NonFatal
   }
 
   private def partitionRevoked(revokedTps: Set[TopicPartition]): Unit =
-    commitRefreshing = commitRefreshing.revoke(revokedTps)
+    commitRefreshing.revoke(revokedTps)
 
-  private def partitionAssigned(assignedOffsets: Map[TopicPartition, Long]): Unit =
-    commitRefreshing = commitRefreshing
-      .assign(assignedOffsets)
-      .updateRefreshDeadlines(settings.commitRefreshInterval, assignedOffsets.keySet)
+  private def partitionAssigned(assignedOffsets: Map[TopicPartition, Long]): Unit = {
+    commitRefreshing.assign(assignedOffsets)
+    commitRefreshing.updateRefreshDeadlines(assignedOffsets.keySet)
+  }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], reply: ActorRef): Unit = {
-    commitRefreshing = commitRefreshing.updateRefreshDeadlines(settings.commitRefreshInterval, commitMap.keySet)
+    commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
     consumer.commitAsync(
