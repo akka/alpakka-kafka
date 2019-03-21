@@ -79,15 +79,6 @@ import scala.util.control.NonFatal
         periodic: Boolean
     ) extends DeadLetterSuppression
         with NoSerializationVerificationNeeded
-    private[KafkaConsumerActor] final case class PartitionAssigned(
-        assignedOffsets: Map[TopicPartition, Long]
-    ) extends DeadLetterSuppression
-        with NoSerializationVerificationNeeded
-
-    private[KafkaConsumerActor] final case class PartitionRevoked(
-        revokedTps: Set[TopicPartition]
-    ) extends DeadLetterSuppression
-        with NoSerializationVerificationNeeded
 
     private[KafkaConsumerActor] case object PollTask
 
@@ -123,38 +114,6 @@ import scala.util.control.NonFatal
           }
         }
       )
-  }
-
-  /**
-   * Copied from the implemented interface:
-   *
-   * These methods will be called after the partition re-assignment completes and before the
-   * consumer starts fetching data, and only as the result of a `poll` call.
-   *
-   * It is guaranteed that all the processes in a consumer group will execute their
-   * `onPartitionsRevoked` callback before any instance executes its
-   * `onPartitionsAssigned` callback.
-   */
-  private final class WrappedAutoPausedListener(consumer: Consumer[_, _],
-                                                consumerActor: ActorRef,
-                                                positionTimeout: java.time.Duration,
-                                                listener: ListenerCallbacks)
-      extends ConsumerRebalanceListener
-      with NoSerializationVerificationNeeded {
-    import KafkaConsumerActor.Internal._
-    override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
-      consumer.pause(partitions)
-      val tps = partitions.asScala.toSet
-      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
-      consumerActor ! PartitionAssigned(assignedOffsets)
-      listener.onAssign(tps)
-    }
-
-    override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
-      val revokedTps = partitions.asScala.toSet
-      listener.onRevoke(revokedTps)
-      consumerActor ! PartitionRevoked(revokedTps)
-    }
   }
 
   private val oneMilli = java.time.Duration.ofMillis(1)
@@ -201,7 +160,7 @@ import scala.util.control.NonFatal
       val previousAssigned = consumer.assignment()
       consumer.assign((tps.toSeq ++ previousAssigned.asScala).asJava)
       val assignedOffsets = tps.map(tp => tp -> consumer.position(tp)).toMap
-      self ! PartitionAssigned(assignedOffsets)
+      partitionAssigned(assignedOffsets)
 
     case AssignWithOffset(assignedOffsets) =>
       scheduleFirstPollTask()
@@ -212,7 +171,7 @@ import scala.util.control.NonFatal
         case (tp, offset) =>
           consumer.seek(tp, offset)
       }
-      self ! PartitionAssigned(assignedOffsets)
+      partitionAssigned(assignedOffsets)
 
     case AssignOffsetsForTimes(timestampsToSearch) =>
       scheduleFirstPollTask()
@@ -229,7 +188,7 @@ import scala.util.control.NonFatal
           consumer.seek(tp, offset)
           tp -> offset
       }
-      self ! PartitionAssigned(assignedOffsets)
+      partitionAssigned(assignedOffsets)
 
     case Commit(offsets) =>
       commitRequestedOffsets ++= offsets
@@ -261,22 +220,6 @@ import scala.util.control.NonFatal
         self ! delayedPollMsg
       }
 
-    case PartitionAssigned(assignedOffsets) =>
-      commitRequestedOffsets ++= assignedOffsets.map {
-        case (partition, offset) =>
-          partition -> commitRequestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-      }
-      committedOffsets ++= assignedOffsets.map {
-        case (partition, offset) =>
-          partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-      }
-      updateCommitRefreshDeadlines(assignedOffsets.keySet)
-
-    case PartitionRevoked(revokedTps) =>
-      commitRequestedOffsets --= revokedTps
-      committedOffsets --= revokedTps
-      commitRefreshDeadlines --= revokedTps
-
     case Committed(offsets) =>
       committedOffsets ++= offsets
 
@@ -307,11 +250,9 @@ import scala.util.control.NonFatal
 
     subscription match {
       case Subscribe(topics, listener) =>
-        consumer.subscribe(topics.toList.asJava,
-                           new WrappedAutoPausedListener(consumer, self, positionTimeout, listener))
+        consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(listener))
       case SubscribePattern(pattern, listener) =>
-        consumer.subscribe(Pattern.compile(pattern),
-                           new WrappedAutoPausedListener(consumer, self, positionTimeout, listener))
+        consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(listener))
     }
   }
 
@@ -438,6 +379,24 @@ import scala.util.control.NonFatal
       log.debug("Stopping")
       context.stop(self)
     }
+  }
+
+  private def partitionRevoked(revokedTps: Set[TopicPartition]): Unit = {
+    commitRequestedOffsets --= revokedTps
+    committedOffsets --= revokedTps
+    commitRefreshDeadlines --= revokedTps
+  }
+
+  private def partitionAssigned(assignedOffsets: Map[TopicPartition, Long]): Unit = {
+    commitRequestedOffsets ++= assignedOffsets.map {
+      case (partition, offset) =>
+        partition -> commitRequestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+    }
+    committedOffsets ++= assignedOffsets.map {
+      case (partition, offset) =>
+        partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+    }
+    updateCommitRefreshDeadlines(assignedOffsets.keySet)
   }
 
   private def updateCommitRefreshDeadlines(tps: Set[TopicPartition]): Unit =
@@ -571,4 +530,37 @@ import scala.util.control.NonFatal
         partition
       )
   }
+
+  /**
+   * Copied from the implemented interface: "
+   * These methods will be called after the partition re-assignment completes and before the
+   * consumer starts fetching data, and only as the result of a `poll` call.
+   *
+   * It is guaranteed that all the processes in a consumer group will execute their
+   * `onPartitionsRevoked` callback before any instance executes its
+   * `onPartitionsAssigned` callback.
+   * "
+   *
+   * So these methods are always called on the same thread as the actor and we're safe to
+   * touch internal state.
+   */
+  private final class WrappedAutoPausedListener(listener: ListenerCallbacks)
+      extends ConsumerRebalanceListener
+      with NoSerializationVerificationNeeded {
+
+    override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
+      consumer.pause(partitions)
+      val tps = partitions.asScala.toSet
+      val assignedOffsets = tps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
+      partitionAssigned(assignedOffsets)
+      listener.onAssign(tps)
+    }
+
+    override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
+      val revokedTps = partitions.asScala.toSet
+      listener.onRevoke(revokedTps)
+      partitionRevoked(revokedTps)
+    }
+  }
+
 }
