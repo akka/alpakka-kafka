@@ -8,7 +8,7 @@ package akka.kafka.internal
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream._
@@ -422,7 +422,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val committerSettings = CommitterSettings(system)
       .withMaxBatch(1L)
 
-    val commitLog = new ConsumerMock.LogHandler()
+    val commitLog = new internal.ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val msg = createMessage(1)
     mock.enqueue(List(toRecord(msg)))
@@ -436,13 +436,9 @@ class CommittingWithMockSpec(_system: ActorSystem)
       commitLog.calls should have size 1
     }
 
-    //emulate commit failure
-    val failure = new Exception()
-    commitLog.calls.head match {
-      case (_, callback) => callback.onComplete(null, failure)
-    }
+    emulateFailedCommit(commitLog)
 
-    probe.failed.futureValue shouldBe an[Exception]
+    probe.failed.futureValue shouldBe a[CommitFailedException]
     control.shutdown().futureValue shouldBe Done
   }
 
@@ -455,29 +451,34 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val msg = createMessage(1)
     mock.enqueue(List(toRecord(msg)))
 
-    val decider: Supervision.Decider = {
-      case _: Exception ⇒ Supervision.Resume
+    val resumeOnCommitFailed: Supervision.Decider = {
+      case _: CommitFailedException ⇒ Supervision.Resume
       case _ ⇒ Supervision.Stop
     }
 
     val (control, probe) = createCommittableSource(mock.mock)
       .map(_.committableOffset)
-      .toMat(Committer.sink(committerSettings))(Keep.both)
-      .withAttributes(ActorAttributes.supervisionStrategy(decider))
+      .toMat(
+        Committer
+          .sink(committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(resumeOnCommitFailed))
+      )(Keep.both)
       .run()
 
     awaitAssert {
       commitLog.calls should have size 1
     }
 
-    //emulate commit failure
-    val failure = new Exception()
-    commitLog.calls.head match {
-      case (_, callback) => callback.onComplete(null, failure)
-    }
+    emulateFailedCommit(commitLog)
 
     control.shutdown().futureValue shouldBe Done
     probe.futureValue shouldBe Done
   }
 
+  private def emulateFailedCommit(commitLog: ConsumerMock.LogHandler): Unit = {
+    val failure = new CommitFailedException()
+    commitLog.calls.head match {
+      case (_, callback) => callback.onComplete(null, failure)
+    }
+  }
 }
