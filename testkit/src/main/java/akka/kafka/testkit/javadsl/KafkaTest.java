@@ -36,6 +36,8 @@ public abstract class KafkaTest extends BaseKafkaTest {
 
   @AfterEach
   public void checkForStageLeaks() {
+    // you might need to configure `stop-timeout` in your `application.conf`
+    // as the default of 30s will fail this
     StreamTestKit.assertAllStagesStopped(materializer);
   }
 }

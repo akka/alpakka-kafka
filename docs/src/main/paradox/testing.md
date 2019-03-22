@@ -61,6 +61,8 @@ Java JUnit 4
 Java JUnit 5
 : @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #testkit }
 
+The JUnit test base classes run the [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/javadsl/StreamTestKit$.html#assertAllStagesStopped(mat:akka.stream.Materializer):Unit) check from Akka Stream testkit to ensure all stages are shut down properly within each test. This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+
 
 ### Testing from Scala code
 
@@ -83,6 +85,9 @@ With this `SpecBase` class test classes can extend it to automatically start and
 
 Scala
 : @@snip [snip](/tests/src/test/scala/docs/scaladsl/AssignmentSpec.scala) { #testkit }
+
+To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped[T](block:=%3ET)(implicitmaterializer:akka.stream.Materializer):T). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+
 
 ## Alternative testing libraries
 
