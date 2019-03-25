@@ -70,6 +70,7 @@ object ConsumerSettings {
     val positionTimeout = config.getDuration("position-timeout").asScala
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
+    val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -86,6 +87,7 @@ object ConsumerSettings {
       positionTimeout,
       offsetForTimesTimeout,
       metadataRequestTimeout,
+      drainingCheckInterval,
       ConsumerSettings.createKafkaConsumer
     )
   }
@@ -196,6 +198,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val positionTimeout: FiniteDuration,
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
+    val drainingCheckInterval: FiniteDuration,
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]
 ) {
 
@@ -230,6 +233,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     positionTimeout = 5.seconds,
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
+    drainingCheckInterval = 30.millis,
     consumerFactory = ConsumerSettings.createKafkaConsumer
   )
 
@@ -466,6 +470,14 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
+  /** Scala API: Check interval for TransactionalProducer when finishing transaction before shutting down consumer */
+  def withDrainingCheckInterval(drainingCheckInterval: FiniteDuration): ConsumerSettings[K, V] =
+    copy(drainingCheckInterval = drainingCheckInterval)
+
+  /** Java API: Check interval for TransactionalProducer when finishing transaction before shutting down consumer */
+  def withDrainingCheckInterval(drainingCheckInterval: java.time.Duration): ConsumerSettings[K, V] =
+    copy(drainingCheckInterval = drainingCheckInterval.asScala)
+
   /**
    * Replaces the default Kafka consumer creation logic.
    */
@@ -499,6 +511,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       positionTimeout: FiniteDuration = positionTimeout,
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
+      drainingCheckInterval: FiniteDuration = drainingCheckInterval,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
@@ -517,6 +530,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       positionTimeout,
       offsetForTimesTimeout,
       metadataRequestTimeout,
+      drainingCheckInterval,
       consumerFactory
     )
 
@@ -539,6 +553,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
-    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}" +
+    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
+    s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}" +
     ")"
 }

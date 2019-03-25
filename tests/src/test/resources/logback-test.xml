@@ -38,7 +38,7 @@
     <logger name="io.confluent" level="WARN"/>
 
     <root level="DEBUG">
-        <!--appender-ref ref="STDOUT" /-->
+        <!--<appender-ref ref="STDOUT" /-->
         <appender-ref ref="FILE" />
     </root>
 

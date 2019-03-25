@@ -13,7 +13,7 @@ import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.{ProducerMessage, _}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
-import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.{Attributes, DelayOverflowStrategy, KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -21,6 +21,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
+import scala.collection.immutable
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -29,7 +30,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
   "A consume-transform-produce cycle" must {
 
-    "complete" in {
+    "complete in happy-path scenario" in {
       assertAllStagesStopped {
         val sourceTopic = createTopic(1)
         val sinkTopic = createTopic(2)
@@ -39,7 +40,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
-        val control = transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, group)
+        val control = transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, group, Int.MaxValue, 10.seconds)
           .toMat(Sink.ignore)(Keep.left)
           .run()
 
@@ -201,7 +202,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       Await.result(innerControl.shutdown(), remainingOrDefault)
     }
 
-    "provide consistency when using multiple transactional streams" in {
+    "provide consistency when using multiple transactional streams" in assertAllStagesStopped {
       val sourceTopic = createTopic(1)
       val sinkTopic = createTopic(2, partitions = 4)
       val group = createGroupId(1)
@@ -213,9 +214,10 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val consumerSettings = consumerDefaults.withGroupId(group)
 
       def runStream(id: String): Consumer.Control = {
-        val control: Control = transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, s"$group-$id")
-          .toMat(Sink.ignore)(Keep.left)
-          .run()
+        val control: Control =
+          transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, s"$group-$id", Int.MaxValue, 10.seconds)
+            .toMat(Sink.ignore)(Keep.left)
+            .run()
         control
       }
 
@@ -237,7 +239,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       Await.result(Future.sequence(futures), remainingOrDefault)
     }
 
-    "provide consistency when multiple transactional streams are being restarted" in {
+    "provide consistency when multiple transactional streams are being restarted" in assertAllStagesStopped {
       val sourcePartitions = 10
       val destinationPartitions = 4
       val consumers = 3
@@ -246,7 +248,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val sinkTopic = createTopic(2, destinationPartitions)
       val group = createGroupId(1)
 
-      val elements = 300 * 1000
+      val elements = 100 * 1000
       val restartAfter = 10 * 1000
 
       val partitionSize = elements / sourcePartitions
@@ -259,21 +261,20 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val consumerSettings = consumerDefaults.withGroupId(group)
 
       val completedCopy = new AtomicInteger(0)
+      val completedWithTimeout = new AtomicInteger(0)
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
           .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
             () => {
               val transactionId = s"$group-$id"
-              transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, transactionId)
-                .scan(0) { case (count, _) => count + 1 }
-                .map { count =>
-                  if (count >= restartAfter) throw new Error("Restarting transactional copy stream")
-                  count
-                }
-                .idleTimeout(20.seconds)
+              transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, transactionId, restartAfter, 10.seconds)
                 .recover {
-                  case e: TimeoutException => "no more messages to copy"
+                  case e: TimeoutException =>
+                    if (completedWithTimeout.incrementAndGet() > 10)
+                      "no more messages to copy"
+                    else
+                      throw new Error("Continue restarting copy stream")
                 }
             }
           )
@@ -281,7 +282,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
           .toMat(Sink.onComplete {
             case Success(_) =>
               completedCopy.incrementAndGet()
-            case Failure(ex) => // restart
+            case Failure(_) => // restart
           })(Keep.left)
           .run()
 
@@ -295,34 +296,168 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
         Thread.sleep(2000)
       }
 
-      val consumer = valuesSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
+      val consumer = offsetValueSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
         .take(elements.toLong)
         .idleTimeout(30.seconds)
         .alsoTo(
-          Flow[String].scan(0) { case (count, _) => count + 1 }.filter(_ % 10000 == 0).log("received").to(Sink.ignore)
+          Flow[(Long, String)]
+            .scan(0) { case (count, _) => count + 1 }
+            .filter(_ % 10000 == 0)
+            .log("received")
+            .to(Sink.ignore)
         )
         .recover {
-          case t => "no-more-elements"
+          case t => (0, "no-more-elements")
         }
-        .filter(_ != "no-more-elements")
+        .filter(_._2 != "no-more-elements")
         .runWith(Sink.seq)
       val values = Await.result(consumer, 10.minutes)
 
       val expected = (1 to elements).map(_.toString)
       withClue("Checking for duplicates: ") {
-        val duplicates = values diff expected
+        val duplicates = values.map(_._2) diff expected
         if (duplicates.nonEmpty) {
-          fail(s"Got ${duplicates.size} duplicates. First ten: ${duplicates.take(10).mkString(", ")}")
+          val duplicatesWithDifferentOffsets = values
+            .filter {
+              case (_, value) => duplicates.contains(value)
+            }
+            .groupBy(_._2) // message
+            .mapValues(_.map(_._1)) // keep offset
+            .filter {
+              case (_, offsets) => offsets.distinct.size > 1
+            }
+
+          if (duplicatesWithDifferentOffsets.nonEmpty) {
+            fail(s"Got ${duplicates.size} duplicates. Messages and their offsets: $duplicatesWithDifferentOffsets")
+          } else {
+            println("Got duplicates, but all of them were due to rebalance replay when counting")
+          }
         }
       }
       withClue("Checking for missing: ") {
-        val missing = expected diff values
+        val missing = expected diff values.map(_._2)
         if (missing.nonEmpty) {
-          fail(s"Did not get ${missing.size} expected messages. First ten: ${missing.take(10).mkString(", ")}")
+          val continuousBlocks = missing
+            .scanLeft(("-1", 0)) {
+              case ((last, block), curr) => if (last.toInt + 1 == curr.toInt) (curr, block) else (curr, block + 1)
+            }
+            .tail
+            .groupBy(_._2)
+          val blockDescription = continuousBlocks
+            .map { block =>
+              val msgs = block._2.map(_._1)
+              s"Missing ${msgs.size} in continuous block, first ten: ${msgs.take(10)}"
+            }
+            .mkString(" ")
+          fail(s"Did not get ${missing.size} expected messages. $blockDescription")
         }
       }
 
       controls.map(_.shutdown())
+    }
+
+    "drain stream on partitions rebalancing" in assertAllStagesStopped {
+      // Runs a copying transactional flows that delay writing to the output partition using a `delay` stage.
+      // Creates more flows than ktps to trigger partition rebalancing.
+      // The output topic should contain the same elements as the input topic.
+
+      val sourceTopic = createTopic(1)
+      val sinkTopic = createTopic(2, partitions = 4)
+      val group = createGroupId(1)
+
+      val elements = 100
+      val batchSize = 10
+      Await.result(produce(sourceTopic, 1 to elements), remainingOrDefault)
+
+      val elementsWrote = new AtomicInteger(0)
+
+      val consumerSettings = consumerDefaults.withGroupId(group)
+
+      def runStream(id: String): Consumer.Control = {
+        val control: Control =
+          Transactional
+            .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+            .map { msg =>
+              ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value),
+                                     msg.partitionOffset)
+            }
+            .take(batchSize)
+            .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
+            .addAttributes(Attributes.inputBuffer(batchSize, batchSize + 1))
+            .via(Transactional.flow(producerDefaults, s"$group-$id"))
+            .map(_ => elementsWrote.incrementAndGet())
+            .toMat(Sink.ignore)(Keep.left)
+            .run()
+        control
+      }
+
+      val controls: Seq[Control] = (0 until elements / batchSize)
+        .map(_.toString)
+        .map(runStream)
+
+      val probeConsumerGroup = createGroupId(2)
+      val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
+
+      periodicalCheck("Wait for elements written to Kafka", maxTries = 30, 1.second) {
+        elementsWrote.get
+      }(_ > 10)
+
+      probeConsumer
+        .request(elements)
+        .expectNextUnorderedN((1 to elements).map(_.toString))
+
+      probeConsumer.cancel()
+
+      val futures: Seq[Future[Done]] = controls.map(_.shutdown())
+      Await.result(Future.sequence(futures), remainingOrDefault)
+    }
+
+    "support copy stream with merging and multi messages" in assertAllStagesStopped {
+      val sourceTopic = createTopic(1)
+      val sumsTopic = createTopic(2)
+      val concatsTopic = createTopic(3)
+      val group = createGroupId(1)
+
+      Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
+
+      val consumerSettings = consumerDefaults.withGroupId(group)
+
+      val control = {
+        Transactional
+          .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+          .groupedWithin(10, 5.seconds)
+          .map { msgs =>
+            val sum = msgs.map(_.record.value().toInt).sum.toString
+            val concat = msgs.map(_.record.value()).reduce(_ + _)
+
+            ProducerMessage.multi(
+              immutable.Seq(
+                new ProducerRecord[String, String](sumsTopic, sum),
+                new ProducerRecord[String, String](concatsTopic, concat)
+              ),
+              msgs.map(_.partitionOffset).maxBy(_.offset)
+            )
+          }
+          .via(Transactional.flow(producerDefaults, group))
+          .toMat(Sink.ignore)(Keep.left)
+          .run()
+      }
+
+      val sumsConsumer = valuesProbeConsumer(probeConsumerSettings(createGroupId(2)), sumsTopic)
+
+      sumsConsumer
+        .request(10)
+        .expectNextN((1 to 100).grouped(10).map(_.sum.toString).to[immutable.Seq])
+
+      val concatsConsumer = valuesProbeConsumer(probeConsumerSettings(createGroupId(2)), concatsTopic)
+
+      concatsConsumer
+        .request(10)
+        .expectNextN((1 to 100).map(_.toString).grouped(10).map(_.reduce(_ + _)).to[immutable.Seq])
+
+      sumsConsumer.cancel()
+      concatsConsumer.cancel()
+      Await.result(control.shutdown(), remainingOrDefault)
     }
   }
 
@@ -330,10 +465,19 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       consumerSettings: ConsumerSettings[String, String],
       sourceTopic: String,
       sinkTopic: String,
-      transactionalId: String
+      transactionalId: String,
+      restartAfter: Int,
+      idleTimeout: FiniteDuration
   ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
     Transactional
       .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+      .zip(Source.unfold(1)(count => Some((count + 1, count))))
+      .map {
+        case (msg, count) =>
+          if (count >= restartAfter) throw new Error("Restarting transactional copy stream")
+          msg
+      }
+      .idleTimeout(idleTimeout)
       .map { msg =>
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
@@ -346,12 +490,18 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
   private def valuesProbeConsumer(settings: ConsumerSettings[String, String],
                                   topic: String): TestSubscriber.Probe[String] =
-    valuesSource(settings, topic)
+    offsetValueSource(settings, topic)
+      .map(_._2)
       .runWith(TestSink.probe)
 
-  private def valuesSource(settings: ConsumerSettings[String, String],
-                           topic: String): Source[String, Consumer.Control] =
+  private def offsetValueSource(settings: ConsumerSettings[String, String],
+                                topic: String): Source[(Long, String), Consumer.Control] =
     Consumer
       .plainSource(settings, TopicSubscription(Set(topic), None))
-      .map(_.value())
+      .map(r => (r.offset(), r.value()))
+
+  override def producerDefaults: ProducerSettings[String, String] =
+    super.producerDefaults
+      .withParallelism(20)
+      .withCloseTimeout(Duration.Zero)
 }

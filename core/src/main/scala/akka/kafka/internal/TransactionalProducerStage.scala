@@ -4,9 +4,10 @@
  */
 
 package akka.kafka.internal
+import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage
-import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
+import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
 import akka.stream.{Attributes, FlowShape}
@@ -15,7 +16,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.Future
+import scala.concurrent.{Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
@@ -43,15 +44,18 @@ private object TransactionalProducerStage {
   }
 
   sealed trait TransactionBatch {
-    def updated(partitionOffset: PartitionOffset): TransactionBatch
+    def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch
+    def committingFailed(): Unit
   }
 
   final class EmptyTransactionBatch extends TransactionBatch {
-    override def updated(partitionOffset: PartitionOffset): TransactionBatch =
+    override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch =
       new NonemptyTransactionBatch(partitionOffset)
+
+    override def committingFailed(): Unit = {}
   }
 
-  final class NonemptyTransactionBatch(head: PartitionOffset,
+  final class NonemptyTransactionBatch(head: PartitionOffsetCommittedMarker,
                                        tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
       extends TransactionBatch {
     // There is no guarantee that offsets adding callbacks will be called in any particular order.
@@ -59,17 +63,29 @@ private object TransactionalProducerStage {
     // Since `awaitingConfirmation` counter guarantees that all writes finished, we can safely assume
     // that all all data up to maximal offsets has been wrote to Kafka.
     private val previousHighest = tail.getOrElse(head.key, -1L)
-    private val offsets = tail + (head.key -> head.offset.max(previousHighest))
+    private[internal] val offsets = tail + (head.key -> head.offset.max(previousHighest))
 
     def group: String = head.key.groupId
+    def committedMarker: CommittedMarker = head.committedMarker
+
     def offsetMap(): Map[TopicPartition, OffsetAndMetadata] = offsets.map {
       case (gtp, offset) => new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
     }
 
-    override def updated(partitionOffset: PartitionOffset): TransactionBatch = {
+    def internalCommit(): Future[Done] =
+      committedMarker.committed(offsetMap())
+
+    override def committingFailed(): Unit =
+      committedMarker.failed()
+
+    override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch = {
       require(
         group == partitionOffset.key.groupId,
         s"Transaction batch must contain messages from exactly 1 consumer group. $group != ${partitionOffset.key.groupId}"
+      )
+      require(
+        this.committedMarker == partitionOffset.committedMarker,
+        "Transaction batch must contain messages from a single source"
       )
       new NonemptyTransactionBatch(partitionOffset, offsets)
     }
@@ -100,6 +116,8 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
 
   private var batchOffsets = TransactionBatch.empty
 
+  private var demandSuspended = false
+
   override def preStart(): Unit = {
     initTransactions()
     beginTransaction()
@@ -111,20 +129,25 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
     setHandler(stage.out, new OutHandler {
       override def onPull(): Unit = tryPull(stage.in)
     })
+    demandSuspended = false
     // kick off demand for more messages if we're resuming demand
     if (tryToPull && isAvailable(stage.out) && !hasBeenPulled(stage.in)) {
       tryPull(stage.in)
     }
   }
 
-  private def suspendDemand(): Unit =
-    setHandler(
-      stage.out,
-      new OutHandler {
-        // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
-        override def onPull(): Unit = ()
-      }
-    )
+  private def suspendDemand(): Unit = {
+    if (!demandSuspended) {
+      setHandler(
+        stage.out,
+        new OutHandler {
+          // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
+          override def onPull(): Unit = ()
+        }
+      )
+    }
+    demandSuspended = true
+  }
 
   override protected def onTimer(timerKey: Any): Unit =
     if (timerKey == commitSchedulerKey) {
@@ -145,8 +168,7 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   }
 
   override def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
-    case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
-    case _ =>
+    case o: ConsumerMessage.PartitionOffsetCommittedMarker => batchOffsets = batchOffsets.updated(o)
   }
 
   override def onCompletionSuccess(): Unit = {
@@ -159,21 +181,33 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   override def onCompletionFailure(ex: Throwable): Unit = {
     log.debug("Aborting transaction due to stage failure")
     abortTransaction()
+    batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
   }
 
   private def commitTransaction(batch: NonemptyTransactionBatch, beginNewTransaction: Boolean): Unit = {
     val group = batch.group
-    log.debug("Committing transaction for consumer group '{}' with offsets: {}", group, batch.offsetMap())
-    val offsetMap = batch.offsetMap().asJava
-    producer.sendOffsetsToTransaction(offsetMap, group)
+    log.debug("Committing transaction for consumer group '{}' with offsets: {}", group, batch.offsets)
+    val offsetMap = batch.offsetMap()
+    producer.sendOffsetsToTransaction(offsetMap.asJava, group)
     producer.commitTransaction()
+    log.debug("Committed transaction for consumer group '{}' with offsets: {}", group, batch.offsets)
     batchOffsets = TransactionBatch.empty
+    batch
+      .internalCommit()
+      .onComplete { _ =>
+        onInternalCommitAckCb.invoke(())
+      }(materializer.executionContext)
     if (beginNewTransaction) {
       beginTransaction()
       resumeDemand()
-      scheduleOnce(commitSchedulerKey, commitInterval)
     }
+  }
+
+  val onInternalCommitAckCb: AsyncCallback[Unit] = {
+    getAsyncCallback[Unit](
+      _ => scheduleOnce(commitSchedulerKey, commitInterval)
+    )
   }
 
   private def initTransactions(): Unit = {

@@ -8,7 +8,7 @@ package akka.kafka.testkit
 import akka.Done
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage
-import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffset}
+import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.internal.{CommittableOffsetImpl, InternalCommitter}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -29,7 +29,7 @@ object ConsumerResultFactory {
   }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =
-    ConsumerMessage.PartitionOffset(ConsumerMessage.GroupTopicPartition(groupId, topic, partition), offset)
+    new ConsumerMessage.PartitionOffset(ConsumerMessage.GroupTopicPartition(groupId, topic, partition), offset)
 
   def partitionOffset(key: GroupTopicPartition, offset: Long) = ConsumerMessage.PartitionOffset(key, offset)
 
@@ -51,7 +51,7 @@ object ConsumerResultFactory {
 
   def transactionalMessage[K, V](
       record: ConsumerRecord[K, V],
-      partitionOffset: PartitionOffset
+      partitionOffset: PartitionOffsetCommittedMarker
   ): ConsumerMessage.TransactionalMessage[K, V] = ConsumerMessage.TransactionalMessage(record, partitionOffset)
 
 }

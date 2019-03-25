@@ -34,18 +34,11 @@ import scala.concurrent.{Future, Promise}
   final def configureSubscription(): Unit = {
 
     def rebalanceListener(autoSubscription: AutoSubscription): KafkaConsumerActor.ListenerCallbacks = {
-      val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
-        tps ++= assignedTps
-        log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
-        requestMessages()
-      }
+      val assignedCB = getAsyncCallback[Set[TopicPartition]](partitionAssignedHandler)
 
-      val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
-        tps --= revokedTps
-        log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
-      }
+      val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
 
-      KafkaConsumerActor.ListenerCallbacks(autoSubscription, sourceActor.ref, partitionAssignedCB, partitionRevokedCB)
+      KafkaConsumerActor.ListenerCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB)
     }
 
     subscription match {
@@ -78,15 +71,30 @@ import scala.concurrent.{Future, Promise}
     if (!isClosed(shape.out)) {
       complete(shape.out)
     }
-    sourceActor.become {
-      case (_, Terminated(ref)) if ref == consumerActor =>
-        onShutdown()
-        completeStage()
-    }
+    sourceActor.become(shuttingDownReceive)
+    stopConsumerActor()
+  }
+
+  protected def shuttingDownReceive: PartialFunction[(ActorRef, Any), Unit] = {
+    case (_, Terminated(ref)) if ref == consumerActor =>
+      onShutdown()
+      completeStage()
+  }
+
+  protected def stopConsumerActor(): Unit =
     materializer.scheduleOnce(settings.stopTimeout, new Runnable {
       override def run(): Unit =
         consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
     })
+
+  protected def partitionAssignedHandler(assignedTps: Set[TopicPartition]): Unit = {
+    tps ++= assignedTps
+    log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
+    requestMessages()
   }
 
+  protected def partitionRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {
+    tps --= revokedTps
+    log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+  }
 }

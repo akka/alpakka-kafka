@@ -31,6 +31,7 @@ import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -57,7 +58,7 @@ class ProducerSpec(_system: ActorSystem)
   type V = String
   type Record = ProducerRecord[K, V]
   type Msg = Message[String, String, NotUsed.type]
-  type TxMsg = Message[K, V, ConsumerMessage.PartitionOffset]
+  type TxMsg = Message[K, V, ConsumerMessage.PartitionOffsetCommittedMarker]
 
   def recordAndMetadata(seed: Int) =
     new ProducerRecord("test", seed.toString, seed.toString) ->
@@ -70,10 +71,12 @@ class ProducerSpec(_system: ActorSystem)
                        -1)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
-  def toTxMessage(tuple: (Record, RecordMetadata)) =
+  def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) =
     ProducerMessage.Message(
       tuple._1,
-      ConsumerMessage.PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+      ConsumerMessage
+        .PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+        .withCommittedMarker(committer)
     )
   def result(r: Record, m: RecordMetadata) = Result(m, ProducerMessage.Message(r, NotUsed))
   val toResult = (result _).tupled
@@ -379,6 +382,7 @@ class ProducerSpec(_system: ActorSystem)
         val inputMap = Map(input)
         new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
       }
+      val committer = new CommittedMarkerMock
 
       val (source, sink) = TestSource
         .probe[TxMsg]
@@ -386,11 +390,12 @@ class ProducerSpec(_system: ActorSystem)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      val txMsg = toTxMessage(input)
+      val txMsg = toTxMessage(input, committer.mock)
       source.sendNext(txMsg)
       sink.requestNext()
 
       awaitAssert(client.verifyTxCommit(txMsg.passThrough), 2.second)
+      awaitAssert(committer.verifyOffsets(txMsg.passThrough), 2.second)
 
       source.sendComplete()
       sink.expectComplete()
@@ -405,6 +410,7 @@ class ProducerSpec(_system: ActorSystem)
         val inputMap = Map(input)
         new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
       }
+      val committer = new CommittedMarkerMock
 
       val (source, sink) = TestSource
         .probe[TxMsg]
@@ -413,11 +419,12 @@ class ProducerSpec(_system: ActorSystem)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      val txMsg = toTxMessage(input)
+      val txMsg = toTxMessage(input, committer.mock)
       source.sendNext(txMsg)
       sink.requestNext()
 
       awaitAssert(client.verifyTxCommit(txMsg.passThrough), 2.second)
+      awaitAssert(committer.verifyOffsets(txMsg.passThrough), 2.second)
 
       source.sendComplete()
       sink.expectComplete()
@@ -431,6 +438,7 @@ class ProducerSpec(_system: ActorSystem)
       val inputMap = Map(input)
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
+    val committedMarker = new CommittedMarkerMock
 
     val (source, sink) = TestSource
       .probe[TxMsg]
@@ -438,13 +446,14 @@ class ProducerSpec(_system: ActorSystem)
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
-    val txMsg = toTxMessage(input)
+    val txMsg: TxMsg = toTxMessage(input, committedMarker.mock)
     source.sendNext(txMsg)
     sink.requestNext()
 
     client.verifySend(atLeastOnce())
 
     awaitAssert(client.verifyTxCommitWhenShutdown(txMsg.passThrough), 2.second)
+    awaitAssert(committedMarker.verifyOffsets(txMsg.passThrough), 2.second)
 
     source.sendComplete()
     sink.expectComplete()
@@ -458,6 +467,7 @@ class ProducerSpec(_system: ActorSystem)
       val inputMap = Map(input)
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
+    val committedMarker = new CommittedMarkerMock
 
     val (source, sink) = TestSource
       .probe[TxMsg]
@@ -465,7 +475,7 @@ class ProducerSpec(_system: ActorSystem)
       .toMat(Sink.lastOption)(Keep.both)
       .run()
 
-    val txMsg = toTxMessage(input)
+    val txMsg = toTxMessage(input, committedMarker.mock)
     source.sendNext(txMsg)
     source.sendError(new Exception())
 
@@ -577,4 +587,23 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     inOrder.verify(mock).flush()
     inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
   }
+}
+
+class CommittedMarkerMock {
+  val mock = Mockito.mock(classOf[CommittedMarker])
+  when(
+    mock.committed(mockito.ArgumentMatchers.any[Map[TopicPartition, OffsetAndMetadata]])
+  ).thenAnswer(new Answer[Future[Done]] {
+    override def answer(invocation: InvocationOnMock): Future[Done] =
+      Future.successful(Done)
+  })
+
+  def verifyOffsets(pos: ConsumerMessage.PartitionOffsetCommittedMarker*): Future[Done] =
+    Mockito
+      .verify(mock, Mockito.only())
+      .committed(
+        mockito.ArgumentMatchers.eq(
+          pos.map(p => new TopicPartition(p.key.topic, p.key.partition) -> new OffsetAndMetadata(p.offset + 1)).toMap
+        )
+      )
 }

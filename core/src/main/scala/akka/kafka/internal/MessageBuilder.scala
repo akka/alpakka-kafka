@@ -18,6 +18,7 @@ import akka.kafka.ConsumerMessage.{
   _
 }
 import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
 import scala.collection.JavaConverters._
@@ -41,15 +42,19 @@ private[kafka] trait PlainMessageBuilder[K, V] extends MessageBuilder[K, V, Cons
 @InternalApi
 private[kafka] trait TransactionalMessageBuilder[K, V] extends MessageBuilder[K, V, TransactionalMessage[K, V]] {
   def groupId: String
+  def committedMarker: CommittedMarker
+  def onMessage(consumerMessage: ConsumerRecord[K, V]): Unit
 
   override def createMessage(rec: ConsumerRecord[K, V]) = {
-    val offset = ConsumerMessage.PartitionOffset(
+    onMessage(rec)
+    val offset = PartitionOffsetCommittedMarker(
       GroupTopicPartition(
         groupId = groupId,
         topic = rec.topic,
         partition = rec.partition
       ),
-      offset = rec.offset
+      offset = rec.offset,
+      committedMarker
     )
     ConsumerMessage.TransactionalMessage(rec, offset)
   }
@@ -94,6 +99,17 @@ private[kafka] trait InternalCommitter {
   // Commit all offsets (of different topics) belonging to the same stage
   def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done]
   def commit(batch: CommittableOffsetBatch): Future[Done]
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] trait CommittedMarker {
+
+  /** Marks offsets as already committed */
+  def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done]
+
+  /** Marks committing failure */
+  def failed(): Unit
 }
 
 /** Internal API */

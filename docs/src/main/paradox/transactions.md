@@ -30,6 +30,8 @@ Transactions are committed on an interval which can be controlled with the produ
 
 When the stream is materialized the producer will initialize the transaction for the provided `transactional.id` and a transaction will begin.  Every commit interval (`eos-commit-interval`) we check if there are any offsets available to commit.  If offsets exist then we suspend backpressured demand while we drain all outstanding messages that have not yet been successfully acknowledged (if any) and then commit the transaction.  After the commit succeeds a new transaction is begun and we re-initialize demand for upstream messages.
 
+Messages are also drained from the stream when the consumer gets a rebalance of partitions. In that case, the consumer will wait in the `onPartitionsRevoked` callback until all of the messages have been drained from the stream and the transaction is committed before allowing the rebalance to continue. The amount of total time the consumer will wait for draining is controlled by the `akka.kafka.consumer.commit-timeout`, and the interval between checks is controlled by the `akka.kafka.consuner.eos-draining-check-interval` configuration settings.
+
 To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
@@ -60,9 +62,11 @@ All of the scenarios covered in the @ref[At-Least-Once Delivery documentation](a
 
 Only one application instance per `transactional.id` is allowed.  If two application instances with the same `transactional.id` are run at the same time then the instance that registers with Kafka's transaction coordinator second will throw a `ProducerFencedException` so it doesn't interfere with transactions in process by the first instance.  To distribute multiple transactional workflows for the same subscription the user must manually subdivide the subscription across multiple instances of the application.  This may be handled internally in future versions.
 
-Any state in the transformation logic is not part of a transaction.  It's left to the user to rebuild state when applying stateful operations with transaction.  It's possible to encode state into messages produced to topics during a transaction.  For example you could produce messages to a topic that represents an event log as part of a transaction.  This event log can be replayed to reconsititue the correct state before the stateful stream resumes consuming again at startup.
+Any state in the transformation logic is not part of a transaction.  It's left to the user to rebuild state when applying stateful operations with transaction.  It's possible to encode state into messages produced to topics during a transaction.  For example you could produce messages to a topic that represents an event log as part of a transaction.  This event log can be replayed to reconstitute the correct state before the stateful stream resumes consuming again at startup.
 
 Any side effects that occur in the transformation logic is not part of a transaction (i.e. writes to an database).  
+
+The exactly-once-semantics are guaranteed only between a pair of two topics. Consuming messages from a topic in a different flow after transactional processing has the usual at-least-once semantics.
 
 ## Further Reading
 

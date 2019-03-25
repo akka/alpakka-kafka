@@ -43,27 +43,29 @@ import scala.concurrent.{ExecutionContext, Future}
   override def preStart(): Unit = {
     super.preStart()
 
-    sourceActor = getStageActor {
-      case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
-        // might be more than one in flight when we assign/revoke tps
-        if (msg.requestId == requestId)
-          requested = false
-        // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-        if (buffer.hasNext) {
-          buffer = buffer ++ msg.messages
-        } else {
-          buffer = msg.messages
-        }
-        pump()
-      case (_, Status.Failure(e)) =>
-        failStage(e)
-      case (_, Terminated(ref)) if ref == consumerActor =>
-        failStage(new ConsumerFailed())
-    }
+    sourceActor = getStageActor(messageHandling)
     consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 
     configureSubscription()
+  }
+
+  protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
+    case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+      // might be more than one in flight when we assign/revoke tps
+      if (msg.requestId == requestId)
+        requested = false
+      // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
+      if (buffer.hasNext) {
+        buffer = buffer ++ msg.messages
+      } else {
+        buffer = msg.messages
+      }
+      pump()
+    case (_, Status.Failure(e)) =>
+      failStage(e)
+    case (_, Terminated(ref)) if ref == consumerActor =>
+      failStage(new ConsumerFailed())
   }
 
   protected def createConsumerActor(): ActorRef
