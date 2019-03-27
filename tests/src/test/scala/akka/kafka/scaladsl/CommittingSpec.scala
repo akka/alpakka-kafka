@@ -16,7 +16,6 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
-import org.apache.kafka.clients.consumer.CommitFailedException
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
@@ -101,7 +100,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
       probe3.cancel()
     }
 
-    "work even if the partition gets balanced away SHOWS issue #750" in assertAllStagesStopped {
+    "work even if the partition gets balanced away and is not reassigned yet (#750)" in assertAllStagesStopped {
       val count = 10
       val topic1 = createTopic(1, partitions = 2)
       val group1 = createGroupId(1)
@@ -168,12 +167,13 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
 
-      // ... but committing failed
-      val commitFailed = consumer1Read.failed.futureValue
-      commitFailed shouldBe a[CommitFailedException]
-      commitFailed.getMessage should startWith(
-        "Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member."
-      )
+      // before the fix // ... but committing failed
+      // val commitFailed = consumer1Read.failed.futureValue
+      // commitFailed shouldBe a[CommitFailedException]
+      consumer1Read.futureValue should contain theSameElementsAs {
+        Numbers.take(count).map(_ + "-p1") ++
+        Numbers.take(count).map(_ + "-p0")
+      }
 
       probe1.cancel()
       probe2.cancel()

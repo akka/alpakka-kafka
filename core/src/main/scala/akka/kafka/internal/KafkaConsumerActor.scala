@@ -17,6 +17,7 @@ import akka.actor.{
   ActorRef,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
+  Stash,
   Status,
   Terminated,
   Timers
@@ -31,6 +32,7 @@ import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -81,6 +83,11 @@ import scala.util.control.NonFatal
         with NoSerializationVerificationNeeded
 
     private[KafkaConsumerActor] case object PollTask
+
+    /**
+     * Sent on timer when rebalance is in progress after polling.
+     */
+    private[KafkaConsumerActor] case object RebalanceUnfinished
 
     private val number = new AtomicInteger()
     def nextNumber(): Int =
@@ -217,6 +224,7 @@ import scala.util.control.NonFatal
                                                                  settings: ConsumerSettings[K, V])
     extends Actor
     with ActorLogging
+    with Stash
     with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
@@ -238,6 +246,12 @@ import scala.util.control.NonFatal
   private var commitsInProgress = 0
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
+
+  /**
+   * While `true`, all [[Commit]] messages are stashed.
+   * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[WrappedAutoPausedListener]].
+   */
+  private var rebalanceInProgress = false
   private var delayedPollInFlight = false
 
   def receive: Receive = LoggingReceive {
@@ -275,6 +289,9 @@ import scala.util.control.NonFatal
           tp -> offset
       }
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+
+    case Commit(offsets) if rebalanceInProgress =>
+      stash()
 
     case Commit(offsets) =>
       commitRefreshing.add(offsets)
@@ -318,6 +335,12 @@ import scala.util.control.NonFatal
         stopInProgress = true
         context.become(stopping)
       }
+
+    case RebalanceUnfinished =>
+      val exception = new TimeoutException(s"Rebalance did not finish within ${settings.rebalanceTimeout.toCoarsest}")
+      processErrors(exception)
+      log.error(exception, "shutting down")
+      context.stop(self)
 
     case RequestMetrics =>
       val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
@@ -413,6 +436,7 @@ import scala.util.control.NonFatal
 
   def poll(): Unit = {
     val currentAssignmentsJava = consumer.assignment()
+    val initialRebalanceInProgress = rebalanceInProgress
     try {
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
@@ -451,6 +475,7 @@ import scala.util.control.NonFatal
         log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
         context.stop(self)
     }
+    checkRebalanceState(initialRebalanceInProgress)
 
     if (stopInProgress && commitsInProgress == 0) {
       log.debug("Stopping")
@@ -584,6 +609,20 @@ import scala.util.control.NonFatal
   }
 
   /**
+   * Detects state changes of [[rebalanceInProgress]] and takes action on it.
+   */
+  private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit =
+    if (rebalanceInProgress) {
+      if (!initialRebalanceInProgress) {
+        timers.startSingleTimer(RebalanceUnfinished, RebalanceUnfinished, settings.rebalanceTimeout)
+      }
+    } else if (initialRebalanceInProgress) {
+      timers.cancel(RebalanceUnfinished)
+      // unstash messages that were stashed during the unfinished rebalance
+      unstashAll()
+    }
+
+  /**
    * Copied from the implemented interface: "
    * These methods will be called after the partition re-assignment completes and before the
    * consumer starts fetching data, and only as the result of a `poll` call.
@@ -605,12 +644,14 @@ import scala.util.control.NonFatal
       val tps = partitions.asScala.toSet
       commitRefreshing.assignedPositions(tps, consumer, positionTimeout)
       listener.onAssign(tps)
+      rebalanceInProgress = false
     }
 
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
       val revokedTps = partitions.asScala.toSet
       listener.onRevoke(revokedTps)
       commitRefreshing.revoke(revokedTps)
+      rebalanceInProgress = true
     }
   }
 

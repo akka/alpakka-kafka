@@ -253,7 +253,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
 
       probeConsumer
-        .request(elements)
+        .request(elements.toLong)
         .expectNextUnorderedN((1 to elements).map(_.toString))
 
       probeConsumer.cancel()
