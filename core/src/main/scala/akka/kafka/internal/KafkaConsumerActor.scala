@@ -117,13 +117,15 @@ import scala.util.control.NonFatal
   }
 
   private[KafkaConsumerActor] trait CommitRefreshing {
-    def enabled: Boolean
     def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
     def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
     def revoke(revokedTps: Set[TopicPartition]): Unit
     def refreshOffsets: Map[TopicPartition, OffsetAndMetadata]
     def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit
     def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit
+    def assignedPositions(assignedTps: Set[TopicPartition],
+                          consumer: Consumer[_, _],
+                          positionTimeout: java.time.Duration): Unit
   }
 
   private[KafkaConsumerActor] object CommitRefreshing {
@@ -134,13 +136,15 @@ import scala.util.control.NonFatal
       }
 
     private object NoOp extends CommitRefreshing {
-      val enabled = false
       def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
       def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
       def revoke(revokedTps: Set[TopicPartition]): Unit = {}
       val refreshOffsets: Map[TopicPartition, OffsetAndMetadata] = Map.empty
       def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {}
       def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {}
+      def assignedPositions(assignedTps: Set[TopicPartition],
+                            consumer: Consumer[_, _],
+                            positionTimeout: java.time.Duration): Unit = {}
     }
 
     private final class Impl(commitRefreshInterval: FiniteDuration) extends CommitRefreshing {
@@ -149,8 +153,6 @@ import scala.util.control.NonFatal
       private var committedOffsets: Map[TopicPartition, OffsetAndMetadata] =
         Map.empty[TopicPartition, OffsetAndMetadata]
       private var refreshDeadlines: Map[TopicPartition, Deadline] = Map.empty[TopicPartition, Deadline]
-
-      val enabled = true
 
       def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
         requestedOffsets = requestedOffsets ++ offsets
@@ -192,6 +194,14 @@ import scala.util.control.NonFatal
         }
         updateRefreshDeadlines(assignedTps)
       }
+
+      def assignedPositions(assignedTps: Set[TopicPartition],
+                            consumer: Consumer[_, _],
+                            positionTimeout: java.time.Duration): Unit = {
+        val assignedOffsets = assignedTps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
+        assignedPositions(assignedTps, assignedOffsets)
+      }
+
     }
   }
 
@@ -236,10 +246,7 @@ import scala.util.control.NonFatal
       checkOverlappingRequests("Assign", sender(), assignedTps)
       val previousAssigned = consumer.assignment()
       consumer.assign((assignedTps.toSeq ++ previousAssigned.asScala).asJava)
-      if (commitRefreshing.enabled) {
-        val assignedOffsets = assignedTps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
-        commitRefreshing.assignedPositions(assignedTps, assignedOffsets)
-      }
+      commitRefreshing.assignedPositions(assignedTps, consumer, positionTimeout)
 
     case AssignWithOffset(assignedOffsets) =>
       scheduleFirstPollTask()
@@ -596,10 +603,7 @@ import scala.util.control.NonFatal
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
-      if (commitRefreshing.enabled) {
-        val assignedOffsets = tps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
-        commitRefreshing.assignedPositions(tps, assignedOffsets)
-      }
+      commitRefreshing.assignedPositions(tps, consumer, positionTimeout)
       listener.onAssign(tps)
     }
 
