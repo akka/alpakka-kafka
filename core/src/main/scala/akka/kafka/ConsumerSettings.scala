@@ -539,6 +539,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
-    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
+    s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}" +
     ")"
 }

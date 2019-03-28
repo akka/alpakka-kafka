@@ -31,7 +31,6 @@ import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
