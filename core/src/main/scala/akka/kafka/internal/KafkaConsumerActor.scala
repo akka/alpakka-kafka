@@ -17,7 +17,6 @@ import akka.actor.{
   ActorRef,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
-  Stash,
   Status,
   Terminated,
   Timers
@@ -83,11 +82,6 @@ import scala.util.control.NonFatal
         with NoSerializationVerificationNeeded
 
     private[KafkaConsumerActor] case object PollTask
-
-    /**
-     * Sent on timer when rebalance is in progress after polling.
-     */
-    private[KafkaConsumerActor] case object RebalanceUnfinished
 
     private val number = new AtomicInteger()
     def nextNumber(): Int =
@@ -224,7 +218,6 @@ import scala.util.control.NonFatal
                                                                  settings: ConsumerSettings[K, V])
     extends Actor
     with ActorLogging
-    with Stash
     with Timers {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
@@ -248,10 +241,21 @@ import scala.util.control.NonFatal
   private var stopInProgress = false
 
   /**
-   * While `true`, all [[Commit]] messages are stashed.
+   * While `true`, committing is delayed.
    * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[WrappedAutoPausedListener]].
    */
   private var rebalanceInProgress = false
+
+  /**
+   * Keeps commit offsets during rebalances for later commit.
+   */
+  private var rebalanceCommitStash = Map.empty[TopicPartition, OffsetAndMetadata]
+
+  /**
+   * Keeps commit senders that need a reply once stashed commits are made.
+   */
+  private var rebalanceCommitSenders = Vector.empty[ActorRef]
+
   private var delayedPollInFlight = false
 
   def receive: Receive = LoggingReceive {
@@ -291,11 +295,13 @@ import scala.util.control.NonFatal
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
     case Commit(offsets) if rebalanceInProgress =>
-      stash()
+      rebalanceCommitStash ++= offsets
+      rebalanceCommitSenders = rebalanceCommitSenders :+ sender()
 
     case Commit(offsets) =>
       commitRefreshing.add(offsets)
-      commit(offsets, sender())
+      val replyTo = sender()
+      commit(offsets, replyTo ! _)
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -335,12 +341,6 @@ import scala.util.control.NonFatal
         stopInProgress = true
         context.become(stopping)
       }
-
-    case RebalanceUnfinished =>
-      val exception = new TimeoutException(s"Rebalance did not finish within ${settings.rebalanceTimeout.toCoarsest}")
-      processErrors(exception)
-      log.error(exception, "shutting down")
-      context.stop(self)
 
     case RequestMetrics =>
       val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
@@ -422,7 +422,7 @@ import scala.util.control.NonFatal
       val refreshOffsets = commitRefreshing.refreshOffsets
       if (refreshOffsets.nonEmpty) {
         log.debug("Refreshing committed offsets: {}", refreshOffsets)
-        commit(refreshOffsets, context.system.deadLetters)
+        commit(refreshOffsets, context.system.deadLetters ! _)
       }
       poll()
       if (p.periodic)
@@ -483,7 +483,7 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], reply: ActorRef): Unit = {
+  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], sendReply: AnyRef => Unit): Unit = {
     commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
@@ -498,11 +498,10 @@ import scala.util.control.NonFatal
             log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration / 1000000L)
           }
           commitsInProgress -= 1
-          if (exception != null) reply ! Status.Failure(exception)
+          if (exception != null) sendReply(Status.Failure(exception))
           else {
-            val committed = Committed(offsets.asScala.toMap)
-            self ! committed
-            reply ! committed
+            self ! Committed(offsets.asScala.toMap)
+            sendReply(Done)
           }
         }
       }
@@ -612,14 +611,12 @@ import scala.util.control.NonFatal
    * Detects state changes of [[rebalanceInProgress]] and takes action on it.
    */
   private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit =
-    if (rebalanceInProgress) {
-      if (!initialRebalanceInProgress) {
-        timers.startSingleTimer(RebalanceUnfinished, RebalanceUnfinished, settings.rebalanceTimeout)
-      }
-    } else if (initialRebalanceInProgress) {
-      timers.cancel(RebalanceUnfinished)
-      // unstash messages that were stashed during the unfinished rebalance
-      unstashAll()
+    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitSenders.nonEmpty) {
+      log.debug("committing stash {} replying to {}", rebalanceCommitStash, rebalanceCommitSenders)
+      val replyTo = rebalanceCommitSenders
+      commit(rebalanceCommitStash, msg => replyTo.foreach(_ ! msg))
+      rebalanceCommitStash = Map.empty
+      rebalanceCommitSenders = Vector.empty
     }
 
   /**

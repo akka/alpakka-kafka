@@ -70,7 +70,6 @@ object ConsumerSettings {
     val positionTimeout = config.getDuration("position-timeout").asScala
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
-    val rebalanceTimeout = config.getDuration("rebalance-timeout").asScala
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -87,7 +86,6 @@ object ConsumerSettings {
       positionTimeout,
       offsetForTimesTimeout,
       metadataRequestTimeout,
-      rebalanceTimeout,
       ConsumerSettings.createKafkaConsumer
     )
   }
@@ -198,7 +196,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val positionTimeout: FiniteDuration,
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
-    val rebalanceTimeout: FiniteDuration,
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]
 ) {
 
@@ -233,7 +230,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     positionTimeout = 5.seconds,
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
-    rebalanceTimeout = 10.seconds,
     consumerFactory = ConsumerSettings.createKafkaConsumer
   )
 
@@ -470,14 +466,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withMetadataRequestTimeout(metadataRequestTimeout: java.time.Duration): ConsumerSettings[K, V] =
     copy(metadataRequestTimeout = metadataRequestTimeout.asScala)
 
-  /** Scala API */
-  def withRebalanceTimeout(rebalanceTimeout: FiniteDuration): ConsumerSettings[K, V] =
-    copy(rebalanceTimeout = rebalanceTimeout)
-
-  /** Java API */
-  def withRebalanceTimeout(rebalanceTimeout: java.time.Duration): ConsumerSettings[K, V] =
-    copy(metadataRequestTimeout = rebalanceTimeout.asScala)
-
   /**
    * Replaces the default Kafka consumer creation logic.
    */
@@ -511,7 +499,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       positionTimeout: FiniteDuration = positionTimeout,
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
-      rebalanceTimeout: FiniteDuration = rebalanceTimeout,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
@@ -530,7 +517,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       positionTimeout,
       offsetForTimesTimeout,
       metadataRequestTimeout,
-      rebalanceTimeout,
       consumerFactory
     )
 
@@ -554,6 +540,5 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
-    s"rebalanceTimeout=${rebalanceTimeout.toCoarsest}" +
     ")"
 }
