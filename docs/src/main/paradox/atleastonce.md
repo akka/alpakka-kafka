@@ -2,7 +2,7 @@
 
 At-least-once delivery semantics, the requirement to process every message, is a basic requirement of most applications. 
 
-When using committable sources (@ref[Offset Storage in Kafka](consumer.md#offset-storage-in-kafka)), care is needed to ensure at-least-once delivery semantics are not lost inadvertently by committing an offset too early.
+When using committable sources (@ref:[Offset Storage in Kafka](consumer.md#offset-storage-in-kafka-committing)), care is needed to ensure at-least-once delivery semantics are not lost inadvertently by committing an offset too early.
 
 Below are some scenarios where this risk is present. These risks can easily be overlooked. Problems can also go undetected during tests since they depend on abruptly interrupting
 the flow in a particular state, and that state could be unlikely to occur. 
