@@ -248,7 +248,6 @@ lazy val docs = project
     Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
     Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     Paradox / paradoxProperties ++= Map(
-      "project.url" -> "https://doc.akka.io/docs/alpakka-kafka/current/",
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,
