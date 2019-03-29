@@ -22,6 +22,7 @@ resolvers in ThisBuild ++= Seq(
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
+  organizationHomepage := Some(url("https://www.lightbend.com/")),
   homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current/")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
@@ -30,6 +31,7 @@ val commonSettings = Seq(
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
+  description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Seq("2.12.8", "2.11.12"),
   scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
