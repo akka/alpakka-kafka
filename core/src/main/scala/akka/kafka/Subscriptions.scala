@@ -61,7 +61,8 @@ object Subscriptions {
   private[kafka] final case class TopicSubscription(tps: Set[String], rebalanceListener: Option[ActorRef])
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
-      TopicSubscription(tps, Some(ref))
+      copy(rebalanceListener = Some(ref))
+
     def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
   }
 
@@ -70,7 +71,8 @@ object Subscriptions {
   private[kafka] final case class TopicSubscriptionPattern(pattern: String, rebalanceListener: Option[ActorRef])
       extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
-      TopicSubscriptionPattern(pattern, Some(ref))
+      copy(rebalanceListener = Some(ref))
+
     def renderStageAttribute: String = s"pattern $pattern$renderListener"
   }
 
@@ -99,7 +101,8 @@ object Subscriptions {
   }
 
   /** Creates subscription for given set of topics */
-  def topics(ts: Set[String]): AutoSubscription = TopicSubscription(ts, None)
+  def topics(ts: Set[String]): AutoSubscription =
+    TopicSubscription(ts, rebalanceListener = None)
 
   /**
    * JAVA API
@@ -117,7 +120,8 @@ object Subscriptions {
   /**
    * Creates subscription for given topics pattern
    */
-  def topicPattern(pattern: String): AutoSubscription = TopicSubscriptionPattern(pattern, None)
+  def topicPattern(pattern: String): AutoSubscription =
+    TopicSubscriptionPattern(pattern, rebalanceListener = None)
 
   /**
    * Manually assign given topics and partitions

@@ -72,6 +72,7 @@ object ConsumerSettings {
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
     val connectionCheckerSettings = ConnectionCheckerSettings(config.getConfig(ConnectionCheckerSettings.configPath))
+    val partitionHandlerWarning = config.getDuration("partition-handler-warning").asScala
 
     new ConsumerSettings[K, V](
       properties,
@@ -91,7 +92,8 @@ object ConsumerSettings {
       metadataRequestTimeout,
       drainingCheckInterval,
       ConsumerSettings.createKafkaConsumer,
-      connectionCheckerSettings
+      connectionCheckerSettings,
+      partitionHandlerWarning
     )
   }
 
@@ -203,7 +205,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
-    val connectionCheckerSettings: ConnectionCheckerSettings
+    val connectionCheckerSettings: ConnectionCheckerSettings,
+    val partitionHandlerWarning: FiniteDuration
 ) {
 
   @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
@@ -239,7 +242,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
     consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
-    connectionCheckerSettings = ConnectionCheckerSettings.Disabled
+    connectionCheckerSettings = ConnectionCheckerSettings.Disabled,
+    partitionHandlerWarning = 15.seconds
   )
 
   /**
@@ -495,6 +499,14 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withDrainingCheckInterval(drainingCheckInterval: java.time.Duration): ConsumerSettings[K, V] =
     copy(drainingCheckInterval = drainingCheckInterval.asScala)
 
+  /** Scala API */
+  def withPartitionHandlerWarning(partitionHandlerWarning: FiniteDuration): ConsumerSettings[K, V] =
+    copy(partitionHandlerWarning = partitionHandlerWarning)
+
+  /** Java API */
+  def withPartitionHandlerWarning(partitionHandlerWarning: java.time.Duration): ConsumerSettings[K, V] =
+    copy(partitionHandlerWarning = partitionHandlerWarning.asScala)
+
   /**
    * Replaces the default Kafka consumer creation logic.
    */
@@ -530,7 +542,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
-      connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings
+      connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
+      partitionHandlerWarning: FiniteDuration = partitionHandlerWarning
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -550,7 +563,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       metadataRequestTimeout,
       drainingCheckInterval,
       consumerFactory,
-      connectionCheckerConfig
+      connectionCheckerConfig,
+      partitionHandlerWarning
     )
 
   /**
@@ -574,6 +588,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
     s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
-    s"connectionCheckerSettings=$connectionCheckerSettings" +
+    s"connectionCheckerSettings=$connectionCheckerSettings," +
+    s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}" +
     ")"
 }

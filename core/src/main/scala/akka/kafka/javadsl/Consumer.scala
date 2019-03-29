@@ -74,7 +74,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T] private[javadsl] (control: Control, streamCompletion: CompletionStage[T])
+  final class DrainingControl[T] private[javadsl] (control: Control, val streamCompletion: CompletionStage[T])
       extends Control {
 
     override def stop(): CompletionStage[Done] = control.stop()

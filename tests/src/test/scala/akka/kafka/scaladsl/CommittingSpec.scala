@@ -175,6 +175,90 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control2.isShutdown.futureValue shouldBe Done
     }
 
+    // This test shows that Kafka ignores commits that reach the consumer after a partition
+    // got revoked from it. Those commits may be enqueued already, but won't have an effect.
+    "ignore commits to partitions that got revoked" in assertAllStagesStopped {
+      val count = 10
+      val topic1 = createTopic(1, partitions = 2)
+      val group1 = createGroupId(1)
+      val consumerSettings = consumerDefaults
+        .withGroupId(group1)
+
+      Source(Numbers.take(count))
+        .map { n =>
+          MultiMessage(List(
+                         new ProducerRecord(topic1, partition0, DefaultKey, n + "-p0"),
+                         new ProducerRecord(topic1, partition1, DefaultKey, n + "-p1")
+                       ),
+                       NotUsed)
+        }
+        .via(Producer.flexiFlow(producerDefaults, testProducer))
+        .runWith(Sink.ignore)
+
+      // Subscribe to the topic (without demand)
+      val rebalanceActor1 = TestProbe()
+      val subscription1 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor1.ref)
+      val (control1, probe1) = Consumer
+        .committableSource(consumerSettings, subscription1)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      // Await initial partition assignment
+      rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
+      rebalanceActor1.expectMsg(
+        TopicPartitionsAssigned(subscription1,
+                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
+      )
+
+      // read all messages from both partitions
+      val committables1: immutable.Seq[ConsumerMessage.CommittableMessage[String, String]] = probe1
+        .request(count * 2L)
+        .expectNextN(count * 2L)
+
+      // Subscribe to the topic (without demand)
+      val rebalanceActor2 = TestProbe()
+      val subscription2 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor2.ref)
+      val (control2, probe2) = Consumer
+        .committableSource(consumerSettings, subscription2)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      // Rebalance happens
+      rebalanceActor1.expectMsg(
+        TopicPartitionsRevoked(subscription1,
+                               Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
+      )
+      rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
+      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
+      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
+
+      // commit ALL messages via consumer 1
+      val consumer1Read = Future.sequence(
+        committables1
+          .map { elem =>
+            elem.committableOffset.commitScaladsl().map { _ =>
+              elem.record.value
+            }
+          }
+      )
+
+      val committables2: immutable.Seq[ConsumerMessage.CommittableMessage[String, String]] = probe2
+        .request(count)
+        .expectNextN(count)
+
+      // messages that belonged to the revoked partition show up in the new consumer, even though they were
+      // committed after the rebalance
+      committables2.map(_.record.value()) should contain theSameElementsInOrderAs {
+        Numbers.take(count).map(_ + "-p1")
+      }
+
+      probe1.cancel()
+      probe2.cancel()
+
+      control1.isShutdown.futureValue shouldBe Done
+      control2.isShutdown.futureValue shouldBe Done
+    }
+
     "work without demand" in assertAllStagesStopped {
       val topic = createTopic()
       val group = createGroupId()
