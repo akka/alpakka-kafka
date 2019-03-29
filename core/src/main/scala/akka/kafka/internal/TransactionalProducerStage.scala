@@ -118,10 +118,13 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   }
 
   private def suspendDemand(): Unit =
-    setHandler(stage.out, new OutHandler {
-      // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
-      override def onPull(): Unit = ()
-    })
+    setHandler(
+      stage.out,
+      new OutHandler {
+        // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
+        override def onPull(): Unit = ()
+      }
+    )
 
   override protected def onTimer(timerKey: Any): Unit =
     if (timerKey == commitSchedulerKey) {
@@ -141,11 +144,10 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
     }
   }
 
-  override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] =
-    getAsyncCallback[Envelope[K, V, P]](_.passThrough match {
-      case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
-      case _ =>
-    })
+  override def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
+    case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
+    case _ =>
+  }
 
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")

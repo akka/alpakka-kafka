@@ -15,7 +15,7 @@ import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.{Attributes, FlowShape, Supervision}
 import akka.stream.stage._
-import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.FiniteDuration
@@ -83,6 +83,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] = getAsyncCallback[Envelope[K, V, P]] { _ =>
     }
 
+  def postSend(msg: Envelope[K, V, P]) = ()
+
   setHandler(stage.out, new OutHandler {
     override def onPull(): Unit = tryPull(stage.in)
   })
@@ -115,6 +117,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
           onMessageAckCb.invoke(msg)
           r.success(Result(metadata, msg))
         }))
+        postSend(msg)
         val future = r.future.asInstanceOf[Future[OUT]]
         push(stage.out, future)
 
@@ -127,6 +130,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
           producer.send(msg, sendCallback(r, onSuccess = metadata => r.success(MultiResultPart(metadata, msg))))
           r.future
         }
+        postSend(multiMsg)
         implicit val ec: ExecutionContext = this.materializer.executionContext
         val res = Future.sequence(promises).map { parts =>
           onMessageAckCb.invoke(multiMsg)
