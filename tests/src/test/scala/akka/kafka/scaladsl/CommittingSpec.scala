@@ -161,7 +161,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
             }
           }
       )
-      eventualStrings.futureValue shouldBe NumbersPartition0 ++ NumbersPartition1
+      eventualStrings.futureValue should contain theSameElementsAs NumbersPartition0 ++ NumbersPartition1
 
       probe1.cancel()
       probe2.cancel()
