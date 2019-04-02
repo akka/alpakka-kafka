@@ -271,9 +271,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       val sinkTopic = createTopic(2, destinationPartitions)
       val group = createGroupId(1)
 
-      givenInitializedTopic(sourceTopic)
-      givenInitializedTopic(sinkTopic)
-
       val elements = 900 * 1000
       val restartAfter = 10 * 1000
 
