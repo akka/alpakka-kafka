@@ -279,7 +279,7 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         (0 until sourcePartitions).map(
           part => produce(sourceTopic, ((part * partitionSize) + 1) to (partitionSize * (part + 1)), part)
         )
-      Await.result(Future.sequence(producers), 30.seconds)
+      Await.result(Future.sequence(producers), 1.minute)
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
