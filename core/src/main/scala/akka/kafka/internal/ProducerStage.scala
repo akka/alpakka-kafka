@@ -45,6 +45,5 @@ private[internal] object ProducerStage {
 
   trait MessageCallback[K, V, P] {
     protected def awaitingConfirmation: AtomicInteger
-    def onMessageAckCb: AsyncCallback[Envelope[K, V, P]]
   }
 }
