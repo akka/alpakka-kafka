@@ -134,7 +134,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         val future = res.asInstanceOf[Future[OUT]]
         push(stage.out, future)
 
-      case _: PassThroughMessage[K, V, P] =>
+      case passthrough: PassThroughMessage[K, V, P] =>
+        postSend(passthrough)
         val future = Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]]
         push(stage.out, future)
 
