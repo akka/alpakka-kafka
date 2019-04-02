@@ -187,7 +187,6 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
   }
 
   private def abortTransaction(): Unit = {
-    println("aborting transaction")
     log.debug("Aborting transaction")
     producer.abortTransaction()
   }

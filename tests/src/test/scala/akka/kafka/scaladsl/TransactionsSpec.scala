@@ -286,7 +286,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
-      val uniqueId = new AtomicInteger(0)
       val completedCopy = new AtomicInteger(0)
 
       def runStream(id: String): UniqueKillSwitch =
@@ -294,7 +293,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
             () => {
               val transactionId = s"$group-$id"
-              println(s"Recreating source [$transactionId]")
               transactionalCopyStream(consumerSettings, sourceTopic, sinkTopic, transactionId)
                 .scan(0) { case (count, _) => count + 1 }
                 .map { count =>
@@ -310,7 +308,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           .viaMat(KillSwitches.single)(Keep.right)
           .toMat(Sink.onComplete {
             case Success(_) =>
-              println("Transactional copy completed normally")
               completedCopy.incrementAndGet()
             case Failure(ex) => // restart
           })(Keep.left)
@@ -322,12 +319,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       val probeConsumerGroup = createGroupId(2)
 
-      println("waiting for all transactional copy to finish")
       while (completedCopy.get() < consumers) {
         Thread.sleep(2000)
       }
-
-      println("starting to count copied elements")
 
       val consumer = valuesSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
         .take(elements)
