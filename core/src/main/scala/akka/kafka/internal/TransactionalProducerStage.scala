@@ -144,11 +144,10 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
     }
   }
 
-  override val onMessageAckCb: AsyncCallback[Envelope[K, V, P]] =
-    getAsyncCallback[Envelope[K, V, P]](_.passThrough match {
-      case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
-      case _ =>
-    })
+  override def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
+    case o: ConsumerMessage.PartitionOffset => batchOffsets = batchOffsets.updated(o)
+    case _ =>
+  }
 
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")
