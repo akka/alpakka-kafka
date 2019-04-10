@@ -67,6 +67,7 @@ The JUnit test base classes run the [`assertAllStagesStopped`](https://doc.akka.
 ### Testing from Scala code
 
 The `KafkaSpec` class offers access to 
+
 * preconfigured consumer settings (`ConsumerSettings<String, String> consumerDefaults`),
 * preconfigured producer settings (`ProducerSettings<String, String> producerDefaults`),
 * unique topic creation (`createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1)`),
