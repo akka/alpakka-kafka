@@ -243,7 +243,7 @@ lazy val docs = project
       ("\\.java\\.scala".r, _ => ".java")
     ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
-    Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
+    Paradox / sourceDirectory := sourceDirectory.value / "main",
     Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     Paradox / paradoxProperties ++= Map(
       "project.url" -> "https://doc.akka.io/docs/alpakka-kafka/current/",
