@@ -47,7 +47,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
     FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
       c,
       msgCount => {
-        ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
+        ReactiveKafkaConsumerTestFixture("topic", msgCount, null, c.numberOfPartitions)
       }
     )
 

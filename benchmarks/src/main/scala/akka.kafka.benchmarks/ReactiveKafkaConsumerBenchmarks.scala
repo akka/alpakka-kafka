@@ -5,6 +5,8 @@
 
 package akka.kafka.benchmarks
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.stream.Materializer
@@ -24,8 +26,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   type CommittableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
   /**
-   * Creates a predefined stream, reads N elements, discarding them into a Sink.ignore. Does not commit.
-   */
+    * Creates a predefined stream, reads N elements, discarding them into a Sink.ignore. Does not commit.
+    */
   def consumePlainNoKafka(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     meter.mark()
@@ -41,8 +43,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit.
-   */
+    * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit.
+    */
   def consumePlain(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val future = fixture.source
@@ -56,13 +58,14 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
-   * size is accumulated.
-   */
+    * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
+    * size is accumulated.
+    */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture,
                                                  meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
+    val counter = new AtomicInteger(fixture.numberOfPartitions)
     val control = fixture.source
       .map { msg =>
         msg.committableOffset
@@ -75,9 +78,11 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
       .mapAsync(3) { m =>
         m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
-      .toMat(Sink.foreach { batch =>
-        if (batch.offsets().head._2 >= fixture.msgCount - 1)
-          promise.complete(Success(()))
+      .toMat(Sink.foreach {
+        _.offsets()
+          .values
+          .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
+          .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
       })(Keep.left)
       .run()
 
@@ -87,8 +92,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads elements from Kafka source and commits each one immediately after read.
-   */
+    * Reads elements from Kafka source and commits each one immediately after read.
+    */
   def consumeCommitAtMostOnce(fixture: CommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
