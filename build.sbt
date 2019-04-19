@@ -155,7 +155,7 @@ lazy val testkit = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
-      "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
+      "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j"),
       "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
       "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
@@ -183,7 +183,7 @@ lazy val tests = project
       "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
       // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
       "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-      "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+      "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
       "org.testcontainers" % "kafka" % testcontainersVersion % Test,
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
       "org.scalatest" %% "scalatest" % scalatestVersion % Test,
