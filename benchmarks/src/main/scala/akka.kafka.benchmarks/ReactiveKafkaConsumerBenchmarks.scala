@@ -21,13 +21,13 @@ import scala.language.postfixOps
 import scala.util.Success
 
 object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
-  val streamingTimeout = 30 minutes
+  val streamingTimeout: FiniteDuration = 30 minutes
   type NonCommittableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
   type CommittableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
   /**
-    * Creates a predefined stream, reads N elements, discarding them into a Sink.ignore. Does not commit.
-    */
+   * Creates a predefined stream, reads N elements, discarding them into a Sink.ignore. Does not commit.
+   */
   def consumePlainNoKafka(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     meter.mark()
@@ -43,8 +43,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-    * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit.
-    */
+   * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit.
+   */
   def consumePlain(fixture: NonCommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val future = fixture.source
@@ -58,9 +58,9 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-    * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
-    * size is accumulated.
-    */
+   * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
+   * size is accumulated.
+   */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture,
                                                  meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
@@ -79,8 +79,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
       .toMat(Sink.foreach {
-        _.offsets()
-          .values
+        _.offsets().values
           .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
           .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
       })(Keep.left)
@@ -92,8 +91,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-    * Reads elements from Kafka source and commits each one immediately after read.
-    */
+   * Reads elements from Kafka source and commits each one immediately after read.
+   */
   def consumeCommitAtMostOnce(fixture: CommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]

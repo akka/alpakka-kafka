@@ -14,7 +14,11 @@ import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
-case class ReactiveKafkaConsumerTestFixture[T](topic: String, msgCount: Int, source: Source[T, Control], numberOfPartitions: Int)
+
+case class ReactiveKafkaConsumerTestFixture[T](topic: String,
+                                               msgCount: Int,
+                                               source: Source[T, Control],
+                                               numberOfPartitions: Int)
 
 object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
 
