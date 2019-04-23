@@ -17,7 +17,7 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerConfig
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
  * Akka Stream connector to support transactions between Kafka topics.
@@ -98,7 +98,7 @@ object Transactional {
         new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](
           txSettings.closeTimeout,
           closeProducerOnStop = true,
-          () => txSettings.createKafkaProducer(),
+          producerProvider = (ec: ExecutionContext) => txSettings.asyncCreateKafkaProducer()(ec),
           settings.eosCommitInterval
         )
       )

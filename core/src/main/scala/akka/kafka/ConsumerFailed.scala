@@ -28,6 +28,11 @@ class InitialPollFailed(val timeout: Long, val bootstrapServers: String)
       s"$bootstrapServers did not succeed, correct address?"
     )
 
+class ConsumerCreationFailed(val timeout: FiniteDuration)
+    extends ConsumerFailed(
+      s"The consumer could not be created within ${timeout.toCoarsest}"
+    )
+
 class WakeupsExceeded(val timeout: Long, val maxWakeups: Int, val wakeupTimeout: FiniteDuration)
     extends ConsumerFailed(
       s"WakeupException limit exceeded during poll($timeout), stopping (max-wakeups = $maxWakeups, wakeup-timeout = ${wakeupTimeout.toCoarsest})."

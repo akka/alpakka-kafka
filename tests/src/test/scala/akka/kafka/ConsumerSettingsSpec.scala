@@ -5,11 +5,20 @@
 
 package akka.kafka
 
+import akka.actor.ActorSystem
+import akka.kafka.scaladsl.DiscoverySupport
+import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 import org.scalatest._
+import org.scalatest.concurrent.ScalaFutures
 
-class ConsumerSettingsSpec extends WordSpecLike with Matchers {
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
+class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues with ScalaFutures {
+
+  implicit val patience = PatienceConfig(5.seconds, 10.millis)
 
   "ConsumerSettings" must {
 
@@ -182,6 +191,54 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers {
       exception.getMessage should ===(
         "requirement failed: Key deserializer should be defined or declared in configuration"
       )
+    }
+
+  }
+
+  "Discovery" should {
+    val config = ConfigFactory
+      .parseString(s"""
+                      |my-consumer: $${akka.kafka.consumer} {
+                      |  service {
+                      |    name = "kafkaService1"
+                      |    lookup-timeout = 10 ms
+                      |  }
+                      |}
+                      |akka.discovery.method = config
+                      |akka.discovery.config.services = {
+                      |  kafkaService1 = {
+                      |    endpoints = [
+                      |      { host = "cat", port = 1233 }
+                      |      { host = "dog", port = 1234 }
+                      |    ]
+                      |  }
+                      |}
+                   """.stripMargin)
+      .withFallback(ConfigFactory.load())
+      .resolve()
+
+    "read bootstrap servers from config" in {
+      implicit val actorSystem = ActorSystem("test", config)
+
+      DiscoverySupport.bootstrapServers(config.getConfig("my-consumer")).futureValue shouldBe "cat:1233,dog:1234"
+
+      TestKit.shutdownActorSystem(actorSystem)
+    }
+
+    "use enriched settings for consumer creation" in {
+      implicit val actorSystem = ActorSystem("test", config)
+      implicit val executionContext: ExecutionContext = actorSystem.dispatcher
+
+      val consumerConfig = config.getConfig("my-consumer")
+      val settings = ConsumerSettings(consumerConfig, new StringDeserializer, new StringDeserializer)
+        .withEnrichAsync(DiscoverySupport.consumerBootstrapServers(consumerConfig))
+
+      val exception = settings.asyncCreateKafkaConsumer().failed.futureValue
+      exception shouldBe a[org.apache.kafka.common.KafkaException]
+      exception.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
+      exception.getCause.getMessage shouldBe "No resolvable bootstrap urls given in bootstrap.servers"
+
+      TestKit.shutdownActorSystem(actorSystem)
     }
 
   }

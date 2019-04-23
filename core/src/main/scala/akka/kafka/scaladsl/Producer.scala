@@ -15,7 +15,7 @@ import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.
@@ -273,7 +273,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          () => settings.createKafkaProducer()
+          producerProvider = (ec: ExecutionContext) => settings.asyncCreateKafkaProducer()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -304,7 +304,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          () => settings.createKafkaProducer()
+          producerProvider = (ec: ExecutionContext) => settings.asyncCreateKafkaProducer()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -359,7 +359,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
-          producerProvider = () => producer
+          producerProvider = (_: ExecutionContext) => Future.successful(producer)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -393,7 +393,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
-          producerProvider = () => producer
+          producerProvider = (_: ExecutionContext) => Future.successful(producer)
         )
       )
       .mapAsync(settings.parallelism)(identity)

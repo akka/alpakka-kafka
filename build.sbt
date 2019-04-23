@@ -200,6 +200,7 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.1"
       ) ++ silencer,
@@ -260,6 +261,7 @@ lazy val tests = project
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),

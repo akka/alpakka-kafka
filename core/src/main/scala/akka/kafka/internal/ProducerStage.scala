@@ -12,7 +12,7 @@ import akka.kafka.ProducerMessage._
 import akka.stream._
 import org.apache.kafka.clients.producer.Producer
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 /**
@@ -24,7 +24,7 @@ import scala.concurrent.duration._
 private[internal] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]] {
   val closeTimeout: FiniteDuration
   val closeProducerOnStop: Boolean
-  val producerProvider: () => Producer[K, V]
+  val producerProvider: ExecutionContext => Future[Producer[K, V]]
 
   val in: Inlet[IN] = Inlet[IN]("messages")
   val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")

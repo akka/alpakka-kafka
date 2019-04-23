@@ -5,6 +5,9 @@
 
 package akka.kafka
 
+import akka.actor.ActorSystem
+import akka.kafka.scaladsl.DiscoverySupport
+import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
@@ -170,6 +173,45 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
       )
     }
 
+  }
+
+  "Discovery" should {
+    val config = ConfigFactory
+      .parseString(s"""
+          |my-producer: $${akka.kafka.producer} {
+          |  service {
+          |    name = "kafkaService1"
+          |    lookup-timeout = 10 ms
+          |  }
+          |}
+          |akka.discovery.method = config
+          |akka.discovery.config.services = {
+          |  kafkaService1 = {
+          |    endpoints = [
+          |      { host = "cat", port = 1233 }
+          |      { host = "dog", port = 1234 }
+          |    ]
+          |  }
+          |}
+        """.stripMargin)
+      .withFallback(ConfigFactory.load())
+      .resolve()
+
+    "use enriched settings for consumer creation" in {
+      implicit val actorSystem = ActorSystem("test", config)
+
+      val producerConfig = config.getConfig("my-producer")
+      val settings = ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
+        .withEnrichAsync(DiscoverySupport.producerBootstrapServers(producerConfig))
+
+      val exception = intercept[org.apache.kafka.common.KafkaException] {
+        settings.createKafkaProducer()
+      }
+      exception shouldBe a[org.apache.kafka.common.KafkaException]
+      exception.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
+      exception.getCause.getMessage shouldBe "No resolvable bootstrap urls given in bootstrap.servers"
+      TestKit.shutdownActorSystem(actorSystem)
+    }
   }
 
 }

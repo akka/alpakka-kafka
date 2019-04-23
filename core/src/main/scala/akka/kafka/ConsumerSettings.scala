@@ -6,6 +6,7 @@
 package akka.kafka
 
 import java.util.Optional
+import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorSystem
 import akka.annotation.InternalApi
@@ -17,6 +18,8 @@ import org.apache.kafka.common.serialization.Deserializer
 
 import scala.jdk.CollectionConverters._
 import scala.compat.java8.OptionConverters._
+import scala.compat.java8.FutureConverters._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object ConsumerSettings {
@@ -91,6 +94,7 @@ object ConsumerSettings {
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
+      enrichAsync = (s: ConsumerSettings[K, V]) => Future.successful(s),
       ConsumerSettings.createKafkaConsumer,
       connectionCheckerSettings,
       partitionHandlerWarning
@@ -204,6 +208,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
+    val enrichAsync: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]],
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
     val connectionCheckerSettings: ConnectionCheckerSettings,
     val partitionHandlerWarning: FiniteDuration
@@ -241,6 +246,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
+    enrichAsync = (s: ConsumerSettings[K, V]) => Future.successful(s),
     consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
     connectionCheckerSettings = ConnectionCheckerSettings.Disabled,
     partitionHandlerWarning = 15.seconds
@@ -507,6 +513,16 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withPartitionHandlerWarning(partitionHandlerWarning: java.time.Duration): ConsumerSettings[K, V] =
     copy(partitionHandlerWarning = partitionHandlerWarning.asScala)
 
+  /** Scala API: A hook to allow for resolving some settings asynchronously. */
+  def withEnrichAsync(value: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]): ConsumerSettings[K, V] =
+    copy(enrichAsync = value)
+
+  /** Java API: A hook to allow for resolving some settings asynchronously. */
+  def withEnrichCompletionStage(
+      value: ConsumerSettings[K, V] => CompletionStage[ConsumerSettings[K, V]]
+  ): ConsumerSettings[K, V] =
+    copy(enrichAsync = (s: ConsumerSettings[K, V]) => value.apply(s).toScala)
+
   /**
    * Replaces the default Kafka consumer creation logic.
    */
@@ -541,6 +557,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
+      enrichAsync: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = enrichAsync,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
       connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
       partitionHandlerWarning: FiniteDuration = partitionHandlerWarning
@@ -562,15 +579,33 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
+      enrichAsync,
       consumerFactory,
       connectionCheckerConfig,
       partitionHandlerWarning
     )
 
   /**
-   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
+   * Applies `enrichAsync` to complement these settings from asynchronous sources.
    */
-  def createKafkaConsumer(): Consumer[K, V] = consumerFactory.apply(this)
+  def enriched: Future[ConsumerSettings[K, V]] = enrichAsync(this)
+
+  /**
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
+   * Blocking might appear while `enriched` is called.
+   */
+  @deprecated("prefer `asyncCreateKafkaConsumer`", "1.0.2")
+  def createKafkaConsumer(): Consumer[K, V] = {
+    val enrichedSettings = Await.result(enriched, 1.minute)
+    consumerFactory.apply(enrichedSettings)
+  }
+
+  /**
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings
+   * (without blocking for `enriched`).
+   */
+  def asyncCreateKafkaConsumer()(implicit executionContext: ExecutionContext): Future[Consumer[K, V]] =
+    enriched.map(consumerFactory)
 
   override def toString: String =
     s"akka.kafka.ConsumerSettings(" +
