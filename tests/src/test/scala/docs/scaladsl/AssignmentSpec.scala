@@ -7,6 +7,7 @@ package docs.scaladsl
 
 import akka.Done
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Sink, Source}
 // #testkit
@@ -21,7 +22,7 @@ import scala.concurrent.duration._
 
 // #testkit
 
-class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) {
+class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) with EmbeddedKafkaLike {
 
   implicit val patience = PatienceConfig(15.seconds, 1.second)
 

@@ -24,17 +24,12 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) with Inside {
+class CommittingSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with Inside {
+
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   implicit val patience: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "num.partitions" -> "2",
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
   final val Numbers = (1 to 200).map(_.toString)
   final val partition1 = 1
 
@@ -42,7 +37,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
 
     "ensure uncommitted messages are redelivered" in assertAllStagesStopped {
       val Messages = Numbers.take(100)
-      val topic1 = createTopic(1)
+      val topic1 = createCleanTopic(1)
       val group1 = createGroupId(1)
       val group2 = createGroupId(2)
 
@@ -102,7 +97,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
 
     "work even if the partition gets balanced away and is not reassigned yet (#750)" in assertAllStagesStopped {
       val count = 10
-      val topic1 = createTopic(1, partitions = 2)
+      val topic1 = createCleanTopic(1, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
         .withGroupId(group1)
@@ -183,7 +178,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
     }
 
     "work without demand" in assertAllStagesStopped {
-      val topic = createTopic()
+      val topic = createCleanTopic()
       val group = createGroupId()
 
       // important to use more messages than the internal buffer sizes
@@ -217,7 +212,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
     }
 
     "work in batches" in assertAllStagesStopped {
-      val topic = createTopic()
+      val topic = createCleanTopic()
       val group = createGroupId()
 
       produce(topic, 1 to 100).futureValue shouldBe Done
@@ -253,7 +248,7 @@ class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) wit
     }
 
     "work with a committer sink" in assertAllStagesStopped {
-      val topic = createTopic()
+      val topic = createCleanTopic()
       val group = createGroupId()
 
       produce(topic, 1 to 100).futureValue shouldBe Done

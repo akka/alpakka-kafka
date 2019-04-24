@@ -8,7 +8,6 @@ package akka.kafka.scaladsl
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.Inside
 
@@ -16,24 +15,17 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with Inside {
+class TimestampSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with Inside {
+
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   implicit val patience = PatienceConfig(5.second, 100.millis)
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
 
   "Kafka connector" must {
     "begin consuming from the given timestamp of the topic" in {
       assertAllStagesStopped {
-        val topic = createTopicName(1)
+        val topic = createCleanTopic(1)
         val group = createGroupId(1)
-
-        givenInitializedTopic(topic)
 
         val now = System.currentTimeMillis()
         Await.result(produceTimestamped(topic, (1 to 100).zip(now to (now + 100))), remainingOrDefault)
@@ -47,7 +39,6 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
         val probe = Consumer
           .plainSource(consumerSettings, topicsAndTs)
-          .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
 
@@ -61,10 +52,8 @@ class TimestampSpec extends SpecBase(kafkaPort = KafkaPorts.TimestampSpec) with 
 
     "handle topic that has no messages by timestamp" in {
       assertAllStagesStopped {
-        val topic = createTopicName(1)
+        val topic = createCleanTopic(1)
         val group = createGroupId(1)
-
-        givenInitializedTopic(topic)
 
         val now = System.currentTimeMillis()
 

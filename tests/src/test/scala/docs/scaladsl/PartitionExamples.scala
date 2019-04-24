@@ -7,6 +7,7 @@ package docs.scaladsl
 
 import akka.actor.ActorRef
 import akka.kafka.scaladsl.Consumer
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.kafka.{KafkaConsumerActor, KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -16,7 +17,7 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
-class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) {
+class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) with EmbeddedKafkaLike {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,

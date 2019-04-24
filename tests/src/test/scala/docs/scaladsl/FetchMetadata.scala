@@ -7,7 +7,6 @@ package docs.scaladsl
 
 import org.scalatest.TryValues
 import org.scalatest.time.{Seconds, Span}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 // #metadata
 import akka.actor.ActorRef
@@ -21,17 +20,16 @@ import scala.concurrent.duration._
 
 // #metadata
 
-class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) with TryValues {
+class FetchMetadata extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TryValues {
+
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(20, Seconds)), interval = scaled(Span(1, Seconds)))
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
-
   "Consumer metadata" should "be available" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
+    val topic = createCleanTopic()
     // #metadata
     val timeout = 5.seconds
     val settings = consumerSettings.withMetadataRequestTimeout(timeout)
@@ -59,7 +57,7 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
     val consumerSettings = consumerDefaults
       .withGroupId(createGroupId())
       .withMetadataRequestTimeout(100.millis)
-    val topic = createTopic()
+    val topic = createCleanTopic()
     implicit val timeout = Timeout(consumerSettings.metadataRequestTimeout * 2)
 
     val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
@@ -78,7 +76,7 @@ class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) 
     val consumerSettings = consumerDefaults
       .withGroupId(createGroupId())
       .withMetadataRequestTimeout(5.seconds)
-    val topic = createTopic()
+    val topic = createCleanTopic()
     implicit val timeout = Timeout(consumerSettings.metadataRequestTimeout * 2)
 
     val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))

@@ -15,14 +15,13 @@ import org.apache.kafka.common.serialization.StringSerializer
 import scala.concurrent.Future
 import akka.Done
 import akka.kafka.ProducerMessage.MultiResultPart
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
-class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) {
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) {
+
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)
@@ -35,7 +34,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
         .withBootstrapServers(bootstrapServers)
     // #settings
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic()
+    val topic = createCleanTopic()
     // #plainSink
     val done: Future[Done] =
       Source(1 to 100)
@@ -57,7 +56,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
     val kafkaProducer = producerSettings.createKafkaProducer()
-    val topic = createTopic()
+    val topic = createCleanTopic()
     // #plainSinkWithProducer
     val done = Source(1 to 100)
       .map(_.toString)
@@ -146,7 +145,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples)
 
   "flexiFlow" should "work" in assertAllStagesStopped {
     val producerSettings = producerDefaults
-    val topic = createTopic()
+    val topic = createCleanTopic()
     def println(s: String): Unit = {}
     // format:off
     // #flow

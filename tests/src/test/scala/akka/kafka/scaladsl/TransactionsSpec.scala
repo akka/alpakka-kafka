@@ -17,7 +17,6 @@ import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -25,25 +24,17 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec) {
+class TransactionsSpec extends SpecBase(KafkaPorts.DockerKafkaPort) {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   "A consume-transform-produce cycle" must {
 
     "complete" in {
       assertAllStagesStopped {
-        val sourceTopic = createTopicName(1)
-        val sinkTopic = createTopicName(2)
+        val sourceTopic = createCleanTopic(1)
+        val sinkTopic = createCleanTopic(2)
         val group = createGroupId(1)
-
-        givenInitializedTopic(sourceTopic)
-        givenInitializedTopic(sinkTopic)
 
         Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
 
@@ -67,12 +58,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
 
     "complete when messages are filtered out" in assertAllStagesStopped {
-      val sourceTopic = createTopicName(1)
-      val sinkTopic = createTopicName(2)
+      val sourceTopic = createCleanTopic(1)
+      val sinkTopic = createCleanTopic(2)
       val group = createGroupId(1)
-
-      givenInitializedTopic(sourceTopic)
-      givenInitializedTopic(sinkTopic)
 
       Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
 
@@ -80,7 +68,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
       val control = Transactional
         .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-        .filterNot(_.record.value() == InitialMsg)
         .map { msg =>
           if (msg.record.value.toInt % 10 == 0) {
             ProducerMessage.passThrough[String, String, ConsumerMessage.PartitionOffset](msg.partitionOffset)
@@ -106,12 +93,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
 
     "complete with transient failure causing an abort with restartable source" in {
       assertAllStagesStopped {
-        val sourceTopic = createTopicName(1)
-        val sinkTopic = createTopicName(2)
+        val sourceTopic = createCleanTopic(1)
+        val sinkTopic = createCleanTopic(2)
         val group = createGroupId(1)
-
-        givenInitializedTopic(sourceTopic)
-        givenInitializedTopic(sinkTopic)
 
         Await.result(produce(sourceTopic, 1 to 1000), remainingOrDefault)
 
@@ -128,7 +112,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
           restartCount += 1
           Transactional
             .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-            .filterNot(_.record.value() == InitialMsg)
             .map { msg =>
               if (msg.record.value().toInt == 500 && restartCount < 2) {
                 // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
@@ -163,12 +146,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
 
     "complete with messages filtered out and transient failure causing an abort with restartable source" in assertAllStagesStopped {
-      val sourceTopic = createTopicName(1)
-      val sinkTopic = createTopicName(2)
+      val sourceTopic = createCleanTopic(1)
+      val sinkTopic = createCleanTopic(2)
       val group = createGroupId(1)
-
-      givenInitializedTopic(sourceTopic)
-      givenInitializedTopic(sinkTopic)
 
       Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
 
@@ -185,7 +165,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
         restartCount += 1
         Transactional
           .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-          .filterNot(_.record.value() == InitialMsg)
           .map { msg =>
             if (msg.record.value().toInt == 50 && restartCount < 2) {
               // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
@@ -224,12 +203,9 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
     }
 
     "provide consistency when using multiple transactional streams" in {
-      val sourceTopic = createTopicName(1)
-      val sinkTopic = createTopic(2, partitions = 4)
+      val sourceTopic = createCleanTopic(1)
+      val sinkTopic = createCleanTopic(2, partitions = 4)
       val group = createGroupId(1)
-
-      givenInitializedTopic(sourceTopic)
-      givenInitializedTopic(sinkTopic)
 
       val elements = 50
       val batchSize = 10
@@ -267,8 +243,8 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
       val destinationPartitions = 4
       val consumers = 3
 
-      val sourceTopic = createTopic(1, sourcePartitions)
-      val sinkTopic = createTopic(2, destinationPartitions)
+      val sourceTopic = createCleanTopic(1, sourcePartitions)
+      val sinkTopic = createCleanTopic(2, destinationPartitions)
       val group = createGroupId(1)
 
       val elements = 300 * 1000
@@ -359,7 +335,6 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
   ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
     Transactional
       .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
-      .filterNot(_.record.value() == InitialMsg)
       .map { msg =>
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
@@ -379,6 +354,5 @@ class TransactionsSpec extends SpecBase(kafkaPort = KafkaPorts.TransactionsSpec)
                            topic: String): Source[String, Consumer.Control] =
     Consumer
       .plainSource(settings, TopicSubscription(Set(topic), None))
-      .filterNot(_.value == InitialMsg)
       .map(_.value())
 }

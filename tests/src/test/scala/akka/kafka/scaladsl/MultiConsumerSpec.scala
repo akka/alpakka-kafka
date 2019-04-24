@@ -7,6 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.Done
 import akka.kafka.KafkaPorts
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
@@ -14,7 +15,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) {
+class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) with EmbeddedKafkaLike {
 
   def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,

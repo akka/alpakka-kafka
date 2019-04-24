@@ -14,7 +14,6 @@ import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.collection.immutable
@@ -23,16 +22,17 @@ import scala.concurrent.duration._
 
 // #oneToMany
 
-class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
+class AtLeastOnce extends DocsSpecBase(KafkaPorts.DockerKafkaPort) {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
   "Connect a Consumer to Producer" should "map messages one-to-many, and commit in batches" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic1, topic2, topic3) = createTopics(1, 2, 3)
+    val topic1 = createCleanTopic(1)
+    val topic2 = createCleanTopic(2)
+    val topic3 = createCleanTopic(3)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     val control =
@@ -72,7 +72,10 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
     def ignore(value: String): Boolean = "2" == value
 
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic1, topic2, topic3, topic4) = createTopics(1, 2, 3, 4)
+    val topic1 = createCleanTopic(1)
+    val topic2 = createCleanTopic(2)
+    val topic3 = createCleanTopic(3)
+    val topic4 = createCleanTopic(4)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     val control =
