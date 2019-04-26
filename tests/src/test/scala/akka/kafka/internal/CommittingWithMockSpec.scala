@@ -5,10 +5,11 @@
 
 package akka.kafka.internal
 
+import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{ConsumerSettings, Subscriptions}
-import akka.kafka.scaladsl.Consumer
+import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream._
 import akka.stream.scaladsl._
@@ -18,6 +19,7 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -29,8 +31,6 @@ object CommittingWithMockSpec {
   type K = String
   type V = String
   type Record = ConsumerRecord[K, V]
-
-  val closeTimeout = 500.millis
 
   def createMessage(seed: Int): CommittableMessage[K, V] = createMessage(seed, "topic")
 
@@ -50,9 +50,12 @@ class CommittingWithMockSpec(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with ScalaFutures {
 
   import CommittingWithMockSpec._
+
+  implicit val patience: PatienceConfig = PatienceConfig(15.seconds, 1.second)
 
   def this() = this(ActorSystem())
 
@@ -415,4 +418,67 @@ class CommittingWithMockSpec(_system: ActorSystem)
     Await.result(control2.shutdown(), remainingOrDefault)
   }
 
+  "Committer.flow" should "fail in case of an exception during commit" in assertAllStagesStopped {
+    val committerSettings = CommitterSettings(system)
+      .withMaxBatch(1L)
+
+    val commitLog = new internal.ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val msg = createMessage(1)
+    mock.enqueue(List(toRecord(msg)))
+
+    val (control, probe) = createCommittableSource(mock.mock)
+      .map(_.committableOffset)
+      .toMat(Committer.sink(committerSettings))(Keep.both)
+      .run()
+
+    awaitAssert {
+      commitLog.calls should have size 1
+    }
+
+    emulateFailedCommit(commitLog)
+
+    probe.failed.futureValue shouldBe a[CommitFailedException]
+    control.shutdown().futureValue shouldBe Done
+  }
+
+  it should "recover with supervision in case of commit fail" in assertAllStagesStopped {
+    val committerSettings = CommitterSettings(system)
+      .withMaxBatch(1L)
+
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val msg = createMessage(1)
+    mock.enqueue(List(toRecord(msg)))
+
+    val resumeOnCommitFailed: Supervision.Decider = {
+      case _: CommitFailedException ⇒ Supervision.Resume
+      case _ ⇒ Supervision.Stop
+    }
+
+    val (control, probe) = createCommittableSource(mock.mock)
+      .map(_.committableOffset)
+      .toMat(
+        Committer
+          .sink(committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(resumeOnCommitFailed))
+      )(Keep.both)
+      .run()
+
+    awaitAssert {
+      commitLog.calls should have size 1
+    }
+
+    emulateFailedCommit(commitLog)
+
+    control.shutdown().futureValue shouldBe Done
+    probe.futureValue shouldBe Done
+  }
+
+  private def emulateFailedCommit(commitLog: ConsumerMock.LogHandler): Unit = {
+    val failure = new CommitFailedException()
+    commitLog.calls.head match {
+      case (_, callback) => callback.onComplete(null, failure)
+    }
+  }
 }
