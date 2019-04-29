@@ -29,7 +29,8 @@ trait TestcontainersKafkaLike extends KafkaSpec {
       val kafkaContainer = new KafkaContainer()
       kafkaContainer.start()
       kafkaBootstrapServersInternal = kafkaContainer.getBootstrapServers
-      kafkaPortInternal = kafkaBootstrapServersInternal.substring(kafkaBootstrapServersInternal.lastIndexOf(":") + 1).toInt
+      kafkaPortInternal =
+        kafkaBootstrapServersInternal.substring(kafkaBootstrapServersInternal.lastIndexOf(":") + 1).toInt
     }
     super.setUp()
   }
@@ -40,6 +41,7 @@ private object TestcontainersKafkaLike {
   private var kafkaBootstrapServersInternal: String = _
   private var kafkaPortInternal: Int = -1
 
-  private def requireStarted(): Unit = require(kafkaPortInternal != -1, "Testcontainers Kafka hasn't been started via `setUp`")
+  private def requireStarted(): Unit =
+    require(kafkaPortInternal != -1, "Testcontainers Kafka hasn't been started via `setUp`")
 
 }
