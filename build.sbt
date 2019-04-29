@@ -7,6 +7,7 @@ val akkaVersion = "2.5.21"
 val kafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.5"
+val testcontainersVersion = "1.11.2"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.1"
 
@@ -155,6 +156,7 @@ lazy val testkit = project
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
       "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" exclude ("log4j", "log4j"),
+      "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
       "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
       "junit" % "junit" % "4.12" % Provided,
@@ -182,6 +184,7 @@ lazy val tests = project
       // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
       "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
       "net.manub" %% "scalatest-embedded-schema-registry" % "2.0.0" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+      "org.testcontainers" % "kafka" % testcontainersVersion % Test,
       "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
       "org.scalatest" %% "scalatest" % scalatestVersion % Test,
       "io.spray" %% "spray-json" % "1.3.5" % Test,
@@ -245,13 +248,14 @@ lazy val docs = project
       ("\\.java\\.scala".r, _ => ".java")
     ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
-    Paradox / sourceDirectory := sourceDirectory.value / "main" / "paradox",
+    Paradox / sourceDirectory := sourceDirectory.value / "main",
     Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     Paradox / paradoxProperties ++= Map(
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,
       "scalatest.version" -> scalatestVersion,
+      "testcontainers.version" -> testcontainersVersion,
       "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
       "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
       "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",

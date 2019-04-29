@@ -14,7 +14,6 @@ import akka.actor.ActorSystem
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.KafkaFuture
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
@@ -111,7 +110,7 @@ trait KafkaTestKit {
     val deletion = adminClient.deleteTopics(Collections.singletonList(topicName))
     try {
       deletion.all().get(10, TimeUnit.SECONDS)
-      sleepMillis(80 * partitions, "topic deletion")
+      sleepMillis(80L * partitions, "topic deletion")
     } catch {
       case ee: ExecutionException if ee.getCause.isInstanceOf[UnknownTopicOrPartitionException] =>
     }

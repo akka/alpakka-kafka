@@ -15,13 +15,12 @@ import org.apache.kafka.common.serialization.StringSerializer
 import scala.concurrent.Future
 import akka.Done
 import akka.kafka.ProducerMessage.MultiResultPart
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
-class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)

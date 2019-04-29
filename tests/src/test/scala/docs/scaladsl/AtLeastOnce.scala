@@ -12,6 +12,7 @@ import akka.kafka.ProducerMessage.Envelope
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer, Producer}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -22,9 +23,7 @@ import scala.concurrent.duration._
 
 // #oneToMany
 
-class AtLeastOnce extends DocsSpecBase(KafkaPorts.DockerKafkaPort) {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class AtLeastOnce extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 

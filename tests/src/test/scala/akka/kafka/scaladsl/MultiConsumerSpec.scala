@@ -17,7 +17,7 @@ import scala.concurrent.{Await, Future}
 
 class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) with EmbeddedKafkaLike {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
+  override def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
                         Map(

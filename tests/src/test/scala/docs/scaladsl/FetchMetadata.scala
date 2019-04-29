@@ -5,6 +5,7 @@
 
 package docs.scaladsl
 
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import org.scalatest.TryValues
 import org.scalatest.time.{Seconds, Span}
 
@@ -20,9 +21,7 @@ import scala.concurrent.duration._
 
 // #metadata
 
-class FetchMetadata extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TryValues {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class FetchMetadata extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike with TryValues {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(20, Seconds)), interval = scaled(Span(1, Seconds)))

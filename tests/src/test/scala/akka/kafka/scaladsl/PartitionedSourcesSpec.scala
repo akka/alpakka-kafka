@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import akka.Done
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -26,10 +27,9 @@ import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec
     extends SpecBase(KafkaPorts.DockerKafkaPort)
+    with TestcontainersKafkaLike
     with Inside
     with OptionValues {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis

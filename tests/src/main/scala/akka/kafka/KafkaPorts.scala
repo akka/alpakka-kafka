@@ -11,9 +11,7 @@ package akka.kafka
  */
 object KafkaPorts {
 
-  val DockerKafkaHostname = "linuxkit-025000000001"
-  val DockerKafkaPort = 32769
-  val DockerKafkaBootstrapServers: String = DockerKafkaHostname + ":" + DockerKafkaPort.toString
+  val DockerKafkaPort = -1
 
   val IntegrationSpec = 9002
   val RetentionPeriodSpec = 9012

@@ -21,13 +21,6 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
 
   val proxyPort = KafkaPorts.ReconnectSpecProxy
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
-
   "A Producer" must {
 
     "continue to work when there is another Kafka port available" in assertAllStagesStopped {

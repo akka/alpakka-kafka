@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 
 class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) with EmbeddedKafkaLike {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
+  override def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
                         Map(

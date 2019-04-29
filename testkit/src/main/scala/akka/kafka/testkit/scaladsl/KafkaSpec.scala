@@ -37,7 +37,8 @@ import scala.util.{Failure, Success, Try}
 trait EmbeddedKafkaLike extends KafkaSpec {
 
   lazy implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
-  def createKafkaConfig: EmbeddedKafkaConfig
+
+  def createKafkaConfig: EmbeddedKafkaConfig = EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
   override def bootstrapServers =
     s"localhost:${embeddedKafkaConfig.kafkaPort}"
@@ -53,9 +54,11 @@ trait EmbeddedKafkaLike extends KafkaSpec {
   }
 }
 
-abstract class KafkaSpec(val kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
+abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
     extends TestKit(actorSystem)
     with KafkaTestKit {
+
+  def kafkaPort: Int = _kafkaPort
 
   def this(kafkaPort: Int) = this(kafkaPort, kafkaPort + 1, ActorSystem("Spec"))
 

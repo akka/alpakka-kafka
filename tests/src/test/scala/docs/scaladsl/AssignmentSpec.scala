@@ -10,29 +10,16 @@ import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Sink, Source}
-// #testkit
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
-// #testkit
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 
-// #testkit
-
 class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) with EmbeddedKafkaLike {
 
   implicit val patience = PatienceConfig(15.seconds, 1.second)
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
-  // #testkit
 
   "subscription with partition assignment" must {
 

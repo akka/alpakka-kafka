@@ -12,6 +12,7 @@ import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.{ProducerMessage, _}
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.TestSubscriber
@@ -24,9 +25,7 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-class TransactionsSpec extends SpecBase(KafkaPorts.DockerKafkaPort) {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with EmbeddedKafkaLike {
 
   "A consume-transform-produce cycle" must {
 
@@ -297,7 +296,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.DockerKafkaPort) {
       }
 
       val consumer = valuesSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
-        .take(elements)
+        .take(elements.toLong)
         .idleTimeout(30.seconds)
         .alsoTo(
           Flow[String].scan(0) { case (count, _) => count + 1 }.filter(_ % 10000 == 0).log("received").to(Sink.ignore)

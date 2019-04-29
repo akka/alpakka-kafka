@@ -9,6 +9,7 @@ import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.pattern.ask
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -26,9 +27,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
 
-class IntegrationSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with Inside {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with EmbeddedKafkaLike with Inside {
 
   implicit val patience = PatienceConfig(30.seconds, 500.millis)
 

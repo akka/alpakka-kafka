@@ -12,6 +12,7 @@ import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -31,9 +32,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 // Consume messages and store a representation, including offset, in DB
-class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)

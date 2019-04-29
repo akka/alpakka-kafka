@@ -19,9 +19,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec)  with EmbeddedKafkaLike {
+class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec) with EmbeddedKafkaLike {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
+  override def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
                         Map(

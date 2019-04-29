@@ -5,6 +5,7 @@
 
 package akka.kafka.scaladsl
 
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{KafkaPorts, Subscriptions}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -15,9 +16,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TimestampSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with Inside {
-
-  override val bootstrapServers: String = KafkaPorts.DockerKafkaBootstrapServers
+class TimestampSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike with Inside {
 
   implicit val patience = PatienceConfig(5.second, 100.millis)
 
