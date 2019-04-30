@@ -11,7 +11,7 @@ import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.EmbeddedKafka
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
@@ -24,7 +24,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
   "A Producer" must {
 
     "continue to work when there is another Kafka port available" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       // start a TCP proxy forwarding to Kafka
@@ -68,7 +68,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
 
     "pick up again when the Kafka server comes back up" ignore /* because it is flaky */ {
       assertAllStagesStopped {
-        val topic1 = createCleanTopic(1)
+        val topic1 = createTopic(1)
         val group1 = createGroupId(1)
 
         val messagesProduced = 10
@@ -135,7 +135,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
   "A Consumer" must {
 
     "continue to work when there is another Kafka port available" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       // produce messages directly to Kafka
@@ -163,7 +163,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
     }
 
     "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       // produce messages

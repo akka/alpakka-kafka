@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.kafka.{KafkaPorts, Subscriptions}
+import akka.kafka.Subscriptions
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.common.TopicPartition
@@ -16,14 +16,14 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TimestampSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike with Inside {
+class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
   implicit val patience = PatienceConfig(5.second, 100.millis)
 
   "Kafka connector" must {
     "begin consuming from the given timestamp of the topic" in {
       assertAllStagesStopped {
-        val topic = createCleanTopic(1)
+        val topic = createTopic(1)
         val group = createGroupId(1)
 
         val now = System.currentTimeMillis()
@@ -51,7 +51,7 @@ class TimestampSpec extends SpecBase(KafkaPorts.DockerKafkaPort) with Testcontai
 
     "handle topic that has no messages by timestamp" in {
       assertAllStagesStopped {
-        val topic = createCleanTopic(1)
+        val topic = createTopic(1)
         val group = createGroupId(1)
 
         val now = System.currentTimeMillis()

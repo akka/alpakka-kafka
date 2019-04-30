@@ -34,7 +34,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
   "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
       assertAllStagesStopped {
-        val topic1 = createCleanTopic(1)
+        val topic1 = createTopic(1)
         val group1 = createGroupId(1)
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
@@ -53,7 +53,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val partitions = 4
       val totalMessages = 200L
 
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults
@@ -126,8 +126,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "connect consumer to producer and commit in batches" in {
       assertAllStagesStopped {
-        val topic1 = createCleanTopic(1)
-        val topic2 = createCleanTopic(2)
+        val topic1 = createTopic(1)
+        val topic2 = createTopic(2)
         val group1 = createGroupId(1)
 
         awaitProduce(produce(topic1, 1 to 10))
@@ -156,7 +156,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "not produce any records after send-failure if stage is stopped" in {
       assertAllStagesStopped {
-        val topic1 = createCleanTopic(1)
+        val topic1 = createTopic(1)
         val group1 = createGroupId(1)
         // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
         // effectively failing the production of the first messages
@@ -175,7 +175,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for committableSource used with take" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
@@ -193,7 +193,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "expose missing groupId as error" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
 
       val control =
         Consumer
@@ -207,7 +207,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
-      val topic1 = createCleanTopic(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
@@ -226,7 +226,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "support metadata fetching on ConsumerActor" in {
       assertAllStagesStopped {
-        val topic = createCleanTopic(1)
+        val topic = createTopic(1)
         val group = createGroupId(1)
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
@@ -305,7 +305,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete source when stopped" in
     assertAllStagesStopped {
-      val topic = createCleanTopic(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
 
       Await.result(produce(topic, 1 to 100), remainingOrDefault)
@@ -331,7 +331,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete partition sources when stopped" in
     assertAllStagesStopped {
-      val topic = createCleanTopic(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
 
       awaitProduce(produce(topic, 1 to 100))
@@ -358,7 +358,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "access metrics" in assertAllStagesStopped {
-      val topic = createCleanTopic(number = 1, partitions = 1, replication = 1)
+      val topic = createTopic(number = 1, partitions = 1, replication = 1)
       val group = createGroupId(1)
 
       val control = Consumer

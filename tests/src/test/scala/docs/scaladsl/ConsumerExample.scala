@@ -32,13 +32,13 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 // Consume messages and store a representation, including offset, in DB
-class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike {
+class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
 
   "ExternalOffsetStorage" should "work" in assertAllStagesStopped {
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val consumerSettings = consumerDefaults.withClientId("externalOffsetStorage")
     // format: off
     // #plainSource
@@ -112,7 +112,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Consume messages at-most-once" should "work" in assertAllStagesStopped {
     val consumerSettings = createSettings().withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val totalMessages = 10
     val lastMessage = Promise[Done]
 
@@ -146,7 +146,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Consume messages at-least-once" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     // #atLeastOnce
     val control =
       Consumer
@@ -173,7 +173,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Consume messages at-least-once, and commit in batches" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     // #commitWithMetadata
     def metadataFromRecord(record: ConsumerRecord[String, String]): String =
       record.timestamp().toString
@@ -195,7 +195,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Consume messages at-least-once, and commit with a committer sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     // #committerSink
     val committerSettings = CommitterSettings(system)
 
@@ -216,9 +216,9 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Connect a Consumer to Producer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic1 = createCleanTopic(1)
-    val topic2 = createCleanTopic(2)
-    val targetTopic = createCleanTopic(3)
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val targetTopic = createTopic(3)
     val producerSettings = producerDefaults
     //format: off
     // #consumerToProducerSink
@@ -251,8 +251,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Connect a Consumer to Producer" should "support flows" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic(1)
-    val targetTopic = createCleanTopic(2)
+    val topic = createTopic(1)
+    val targetTopic = createTopic(2)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     // #consumerToProducerFlow
@@ -284,7 +284,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Backpressure per partition with batch commit" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource
     val control = Consumer
@@ -303,7 +303,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
   "Flow per partition" should "Process each assigned partition separately" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
     val comitterSettings = committerDefaults
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource-stream-per-partition
     val control = Consumer
@@ -325,7 +325,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Rebalance Listener" should "get messages" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val assignedPromise = Promise[Done]
     val revokedPromise = Promise[Done]
     // format: off
@@ -373,7 +373,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Shutdown via Consumer.Control" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val offset = 123456L
     // #shutdownPlainSource
     val (consumerControl, streamComplete) =
@@ -393,7 +393,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Shutdown when batching commits" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val committerSettings = committerDefaults
     // #shutdownCommittableSource
     val drainingControl =
@@ -413,7 +413,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "Restarting Stream" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     //#restartSource
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
 
@@ -443,7 +443,7 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
   it should "work with committable source" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val committerSettings = committerDefaults
-    val topic = createCleanTopic()
+    val topic = createTopic()
     val partitionNumber = 0
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
 

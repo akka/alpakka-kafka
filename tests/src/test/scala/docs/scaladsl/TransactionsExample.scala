@@ -26,8 +26,8 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
   "Transactional sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val sourceTopic = createCleanTopic(1)
-    val sinkTopic = createCleanTopic(2)
+    val sourceTopic = createTopic(1)
+    val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
     // #transactionalSink
     val control =
@@ -61,8 +61,8 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
   "TransactionsFailureRetryExample" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val sourceTopic = createCleanTopic(1)
-    val sinkTopic = createCleanTopic(2)
+    val sourceTopic = createTopic(1)
+    val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
     // #transactionalFailureRetry
     val innerControl = new AtomicReference[Control](Consumer.NoopControl)

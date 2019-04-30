@@ -23,6 +23,8 @@ abstract class DocsSpecBase(kafkaPort: Int)
 
   this: Suite ⇒
 
+  protected def this() = this(kafkaPort = -1)
+
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))
 

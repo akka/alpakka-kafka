@@ -5,7 +5,7 @@
 
 package docs.scaladsl
 
-import akka.kafka.{KafkaPorts, ProducerMessage, ProducerSettings, Subscriptions}
+import akka.kafka.{ProducerMessage, ProducerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -20,7 +20,7 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
-class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with TestcontainersKafkaLike {
+class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)
@@ -33,7 +33,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
         .withBootstrapServers(bootstrapServers)
     // #settings
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createCleanTopic()
+    val topic = createTopic()
     // #plainSink
     val done: Future[Done] =
       Source(1 to 100)
@@ -55,7 +55,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
     val kafkaProducer = producerSettings.createKafkaProducer()
-    val topic = createCleanTopic()
+    val topic = createTopic()
     // #plainSinkWithProducer
     val done = Source(1 to 100)
       .map(_.toString)
@@ -144,7 +144,7 @@ class ProducerExample extends DocsSpecBase(KafkaPorts.DockerKafkaPort) with Test
 
   "flexiFlow" should "work" in assertAllStagesStopped {
     val producerSettings = producerDefaults
-    val topic = createCleanTopic()
+    val topic = createTopic()
     def println(s: String): Unit = {}
     // format:off
     // #flow

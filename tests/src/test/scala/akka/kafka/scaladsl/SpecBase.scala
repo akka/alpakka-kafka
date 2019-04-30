@@ -8,14 +8,17 @@ package akka.kafka.scaladsl
 // #testkit
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.{Inside, Matchers, WordSpecLike}
+import org.scalatest.{Matchers, WordSpecLike}
 
 abstract class SpecBase(kafkaPort: Int)
     extends ScalatestKafkaSpec(kafkaPort)
     with WordSpecLike
     with Matchers
     with ScalaFutures
-    with Eventually
+    with Eventually {
+
+  protected def this() = this(kafkaPort = -1)
+}
 
 // #testkit
 
@@ -41,7 +44,7 @@ class EmbeddedKafkaSampleSpec extends SpecBase(kafkaPort = 1234) with EmbeddedKa
 // #testcontainers
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 
-class TestcontainersSampleSpec extends SpecBase(kafkaPort = -1) with TestcontainersKafkaLike {
+class TestcontainersSampleSpec extends SpecBase with TestcontainersKafkaLike {
   // ...
 }
 // #testcontainers

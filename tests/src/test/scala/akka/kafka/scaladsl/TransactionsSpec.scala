@@ -31,8 +31,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
     "complete" in {
       assertAllStagesStopped {
-        val sourceTopic = createCleanTopic(1)
-        val sinkTopic = createCleanTopic(2)
+        val sourceTopic = createTopic(1)
+        val sinkTopic = createTopic(2)
         val group = createGroupId(1)
 
         Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
@@ -57,8 +57,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
     }
 
     "complete when messages are filtered out" in assertAllStagesStopped {
-      val sourceTopic = createCleanTopic(1)
-      val sinkTopic = createCleanTopic(2)
+      val sourceTopic = createTopic(1)
+      val sinkTopic = createTopic(2)
       val group = createGroupId(1)
 
       Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
@@ -92,8 +92,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
     "complete with transient failure causing an abort with restartable source" in {
       assertAllStagesStopped {
-        val sourceTopic = createCleanTopic(1)
-        val sinkTopic = createCleanTopic(2)
+        val sourceTopic = createTopic(1)
+        val sinkTopic = createTopic(2)
         val group = createGroupId(1)
 
         Await.result(produce(sourceTopic, 1 to 1000), remainingOrDefault)
@@ -145,8 +145,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
     }
 
     "complete with messages filtered out and transient failure causing an abort with restartable source" in assertAllStagesStopped {
-      val sourceTopic = createCleanTopic(1)
-      val sinkTopic = createCleanTopic(2)
+      val sourceTopic = createTopic(1)
+      val sinkTopic = createTopic(2)
       val group = createGroupId(1)
 
       Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
@@ -202,8 +202,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
     }
 
     "provide consistency when using multiple transactional streams" in {
-      val sourceTopic = createCleanTopic(1)
-      val sinkTopic = createCleanTopic(2, partitions = 4)
+      val sourceTopic = createTopic(1)
+      val sinkTopic = createTopic(2, partitions = 4)
       val group = createGroupId(1)
 
       val elements = 50
@@ -242,8 +242,8 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val destinationPartitions = 4
       val consumers = 3
 
-      val sourceTopic = createCleanTopic(1, sourcePartitions)
-      val sinkTopic = createCleanTopic(2, destinationPartitions)
+      val sourceTopic = createTopic(1, sourcePartitions)
+      val sinkTopic = createTopic(2, destinationPartitions)
       val group = createGroupId(1)
 
       val elements = 300 * 1000

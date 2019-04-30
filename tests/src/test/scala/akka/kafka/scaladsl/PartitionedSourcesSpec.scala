@@ -25,11 +25,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
-class PartitionedSourcesSpec
-    extends SpecBase(KafkaPorts.DockerKafkaPort)
-    with TestcontainersKafkaLike
-    with Inside
-    with OptionValues {
+class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues {
 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
@@ -40,7 +36,7 @@ class PartitionedSourcesSpec
   "Partitioned source" must {
 
     "begin consuming from the beginning of the topic" in assertAllStagesStopped {
-      val topic = createCleanTopic(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
 
       awaitProduce(produce(topic, 1 to 100))
@@ -61,7 +57,7 @@ class PartitionedSourcesSpec
     }
 
     "begin consuming from the middle of the topic" in assertAllStagesStopped {
-      val topic = createCleanTopic(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
 
       givenInitializedTopic(topic)
@@ -88,7 +84,7 @@ class PartitionedSourcesSpec
       val partitions = 4
       val totalMessages = 400L
 
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults
@@ -141,7 +137,7 @@ class PartitionedSourcesSpec
       val initialMessage = 0L
       val initialized = Promise[Unit]
 
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
@@ -235,7 +231,7 @@ class PartitionedSourcesSpec
       val initialMessage = 0L
       val initialized = Promise[Unit]
 
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults
@@ -322,7 +318,7 @@ class PartitionedSourcesSpec
 
     "call the onRevoked hook" in assertAllStagesStopped {
       val partitions = 4
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val group = createGroupId(1)
 
       var partitionsAssigned = false
@@ -359,7 +355,7 @@ class PartitionedSourcesSpec
     }
 
     "not leave gaps when subsource is cancelled" in assertAllStagesStopped {
-      val topic = createCleanTopic()
+      val topic = createTopic()
       val group = createGroupId()
       val totalMessages = 100
 
@@ -386,7 +382,7 @@ class PartitionedSourcesSpec
     }
 
     "not leave gaps when subsource fails" in assertAllStagesStopped {
-      val topic = createCleanTopic()
+      val topic = createTopic()
       val group = createGroupId()
       val totalMessages = 105
 
@@ -429,7 +425,7 @@ class PartitionedSourcesSpec
       val totalMessages = 100L
       val exceptionTriggered = new AtomicBoolean(false)
 
-      val topic = createCleanTopic(1, partitions)
+      val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
       val group = createGroupId(1)
       val sourceSettings = consumerDefaults

@@ -6,15 +6,14 @@
 package akka.kafka.testkit.internal
 
 import java.util
-import java.util.concurrent.{ExecutionException, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.{Arrays, Collections, Properties}
+import java.util.{Arrays, Properties}
 
 import akka.actor.ActorSystem
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
 
@@ -92,28 +91,6 @@ trait KafkaTestKit {
    */
   def createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
     val topicName = createTopicName(number)
-    val configs = new util.HashMap[String, String]()
-    val createResult = adminClient.createTopics(
-      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
-    )
-    createResult.all().get(10, TimeUnit.SECONDS)
-    topicName
-  }
-
-  /**
-   * Create a topic with given partition number and replication factor.
-   *
-   * This method will block and return only when the topic has been successfully created.
-   */
-  def createCleanTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
-    val topicName = createTopicName(number)
-    val deletion = adminClient.deleteTopics(Collections.singletonList(topicName))
-    try {
-      deletion.all().get(10, TimeUnit.SECONDS)
-      sleepMillis(80L * partitions, "topic deletion")
-    } catch {
-      case ee: ExecutionException if ee.getCause.isInstanceOf[UnknownTopicOrPartitionException] =>
-    }
     val configs = new util.HashMap[String, String]()
     val createResult = adminClient.createTopics(
       Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
