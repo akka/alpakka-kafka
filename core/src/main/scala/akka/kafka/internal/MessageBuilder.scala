@@ -88,6 +88,27 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
 }
 
 /** Internal API */
+@InternalApi
+private[kafka] trait CommittableWithContextBuilder[K, V]
+    extends MessageBuilder[K, V, (ConsumerRecord[K, V], CommittableOffset)] {
+  def groupId: String
+  def committer: InternalCommitter
+  def metadataFromRecord(record: ConsumerRecord[K, V]): String
+
+  override def createMessage(rec: ConsumerRecord[K, V]): (ConsumerRecord[K, V], CommittableOffset) = {
+    val offset = ConsumerMessage.PartitionOffset(
+      GroupTopicPartition(
+        groupId = groupId,
+        topic = rec.topic,
+        partition = rec.partition
+      ),
+      offset = rec.offset
+    )
+    (rec, CommittableOffsetImpl(offset, metadataFromRecord(rec))(committer))
+  }
+}
+
+/** Internal API */
 @InternalApi private[kafka] final case class CommittableOffsetImpl(
     override val partitionOffset: ConsumerMessage.PartitionOffset,
     override val metadata: String

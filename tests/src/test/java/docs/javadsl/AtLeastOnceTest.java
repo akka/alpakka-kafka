@@ -106,9 +106,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
     Consumer.DrainingControl<Done> control =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1))
-            .asSourceWithContext(msg -> msg.committableOffset())
-            .map(msg -> msg.record())
+        Consumer.committableSourceWithContext(consumerSettings, Subscriptions.topics(topic1))
             .map(
                 msg -> {
                   Envelope<String, String, NotUsed> multiMsg =

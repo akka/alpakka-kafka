@@ -8,14 +8,16 @@ package akka.kafka.javadsl
 import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
+import akka.annotation.ApiMayChange
 import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
-import akka.kafka.ConsumerMessage.CommittableMessage
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.internal.ConsumerControlAsJava
-import akka.stream.javadsl.Source
+import akka.stream.javadsl.{Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.requests.OffsetFetchResponse
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
@@ -146,6 +148,52 @@ object Consumer {
     scaladsl.Consumer
       .committableSource(settings, subscription)
       .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asJava
+
+  /**
+   * API MAY CHANGE
+   *
+   * The `committableSourceWithContext` makes it possible to commit offset positions to Kafka.
+   * This is useful when "at-least once delivery" is desired, as each message will likely be
+   * delivered one time but in failure cases could be duplicated.
+   *
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Producer.withContext]].
+   */
+  @ApiMayChange
+  def committableSourceWithContext[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription
+  ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    committableSourceWithContext(settings, subscription, (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA)
+
+  /**
+   * API MAY CHANGE
+   *
+   * The `committableSourceWithContext` makes it possible to commit offset positions to Kafka.
+   * This is useful when "at-least once delivery" is desired, as each message will likely be
+   * delivered one time but in failure cases could be duplicated.
+   *
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Producer.withContext]].
+   *
+   * This source makes it possible to add additional metadata (in the form of a string)
+   * when an offset is committed based on the record. This can be useful (for example) to store information about which
+   * node made the commit, what time the commit was made, the timestamp of the record etc.
+   */
+  @ApiMayChange
+  def committableSourceWithContext[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
+  ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    // TODO this should use `committableSourceWithContext` but `mapMaterializedValue` is not available, yet
+    // See https://github.com/akka/akka/issues/26836
+    scaladsl.Consumer
+      .commitWithMetadataSource(settings, subscription, (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(msg => msg.committableOffset)
+      .map(msg => msg.record)
       .asJava
 
   /**

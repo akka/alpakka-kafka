@@ -204,6 +204,8 @@ object Producer {
   }
 
   /**
+   * API MAY CHANGE
+   *
    * Create a flow to conditionally publish records to Kafka topics and then pass it on.
    *
    * It publishes records to Kafka topics conditionally:
@@ -294,6 +296,8 @@ object Producer {
   }
 
   /**
+   * API MAY CHANGE
+   *
    * Create a flow to conditionally publish records to Kafka topics and then pass it on.
    *
    * It publishes records to Kafka topics conditionally:

@@ -74,9 +74,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
     val committerSettings = committerDefaults
     val control =
       Consumer
-        .committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .asSourceWithContext(_.committableOffset)
-        .map(_.record)
+        .committableSourceWithContext(consumerSettings, Subscriptions.topics(topic1))
         .map { msg =>
           ProducerMessage.multi(
             immutable.Seq(

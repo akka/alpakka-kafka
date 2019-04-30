@@ -7,7 +7,12 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch, PartitionOffsetMetadata}
+import akka.kafka.ConsumerMessage.{
+  CommittableMessage,
+  CommittableOffset,
+  CommittableOffsetBatch,
+  PartitionOffsetMetadata
+}
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.Commit
 import akka.kafka.scaladsl.Consumer.Control
@@ -37,6 +42,29 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
   override protected def logic(shape: SourceShape[CommittableMessage[K, V]]): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
     with CommittableMessageBuilder[K, V] {
+      override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
+      override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+      lazy val committer: InternalCommitter = {
+        val ec = materializer.executionContext
+        KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+      }
+    }
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] final class CommittableWithContextSource[K, V](
+    settings: ConsumerSettings[K, V],
+    subscription: Subscription,
+    _metadataFromRecord: ConsumerRecord[K, V] => String = (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA
+) extends KafkaSourceStage[K, V, (ConsumerRecord[K, V], CommittableOffset)](
+      s"CommittableWithContextSource ${subscription.renderStageAttribute}"
+    ) {
+  override protected def logic(
+      shape: SourceShape[(ConsumerRecord[K, V], CommittableOffset)]
+  ): GraphStageLogic with Control =
+    new SingleSourceLogic[K, V, (ConsumerRecord[K, V], CommittableOffset)](shape, settings, subscription)
+    with CommittableWithContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: InternalCommitter = {
