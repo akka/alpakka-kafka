@@ -34,6 +34,7 @@ object ProducerMessage {
    */
   sealed trait Envelope[K, V, +PassThrough] {
     def passThrough: PassThrough
+    def withPassThrough[PassThrough2](value: PassThrough2): Envelope[K, V, PassThrough2]
   }
 
   /**
@@ -52,7 +53,10 @@ object ProducerMessage {
   final case class Message[K, V, +PassThrough](
       record: ProducerRecord[K, V],
       passThrough: PassThrough
-  ) extends Envelope[K, V, PassThrough]
+  ) extends Envelope[K, V, PassThrough] {
+    override def withPassThrough[PassThrough2](value: PassThrough2): Message[K, V, PassThrough2] =
+      copy(passThrough = value)
+  }
 
   /**
    * Create a message containing the `record` and a `passThrough`.
@@ -99,6 +103,9 @@ object ProducerMessage {
     def this(records: java.util.Collection[ProducerRecord[K, V]], passThrough: PassThrough) = {
       this(records.asScala.toList, passThrough)
     }
+
+    override def withPassThrough[PassThrough2](value: PassThrough2): Envelope[K, V, PassThrough2] =
+      copy(passThrough = value)
   }
 
   /**
@@ -159,7 +166,10 @@ object ProducerMessage {
    */
   final case class PassThroughMessage[K, V, +PassThrough](
       passThrough: PassThrough
-  ) extends Envelope[K, V, PassThrough]
+  ) extends Envelope[K, V, PassThrough] {
+    override def withPassThrough[PassThrough2](value: PassThrough2): Envelope[K, V, PassThrough2] =
+      copy(passThrough = value)
+  }
 
   /**
    * Create a pass-through message not containing any records.

@@ -5,6 +5,7 @@
 
 package akka.kafka.scaladsl
 
+import akka.annotation.ApiMayChange
 import akka.kafka.ProducerMessage._
 import akka.kafka.internal.DefaultProducerStage
 import akka.kafka.{ConsumerMessage, ProducerSettings}
@@ -203,6 +204,33 @@ object Producer {
   }
 
   /**
+   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
+   *
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
+   */
+  @ApiMayChange
+  def withContext[K, V, C](
+      settings: ProducerSettings[K, V]
+  ): Flow[(Envelope[K, V, NotUsed], C), (Results[K, V, C], C), NotUsed] =
+    Flow[(Envelope[K, V, NotUsed], C)]
+      .map {
+        case (wm, pt) =>
+          wm.withPassThrough(pt)
+      }
+      .via(flexiFlow(settings))
+      .map { wr =>
+        (wr, wr.passThrough)
+      }
+
+  /**
    * Create a flow to publish records to Kafka topics and then pass it on.
    *
    * The records must be wrapped in a [[akka.kafka.ProducerMessage.Message Message]] and continue in the stream as [[akka.kafka.ProducerMessage.Result Result]].
@@ -264,6 +292,36 @@ object Producer {
 
     flowWithDispatcherEnvelope(settings, flow)
   }
+
+  /**
+   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
+   *
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
+   *
+   * Supports sharing a Kafka Producer instance.
+   */
+  @ApiMayChange
+  def withContext[K, V, C](
+      settings: ProducerSettings[K, V],
+      producer: org.apache.kafka.clients.producer.Producer[K, V]
+  ): Flow[(Envelope[K, V, NotUsed], C), (Results[K, V, C], C), NotUsed] =
+    Flow[(Envelope[K, V, NotUsed], C)]
+      .map {
+        case (wm, pt) =>
+          wm.withPassThrough(pt)
+      }
+      .via(flexiFlow(settings, producer))
+      .map { wr =>
+        (wr, wr.passThrough)
+      }
 
   private def flowWithDispatcher[PassThrough, V, K](
       settings: ProducerSettings[K, V],

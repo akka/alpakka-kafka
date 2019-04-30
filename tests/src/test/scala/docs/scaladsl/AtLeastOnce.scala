@@ -65,6 +65,43 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
     result.futureValue should have size (20)
   }
 
+  it should "support `withContext`" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val topic3 = createTopic(3)
+    val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
+    val control =
+      Consumer
+        .committableSource(consumerSettings, Subscriptions.topics(topic1))
+        .asSourceWithContext(_.committableOffset)
+        .map(_.record)
+        .map { msg =>
+          ProducerMessage.multi(
+            immutable.Seq(
+              new ProducerRecord(topic2, msg.key, msg.value),
+              new ProducerRecord(topic3, msg.key, msg.value)
+            )
+          )
+        }
+        .via(Producer.withContext(producerSettings))
+        .asSource
+        .map(_._2)
+        .toMat(Committer.sink(committerSettings))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    awaitProduce(produce(topic1, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds) should be(Done)
+    Await.result(control2.shutdown(), 5.seconds) should be(Done)
+    result.futureValue should have size 20
+  }
+
   "At-Least-Once One To Conditional" should "work" in assertAllStagesStopped {
 
     def duplicate(value: String): Boolean = "1" == value
