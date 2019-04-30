@@ -5,7 +5,7 @@
 
 package docs.scaladsl
 
-import akka.kafka.{KafkaPorts, ProducerMessage, ProducerSettings, Subscriptions}
+import akka.kafka.{ProducerMessage, ProducerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -15,14 +15,12 @@ import org.apache.kafka.common.serialization.StringSerializer
 import scala.concurrent.Future
 import akka.Done
 import akka.kafka.ProducerMessage.MultiResultPart
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
-class ProducerExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) {
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)

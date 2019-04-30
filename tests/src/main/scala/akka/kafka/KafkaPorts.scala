@@ -16,25 +16,24 @@ object KafkaPorts {
   val TransactionsSpec = 9022
   val ReconnectSpec = 9032
   val ReconnectSpecProxy = 9034
-  val TimestampSpec = 9042
+  // val _ = 9042
   val MultiConsumerSpec = 9052
-  val ScalaConsumerExamples = 9062
+  // val _ = 9062
   val ScalaPartitionExamples = 9072
-  val ScalaAtLeastOnceExamples = 9082
-  val ScalaFetchMetadataExamples = 9092
+  // val _ = 9082
+  // val _ = 9092
   val ScalaTransactionsExamples = 9102
-  val ScalaProducerExamples = 9112
-  val PartitionedSourcesSpec = 9122
+  // val _ = 9112
+  // val _ = 9122
   val AssignmentSpec = 9132
   val AssignmentTest = 9142
   val ScalaAvroSerialization = 9152
   val SerializationTest = 9162
-  val NoBrokerSpec = 9172
+  // val _ = 9172
   val AtLeastOnceToManyTest = 9182
   val FetchMetadataTest = 9192
   val JavaProducerExamples = 9202
   val JavaTransactionsExamples = 9212
   val ConsumerExamplesTest = 9222
-  val CommittingSpec = 9232
 
 }

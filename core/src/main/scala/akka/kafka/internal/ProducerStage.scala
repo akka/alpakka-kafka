@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.annotation.InternalApi
 import akka.kafka.ProducerMessage._
 import akka.stream._
-import akka.stream.stage._
 import org.apache.kafka.clients.producer.Producer
 
 import scala.concurrent.Future

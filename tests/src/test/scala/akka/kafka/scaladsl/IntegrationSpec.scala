@@ -9,6 +9,7 @@ import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.pattern.ask
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -16,7 +17,6 @@ import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.util.Timeout
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -27,24 +27,15 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
 
-class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with Inside {
+class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) with EmbeddedKafkaLike with Inside {
 
   implicit val patience = PatienceConfig(30.seconds, 500.millis)
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
 
   "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
       assertAllStagesStopped {
-        val topic1 = createTopicName(1)
+        val topic1 = createTopic(1)
         val group1 = createGroupId(1)
-
-        givenInitializedTopic(topic1)
 
         Await.result(produce(topic1, 1 to 100), remainingOrDefault)
 
@@ -165,13 +156,11 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "not produce any records after send-failure if stage is stopped" in {
       assertAllStagesStopped {
-        val topic1 = createTopicName(1)
+        val topic1 = createTopic(1)
         val group1 = createGroupId(1)
         // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
         // effectively failing the production of the first messages
         val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
-
-        givenInitializedTopic(topic1)
 
         Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
 
@@ -186,7 +175,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for committableSource used with take" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
@@ -204,7 +193,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "expose missing groupId as error" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
+      val topic1 = createTopic(1)
 
       val control =
         Consumer
@@ -218,7 +207,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
     }
 
     "stop and shut down KafkaConsumerActor for atMostOnceSource used with take" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
+      val topic1 = createTopic(1)
       val group1 = createGroupId(1)
 
       Await.ready(produce(topic1, 1 to 10), remainingOrDefault)
@@ -237,10 +226,8 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "support metadata fetching on ConsumerActor" in {
       assertAllStagesStopped {
-        val topic = createTopicName(1)
+        val topic = createTopic(1)
         val group = createGroupId(1)
-
-        givenInitializedTopic(topic)
 
         Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
@@ -280,7 +267,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         // GetEndOffsets
         inside(Await.result(consumer ? GetEndOffsets(Set(partition0)), remainingOrDefault)) {
           case EndOffsets(Success(offsets)) =>
-            assert(offsets == Map(partition0 -> 101), "Wrong EndOffsets for topic")
+            assert(offsets == Map(partition0 -> 100), "Wrong EndOffsets for topic")
         }
 
         val tsYesterday = System.currentTimeMillis() - 86400000
@@ -301,7 +288,6 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
         // verify that consumption still works
         val probe = Consumer
           .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
-          .filterNot(_.value == InitialMsg)
           .map(_.value())
           .runWith(TestSink.probe)
 
@@ -319,16 +305,13 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
 
     "complete source when stopped" in
     assertAllStagesStopped {
-      val topic = createTopicName(1)
+      val topic = createTopic(1)
       val group = createGroupId(1)
-
-      givenInitializedTopic(topic)
 
       Await.result(produce(topic, 1 to 100), remainingOrDefault)
 
       val (control, probe) = Consumer
         .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
-        .filterNot(_.value == InitialMsg)
         .map(_.value())
         .toMat(TestSink.probe)(Keep.both)
         .run()

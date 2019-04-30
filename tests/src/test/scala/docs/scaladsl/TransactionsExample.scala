@@ -10,27 +10,24 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.Done
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.collection.immutable
 
-class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) {
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) with EmbeddedKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
   "Transactional sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val immutable.Seq(sourceTopic, sinkTopic) = createTopics(1, 2)
+    val sourceTopic = createTopic(1)
+    val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
     // #transactionalSink
     val control =
@@ -64,7 +61,8 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
   "TransactionsFailureRetryExample" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val immutable.Seq(sourceTopic, sinkTopic) = createTopics(1, 2)
+    val sourceTopic = createTopic(1)
+    val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
     // #transactionalFailureRetry
     val innerControl = new AtomicReference[Control](Consumer.NoopControl)

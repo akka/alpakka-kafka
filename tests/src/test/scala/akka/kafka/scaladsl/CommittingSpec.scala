@@ -10,12 +10,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
@@ -24,17 +24,10 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class CommittingSpec extends SpecBase(kafkaPort = KafkaPorts.CommittingSpec) with Inside {
+class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
   implicit val patience: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "num.partitions" -> "2",
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
   final val Numbers = (1 to 200).map(_.toString)
   final val partition1 = 1
 

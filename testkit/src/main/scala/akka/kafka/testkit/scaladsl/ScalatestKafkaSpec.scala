@@ -8,7 +8,7 @@ package akka.kafka.testkit.scaladsl
 import akka.kafka.testkit.internal.TestFrameworkInterface
 import org.scalatest.Suite
 
-abstract class ScalatestKafkaSpec(override val kafkaPort: Int)
+abstract class ScalatestKafkaSpec(kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
     with Suite
     with TestFrameworkInterface.Scalatest { this: Suite ⇒

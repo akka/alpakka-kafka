@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.Done
 import akka.kafka._
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -18,9 +19,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec) {
+class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec) with EmbeddedKafkaLike {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
+  override def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
                         Map(

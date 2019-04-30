@@ -5,13 +5,13 @@
 
 package docs.scaladsl
 
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import org.scalatest.TryValues
 import org.scalatest.time.{Seconds, Span}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 // #metadata
 import akka.actor.ActorRef
-import akka.kafka.{KafkaConsumerActor, KafkaPorts, Metadata}
+import akka.kafka.{KafkaConsumerActor, Metadata}
 import akka.pattern.ask
 import akka.util.Timeout
 import org.apache.kafka.common.TopicPartition
@@ -21,13 +21,10 @@ import scala.concurrent.duration._
 
 // #metadata
 
-class FetchMetadata extends DocsSpecBase(KafkaPorts.ScalaFetchMetadataExamples) with TryValues {
+class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryValues {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(20, Seconds)), interval = scaled(Span(1, Seconds)))
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
 
   "Consumer metadata" should "be available" in {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())

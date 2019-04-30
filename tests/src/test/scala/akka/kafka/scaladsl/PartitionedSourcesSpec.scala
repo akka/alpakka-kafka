@@ -10,12 +10,12 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import akka.Done
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
@@ -25,23 +25,13 @@ import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
-class PartitionedSourcesSpec
-    extends SpecBase(kafkaPort = KafkaPorts.PartitionedSourcesSpec)
-    with Inside
-    with OptionValues {
+class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues {
 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
 
   override val consumerDefaults: ConsumerSettings[String, String] = super.consumerDefaults
     .withStopTimeout(10.millis)
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1"
-                        ))
 
   "Partitioned source" must {
 

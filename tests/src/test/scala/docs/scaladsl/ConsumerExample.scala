@@ -12,11 +12,11 @@ import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.{Done, NotUsed}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{
@@ -32,10 +32,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 // Consume messages and store a representation, including offset, in DB
-class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(4.seconds)
@@ -219,7 +216,9 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic1, topic2, targetTopic) = createTopics(1, 2, 3)
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val targetTopic = createTopic(3)
     val producerSettings = producerDefaults
     //format: off
     // #consumerToProducerSink
@@ -252,7 +251,8 @@ class ConsumerExample extends DocsSpecBase(KafkaPorts.ScalaConsumerExamples) {
 
   "Connect a Consumer to Producer" should "support flows" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic, targetTopic) = createTopics(1, 2)
+    val topic = createTopic(1)
+    val targetTopic = createTopic(2)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     // #consumerToProducerFlow

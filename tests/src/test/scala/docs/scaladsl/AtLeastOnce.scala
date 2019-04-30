@@ -10,11 +10,11 @@ import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffset
 import akka.kafka.ProducerMessage.Envelope
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
+import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer, Producer}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.collection.immutable
@@ -23,16 +23,15 @@ import scala.concurrent.duration._
 
 // #oneToMany
 
-class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
-
-  def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
+class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
   "Connect a Consumer to Producer" should "map messages one-to-many, and commit in batches" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic1, topic2, topic3) = createTopics(1, 2, 3)
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val topic3 = createTopic(3)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     val control =
@@ -72,7 +71,10 @@ class AtLeastOnce extends DocsSpecBase(KafkaPorts.ScalaAtLeastOnceExamples) {
     def ignore(value: String): Boolean = "2" == value
 
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val immutable.Seq(topic1, topic2, topic3, topic4) = createTopics(1, 2, 3, 4)
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val topic3 = createTopic(3)
+    val topic4 = createTopic(4)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
     val control =
