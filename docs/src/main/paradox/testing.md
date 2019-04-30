@@ -89,7 +89,7 @@ Some Alpakka Kafka tests implemented in Scala use [Scalatest](http://www.scalate
   scope=test
 }
 
-By mixin in `EmbeddedKafkaLike` an embedded Kafka instance will be started before the tests in this test class execute shut down after all tests in this test class are finished.
+By mixing in `EmbeddedKafkaLike` an embedded Kafka instance will be started before the tests in this test class execute shut down after all tests in this test class are finished.
 
 Scala
 : @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #embeddedkafka }
@@ -125,7 +125,7 @@ The Testcontainers dependency must be added to your project explicitly.
   scope=test
 }
 
-By mixin in `TestcontainersKafkaLike` the Kafka Docker container will be started before the first test and shut down after all tests are finished.
+By mixing in `TestcontainersKafkaLike` the Kafka Docker container will be started before the first test and shut down after all tests are finished.
 
 Scala
 : @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers}
