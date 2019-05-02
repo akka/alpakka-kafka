@@ -68,14 +68,12 @@ public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
                 responseOptional ->
                     responseOptional.map(
                         map ->
-                            map.entrySet()
-                                .stream()
+                            map.entrySet().stream()
                                 .flatMap(
                                     entry -> {
                                       String topic = entry.getKey();
                                       List<PartitionInfo> partitionInfos = entry.getValue();
-                                      return partitionInfos
-                                          .stream()
+                                      return partitionInfos.stream()
                                           .map(info -> topic + ": " + info.toString());
                                     })
                                 .collect(Collectors.toList())));

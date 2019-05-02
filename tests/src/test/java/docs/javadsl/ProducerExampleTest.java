@@ -200,8 +200,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
                   } else if (result instanceof ProducerMessage.MultiResult) {
                     ProducerMessage.MultiResult<String, String, Integer> res =
                         (ProducerMessage.MultiResult<String, String, Integer>) result;
-                    return res.getParts()
-                        .stream()
+                    return res.getParts().stream()
                         .map(
                             part -> {
                               RecordMetadata meta = part.metadata();

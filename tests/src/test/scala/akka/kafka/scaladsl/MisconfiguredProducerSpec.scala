@@ -32,10 +32,10 @@ class MisconfiguredProducerSpec
     "fail during materialization" in assertAllStagesStopped {
       val producerSettings =
         ProducerSettings(system, new StringSerializer, new StringSerializer)
-        .withBootstrapServers("invalid-bootstrap-server")
+          .withBootstrapServers("invalid-bootstrap-server")
 
       val exception = intercept[org.apache.kafka.common.KafkaException] {
-        val result = Source
+        Source
           .single(new ProducerRecord[String, String]("topic", "key", "value"))
           .runWith(Producer.plainSink(producerSettings))
       }

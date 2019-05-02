@@ -16,7 +16,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.{Future}
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
@@ -43,7 +43,7 @@ private object TransactionalProducerStage {
     def empty: TransactionBatch = new EmptyTransactionBatch()
   }
 
-  sealed trait TransactionBatch {
+  private[kafka] sealed trait TransactionBatch {
     def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch
     def committingFailed(): Unit
   }
