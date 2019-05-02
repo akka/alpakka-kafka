@@ -5,15 +5,16 @@
 
 package akka.kafka
 
-import java.util.{Map => JMap}
+import java.util.{Objects, Map => JMap}
 import java.util.concurrent.CompletionStage
 
 import akka.Done
-import akka.annotation.DoNotInherit
-import akka.kafka.internal.CommittableOffsetBatchImpl
+import akka.annotation.{DoNotInherit, InternalApi}
+import akka.kafka.internal.{CommittableOffsetBatchImpl, CommittedMarker}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.concurrent.Future
+import scala.runtime.AbstractFunction2
 
 /**
  * Classes that are used in both [[javadsl.Consumer]] and
@@ -78,15 +79,56 @@ object ConsumerMessage {
   /**
    * Offset position for a groupId, topic, partition.
    */
-  final case class PartitionOffset(key: GroupTopicPartition, offset: Long) {
+  class PartitionOffset(val key: GroupTopicPartition, val offset: Long)
+      extends Product2[GroupTopicPartition, Long]
+      with Serializable {
     def withMetadata(metadata: String) =
       PartitionOffsetMetadata(key, offset, metadata)
+
+    @InternalApi private[kafka] def withCommittedMarker(committedMarker: CommittedMarker) =
+      PartitionOffsetCommittedMarker(key, offset, committedMarker)
+
+    override def toString() = s"PartitionOffset(key=$key,offset=$offset)"
+
+    override def equals(other: Any): Boolean = other match {
+      case that: PartitionOffset =>
+        that.canEqual(this) && Objects.equals(this.key, that.key) &&
+        Objects.equals(this.offset, that.offset)
+      case _ => false
+    }
+
+    override def hashCode(): Int = Objects.hash(key, offset.asInstanceOf[java.lang.Long])
+
+    // This code is for backwards compatibility when PartitionOffset was a case class.
+    override def _1: GroupTopicPartition = key
+
+    override def _2: Long = offset
+
+    override def canEqual(that: Any): Boolean = that.isInstanceOf[PartitionOffset]
+
+    def copy(key: GroupTopicPartition = this.key, offset: Long = this.offset): PartitionOffset =
+      PartitionOffset(key, offset)
+  }
+
+  object PartitionOffset extends AbstractFunction2[GroupTopicPartition, Long, PartitionOffset] {
+    def apply(key: GroupTopicPartition, offset: Long) = new PartitionOffset(key, offset)
+
+    def unapply(arg: PartitionOffset): Option[(GroupTopicPartition, Long)] = Some((arg.key, arg.offset))
   }
 
   /**
    * Offset position and metadata for a groupId, topic, partition.
    */
   final case class PartitionOffsetMetadata(key: GroupTopicPartition, offset: Long, metadata: String)
+
+  /**
+   * Internal Api
+   */
+  @InternalApi private[kafka] final case class PartitionOffsetCommittedMarker(
+      override val key: GroupTopicPartition,
+      override val offset: Long,
+      private[kafka] val committedMarker: CommittedMarker
+  ) extends PartitionOffset(key, offset)
 
   /**
    * groupId, topic, partition key for an offset position.
