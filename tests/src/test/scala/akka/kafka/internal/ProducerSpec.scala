@@ -31,7 +31,6 @@ import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -71,7 +70,7 @@ class ProducerSpec(_system: ActorSystem)
                        -1)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
-  def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) =
+  private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) =
     ProducerMessage.Message(
       tuple._1,
       ConsumerMessage
@@ -598,7 +597,7 @@ class CommittedMarkerMock {
       Future.successful(Done)
   })
 
-  def verifyOffsets(pos: ConsumerMessage.PartitionOffsetCommittedMarker*): Future[Done] =
+  private[kafka] def verifyOffsets(pos: ConsumerMessage.PartitionOffsetCommittedMarker*): Future[Done] =
     Mockito
       .verify(mock, Mockito.only())
       .committed(

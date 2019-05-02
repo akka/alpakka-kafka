@@ -381,7 +381,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
               ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value),
                                      msg.partitionOffset)
             }
-            .take(batchSize)
+            .take(batchSize.toLong)
             .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
             .addAttributes(Attributes.inputBuffer(batchSize, batchSize + 1))
             .via(Transactional.flow(producerDefaults, s"$group-$id"))
@@ -398,12 +398,12 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val probeConsumerGroup = createGroupId(2)
       val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
 
-      periodicalCheck("Wait for elements written to Kafka", maxTries = 30, 1.second) {
-        elementsWrote.get
+      periodicalCheck("Wait for elements written to Kafka", maxTries = 30, 1.second) { () =>
+        elementsWrote.get()
       }(_ > 10)
 
       probeConsumer
-        .request(elements)
+        .request(elements.toLong)
         .expectNextUnorderedN((1 to elements).map(_.toString))
 
       probeConsumer.cancel()

@@ -91,8 +91,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
             .map(
                 msg ->
                     ProducerMessage.multi(
-                        topics
-                            .stream()
+                        topics.stream()
                             .map(t -> new ProducerRecord<>(t, 0, DefaultKey(), msg.toString()))
                             .collect(Collectors.toList())))
             .via(Producer.flexiFlow(producerDefaults()))

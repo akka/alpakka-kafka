@@ -13,7 +13,7 @@ import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{ConsumerFailed, ConsumerMessage, ConsumerSettings, Subscription}
+import akka.kafka.{ConsumerFailed, ConsumerSettings, Subscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic
 import akka.util.Timeout
@@ -21,8 +21,7 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, Offset
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.IsolationLevel
 
-import scala.collection.immutable.Iterable
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Internal API */
@@ -32,6 +31,8 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](
       s"TransactionalSource ${subscription.renderStageAttribute}"
     ) {
+  import TransactionalSource._
+
   require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
 
   type Offset = Long
@@ -86,15 +87,10 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
   )
 
-  case object Drained
-  case class Drain[T](drainedConfirmationRef: Option[ActorRef], drainedConfirmationMsg: T)
-  case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
-  case object CommitingFailure
-
   override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
     with TransactionalMessageBuilder[K, V] {
-      var inFlightRecords = InFlightRecords.empty
+      val inFlightRecords = InFlightRecords.empty
 
       override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
         case (_, Revoked(tps)) =>
@@ -115,7 +111,7 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
         case (sender, Committed(offsets)) =>
           inFlightRecords.committed(offsets.mapValues(_.offset() - 1))
           sender ! Done
-        case (sender, CommitingFailure) => {
+        case (sender, CommittingFailure) => {
           log.info("Committing failed, resetting in flight offsets")
           inFlightRecords.reset()
         }
@@ -135,7 +131,7 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
       override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committedMarker: CommittedMarker = {
         val ec = materializer.executionContext
-        CommittedMarkerRef(sourceActor.ref)(ec)
+        CommittedMarkerRef(sourceActor.ref, consumerSettings.commitTimeout)(ec)
       }
 
       override def onMessage(rec: ConsumerRecord[K, V]): Unit =
@@ -168,17 +164,27 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
       }
     }
 
-  private[kafka] final case class CommittedMarkerRef(sourceActor: ActorRef)(
+}
+
+/** Internal API */
+@InternalApi
+private object TransactionalSource {
+  case object Drained
+  case class Drain[T](drainedConfirmationRef: Option[ActorRef], drainedConfirmationMsg: T)
+  case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+  case object CommittingFailure
+
+  private[kafka] final case class CommittedMarkerRef(sourceActor: ActorRef, commitTimeout: FiniteDuration)(
       implicit ec: ExecutionContext
   ) extends CommittedMarker {
     override def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done] = {
       import akka.pattern.ask
       sourceActor
-        .ask(Committed(offsets))(Timeout(consumerSettings.commitTimeout))
+        .ask(Committed(offsets))(Timeout(commitTimeout))
         .map(_ => Done)
     }
 
     override def failed(): Unit =
-      sourceActor ! CommitingFailure
+      sourceActor ! CommittingFailure
   }
 }
