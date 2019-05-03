@@ -31,7 +31,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
 
   "Externally controlled kafka consumer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(partitions = 3)
+    val topic = createTopic(suffix = 0, partitions = 3)
     val partition1 = 1
     val partition2 = 2
     // #consumerActor
@@ -81,7 +81,7 @@ class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) 
 
   "Consumer Metrics" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(partitions = 3)
+    val topic = createTopic(suffix = 0, partitions = 3)
     val partition = 1
     def println(s: String): Unit = {}
     // #consumerMetrics

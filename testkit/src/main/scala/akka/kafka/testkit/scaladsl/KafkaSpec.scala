@@ -158,7 +158,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
       Try(predicate(group.members().asScala.toList)).getOrElse(false)
     }
 
-  def periodicalCheck[T](description: String, maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
+  def periodicalCheck[T](description: String, maxTries: Int = 50, sleepInBetween: FiniteDuration = 100.millis)(
       data: () => T
   )(predicate: T => Boolean): Unit = {
     @tailrec def check(triesLeft: Int): Unit =

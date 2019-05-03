@@ -79,7 +79,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
 
   @Test
   void plainSink() throws Exception {
-    String topic = createTopic(1, 1, 1);
+    String topic = createTopic();
     // #plainSink
     CompletionStage<Done> done =
         Source.range(1, 100)
@@ -99,7 +99,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
 
   @Test
   void plainSinkWithSharedProducer() throws Exception {
-    String topic = createTopic(1, 1, 1);
+    String topic = createTopic();
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
@@ -169,7 +169,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
 
   @Test
   void producerFlowExample() throws Exception {
-    String topic = createTopic(1, 1, 1);
+    String topic = createTopic();
     // #flow
     CompletionStage<Done> done =
         Source.range(1, 100)

@@ -56,10 +56,10 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   @Test
   public void sourceSink() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String sourceTopic = createTopic(1, 1, 1);
-    String targetTopic = createTopic(2, 1, 1);
-    String transactionalId = createTransactionalId(1);
+        consumerDefaults().withGroupId(createGroupId());
+    String sourceTopic = createTopic(1);
+    String targetTopic = createTopic(2);
+    String transactionalId = createTransactionalId();
     // #transactionalSink
     Consumer.DrainingControl<Done> control =
         Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
@@ -90,10 +90,10 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   @Test
   public void usingRestartSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String sourceTopic = createTopic(1, 1, 1);
-    String targetTopic = createTopic(2, 1, 1);
-    String transactionalId = createTransactionalId(1);
+        consumerDefaults().withGroupId(createGroupId());
+    String sourceTopic = createTopic(1);
+    String targetTopic = createTopic(2);
+    String transactionalId = createTransactionalId();
     // #transactionalFailureRetry
     AtomicReference<Consumer.Control> innerControl =
         new AtomicReference<>(Consumer.createNoopControl());

@@ -55,8 +55,8 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Test
   public void mustConsumeFromTheSpecifiedSingleTopic() throws Exception {
-    final String topic = createTopic(0, 1, 1);
-    final String group = createGroupId(0);
+    final String topic = createTopic();
+    final String group = createGroupId();
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -83,8 +83,8 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Test
   public void mustConsumeFromTheSpecifiedTopicPattern() throws Exception {
-    final List<String> topics = Arrays.asList(createTopic(9001, 1, 1), createTopic(9002, 1, 1));
-    final String group = createGroupId(0);
+    final List<String> topics = Arrays.asList(createTopic(9001), createTopic(9002));
+    final String group = createGroupId();
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -115,7 +115,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Test
   public void mustConsumeFromTheSpecifiedPartition() throws Exception {
-    final String topic = createTopic(2, 2, 1);
+    final String topic = createTopic(2, 2);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -147,7 +147,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndOffset() throws Exception {
-    final String topic = createTopic(3, 1, 1);
+    final String topic = createTopic(3);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
@@ -173,7 +173,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Test
   public void mustConsumeFromTheSpecifiedPartitionAndTimestamp() throws Exception {
-    final String topic = createTopic(4, 1, 1);
+    final String topic = createTopic(4);
     final Integer totalMessages = 100;
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)

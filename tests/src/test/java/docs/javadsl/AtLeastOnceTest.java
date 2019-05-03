@@ -55,10 +55,10 @@ public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
   @Test
   public void consumeOneProduceMany() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(0));
-    String topic1 = createTopic(1, 1, 1);
-    String topic2 = createTopic(2, 1, 1);
-    String topic3 = createTopic(3, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic1 = createTopic(1);
+    String topic2 = createTopic(2);
+    String topic3 = createTopic(3);
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
     Consumer.DrainingControl<Done> control =
@@ -106,11 +106,11 @@ public class AtLeastOnceTest extends EmbeddedKafkaJunit4Test {
   @Test
   public void consumerOneProduceConditional() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(0));
-    String topic1 = createTopic(1, 1, 1);
-    String topic2 = createTopic(2, 1, 1);
-    String topic3 = createTopic(3, 1, 1);
-    String topic4 = createTopic(4, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic1 = createTopic(1);
+    String topic2 = createTopic(2);
+    String topic3 = createTopic(3);
+    String topic4 = createTopic(4);
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
     Consumer.DrainingControl<Done> control =
