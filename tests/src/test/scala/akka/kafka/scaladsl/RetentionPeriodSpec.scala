@@ -33,10 +33,9 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
   "After retention period (1 min) consumer" must {
 
     "resume from committed offset" in assertAllStagesStopped {
-      val topic1 = createTopicName(1)
-      val group1 = createGroupId(1)
+      val topic1 = createTopic()
+      val group1 = createGroupId()
 
-      givenInitializedTopic(topic1)
       produce(topic1, 1 to 100)
 
       val committedElements = new ConcurrentLinkedQueue[Int]()
@@ -45,7 +44,6 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
 
       val (control, probe1) = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
-        .filterNot(_.record.value == InitialMsg)
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
             committedElements.add(elem.record.value.toInt)

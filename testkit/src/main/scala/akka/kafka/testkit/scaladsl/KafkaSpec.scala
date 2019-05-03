@@ -72,9 +72,6 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
 
   var testProducer: KProducer[String, String] = _
 
-  val InitialMsg =
-    "initial msg in topic, required to create the topic before any consumer subscribes to it"
-
   def setUp(): Unit = {
     testProducer = producerDefaults.createKafkaProducer()
     setUpAdminClient()
@@ -105,9 +102,6 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   }
 
   val partition0 = 0
-
-  def givenInitializedTopic(topic: String): Unit =
-    testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
 
   /**
    * Periodically checks if a given predicate on cluster state holds.
@@ -256,7 +250,6 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
                   topic: String*): (Control, TestSubscriber.Probe[String]) =
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
-      .filterNot(_.value == InitialMsg)
       .map(_.value)
       .toMat(TestSink.probe)(Keep.both)
       .run()

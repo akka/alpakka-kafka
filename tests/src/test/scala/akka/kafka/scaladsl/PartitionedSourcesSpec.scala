@@ -30,14 +30,15 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
 
-  override val consumerDefaults: ConsumerSettings[String, String] = super.consumerDefaults
-    .withStopTimeout(10.millis)
+  override def consumerDefaults: ConsumerSettings[String, String] =
+    super.consumerDefaults
+      .withStopTimeout(10.millis)
 
   "Partitioned source" must {
 
     "begin consuming from the beginning of the topic" in assertAllStagesStopped {
-      val topic = createTopic(1)
-      val group = createGroupId(1)
+      val topic = createTopic()
+      val group = createGroupId()
 
       awaitProduce(produce(topic, 1 to 100))
 
@@ -57,10 +58,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
     }
 
     "begin consuming from the middle of the topic" in assertAllStagesStopped {
-      val topic = createTopic(1)
-      val group = createGroupId(1)
-
-      givenInitializedTopic(topic)
+      val topic = createTopic()
+      val group = createGroupId()
 
       awaitProduce(produce(topic, 1 to 100))
 
@@ -69,13 +68,12 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                                             Subscriptions.topics(topic),
                                             tp => Future.successful(tp.map(_ -> 51L).toMap))
         .flatMapMerge(1, _._2)
-        .filterNot(_.value == InitialMsg)
         .map(_.value())
         .runWith(TestSink.probe)
 
       probe
         .request(50)
-        .expectNextN((51 to 100).map(_.toString))
+        .expectNextN((52 to 100).map(_.toString))
 
       probe.cancel()
     }
@@ -86,7 +84,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
-      val group = createGroupId(1)
+      val group = createGroupId()
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
         .withGroupId(group)
@@ -138,7 +136,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val initialized = Promise[Unit]
 
       val topic = createTopic(1, partitions)
-      val group = createGroupId(1)
+      val group = createGroupId()
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
@@ -233,7 +231,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
-      val group = createGroupId(1)
+      val group = createGroupId()
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
@@ -319,7 +317,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
     "call the onRevoked hook" in assertAllStagesStopped {
       val partitions = 4
       val topic = createTopic(1, partitions)
-      val group = createGroupId(1)
+      val group = createGroupId()
 
       var partitionsAssigned = false
       var revoked: Option[Set[TopicPartition]] = None
@@ -427,7 +425,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
-      val group = createGroupId(1)
+      val group = createGroupId()
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
         .withGroupId(group)
