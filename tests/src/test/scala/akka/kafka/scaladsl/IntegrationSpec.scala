@@ -91,7 +91,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val control = createAndRunConsumer(subscription1)
 
       // waits until all partitions are assigned to the single consumer
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
@@ -104,7 +104,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val control2 = createAndRunConsumer(subscription2)
 
       // waits until partitions are assigned across both consumers
-      waitUntilConsumerSummary(group, timeout = 10.seconds) {
+      waitUntilConsumerSummary(group) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
           consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half

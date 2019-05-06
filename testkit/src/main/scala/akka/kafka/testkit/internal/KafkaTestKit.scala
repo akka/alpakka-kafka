@@ -8,15 +8,29 @@ package akka.kafka.testkit.internal
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.{Arrays, Properties}
+import java.util.{Arrays, Collections, Properties}
 
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
-import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
+import org.apache.kafka.clients.admin.{
+  AdminClient,
+  AdminClientConfig,
+  ConsumerGroupDescription,
+  DescribeClusterResult,
+  DescribeConsumerGroupsOptions,
+  MemberDescription,
+  NewTopic
+}
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.common.ConsumerGroupState
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
+
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.util.{Failure, Success, Try}
 
 /**
  * Common functions for scaladsl and javadsl Testkit.
@@ -169,4 +183,57 @@ object KafkaTestKitClass {
   def createReplicationFactorBrokerProps(replicationFactor: Int): Map[String, String] = Map(
     "offsets.topic.replication.factor" -> s"$replicationFactor"
   )
+}
+
+object KafkaTestKit {
+  def waitUntilCluster(timeout: FiniteDuration,
+                       sleepInBetween: FiniteDuration,
+                       adminClient: AdminClient,
+                       predicate: DescribeClusterResult => Boolean,
+                       log: Logger): Unit =
+    periodicalCheck("cluster state", timeout, sleepInBetween)(() => adminClient.describeCluster())(predicate)(log)
+
+  def waitUntilConsumerGroup(groupId: String,
+                             timeout: FiniteDuration,
+                             sleepInBetween: FiniteDuration,
+                             adminClient: AdminClient,
+                             predicate: ConsumerGroupDescription => Boolean,
+                             log: Logger): Unit =
+    periodicalCheck("consumer group state", timeout, sleepInBetween)(
+      () =>
+        adminClient
+          .describeConsumerGroups(
+            Collections.singleton(groupId),
+            new DescribeConsumerGroupsOptions().timeoutMs(timeout.toMillis.toInt)
+          )
+          .describedGroups()
+          .get(groupId)
+          .get(timeout.toMillis, TimeUnit.MILLISECONDS)
+    )(predicate)(log)
+
+  def periodicalCheck[T](description: String, timeout: FiniteDuration, sleepInBetween: FiniteDuration)(
+      data: () => T
+  )(predicate: T => Boolean)(log: Logger): Unit = {
+    val maxTries = (timeout / sleepInBetween).toInt
+
+    @tailrec def check(triesLeft: Int): Unit =
+      Try(predicate(data())).recover {
+        case ex =>
+          log.debug(s"Ignoring [${ex.getClass.getName}: ${ex.getMessage}] while waiting for desired state")
+          false
+      } match {
+        case Success(false) if triesLeft > 0 =>
+          Thread.sleep(sleepInBetween.toMillis)
+          check(triesLeft - 1)
+        case Success(false) =>
+          throw new Error(
+            s"Timeout while waiting for desired $description. Tried [$maxTries] times, slept [$sleepInBetween] in between."
+          )
+        case Failure(ex) =>
+          throw ex
+        case Success(true) => // predicate has been fulfilled, stop checking
+      }
+
+    check(maxTries)
+  }
 }

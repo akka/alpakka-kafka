@@ -113,7 +113,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .run()
 
       // waits until all partitions are assigned to the single consumer
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
@@ -176,7 +176,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val control = createAndRunConsumer()
 
       // waits until all partitions are assigned to the single consumer
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
@@ -205,7 +205,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       producer.futureValue shouldBe Done
 
       // waits until partitions are assigned across both consumers
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
           consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
@@ -262,7 +262,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val control = createAndRunConsumer(subscription1)
 
       // waits until all partitions are assigned to the single consumer
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
@@ -294,7 +294,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       // waits until partitions are assigned across both consumers
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case consumer1 :: consumer2 :: Nil =>
           val half = partitions / 2
           consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
@@ -326,7 +326,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .plainPartitionedManualOffsetSource(
           consumerDefaults.withGroupId(group),
           Subscriptions.topics(topic),
-          getOffsetsOnAssign = tps => {
+          getOffsetsOnAssign = _ => {
             partitionsAssigned = true
             Future.successful(Map.empty)
           },
@@ -473,7 +473,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .run()
 
       // waits until all partitions are assigned to the single consumer
-      waitUntilConsumerSummary(group, timeout = 5.seconds) {
+      waitUntilConsumerSummary(group) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
