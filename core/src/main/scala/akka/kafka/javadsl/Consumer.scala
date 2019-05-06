@@ -165,7 +165,13 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
-    committableSourceWithContext(settings, subscription, (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA)
+    committableSourceWithContext(
+      settings,
+      subscription,
+      new java.util.function.Function[ConsumerRecord[K, V], String]() {
+        override def apply(v1: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
+      }
+    )
 
   /**
    * API MAY CHANGE
