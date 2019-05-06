@@ -145,15 +145,13 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
                              sourceActor.ref)
 
       // This is invoked in the KafkaConsumerActor thread when doing poll.
-      override def partitionRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {
+      override def blockingRevokedHandler(revokedTps: Set[TopicPartition]): Unit =
         if (waitForDraining(revokedTps)) {
           sourceActor.ref ! Revoked(revokedTps.toList)
         } else {
           sourceActor.ref ! Failure(new Error("Timeout while draining"))
           consumerActor ! KafkaConsumerActor.Internal.Stop
         }
-        super.partitionRevokedHandler(revokedTps)
-      }
 
       def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
         import akka.pattern.ask
