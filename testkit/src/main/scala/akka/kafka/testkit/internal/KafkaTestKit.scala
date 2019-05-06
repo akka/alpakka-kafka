@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
 
 import akka.actor.ActorSystem
+import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -74,6 +75,8 @@ trait KafkaTestKit {
 
   def system: ActorSystem
   def bootstrapServers: String
+
+  val settings = KafkaTestkitSettings(system)
 
   private lazy val adminDefaults = {
     val config = new Properties()
