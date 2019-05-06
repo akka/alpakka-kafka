@@ -10,6 +10,7 @@ import akka.actor.ActorSystem;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.internal.KafkaTestKitChecks;
 import akka.kafka.testkit.internal.KafkaTestKitClass;
 import akka.kafka.testkit.internal.KafkaTestKit;
 import akka.stream.Materializer;
@@ -83,7 +84,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
    * <p>If the predicate does not hold after configured amount of time, throws an exception.
    */
   public void waitUntilCluster(Predicate<DescribeClusterResult> predicate) {
-    KafkaTestKit.waitUntilCluster(
+    KafkaTestKitChecks.waitUntilCluster(
         settings().clusterTimeout(),
         settings().checkInterval(),
         adminClient(),
@@ -98,7 +99,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
    */
   public void waitUntilConsumerGroup(
       String groupId, Predicate<ConsumerGroupDescription> predicate) {
-    KafkaTestKit.waitUntilConsumerGroup(
+    KafkaTestKitChecks.waitUntilConsumerGroup(
         groupId,
         settings().consumerGroupTimeout(),
         settings().checkInterval(),

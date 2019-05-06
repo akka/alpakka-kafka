@@ -14,7 +14,7 @@ import akka.event.LoggingAdapter
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.kafka.testkit.internal.KafkaTestKit
+import akka.kafka.testkit.internal.{KafkaTestKit, KafkaTestKitChecks}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
@@ -108,7 +108,8 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
    */
   def waitUntilCluster()(
       predicate: DescribeClusterResult => Boolean
-  ): Unit = KafkaTestKit.waitUntilCluster(settings.clusterTimeout, settings.checkInterval, adminClient, predicate, log)
+  ): Unit =
+    KafkaTestKitChecks.waitUntilCluster(settings.clusterTimeout, settings.checkInterval, adminClient, predicate, log)
 
   /**
    * Periodically checks if the given predicate on consumer group state holds.
@@ -116,12 +117,12 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
    * If the predicate does not hold after configured amount of time, throws an exception.
    */
   def waitUntilConsumerGroup(groupId: String)(predicate: ConsumerGroupDescription => Boolean): Unit =
-    KafkaTestKit.waitUntilConsumerGroup(groupId,
-                                        settings.consumerGroupTimeout,
-                                        settings.checkInterval,
-                                        adminClient,
-                                        predicate,
-                                        log)
+    KafkaTestKitChecks.waitUntilConsumerGroup(groupId,
+                                              settings.consumerGroupTimeout,
+                                              settings.checkInterval,
+                                              adminClient,
+                                              predicate,
+                                              log)
 
   /**
    * Periodically checks if the given predicate on consumer summary holds.
@@ -150,7 +151,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   def periodicalCheck[T](description: String, maxTries: Int, sleepInBetween: FiniteDuration)(
       data: () => T
   )(predicate: T => Boolean) =
-    KafkaTestKit.periodicalCheck(description, maxTries * sleepInBetween, sleepInBetween)(data)(predicate)(log)
+    KafkaTestKitChecks.periodicalCheck(description, maxTries * sleepInBetween, sleepInBetween)(data)(predicate)(log)
 
   /**
    * Produce messages to topic using specified range and return
