@@ -355,16 +355,19 @@ import scala.util.control.NonFatal
       sender ! handleMetadataRequest(req)
   }
 
-  def handleSubscription(subscription: SubscriptionRequest): Unit = {
-    scheduleFirstPollTask()
+  def handleSubscription(subscription: SubscriptionRequest): Unit =
+    try {
+      subscription match {
+        case Subscribe(topics, listener) =>
+          consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(listener))
+        case SubscribePattern(pattern, listener) =>
+          consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(listener))
+      }
 
-    subscription match {
-      case Subscribe(topics, listener) =>
-        consumer.subscribe(topics.toList.asJava, new WrappedAutoPausedListener(listener))
-      case SubscribePattern(pattern, listener) =>
-        consumer.subscribe(Pattern.compile(pattern), new WrappedAutoPausedListener(listener))
+      scheduleFirstPollTask()
+    } catch {
+      case NonFatal(ex) => processErrors(ex)
     }
-  }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit =
     // check if same topics/partitions have already been requested by someone else,
