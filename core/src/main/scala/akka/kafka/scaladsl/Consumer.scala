@@ -178,7 +178,7 @@ object Consumer {
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
     Source
-      .fromGraph(new CommittableWithContextSource[K, V](settings, subscription))
+      .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription))
       .asSourceWithContext(_._2)
       .map(_._1)
 
@@ -203,7 +203,7 @@ object Consumer {
       metadataFromRecord: ConsumerRecord[K, V] => String
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
     Source
-      .fromGraph(new CommittableWithContextSource[K, V](settings, subscription, metadataFromRecord))
+      .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription, metadataFromRecord))
       .asSourceWithContext(_._2)
       .map(_._1)
 

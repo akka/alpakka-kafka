@@ -53,12 +53,12 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
 
 /** Internal API */
 @InternalApi
-private[kafka] final class CommittableWithContextSource[K, V](
+private[kafka] final class CommittableSourceWithContext[K, V](
     settings: ConsumerSettings[K, V],
     subscription: Subscription,
     _metadataFromRecord: ConsumerRecord[K, V] => String = (_: ConsumerRecord[K, V]) => OffsetFetchResponse.NO_METADATA
 ) extends KafkaSourceStage[K, V, (ConsumerRecord[K, V], CommittableOffset)](
-      s"CommittableWithContextSource ${subscription.renderStageAttribute}"
+      s"CommittableSourceWithContext ${subscription.renderStageAttribute}"
     ) {
   override protected def logic(
       shape: SourceShape[(ConsumerRecord[K, V], CommittableOffset)]

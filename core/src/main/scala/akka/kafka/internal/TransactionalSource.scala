@@ -10,7 +10,7 @@ import akka.Done
 import akka.actor.{ActorRef, Status, Terminated}
 import akka.actor.Status.Failure
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.TransactionalMessage
+import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerFailed, ConsumerSettings, Subscription}
@@ -34,6 +34,38 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
 
   require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
 
+  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
+    new TransactionalSourceLogic(shape, TransactionalSource.txConsumerSettings(consumerSettings), subscription) with TransactionalMessageBuilder[K, V]
+
+}
+
+/** Internal API */
+@InternalApi
+private[internal] object TransactionalSource {
+  /**
+    * We set the isolation.level config to read_committed to make sure that any consumed messages are from
+    * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
+    * producers may either use transactional messaging or not at all. So the fetching partitions may have both
+    * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
+    * will still consume non-transactional messages.
+    */
+  def txConsumerSettings[K, V](consumerSettings: ConsumerSettings[K, V]) = consumerSettings.withProperty(
+    ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+    IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
+  )
+
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] final class TransactionalSourceWithContext[K, V](consumerSettings: ConsumerSettings[K, V],
+                                                     subscription: Subscription)
+    extends KafkaSourceStage[K, V, (ConsumerRecord[K, V], PartitionOffset)](
+      s"TransactionalSourceWithContext ${subscription.renderStageAttribute}"
+    ) {
+
+  require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
+
   /**
    * We set the isolation.level config to read_committed to make sure that any consumed messages are from
    * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
@@ -46,8 +78,8 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
   )
 
-  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
-    new TransactionalSourceLogic(shape, txConsumerSettings, subscription) with TransactionalMessageBuilder[K, V]
+  override protected def logic(shape: SourceShape[(ConsumerRecord[K, V], PartitionOffset)]): GraphStageLogic with Control =
+    new TransactionalSourceLogic(shape, TransactionalSource.txConsumerSettings(consumerSettings), subscription) with TransactionalWithContextBuilder[K, V]
 
 }
 

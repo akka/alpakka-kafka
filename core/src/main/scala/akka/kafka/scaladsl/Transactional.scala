@@ -5,14 +5,16 @@
 
 package akka.kafka.scaladsl
 
-import akka.kafka.ConsumerMessage.TransactionalMessage
+import akka.annotation.ApiMayChange
+import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource}
+import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource, TransactionalSourceWithContext}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceWithContext}
 import akka.{Done, NotUsed}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerConfig
 
 import scala.concurrent.Future
@@ -29,6 +31,23 @@ object Transactional {
   def source[K, V](settings: ConsumerSettings[K, V],
                    subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
     Source.fromGraph(new TransactionalSource[K, V](settings, subscription))
+
+  /**
+   * API MAY CHANGE
+   *
+   *
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Producer.withContext]].
+   */
+  @ApiMayChange
+  def sourceWithContext[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription
+  ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
+    Source
+      .fromGraph(new TransactionalSourceWithContext[K, V](settings, subscription))
+      .asSourceWithContext(_._2)
+      .map(_._1)
 
   /**
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
