@@ -10,23 +10,35 @@ import akka.actor.ActorSystem;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.internal.KafkaTestKitChecks;
 import akka.kafka.testkit.internal.KafkaTestKitClass;
+import akka.kafka.testkit.internal.KafkaTestKit;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
+import org.apache.kafka.clients.admin.DescribeClusterResult;
+import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
+import static scala.compat.java8.FunctionConverters.package$.MODULE$;
+
 public abstract class BaseKafkaTest extends KafkaTestKitClass {
+
+  private static scala.compat.java8.FunctionConverters.package$ functionConverters = MODULE$;
 
   public static final int partition0 = 0;
 
@@ -64,6 +76,54 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         .toMat(Sink.seq(), Keep.both())
         .mapMaterializedValue(Consumer::createDrainingControl)
         .run(materializer);
+  }
+
+  /**
+   * Periodically checks if a given predicate on cluster state holds.
+   *
+   * <p>If the predicate does not hold after configured amount of time, throws an exception.
+   */
+  public void waitUntilCluster(Predicate<DescribeClusterResult> predicate) {
+    KafkaTestKitChecks.waitUntilCluster(
+        settings().clusterTimeout(),
+        settings().checkInterval(),
+        adminClient(),
+        functionConverters.asScalaFromPredicate(predicate),
+        log());
+  }
+
+  /**
+   * Periodically checks if the given predicate on consumer group state holds.
+   *
+   * <p>If the predicate does not hold after configured amount of time, throws an exception.
+   */
+  public void waitUntilConsumerGroup(
+      String groupId, Predicate<ConsumerGroupDescription> predicate) {
+    KafkaTestKitChecks.waitUntilConsumerGroup(
+        groupId,
+        settings().consumerGroupTimeout(),
+        settings().checkInterval(),
+        adminClient(),
+        functionConverters.asScalaFromPredicate(predicate),
+        log());
+  }
+
+  /**
+   * Periodically checks if the given predicate on consumer summary holds.
+   *
+   * <p>If the predicate does not hold after configured amount of time, throws an exception.
+   */
+  public void waitUntilConsumerSummary(
+      String groupId, Predicate<Collection<MemberDescription>> predicate) {
+    waitUntilConsumerGroup(
+        groupId,
+        group -> {
+          try {
+            return group.state() == ConsumerGroupState.STABLE && predicate.test(group.members());
+          } catch (Exception ex) {
+            return false;
+          }
+        });
   }
 
   protected <T> T resultOf(CompletionStage<T> stage) throws Exception {

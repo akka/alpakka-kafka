@@ -39,7 +39,7 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
         _.nodes().get().size == BuildInfo.kafkaScale
       }
 
-      val topic = createTopic(partitions = partitions, replication = 3)
+      val topic = createTopic(suffix = 0, partitions, replication = 3)
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
@@ -55,7 +55,7 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
         }
         .runWith(Sink.last)
 
-      waitUntilConsumerSummary(groupId, timeout = 5.seconds) {
+      waitUntilConsumerSummary(groupId) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 

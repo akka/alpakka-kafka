@@ -71,8 +71,8 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
   @Test
   public void jacksonDeSer() throws Exception {
-    final String topic = createTopic(1, 1, 1);
-    final String group = createGroupId(1);
+    final String topic = createTopic();
+    final String group = createGroupId();
 
     ConsumerSettings<String, String> consumerSettings = consumerDefaults().withGroupId(group);
 
@@ -141,8 +141,8 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
   @Test
   public void avroDeSerMustWorkWithSchemaRegistry() throws Exception {
-    final String topic = createTopic(1, 1, 1);
-    final String group = createGroupId(1);
+    final String topic = createTopic();
+    final String group = createGroupId();
 
     // #serializer #de-serializer
 

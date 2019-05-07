@@ -89,8 +89,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void plainSourceWithExternalOffsetStorage() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     // #plainSource
     final OffsetStorage db = new OffsetStorage();
 
@@ -146,8 +146,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void atMostOnce() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     // #atMostOnce
     Consumer.Control control =
         Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
@@ -169,9 +169,9 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void atLeastOnce() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId());
     CommitterSettings committerSettings = committerDefaults();
-    String topic = createTopic(1, 1, 1);
+    String topic = createTopic();
     // #atLeastOnce
     Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics(topic))
@@ -192,8 +192,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void atLeastOnceWithCommitterSink() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     Config config = system.settings().config().getConfig(CommitterSettings.configPath());
     // #committerSink
     CommitterSettings committerSettings = CommitterSettings.create(config);
@@ -216,9 +216,9 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void commitWithMetadata() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId());
     CommitterSettings committerSettings = committerDefaults();
-    String topic = createTopic(1, 1, 1);
+    String topic = createTopic();
     // #commitWithMetadata
     Consumer.DrainingControl<Done> control =
         Consumer.commitWithMetadataSource(
@@ -241,12 +241,12 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void consumerToProducer() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId());
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
-    String topic1 = createTopic(1, 1, 1);
-    String topic2 = createTopic(2, 1, 1);
-    String targetTopic = createTopic(10, 1, 1);
+    String topic1 = createTopic(1);
+    String topic2 = createTopic(2);
+    String targetTopic = createTopic(10);
     // #consumerToProducerSink
     Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics(topic1, topic2))
@@ -271,11 +271,11 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void consumerToProducerFlow() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId());
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
-    String topic = createTopic(1, 1, 1);
-    String targetTopic = createTopic(20, 1, 1);
+    String topic = createTopic(1);
+    String targetTopic = createTopic(20);
     // #consumerToProducerFlow
     Consumer.DrainingControl<Done> control =
         Consumer.committableSource(consumerSettings, Subscriptions.topics(topic))
@@ -300,12 +300,12 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   }
 
   @Test
-  void committableParitionedSource() throws Exception {
+  void committablePartitionedSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
+        consumerDefaults().withGroupId(createGroupId()).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
     int maxPartitions = 2;
-    String topic = createTopic(1, maxPartitions, 1);
+    String topic = createTopic(1, maxPartitions);
     // #committablePartitionedSource
     Consumer.DrainingControl<Done> control =
         Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
@@ -323,10 +323,10 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void streamPerPartition() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ofMillis(10));
+        consumerDefaults().withGroupId(createGroupId()).withStopTimeout(Duration.ofMillis(10));
     CommitterSettings committerSettings = committerDefaults();
     int maxPartitions = 2;
-    String topic = createTopic(1, maxPartitions, 1);
+    String topic = createTopic(1, maxPartitions);
     // #committablePartitionedSource-stream-per-partition
     Consumer.DrainingControl<Done> control =
         Consumer.committablePartitionedSource(consumerSettings, Subscriptions.topics(topic))
@@ -351,9 +351,9 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void consumerActor() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
+        consumerDefaults().withGroupId(createGroupId());
     ActorRef self = system.deadLetters();
-    String topic = createTopic(1, 2, 1);
+    String topic = createTopic(1, 2);
     int partition0 = 0;
     int partition1 = 1;
     // #consumerActor
@@ -392,8 +392,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void restartSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 2, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic(1, 2);
     // #restartSource
     AtomicReference<Consumer.Control> control = new AtomicReference<>(Consumer.createNoopControl());
 
@@ -443,8 +443,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void withRebalanceListener() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     int messageCount = 10;
     // #withRebalanceListenerActor
     ActorRef rebalanceListener = system.actorOf(Props.create(RebalanceListener.class));
@@ -472,8 +472,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void consumerMetrics() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     // #consumerMetrics
     // run the stream to obtain the materialized Control value
     Consumer.DrainingControl<Done> control =
@@ -498,8 +498,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void shutdownPlainSource() {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     // #shutdownPlainSource
     final OffsetStorage db = new OffsetStorage();
 
@@ -528,8 +528,8 @@ class ConsumerExampleTest extends EmbeddedKafkaTest {
   @Test
   void shutdownCommittable() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(1));
-    String topic = createTopic(1, 1, 1);
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
     CommitterSettings committerSettings = committerDefaults();
     // TODO there is a problem with combining `take` and committing.
     int messageCount = 1;

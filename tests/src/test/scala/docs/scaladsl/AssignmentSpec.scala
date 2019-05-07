@@ -47,7 +47,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) wit
     }
 
     "consume from the specified topic pattern" in assertAllStagesStopped {
-      val topics = immutable.Seq(createTopic(number = 1), createTopic(number = 1))
+      val topics = immutable.Seq(createTopic(), createTopic())
       val group = createGroupId()
       val totalMessages = 100
       val producerCompletion =
@@ -72,7 +72,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) wit
     }
 
     "consume from the specified partition" in assertAllStagesStopped {
-      val topic = createTopic(partitions = 2)
+      val topic = createTopic(suffix = 0, partitions = 2)
       val totalMessages = 100
       val producerCompletion =
         Source(1 to totalMessages)

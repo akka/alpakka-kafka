@@ -11,12 +11,18 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
 
 import akka.actor.ActorSystem
+import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.Logger
 
+/**
+ * Common functions for scaladsl and javadsl Testkit.
+ *
+ * Mixed-in in both, scaladsl and javadsl classes, therefore API should be usable from both - Scala and Java.
+ */
 trait KafkaTestKit {
 
   def log: Logger
@@ -40,16 +46,37 @@ trait KafkaTestKit {
 
   def committerDefaults: CommitterSettings = committerDefaultsInstance
 
-  def nextNumber(): Int = KafkaTestKitClass.topicCounter.incrementAndGet()
+  private def nextNumber(): Int = KafkaTestKitClass.topicCounter.incrementAndGet()
 
-  def createTopicName(number: Int) = s"topic-$number-${nextNumber}"
+  /**
+   * Return a unique topic name.
+   */
+  def createTopicName(suffix: Int): String = s"topic-$suffix-$nextNumber"
 
-  def createGroupId(number: Int = 0) = s"group-$number-${nextNumber}"
+  /**
+   * Return a unique group id with a default suffix.
+   */
+  def createGroupId(): String = createGroupId(0)
 
-  def createTransactionalId(number: Int = 0) = s"transactionalId-$number-${nextNumber}"
+  /**
+   * Return a unique group id with a given suffix.
+   */
+  def createGroupId(suffix: Int): String = s"group-$suffix-$nextNumber"
+
+  /**
+   * Return a unique transactional id with a default suffix.
+   */
+  def createTransactionalId(): String = createTransactionalId(0)
+
+  /**
+   * Return a unique transactional id with a given suffix.
+   */
+  def createTransactionalId(suffix: Int): String = s"transactionalId-$suffix-$nextNumber"
 
   def system: ActorSystem
   def bootstrapServers: String
+
+  val settings = KafkaTestkitSettings(system)
 
   private lazy val adminDefaults = {
     val config = new Properties()
@@ -59,6 +86,9 @@ trait KafkaTestKit {
 
   private var adminClientVar: AdminClient = _
 
+  /**
+   * Access to the Kafka AdminClient which life
+   */
   def adminClient: AdminClient = {
     assert(adminClientVar != null,
            "admin client not created, be sure to call setupAdminClient() and cleanupAdminClient()")
@@ -85,12 +115,33 @@ trait KafkaTestKit {
     }
 
   /**
-   * Create a topic with given partition number and replication factor.
+   * Create a topic with a default suffix, single partition and a replication factor of one.
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(number: Int = 0, partitions: Int = 1, replication: Int = 1): String = {
-    val topicName = createTopicName(number)
+  def createTopic(): String = createTopic(0, 1, 1)
+
+  /**
+   * Create a topic with a given suffix, single partitions and a replication factor of one.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int): String = createTopic(suffix, 1, 1)
+
+  /**
+   * Create a topic with a given suffix, partition number and a replication factor of one.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int, partitions: Int): String = createTopic(suffix, partitions, 1)
+
+  /**
+   * Create a topic with given suffix, partition number and replication factor.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int, partitions: Int, replication: Int): String = {
+    val topicName = createTopicName(suffix)
     val configs = new util.HashMap[String, String]()
     val createResult = adminClient.createTopics(
       Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))

@@ -48,7 +48,7 @@ public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
   @Test
   public void demo() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
-        consumerDefaults().withGroupId(createGroupId(0));
+        consumerDefaults().withGroupId(createGroupId());
     // #metadata
     Duration timeout = Duration.ofSeconds(2);
     ConsumerSettings<String, String> settings =

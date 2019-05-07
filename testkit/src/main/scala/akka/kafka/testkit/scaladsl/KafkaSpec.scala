@@ -6,7 +6,6 @@
 package akka.kafka.testkit.scaladsl
 
 import java.util
-import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 import akka.Done
@@ -15,7 +14,7 @@ import akka.event.LoggingAdapter
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.kafka.testkit.internal.KafkaTestKit
+import akka.kafka.testkit.internal.{KafkaTestKit, KafkaTestKitChecks}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
@@ -23,16 +22,15 @@ import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.admin._
-import org.apache.kafka.clients.producer.{Producer => KProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 import org.apache.kafka.common.ConsumerGroupState
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 trait EmbeddedKafkaLike extends KafkaSpec {
 
@@ -72,9 +70,6 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
 
   var testProducer: KProducer[String, String] = _
 
-  val InitialMsg =
-    "initial msg in topic, required to create the topic before any consumer subscribes to it"
-
   def setUp(): Unit = {
     testProducer = producerDefaults.createKafkaProducer()
     setUpAdminClient()
@@ -106,81 +101,39 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
 
   val partition0 = 0
 
-  def givenInitializedTopic(topic: String): Unit =
-    testProducer.send(new ProducerRecord(topic, partition0, DefaultKey, InitialMsg))
-
   /**
    * Periodically checks if a given predicate on cluster state holds.
    *
-   * If the predicate does not hold after `maxTries`, throws an exception.
+   * If the predicate does not hold after configured amount of time, throws an exception.
    */
-  def waitUntilCluster(maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
+  def waitUntilCluster()(
       predicate: DescribeClusterResult => Boolean
   ): Unit =
-    periodicalCheck("cluster state", maxTries, sleepInBetween)(() => adminClient.describeCluster())(predicate)
+    KafkaTestKitChecks.waitUntilCluster(settings.clusterTimeout, settings.checkInterval, adminClient, predicate, log)
 
   /**
    * Periodically checks if the given predicate on consumer group state holds.
    *
-   * If the predicate does not hold after `maxTries`, throws an exception.
+   * If the predicate does not hold after configured amount of time, throws an exception.
    */
-  def waitUntilConsumerGroup(
-      groupId: String,
-      timeout: Duration = 1.second,
-      sleepInBetween: FiniteDuration = 100.millis
-  )(predicate: ConsumerGroupDescription => Boolean): Unit = {
-    val admin = adminClient
-    periodicalCheck("consumer group state", (timeout / sleepInBetween).toInt, sleepInBetween)(
-      () =>
-        admin
-          .describeConsumerGroups(
-            Collections.singleton(groupId),
-            new DescribeConsumerGroupsOptions().timeoutMs(timeout.toMillis.toInt)
-          )
-          .describedGroups()
-          .get(groupId)
-          .get(timeout.toMillis, TimeUnit.MILLISECONDS)
-    )(predicate)
-  }
+  def waitUntilConsumerGroup(groupId: String)(predicate: ConsumerGroupDescription => Boolean): Unit =
+    KafkaTestKitChecks.waitUntilConsumerGroup(groupId,
+                                              settings.consumerGroupTimeout,
+                                              settings.checkInterval,
+                                              adminClient,
+                                              predicate,
+                                              log)
 
   /**
    * Periodically checks if the given predicate on consumer summary holds.
    *
-   * If the predicate does not hold after `maxTries`, throws an exception.
+   * If the predicate does not hold after configured amount of time, throws an exception.
    */
-  def waitUntilConsumerSummary(
-      groupId: String,
-      timeout: Duration = 1.second,
-      sleepInBetween: FiniteDuration = 100.millis
-  )(predicate: PartialFunction[List[MemberDescription], Boolean]): Unit =
-    waitUntilConsumerGroup(groupId, timeout, sleepInBetween) { group =>
+  def waitUntilConsumerSummary(groupId: String)(predicate: PartialFunction[List[MemberDescription], Boolean]): Unit =
+    waitUntilConsumerGroup(groupId) { group =>
       group.state() == ConsumerGroupState.STABLE &&
       Try(predicate(group.members().asScala.toList)).getOrElse(false)
     }
-
-  def periodicalCheck[T](description: String, maxTries: Int = 10, sleepInBetween: FiniteDuration = 100.millis)(
-      data: () => T
-  )(predicate: T => Boolean): Unit = {
-    @tailrec def check(triesLeft: Int): Unit =
-      Try(predicate(data())).recover {
-        case ex =>
-          log.debug(s"Ignoring [${ex.getClass.getName}: ${ex.getMessage}] while waiting for desired state")
-          false
-      } match {
-        case Success(false) if triesLeft > 0 =>
-          sleepQuietly(sleepInBetween)
-          check(triesLeft - 1)
-        case Success(false) =>
-          throw new Error(
-            s"Timeout while waiting for desired $description. Tried [$maxTries] times, slept [$sleepInBetween] in between."
-          )
-        case Failure(ex) =>
-          throw ex
-        case Success(true) => // predicate has been fulfilled, stop checking
-      }
-
-    check(maxTries)
-  }
 
   def createTopics(topics: Int*): immutable.Seq[String] = {
     val topicNames = topics.toList.map { number =>
@@ -194,6 +147,11 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
     createResult.all().get(10, TimeUnit.SECONDS)
     topicNames
   }
+
+  def periodicalCheck[T](description: String, maxTries: Int, sleepInBetween: FiniteDuration)(
+      data: () => T
+  )(predicate: T => Boolean) =
+    KafkaTestKitChecks.periodicalCheck(description, maxTries * sleepInBetween, sleepInBetween)(data)(predicate)(log)
 
   /**
    * Produce messages to topic using specified range and return
@@ -256,7 +214,6 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
                   topic: String*): (Control, TestSubscriber.Probe[String]) =
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
-      .filterNot(_.value == InitialMsg)
       .map(_.value)
       .toMat(TestSink.probe)(Keep.both)
       .run()

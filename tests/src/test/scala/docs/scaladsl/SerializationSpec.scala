@@ -224,7 +224,7 @@ class SerializationSpec
 
   it should "signal to all streams of a shared actor in same request, and keep others alive" in assertAllStagesStopped {
     val group = createGroupId()
-    val topic = createTopic(partitions = 3)
+    val topic = createTopic(suffix = 0, partitions = 3)
 
     val consumerActor =
       system.actorOf(KafkaConsumerActor.props(specificRecordConsumerSettings(group)), "sharedKafkaConsumerActor")
