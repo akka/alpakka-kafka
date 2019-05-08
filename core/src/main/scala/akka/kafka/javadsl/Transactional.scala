@@ -67,6 +67,24 @@ object Transactional {
       .asJava
 
   /**
+   * API MAY CHANGE
+   *
+   * Sink that uses the context as [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.sourceWithContext]].
+   * It will initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  @ApiMayChange
+  def sinkWithContext[K, V](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), CompletionStage[Done]] =
+    scaladsl.Transactional
+      .flowWithContext(settings, transactionalId)
+      .asFlow
+      .toMat(akka.stream.scaladsl.Sink.ignore)(akka.stream.scaladsl.Keep.right)
+      .mapMaterializedValue(_.toJava)
+      .asJava
+
+  /**
    * Publish records to Kafka topics and then continue the flow.  The flow can only used with a [[Transactional.source]] that
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
