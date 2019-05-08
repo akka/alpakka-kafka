@@ -8,11 +8,18 @@ package akka.kafka.testkit.scaladsl
 import org.testcontainers.containers.KafkaContainer
 
 /**
- * Uses [Testcontainers](https://www.testcontainers.org/) to start a Kafka broker in a Docker container.
+ * Uses [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka broker in a Docker container.
  * The Testcontainers dependency has to be added explicitly.
  */
 trait TestcontainersKafkaLike extends KafkaSpec {
   import TestcontainersKafkaLike._
+
+  /**
+   * Override this to select a different Kafka version be choosing the desired version of Confluent Platform:
+   * [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]],
+   * [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
+   */
+  def confluentPlatformVersion: String = "5.1.2" // contains Kafka 2.1.x
 
   override def kafkaPort: Int = {
     requireStarted()
@@ -26,7 +33,7 @@ trait TestcontainersKafkaLike extends KafkaSpec {
 
   override def setUp(): Unit = {
     if (kafkaPortInternal == -1) {
-      val kafkaContainer = new KafkaContainer()
+      val kafkaContainer = new KafkaContainer(confluentPlatformVersion)
       kafkaContainer.start()
       kafkaBootstrapServersInternal = kafkaContainer.getBootstrapServers
       kafkaPortInternal =
