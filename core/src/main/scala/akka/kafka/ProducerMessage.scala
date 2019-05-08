@@ -183,6 +183,15 @@ object ProducerMessage {
     PassThroughMessage(passThrough)
 
   /**
+   * Create a pass-through message not containing any records for use with `withContext` flows and sinks.
+   * In some cases the type parameters need to be specified explicitly.
+   *
+   * @tparam K the type of keys
+   * @tparam V the type of values
+   */
+  def passThrough[K, V](): Envelope[K, V, NotUsed] = PassThroughMessage(NotUsed)
+
+  /**
    * Output type produced by `Producer.flexiFlow` and `Transactional.flow`.
    */
   sealed trait Results[K, V, PassThrough] {

@@ -100,4 +100,38 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     control2.shutdown().futureValue should be(Done)
     result.futureValue should have size (10)
   }
+
+  "withContext" should "work" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val producerSettings = producerDefaults
+    val sourceTopic = createTopic(1)
+    val sinkTopic = createTopic(2)
+    val transactionalId = createTransactionalId()
+    val control =
+      Transactional
+        .sourceWithContext(consumerSettings, Subscriptions.topics(sourceTopic))
+        .via(businessFlow)
+        .map { record =>
+          ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
+        }
+        .toMat(Transactional.sinkWithContext(producerSettings, transactionalId))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+    // ...
+
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    awaitProduce(produce(sourceTopic, 1 to 10))
+    control.shutdown().futureValue should be(Done)
+    control2.shutdown().futureValue should be(Done)
+    // #transactionalSink
+    control.drainAndShutdown()
+    // #transactionalSink
+    result.futureValue should have size (10)
+  }
+
 }
