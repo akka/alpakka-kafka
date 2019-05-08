@@ -10,7 +10,7 @@ import akka.kafka.ProducerMessage._
 import akka.kafka.internal.DefaultProducerStage
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.{Flow, Keep, Sink}
+import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -221,16 +221,13 @@ object Producer {
   @ApiMayChange
   def withContext[K, V, C](
       settings: ProducerSettings[K, V]
-  ): Flow[(Envelope[K, V, NotUsed], C), (Results[K, V, C], C), NotUsed] =
-    Flow[(Envelope[K, V, NotUsed], C)]
-      .map {
-        case (wm, pt) =>
-          wm.withPassThrough(pt)
-      }
-      .via(flexiFlow(settings))
-      .map { wr =>
-        (wr, wr.passThrough)
-      }
+  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] = {
+    val unwrapped: Flow[Envelope[K, V, C], Results[K, V, C], NotUsed] = flexiFlow(settings)
+    unwrapped
+      .asFlowWithContext[Envelope[K, V, NotUsed], C, C]({
+        case (env, c) => env.withPassThrough(c)
+      })(res => res.passThrough)
+  }
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.

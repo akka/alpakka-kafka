@@ -12,7 +12,7 @@ import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource, Tra
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceWithContext}
+import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink, Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -35,9 +35,8 @@ object Transactional {
   /**
    * API MAY CHANGE
    *
-   *
    * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Producer.withContext]].
+   * and [[Transactional.flowWithContext]].
    */
   @ApiMayChange
   def sourceWithContext[K, V](
@@ -88,6 +87,33 @@ object Transactional {
       .mapAsync(txSettings.parallelism)(identity)
 
     flowWithDispatcher(txSettings, flow)
+  }
+
+  /**
+   * API MAY CHANGE
+   *
+   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Transactional.sourceWithContext]] that
+   * carries [[ConsumerMessage.PartitionOffset]] as context.  The flow requires a unique `transactional.id` across all app
+   * instances. The flow will override producer properties to enable Kafka exactly once transactional support.
+   *
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Transactional.sourceWithContext]].
+   */
+  @ApiMayChange
+  def flowWithContext[K, V](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): FlowWithContext[Envelope[K, V, NotUsed],
+                     ConsumerMessage.PartitionOffset,
+                     Results[K, V, ConsumerMessage.PartitionOffset],
+                     ConsumerMessage.PartitionOffset,
+                     NotUsed] = {
+    val noContext: Flow[Envelope[K, V, PartitionOffset], Results[K, V, PartitionOffset], NotUsed] =
+      flow(settings, transactionalId)
+    noContext
+      .asFlowWithContext[Envelope[K, V, NotUsed], PartitionOffset, PartitionOffset]({
+        case (env, c) => env.withPassThrough(c)
+      })(res => res.passThrough)
   }
 
   private def flowWithDispatcher[PassThrough, V, K](

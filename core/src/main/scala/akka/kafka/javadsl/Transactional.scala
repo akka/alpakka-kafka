@@ -7,13 +7,15 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.kafka.ConsumerMessage.TransactionalMessage
+import akka.annotation.ApiMayChange
+import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
 import akka.kafka._
-import akka.kafka.internal.ConsumerControlAsJava
+import akka.kafka.internal.{ConsumerControlAsJava, TransactionalSourceWithContext}
 import akka.kafka.javadsl.Consumer.Control
-import akka.stream.javadsl.{Flow, Sink, Source}
+import akka.stream.javadsl.{Flow, FlowWithContext, Sink, Source, SourceWithContext}
 import akka.{Done, NotUsed}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -31,6 +33,24 @@ object Transactional {
     scaladsl.Transactional
       .source(consumerSettings, subscription)
       .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asJava
+
+  /**
+   * API MAY CHANGE
+   *
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Transactional.flowWithContext]].
+   */
+  @ApiMayChange
+  def sourceWithContext[K, V](
+      consumerSettings: ConsumerSettings[K, V],
+      subscription: Subscription
+  ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
+    akka.stream.scaladsl.Source
+      .fromGraph(new TransactionalSourceWithContext[K, V](consumerSettings, subscription))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(_._2)
+      .map(_._1)
       .asJava
 
   /**
@@ -57,4 +77,24 @@ object Transactional {
   ): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Transactional.flow(settings, transactionalId).asJava
 
+  /**
+   * API MAY CHANGE
+   *
+   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Transactional.sourceWithContext]] that
+   * carries [[ConsumerMessage.PartitionOffset]] as context.  The flow requires a unique `transactional.id` across all app
+   * instances. The flow will override producer properties to enable Kafka exactly once transactional support.
+   *
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Transactional.sourceWithContext]].
+   */
+  @ApiMayChange
+  def flowWithContext[K, V](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): FlowWithContext[Envelope[K, V, NotUsed],
+                     ConsumerMessage.PartitionOffset,
+                     Results[K, V, ConsumerMessage.PartitionOffset],
+                     ConsumerMessage.PartitionOffset,
+                     NotUsed] =
+    scaladsl.Transactional.flowWithContext(settings, transactionalId).asJava
 }
