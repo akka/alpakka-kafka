@@ -9,9 +9,9 @@ import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.KafkaJunit4Test;
 import akka.stream.Materializer;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKWithSR;
-import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfigWithSchemaRegistry;
-import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfigWithSchemaRegistry$;
-import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaWithSchemaRegistry$;
+import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfig;
+import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfig$;
+import net.manub.embeddedkafka.schemaregistry.EmbeddedKafka$;
 import org.junit.After;
 import org.junit.Before;
 import scala.collection.immutable.HashMap$;
@@ -42,9 +42,9 @@ public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaJunit4Tes
     this.schemaRegistryUrl = "http://localhost:" + schemaRegistryPort;
   }
 
-  private static EmbeddedKafkaConfigWithSchemaRegistry embeddedKafkaConfig(
+  private static EmbeddedKafkaConfig embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int schemaRegistryPort, int replicationFactor) {
-    return EmbeddedKafkaConfigWithSchemaRegistry$.MODULE$.apply(
+    return EmbeddedKafkaConfig$.MODULE$.apply(
         kafkaPort,
         zookeeperPort,
         schemaRegistryPort,
@@ -57,7 +57,7 @@ public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaJunit4Tes
   protected static void startEmbeddedKafka(
       int kafkaPort, int replicationFactor, int schemaRegistryPort) {
     embeddedServer =
-        EmbeddedKafkaWithSchemaRegistry$.MODULE$.start(
+        EmbeddedKafka$.MODULE$.start(
             embeddedKafkaConfig(kafkaPort, kafkaPort + 1, schemaRegistryPort, replicationFactor));
   }
 

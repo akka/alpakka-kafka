@@ -587,6 +587,8 @@ object PartitionedSourceSpec {
       log.debug(s"seek($partition, $offset)")
       seeks = seeks.updated(partition, offset)
     }
+    override def seek(partition: TopicPartition, offsetAndMeta: OffsetAndMetadata): Unit =
+      seek(partition, offsetAndMeta.offset)
     override def paused(): java.util.Set[TopicPartition] = tpsPaused.asJava
     override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
       super.pause(partitions)

@@ -23,10 +23,7 @@ import org.apache.kafka.common.TopicPartition
 import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
 import org.apache.avro.specific.SpecificRecord
 // #imports
-import net.manub.embeddedkafka.schemaregistry.{
-  EmbeddedKafkaConfigWithSchemaRegistryImpl,
-  EmbeddedKafkaWithSchemaRegistry
-}
+import net.manub.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfigImpl}
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.avro.{AvroRuntimeException, Schema}
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -71,12 +68,8 @@ class SerializationSpec
 
   val schemaRegistryPort = KafkaPorts.ScalaAvroSerialization + 2
 
-  val configWithSchemaRegistryImpl = EmbeddedKafkaConfigWithSchemaRegistryImpl(kafkaPort,
-                                                                               zooKeeperPort,
-                                                                               schemaRegistryPort,
-                                                                               Map.empty,
-                                                                               Map.empty,
-                                                                               Map.empty)
+  val configWithSchemaRegistryImpl =
+    EmbeddedKafkaConfigImpl(kafkaPort, zooKeeperPort, schemaRegistryPort, Map.empty, Map.empty, Map.empty)
 
   override def bootstrapServers = s"localhost:${KafkaPorts.ScalaAvroSerialization}"
 
@@ -87,12 +80,12 @@ class SerializationSpec
     SLF4JBridgeHandler.removeHandlersForRootLogger()
     SLF4JBridgeHandler.install()
     //
-    EmbeddedKafkaWithSchemaRegistry.start()(configWithSchemaRegistryImpl)
+    EmbeddedKafka.start()(configWithSchemaRegistryImpl)
     super.setUp()
   }
 
   override def cleanUp(): Unit = {
-    EmbeddedKafkaWithSchemaRegistry.stop()
+    EmbeddedKafka.stop()
     super.cleanUp()
   }
 
