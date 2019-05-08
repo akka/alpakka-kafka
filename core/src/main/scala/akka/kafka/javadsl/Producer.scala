@@ -12,7 +12,7 @@ import akka.japi.Pair
 import akka.{Done, NotUsed}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, ConsumerMessage, ProducerSettings}
-import akka.stream.javadsl.{Flow, Sink}
+import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.compat.java8.FutureConverters.FutureOps
@@ -210,7 +210,7 @@ object Producer {
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
    */
   @ApiMayChange
-  def withContext[K, V, C](
+  def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V]
   ): Flow[Pair[Envelope[K, V, NotUsed], C], Pair[Results[K, V, C], C], NotUsed] =
     akka.stream.scaladsl
@@ -285,7 +285,7 @@ object Producer {
    * Supports sharing a Kafka Producer instance.
    */
   @ApiMayChange
-  def withContext[K, V, C](
+  def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Flow[Pair[Envelope[K, V, NotUsed], C], Pair[Results[K, V, C], C], NotUsed] =

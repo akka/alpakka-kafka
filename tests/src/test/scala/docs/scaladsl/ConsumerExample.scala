@@ -171,6 +171,23 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     Future.successful(Done)
   // format: on
 
+  it should "support withContext" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    val control =
+      Consumer
+        .committableSourceWithContext(consumerSettings, Subscriptions.topics(topic))
+        .mapAsync(10) { record =>
+          business(record.key, record.value)
+        }
+        .via(Committer.flowWithContext(committerDefaults.withMaxBatch(1)))
+        .toMat(Sink.seq)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    Await.result(control.drainAndShutdown(), 5.seconds) should have size (10)
+  }
+
   "Consume messages at-least-once, and commit in batches" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()

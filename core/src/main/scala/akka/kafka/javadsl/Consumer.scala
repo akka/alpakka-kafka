@@ -158,7 +158,7 @@ object Consumer {
    * delivered one time but in failure cases could be duplicated.
    *
    * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Producer.withContext]].
+   * and [[Producer.flowWithContext]].
    */
   @ApiMayChange
   def committableSourceWithContext[K, V](
@@ -181,7 +181,7 @@ object Consumer {
    * delivered one time but in failure cases could be duplicated.
    *
    * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Producer.withContext]].
+   * and [[Producer.flowWithContext]].
    *
    * This source makes it possible to add additional metadata (in the form of a string)
    * when an offset is committed based on the record. This can be useful (for example) to store information about which

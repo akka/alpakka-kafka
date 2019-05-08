@@ -219,7 +219,7 @@ object Producer {
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
    */
   @ApiMayChange
-  def withContext[K, V, C](
+  def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V]
   ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] = {
     val unwrapped: Flow[Envelope[K, V, C], Results[K, V, C], NotUsed] = flexiFlow(settings)

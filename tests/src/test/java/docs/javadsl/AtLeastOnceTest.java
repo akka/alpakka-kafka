@@ -13,6 +13,7 @@ import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
+import akka.stream.javadsl.FlowWithContext;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.testkit.javadsl.TestKit;
@@ -116,10 +117,8 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                               new ProducerRecord<>(topic3, msg.value())));
                   return multiMsg;
                 })
-            .via(Producer.withContext(producerSettings))
-            .asSource()
-            .map(m -> m.second())
-            .toMat(Committer.sink(committerSettings), Keep.both())
+            .via(Producer.flowWithContext(producerSettings))
+            .toMat(Committer.sinkWithContext(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
