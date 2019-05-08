@@ -95,7 +95,8 @@ import scala.util.control.NonFatal
     def apply(subscription: AutoSubscription,
               sourceActor: ActorRef,
               partitionAssignedCB: AsyncCallback[Set[TopicPartition]],
-              partitionRevokedCB: AsyncCallback[Set[TopicPartition]]): ListenerCallbacks =
+              partitionRevokedCB: AsyncCallback[Set[TopicPartition]],
+              revokedBlockingCallback: Set[TopicPartition] => Unit = _ => ()): ListenerCallbacks =
       KafkaConsumerActor.ListenerCallbacks(
         assignedTps => {
           subscription.rebalanceListener.foreach {
@@ -112,6 +113,7 @@ import scala.util.control.NonFatal
           if (revokedTps.nonEmpty) {
             partitionRevokedCB.invoke(revokedTps)
           }
+          revokedBlockingCallback(revokedTps)
         }
       )
   }

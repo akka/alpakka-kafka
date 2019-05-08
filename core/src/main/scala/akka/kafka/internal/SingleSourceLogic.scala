@@ -38,7 +38,11 @@ import scala.concurrent.{Future, Promise}
 
       val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
 
-      KafkaConsumerActor.ListenerCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB)
+      KafkaConsumerActor.ListenerCallbacks(autoSubscription,
+                                           sourceActor.ref,
+                                           assignedCB,
+                                           revokedCB,
+                                           blockingRevokedHandler)
     }
 
     subscription match {
@@ -97,4 +101,6 @@ import scala.concurrent.{Future, Promise}
     tps --= revokedTps
     log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
   }
+
+  protected def blockingRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {}
 }
