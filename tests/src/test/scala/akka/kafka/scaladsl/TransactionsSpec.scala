@@ -361,7 +361,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       // Creates more flows than ktps to trigger partition rebalancing.
       // The output topic should contain the same elements as the input topic.
 
-      val sourceTopic = createTopic(1)
+      val sourceTopic = createTopic(1, partitions = 2)
       val sinkTopic = createTopic(2, partitions = 4)
       val group = createGroupId(1)
 
