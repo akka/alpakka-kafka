@@ -6,9 +6,9 @@
 package docs.scaladsl
 
 import akka.Done
+import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
-import akka.kafka.{KafkaPorts, Subscriptions}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -17,7 +17,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.collection.immutable
 import scala.concurrent.duration._
 
-class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) with EmbeddedKafkaLike {
+class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
 
   implicit val patience = PatienceConfig(15.seconds, 1.second)
 

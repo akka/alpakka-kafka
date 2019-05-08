@@ -20,7 +20,7 @@ import scala.collection.immutable.HashMap$;
  * to create a single instance of the test class with `@BeforeAll` and `@AfterAll` annotated methods
  * called by the test framework.
  */
-public abstract class EmbeddedKafkaJunit4Test extends KafkaTest {
+public abstract class EmbeddedKafkaJunit4Test extends KafkaJunit4Test {
 
   private static EmbeddedKafkaConfig embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int replicationFactor) {
