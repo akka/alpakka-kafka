@@ -47,7 +47,9 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) wit
     }
 
     "consume from the specified topic pattern" in assertAllStagesStopped {
-      val topics = immutable.Seq(createTopic(), createTopic())
+      val suffix = 0
+
+      val topics = immutable.Seq(createTopic(suffix), createTopic(suffix))
       val group = createGroupId()
       val totalMessages = 100
       val producerCompletion =
@@ -61,7 +63,7 @@ class AssignmentSpec extends SpecBase(kafkaPort = KafkaPorts.AssignmentSpec) wit
       producerCompletion.futureValue shouldBe Done
 
       // #topic-pattern
-      val pattern = "topic-1-[0-9]+"
+      val pattern = s"topic-$suffix-[0-9]+"
       val subscription = Subscriptions.topicPattern(pattern)
       val consumer = Consumer.plainSource(consumerDefaults.withGroupId(group), subscription)
       // #topic-pattern
