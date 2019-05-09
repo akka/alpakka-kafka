@@ -14,7 +14,11 @@ import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Source
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
-case class ReactiveKafkaConsumerTestFixture[T](topic: String, msgCount: Int, source: Source[T, Control])
+
+case class ReactiveKafkaConsumerTestFixture[T](topic: String,
+                                               msgCount: Int,
+                                               source: Source[T, Control],
+                                               numberOfPartitions: Int)
 
 object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
 
@@ -33,7 +37,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
         fillTopic(c.kafkaHost, topic, msgCount)
         val settings = createConsumerSettings(c.kafkaHost)
         val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
-        ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
+        ReactiveKafkaConsumerTestFixture(topic, msgCount, source, c.numberOfPartitions)
       }
     )
 
@@ -45,7 +49,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
         fillTopic(c.kafkaHost, topic, msgCount)
         val settings = createConsumerSettings(c.kafkaHost)
         val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
-        ReactiveKafkaConsumerTestFixture(topic, msgCount, source)
+        ReactiveKafkaConsumerTestFixture(topic, msgCount, source, c.numberOfPartitions)
       }
     )
 
@@ -53,7 +57,7 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
       c,
       msgCount => {
-        ReactiveKafkaConsumerTestFixture("topic", msgCount, null)
+        ReactiveKafkaConsumerTestFixture("topic", msgCount, null, c.numberOfPartitions)
       }
     )
 

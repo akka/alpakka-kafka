@@ -5,6 +5,8 @@
 
 package akka.kafka.benchmarks
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
 import akka.stream.Materializer
@@ -19,7 +21,7 @@ import scala.language.postfixOps
 import scala.util.Success
 
 object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
-  val streamingTimeout = 30 minutes
+  val streamingTimeout: FiniteDuration = 30 minutes
   type NonCommittableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
   type CommittableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
 
@@ -63,6 +65,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
                                                  meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val promise = Promise[Unit]
+    val counter = new AtomicInteger(fixture.numberOfPartitions)
     val control = fixture.source
       .map { msg =>
         msg.committableOffset
@@ -75,9 +78,10 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
       .mapAsync(3) { m =>
         m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
-      .toMat(Sink.foreach { batch =>
-        if (batch.offsets().head._2 >= fixture.msgCount - 1)
-          promise.complete(Success(()))
+      .toMat(Sink.foreach {
+        _.offsets().values
+          .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
+          .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
       })(Keep.left)
       .run()
 

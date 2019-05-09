@@ -41,7 +41,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
               if (e == null) {
                 if (i % loggedStep == 0)
                   logger.info(s"Written $i elements to Kafka (${100 * i / msgCount}%)")
-                if (recordMetadata.offset() == msgCount - 1 && !lastElementStoredPromise.isCompleted)
+                if (i >= msgCount - 1 && !lastElementStoredPromise.isCompleted)
                   lastElementStoredPromise.success(())
               } else {
                 if (!lastElementStoredPromise.isCompleted) {
