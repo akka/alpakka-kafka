@@ -7,8 +7,11 @@ package akka.kafka.benchmarks
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
+import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
+import akka.kafka.scaladsl.Committer
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.metrics.Meter
@@ -58,26 +61,20 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
-   * Reads elements from Kafka source and commits a batch as soon as it's possible. Backpressures when batch max of
-   * size is accumulated.
+   * Reads elements from Kafka source and commits a batch as soon as it's possible.
    */
-  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture,
-                                                 meter: Meter)(implicit mat: Materializer): Unit = {
+  def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem,
+                                                                                            mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
+    val committerDefaults = CommitterSettings(sys)
     val promise = Promise[Unit]
     val counter = new AtomicInteger(fixture.numberOfPartitions)
     val control = fixture.source
       .map { msg =>
+        meter.mark()
         msg.committableOffset
       }
-      .batch(batchSize.toLong, first => CommittableOffsetBatch(first)) { (batch, elem) =>
-        meter.mark()
-        batch.updated(elem)
-
-      }
-      .mapAsync(3) { m =>
-        m.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
-      }
+      .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize).withParallelism(3)))
       .toMat(Sink.foreach {
         _.offsets().values
           .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
