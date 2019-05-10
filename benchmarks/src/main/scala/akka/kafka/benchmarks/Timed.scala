@@ -39,7 +39,7 @@ object Timed extends LazyLogging {
     logger.info(s"Generating fixture for ${name}_$msgCount")
     val fixture = fixtureGen.generate(msgCount)
     val metrics = new MetricRegistry()
-    val meter = metrics.meter(name + "_" + msgCount)
+    val meter = metrics.meter(name)
     logger.info(s"Running benchmarks for ${name}_$msgCount")
     val now = System.nanoTime()
     testBody(fixture, meter)
