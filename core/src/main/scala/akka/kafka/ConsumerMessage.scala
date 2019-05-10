@@ -96,9 +96,6 @@ object ConsumerMessage {
     def withMetadata(metadata: String) =
       PartitionOffsetMetadata(key, offset, metadata)
 
-    @InternalApi private[kafka] def withCommittedMarker(committedMarker: CommittedMarker) =
-      PartitionOffsetCommittedMarker(key, offset, committedMarker)
-
     override def toString = s"PartitionOffset(key=$key,offset=$offset)"
 
     override def equals(other: Any): Boolean = other match {
@@ -138,7 +135,8 @@ object ConsumerMessage {
   @InternalApi private[kafka] final case class PartitionOffsetCommittedMarker(
       override val key: GroupTopicPartition,
       override val offset: Long,
-      private[kafka] val committedMarker: CommittedMarker
+      private[kafka] val committedMarker: CommittedMarker,
+      private[kafka] val fromPartitionedSource: Boolean
   ) extends PartitionOffset(key, offset)
 
   /**

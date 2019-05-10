@@ -7,7 +7,8 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.annotation.ApiMayChange
+import org.apache.kafka.common.TopicPartition
+import akka.annotation.{ApiMayChange, InternalApi}
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
@@ -52,6 +53,31 @@ object Transactional {
       .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asSourceWithContext(_._2)
       .map(_._1)
+      .asJava
+
+  /**
+   * Internal API. Work in progress.
+   *
+   * The `partitionedSource` is a way to track automatic partition assignment from kafka.
+   * Each source is setup for for Exactly Only Once (EoS) kafka message semantics.
+   * To enable EoS it's necessary to use the [[Transactional.sink]] or [[Transactional.flow]] (for passthrough).
+   * When Kafka rebalances partitions, all sources complete before the remaining sources are issued again.
+   *
+   * By generating the `transactionalId` from the [[TopicPartition]], multiple instances of your application can run
+   * without having to manually assign partitions to each instance.
+   */
+  @ApiMayChange
+  @InternalApi
+  private[kafka] def partitionedSource[K, V](
+      consumerSettings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[Pair[TopicPartition, Source[TransactionalMessage[K, V], NotUsed]], Control] =
+    scaladsl.Transactional
+      .partitionedSource(consumerSettings, subscription)
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asJava
 
   /**

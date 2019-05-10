@@ -73,7 +73,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
-    resolveProducer()
+    resolveProducer(stage.producerSettings)
   }
 
   /** When the producer is set up, the sink pulls and schedules the first commit. */

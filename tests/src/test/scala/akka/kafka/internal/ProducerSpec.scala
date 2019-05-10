@@ -8,7 +8,7 @@ package akka.kafka.internal
 import java.util.concurrent.CompletableFuture
 
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
+import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
 import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings}
@@ -70,13 +70,20 @@ class ProducerSpec(_system: ActorSystem)
                        -1)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
-  private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) =
+  private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) = {
+    val consumerMessage = ConsumerMessage
+      .PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+    val partitionOffsetCommittedMarker =
+      PartitionOffsetCommittedMarker(consumerMessage.key,
+                                     consumerMessage.offset,
+                                     committer,
+                                     fromPartitionedSource = false)
     ProducerMessage.Message(
       tuple._1,
-      ConsumerMessage
-        .PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
-        .withCommittedMarker(committer)
+      partitionOffsetCommittedMarker
     )
+  }
+
   def result(r: Record, m: RecordMetadata) = Result(m, ProducerMessage.Message(r, NotUsed))
   val toResult = (result _).tupled
 
@@ -106,7 +113,7 @@ class ProducerSpec(_system: ActorSystem)
     val pSettings = settings.withProducerFactory(_ => mock.mock).withCloseProducerOnStop(closeOnStop)
     Flow
       .fromGraph(
-        new TransactionalProducerStage[K, V, P](pSettings)
+        new TransactionalProducerStage[K, V, P](pSettings, "transactionalId")
       )
       .mapAsync(1)(identity)
   }
@@ -367,6 +374,23 @@ class ProducerSpec(_system: ActorSystem)
     }
   }
 
+  it should "not initialize and begin transaction when there are no messages" in {
+    assertAllStagesStopped {
+      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+
+      val probe = Source
+        .empty[Msg]
+        .via(testTransactionProducerFlow(client))
+        .runWith(TestSink.probe)
+
+      probe
+        .request(1)
+        .expectComplete()
+
+      client.verifyNoMoreInteractions()
+    }
+  }
+
   it should "initialize and begin a transaction when first run" in {
     assertAllStagesStopped {
       val input = recordAndMetadata(1)
@@ -387,8 +411,7 @@ class ProducerSpec(_system: ActorSystem)
       source.sendNext(txMsg)
       sink.requestNext()
 
-      // we must wait for the producer to be asynchronously assigned before observing interactions with the mock
-      awaitAssert(client.verifyTxInitialized())
+      awaitAssert(client.verifyTxInitialized(), 2.second)
 
       source.sendComplete()
       sink.expectComplete()
@@ -498,10 +521,14 @@ class ProducerSpec(_system: ActorSystem)
 
     val txMsg = toTxMessage(input, committedMarker.mock)
     source.sendNext(txMsg)
+
+    awaitAssert(client.verifyTxInitialized())
+
     source.sendError(new Exception())
 
     // Here we can not be sure that all messages from source delivered to producer
     // because of buffers in akka-stream and faster error pushing that ignores buffers
+    // TODO: we can await a tx to be initialized before sending the error (which means the producer was assigned and first msg processed). does that invalidate this test?
 
     Await.ready(sink, remainingOrDefault)
     sink.value should matchPattern {

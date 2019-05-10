@@ -19,11 +19,32 @@ import scala.util.{Failure, Success}
  * INTERNAL API
  */
 @InternalApi
+private[kafka] object DeferredProducer {
+
+  /**
+   * The [[ProducerAssignmentLifecycle]] allows us to change track the status of the aynchronous producer assignment
+   * within the stage. This is useful when we need to manage different behavior during the assignment process. For
+   * example, in [[TransactionalProducerStageLogic]] we match on the lifecycle when extracting the transactional.id
+   * of the first message received from a partitioned source.
+   */
+  sealed trait ProducerAssignmentLifecycle
+  case object Unassigned extends ProducerAssignmentLifecycle
+  case object AsyncCreateRequestSent extends ProducerAssignmentLifecycle
+  case object Assigned extends ProducerAssignmentLifecycle
+}
+
+/**
+ * INTERNAL API
+ */
+@InternalApi
 private[kafka] trait DeferredProducer[K, V] {
   self: GraphStageLogic with StageIdLogging =>
 
+  import DeferredProducer._
+
   /** The Kafka producer may be created lazily, assigned via `preStart` in `assignProducer`. */
   protected var producer: Producer[K, V] = _
+  protected var producerAssignmentLifecycle: ProducerAssignmentLifecycle = Unassigned
 
   protected def producerSettings: ProducerSettings[K, V]
   protected def producerAssigned(): Unit
@@ -31,11 +52,12 @@ private[kafka] trait DeferredProducer[K, V] {
 
   private def assignProducer(p: Producer[K, V]): Unit = {
     producer = p
+    changeProducerAssignmentLifecycle(Assigned)
     producerAssigned()
   }
 
-  final protected def resolveProducer(): Unit = {
-    val producerFuture = producerSettings.createKafkaProducerAsync()(materializer.executionContext)
+  final protected def resolveProducer(settings: ProducerSettings[K, V]): Unit = {
+    val producerFuture = settings.createKafkaProducerAsync()(materializer.executionContext)
     producerFuture.value match {
       case Some(Success(p)) => assignProducer(p)
       case Some(Failure(e)) => failStage(e)
@@ -50,7 +72,14 @@ private[kafka] trait DeferredProducer[K, V] {
               e
             }
           )(ExecutionContexts.sameThreadExecutionContext)
+        changeProducerAssignmentLifecycle(AsyncCreateRequestSent)
     }
+  }
+
+  protected def changeProducerAssignmentLifecycle(state: ProducerAssignmentLifecycle): Unit = {
+    val oldState = producerAssignmentLifecycle
+    producerAssignmentLifecycle = state
+    log.debug("Asynchronous producer assignment lifecycle changed '{} -> {}'", oldState, state)
   }
 
   protected def closeProducerImmediately(): Unit =
@@ -61,7 +90,7 @@ private[kafka] trait DeferredProducer[K, V] {
     }
 
   protected def closeProducer(): Unit =
-    if (producerSettings.closeProducerOnStop && producer != null) {
+    if (producerSettings.closeProducerOnStop && producerAssignmentLifecycle == Assigned) {
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()

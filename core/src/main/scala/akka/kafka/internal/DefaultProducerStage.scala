@@ -51,6 +51,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
   protected val awaitingConfirmation = new AtomicInteger(0)
+
   private var inIsClosed = false
   private var completionState: Option[Try[Done]] = None
 
@@ -60,7 +61,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   override def preStart(): Unit = {
     super.preStart()
-    resolveProducer()
+    resolveProducer(stage.settings)
   }
 
   def checkForCompletion(): Unit =
@@ -85,11 +86,14 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     failStage(ex)
   }
 
-  def postSend(msg: Envelope[K, V, P]) = ()
+  def filterSend(msg: Envelope[K, V, P]): Boolean = true
+
+  def postSend(msg: Envelope[K, V, P]): Unit = ()
 
   override protected def producerAssigned(): Unit = resumeDemand()
 
   protected def resumeDemand(tryToPull: Boolean = true): Unit = {
+    log.debug("Resume demand")
     setHandler(stage.out, new OutHandler {
       override def onPull(): Unit = tryPull(stage.in)
     })
@@ -99,21 +103,28 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     }
   }
 
-  protected def suspendDemand(): Unit =
+  protected def suspendDemand(fromStageLogicConstructor: Boolean = false): Unit = {
+    // not permitted to access stage logic members from constructor
+    if (!fromStageLogicConstructor) log.debug("Suspend demand")
     setHandler(
       stage.out,
       new OutHandler {
         override def onPull(): Unit = ()
       }
     )
+  }
 
   // suspend demand until a Producer has been created
-  suspendDemand()
+  suspendDemand(fromStageLogicConstructor = true)
 
   setHandler(
     stage.in,
     new InHandler {
-      override def onPush(): Unit = produce(grab(stage.in))
+      override def onPush(): Unit = {
+        val msg = grab(stage.in)
+        if (filterSend(msg))
+          produce(msg)
+      }
 
       override def onUpstreamFinish(): Unit = {
         inIsClosed = true
@@ -183,5 +194,4 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     closeProducer()
     super.postStop()
   }
-
 }

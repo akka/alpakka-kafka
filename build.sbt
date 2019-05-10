@@ -183,6 +183,9 @@ lazy val `alpakka-kafka` =
             |  tests/it:test
             |    run integration tests backed by Docker containers
             |
+            |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
+            |    run a single test with an exact name (use -z for partial match)
+            |
             |  benchmarks/it:testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin

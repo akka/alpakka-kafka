@@ -45,6 +45,8 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
   def committedMarker: CommittedMarker
 
   def onMessage(consumerMessage: ConsumerRecord[K, V]): Unit
+
+  def fromPartitionedSource: Boolean
 }
 
 /** Internal API */
@@ -60,7 +62,8 @@ private[kafka] trait TransactionalMessageBuilder[K, V]
         partition = rec.partition
       ),
       offset = rec.offset,
-      committedMarker
+      committedMarker,
+      fromPartitionedSource
     )
     ConsumerMessage.TransactionalMessage(rec, offset)
   }
@@ -79,7 +82,8 @@ private[kafka] trait TransactionalOffsetContextBuilder[K, V]
         partition = rec.partition
       ),
       offset = rec.offset,
-      committedMarker
+      committedMarker,
+      fromPartitionedSource
     )
     (rec, offset)
   }

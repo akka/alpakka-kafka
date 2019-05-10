@@ -4,14 +4,16 @@
  */
 
 package akka.kafka.internal
+
 import akka.NotUsed
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
+import akka.kafka.internal.SubSourceLogic._
 import akka.stream.SourceShape
 import akka.stream.scaladsl.Source
-import akka.stream.stage.GraphStageLogic
+import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -51,8 +53,30 @@ private[kafka] final class PlainSubSource[K, V](
     ) {
   override protected def logic(
       shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]
-  ): GraphStageLogic with Control =
-    new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
-      with PlainMessageBuilder[K, V]
-      with MetricsControl
+  ): GraphStageLogic with Control = {
+
+    val factory = new SubSourceStageLogicFactory[K, V, ConsumerRecord[K, V]] {
+      def create(
+          shape: SourceShape[ConsumerRecord[K, V]],
+          tp: TopicPartition,
+          consumerActor: ActorRef,
+          subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+          subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
+          actorNumber: Int
+      ): SubSourceStageLogic[K, V, ConsumerRecord[K, V]] =
+        new SubSourceStageLogic[K, V, ConsumerRecord[K, V]](shape,
+                                                            tp,
+                                                            consumerActor,
+                                                            subSourceStartedCb,
+                                                            subSourceCancelledCb,
+                                                            actorNumber) with PlainMessageBuilder[K, V]
+    }
+
+    new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape,
+                                                   settings,
+                                                   subscription,
+                                                   getOffsetsOnAssign,
+                                                   onRevoke,
+                                                   subSourceStageLogicFactory = factory)
+  }
 }
