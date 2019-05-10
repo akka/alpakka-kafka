@@ -63,6 +63,7 @@ object KafkaTransactionBenchmarks extends LazyLogging {
 
           val producerRecord = new ProducerRecord(fixture.sinkTopic, record.partition(), record.key(), record.value())
           producer.send(producerRecord)
+          meter.mark()
           if (lastProcessedOffset % loggedStep == 0)
             logger.info(
               s"Transformed $lastProcessedOffset elements to Kafka (${100 * lastProcessedOffset / msgCount}%)"
