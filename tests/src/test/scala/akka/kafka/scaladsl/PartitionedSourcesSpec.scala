@@ -30,10 +30,6 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
   implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
 
-  override def consumerDefaults: ConsumerSettings[String, String] =
-    super.consumerDefaults
-      .withStopTimeout(10.millis)
-
   "Partitioned source" must {
 
     "begin consuming from the beginning of the topic" in assertAllStagesStopped {
