@@ -61,9 +61,7 @@ private object TransactionalProducerStage {
 
   final class NonemptyTransactionBatch(head: PartitionOffsetCommittedMarker,
                                        tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long](),
-                                       committed: Promise[Done] = Promise[Done]
-                                      )
-
+                                       committed: Promise[Done] = Promise[Done])
       extends TransactionBatch {
     // There is no guarantee that offsets adding callbacks will be called in any particular order.
     // Decreasing an offset stored for the KTP would mean possible data duplication.

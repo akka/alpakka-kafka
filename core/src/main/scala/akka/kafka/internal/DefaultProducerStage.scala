@@ -156,9 +156,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     }
   }
 
-  protected def emit(future: Future[OUT]): Unit = {
+  protected def emit(future: Future[OUT]): Unit =
     push(stage.out, future)
-  }
 
   override def postStop(): Unit = {
     log.debug("Stage completed")
