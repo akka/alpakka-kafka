@@ -16,7 +16,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
@@ -46,6 +46,8 @@ private object TransactionalProducerStage {
   private[kafka] sealed trait TransactionBatch {
     def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch
     def committingFailed(): Unit
+
+    def isCommitted(): Future[Done]
   }
 
   final class EmptyTransactionBatch extends TransactionBatch {
@@ -53,10 +55,15 @@ private object TransactionalProducerStage {
       new NonemptyTransactionBatch(partitionOffset)
 
     override def committingFailed(): Unit = {}
+
+    override def isCommitted(): Future[Done] = Future.successful(Done)
   }
 
   final class NonemptyTransactionBatch(head: PartitionOffsetCommittedMarker,
-                                       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long]())
+                                       tail: Map[GroupTopicPartition, Long] = Map[GroupTopicPartition, Long](),
+                                       committed: Promise[Done] = Promise[Done]
+                                      )
+
       extends TransactionBatch {
     // There is no guarantee that offsets adding callbacks will be called in any particular order.
     // Decreasing an offset stored for the KTP would mean possible data duplication.
@@ -72,8 +79,10 @@ private object TransactionalProducerStage {
       case (gtp, offset) => new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
     }
 
-    def internalCommit(): Future[Done] =
+    def internalCommit(): Future[Done] = {
+      committed.success(Done)
       committedMarker.committed(offsetMap())
+    }
 
     override def committingFailed(): Unit =
       committedMarker.failed()
@@ -87,8 +96,10 @@ private object TransactionalProducerStage {
         this.committedMarker == partitionOffset.committedMarker,
         "Transaction batch must contain messages from a single source"
       )
-      new NonemptyTransactionBatch(partitionOffset, offsets)
+      new NonemptyTransactionBatch(partitionOffset, offsets, committed)
     }
+
+    override def isCommitted(): Future[Done] = committed.future
   }
 
 }
@@ -165,6 +176,13 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
       case _ =>
         scheduleOnce(commitSchedulerKey, commitInterval)
     }
+  }
+
+  override protected def emit(future: Future[Results[K, V, P]]): Unit = {
+    implicit val ec: ExecutionContext = this.materializer.executionContext
+    val committed: Future[Results[K, V, P]] = future.zip(batchOffsets.isCommitted()).map(_._1)
+
+    super.emit(committed)
   }
 
   override def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {

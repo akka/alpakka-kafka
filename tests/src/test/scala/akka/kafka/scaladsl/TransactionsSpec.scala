@@ -502,6 +502,6 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
   override def producerDefaults: ProducerSettings[String, String] =
     super.producerDefaults
-      .withParallelism(20)
+      .withParallelism(100)
       .withCloseTimeout(Duration.Zero)
 }
