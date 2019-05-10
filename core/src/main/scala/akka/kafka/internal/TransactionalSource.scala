@@ -31,13 +31,140 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](
       s"TransactionalSource ${subscription.renderStageAttribute}"
     ) {
-  import TransactionalSource._
 
   require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
 
+  /**
+   * We set the isolation.level config to read_committed to make sure that any consumed messages are from
+   * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
+   * producers may either use transactional messaging or not at all. So the fetching partitions may have both
+   * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
+   * will still consume non-transactional messages.
+   */
+  private val txConsumerSettings = consumerSettings.withProperty(
+    ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+    IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
+  )
+
+  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
+    new TransactionalSourceLogic(shape, txConsumerSettings, subscription) with TransactionalMessageBuilder[K, V]
+
+}
+
+/** Internal API */
+@InternalApi
+private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: SourceShape[Msg],
+                                                                     consumerSettings: ConsumerSettings[K, V],
+                                                                     subscription: Subscription)
+    extends SingleSourceLogic[K, V, Msg](shape, consumerSettings, subscription)
+    with TransactionalMessageBuilderBase[K, V, Msg] {
+
+  import TransactionalSourceLogic._
+
+  override protected def logSource: Class[_] = classOf[TransactionalSourceLogic[_, _, _]]
+
+  private val inFlightRecords = InFlightRecords.empty
+
+  override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
+    case (_, Revoked(tps)) =>
+      inFlightRecords.revoke(tps.toSet)
+  }
+
+  override def shuttingDownReceive =
+    super.shuttingDownReceive
+      .orElse(drainHandling)
+      .orElse {
+        case (_, Status.Failure(e)) =>
+          failStage(e)
+        case (_, Terminated(ref)) if ref == consumerActor =>
+          failStage(new ConsumerFailed())
+      }
+
+  private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
+    case (sender, Committed(offsets)) =>
+      inFlightRecords.committed(offsets.mapValues(_.offset() - 1))
+      sender ! Done
+    case (sender, CommittingFailure) => {
+      log.info("Committing failed, resetting in flight offsets")
+      inFlightRecords.reset()
+    }
+    case (sender, Drain(partitions, ack, msg)) =>
+      if (inFlightRecords.empty(partitions)) {
+        log.debug(s"Partitions drained ${partitions.mkString(",")}")
+        ack.getOrElse(sender) ! msg
+      } else {
+        log.debug(s"Draining partitions {}", partitions)
+        materializer.scheduleOnce(consumerSettings.drainingCheckInterval, new Runnable {
+          override def run(): Unit =
+            sourceActor.ref ! Drain(partitions, ack.orElse(Some(sender)), msg)
+        })
+      }
+  }
+
+  override val groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+
+  override lazy val committedMarker: CommittedMarker = {
+    val ec = materializer.executionContext
+    CommittedMarkerRef(sourceActor.ref, consumerSettings.commitTimeout)(ec)
+  }
+
+  override def onMessage(rec: ConsumerRecord[K, V]): Unit =
+    inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
+
+  override protected def stopConsumerActor(): Unit =
+    sourceActor.ref
+      .tell(Drain(inFlightRecords.assigned(), Some(consumerActor), KafkaConsumerActor.Internal.Stop), sourceActor.ref)
+
+  // This is invoked in the KafkaConsumerActor thread when doing poll.
+  override def blockingRevokedHandler(revokedTps: Set[TopicPartition]): Unit =
+    if (waitForDraining(revokedTps)) {
+      sourceActor.ref ! Revoked(revokedTps.toList)
+    } else {
+      sourceActor.ref ! Failure(new Error("Timeout while draining"))
+      consumerActor ! KafkaConsumerActor.Internal.Stop
+    }
+
+  private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
+    import akka.pattern.ask
+    implicit val timeout = Timeout(consumerSettings.commitTimeout)
+    try {
+      Await.result(ask(stageActor.ref, Drain(partitions, None, Drained)), timeout.duration)
+      true
+    } catch {
+      case t: Throwable =>
+        false
+    }
+  }
+}
+
+/** Internal API */
+@InternalApi
+private object TransactionalSourceLogic {
   type Offset = Long
 
-  private trait InFlightRecords {
+  case object Drained
+  case class Drain[T](partitions: Set[TopicPartition],
+                      drainedConfirmationRef: Option[ActorRef],
+                      drainedConfirmationMsg: T)
+  case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+  case object CommittingFailure
+
+  private[TransactionalSourceLogic] final case class CommittedMarkerRef(sourceActor: ActorRef,
+                                                                        commitTimeout: FiniteDuration)(
+      implicit ec: ExecutionContext
+  ) extends CommittedMarker {
+    override def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done] = {
+      import akka.pattern.ask
+      sourceActor
+        .ask(Committed(offsets))(Timeout(commitTimeout))
+        .map(_ => Done)
+    }
+
+    override def failed(): Unit =
+      sourceActor ! CommittingFailure
+  }
+
+  private[TransactionalSourceLogic] trait InFlightRecords {
     // Assumes that offsets per topic partition are added in the increasing order
     // The assumption is true for Kafka consumer that guarantees that elements are emitted
     // per partition in offset-increasing order.
@@ -50,7 +177,7 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
     def empty(partitions: Set[TopicPartition]): Boolean
   }
 
-  private object InFlightRecords {
+  private[TransactionalSourceLogic] object InFlightRecords {
     def empty = new Impl
 
     class Impl extends InFlightRecords {
@@ -76,119 +203,5 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
 
       override def assigned(): Set[TopicPartition] = inFlightRecords.keySet
     }
-  }
-
-  /**
-   * We set the isolation.level config to read_committed to make sure that any consumed messages are from
-   * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
-   * producers may either use transactional messaging or not at all. So the fetching partitions may have both
-   * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
-   * will still consume non-transactional messages.
-   */
-  private val txConsumerSettings = consumerSettings.withProperty(
-    ConsumerConfig.ISOLATION_LEVEL_CONFIG,
-    IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
-  )
-
-  override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
-    new SingleSourceLogic[K, V, TransactionalMessage[K, V]](shape, txConsumerSettings, subscription)
-    with TransactionalMessageBuilder[K, V] {
-      val inFlightRecords = InFlightRecords.empty
-
-      override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
-        case (_, Revoked(tps)) =>
-          inFlightRecords.revoke(tps.toSet)
-      }
-
-      override def shuttingDownReceive =
-        super.shuttingDownReceive
-          .orElse(drainHandling)
-          .orElse {
-            case (_, Status.Failure(e)) =>
-              failStage(e)
-            case (_, Terminated(ref)) if ref == consumerActor =>
-              failStage(new ConsumerFailed())
-          }
-
-      def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
-        case (sender, Committed(offsets)) =>
-          inFlightRecords.committed(offsets.mapValues(_.offset() - 1))
-          sender ! Done
-        case (sender, CommittingFailure) => {
-          log.info("Committing failed, resetting in flight offsets")
-          inFlightRecords.reset()
-        }
-        case (sender, Drain(partitions, ack, msg)) =>
-          if (inFlightRecords.empty(partitions)) {
-            log.debug(s"Partitions drained ${partitions.mkString(",")}")
-            ack.getOrElse(sender) ! msg
-          } else {
-            log.debug(s"Draining partitions {}", partitions)
-            materializer.scheduleOnce(consumerSettings.drainingCheckInterval, new Runnable {
-              override def run(): Unit =
-                sourceActor.ref ! Drain(partitions, ack.orElse(Some(sender)), msg)
-            })
-          }
-      }
-
-      override def groupId: String = txConsumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committedMarker: CommittedMarker = {
-        val ec = materializer.executionContext
-        CommittedMarkerRef(sourceActor.ref, consumerSettings.commitTimeout)(ec)
-      }
-
-      override def onMessage(rec: ConsumerRecord[K, V]): Unit =
-        inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
-
-      override protected def stopConsumerActor(): Unit =
-        sourceActor.ref.tell(Drain(inFlightRecords.assigned(), Some(consumerActor), KafkaConsumerActor.Internal.Stop),
-                             sourceActor.ref)
-
-      // This is invoked in the KafkaConsumerActor thread when doing poll.
-      override def blockingRevokedHandler(revokedTps: Set[TopicPartition]): Unit =
-        if (waitForDraining(revokedTps)) {
-          sourceActor.ref ! Revoked(revokedTps.toList)
-        } else {
-          sourceActor.ref ! Failure(new Error("Timeout while draining"))
-          consumerActor ! KafkaConsumerActor.Internal.Stop
-        }
-
-      def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
-        import akka.pattern.ask
-        implicit val timeout = Timeout(consumerSettings.commitTimeout)
-        try {
-          Await.result(ask(stageActor.ref, Drain(partitions, None, Drained)), timeout.duration)
-          true
-        } catch {
-          case t: Throwable =>
-            false
-        }
-      }
-    }
-
-}
-
-/** Internal API */
-@InternalApi
-private object TransactionalSource {
-  case object Drained
-  case class Drain[T](partitions: Set[TopicPartition],
-                      drainedConfirmationRef: Option[ActorRef],
-                      drainedConfirmationMsg: T)
-  case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
-  case object CommittingFailure
-
-  private[kafka] final case class CommittedMarkerRef(sourceActor: ActorRef, commitTimeout: FiniteDuration)(
-      implicit ec: ExecutionContext
-  ) extends CommittedMarker {
-    override def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done] = {
-      import akka.pattern.ask
-      sourceActor
-        .ask(Committed(offsets))(Timeout(commitTimeout))
-        .map(_ => Done)
-    }
-
-    override def failed(): Unit =
-      sourceActor ! CommittingFailure
   }
 }
