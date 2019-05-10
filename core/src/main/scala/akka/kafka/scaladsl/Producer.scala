@@ -310,7 +310,7 @@ object Producer {
    * Supports sharing a Kafka Producer instance.
    */
   @ApiMayChange
-  def withContext[K, V, C](
+  def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Flow[(Envelope[K, V, NotUsed], C), (Results[K, V, C], C), NotUsed] =

@@ -43,7 +43,7 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
     new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
     with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
-      override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+      override val groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: InternalCommitter = {
         val ec = materializer.executionContext
         KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
@@ -66,7 +66,7 @@ private[kafka] final class CommittableSourceWithContext[K, V](
     new SingleSourceLogic[K, V, (ConsumerRecord[K, V], CommittableOffset)](shape, settings, subscription)
     with CommittableWithContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
-      override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+      override val groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: InternalCommitter = {
         val ec = materializer.executionContext
         KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
