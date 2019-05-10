@@ -100,4 +100,46 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     control2.shutdown().futureValue should be(Done)
     result.futureValue should have size (10)
   }
+
+  "Partitioned transactional sink" should "work" in {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val producerSettings = producerDefaults
+    val maxPartitions = 2
+    val sourceTopic = createTopic(1, maxPartitions, 1)
+    val sinkTopic = createTopicName(2)
+    val transactionalId = createTransactionalId()
+    // #partitionedTransactionalSink
+    val control =
+      Transactional
+        .partitionedSource(consumerSettings, Subscriptions.topics(sourceTopic))
+        .mapAsyncUnordered(maxPartitions) {
+          case (tp, source) =>
+            source
+              .via(businessFlow)
+              .map { msg =>
+                ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value),
+                                       msg.partitionOffset)
+              }
+              .runWith(Transactional.sink(producerSettings, transactionalId))
+        }
+        .toMat(Sink.ignore)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    // ...
+
+    // #partitionedTransactionalSink
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    awaitProduce(produce(sourceTopic, 1 to 10))
+    control.shutdown().futureValue should be(Done)
+    control2.shutdown().futureValue should be(Done)
+    // #partitionedTransactionalSink
+    control.drainAndShutdown()
+    // #partitionedTransactionalSink
+    result.futureValue should have size (10)
+  }
+
 }

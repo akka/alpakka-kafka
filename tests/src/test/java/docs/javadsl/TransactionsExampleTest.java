@@ -136,4 +136,47 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());
     assertDone(streamCompletion);
   }
+
+  @Test
+  public void partitionedSourceSink() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId(1));
+    String sourceTopic = createTopic(1, 2, 1);
+    String targetTopic = createTopic(2, 1, 1);
+    String transactionalId = createTransactionalId(1);
+    // #partitionedTransactionalSink
+    Consumer.DrainingControl<Done> control =
+        Transactional.partitionedSource(consumerSettings, Subscriptions.topics(sourceTopic))
+            .mapAsync(
+                8,
+                pair -> {
+                  Source<ConsumerMessage.TransactionalMessage<String, String>, NotUsed> source =
+                      pair.second();
+                  return source
+                      .via(business())
+                      .map(
+                          msg ->
+                              ProducerMessage.single(
+                                  new ProducerRecord<>(
+                                      targetTopic, msg.record().key(), msg.record().value()),
+                                  msg.partitionOffset()))
+                      .runWith(Transactional.sink(producerSettings, transactionalId), materializer);
+                })
+            .toMat(Sink.ignore(), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
+
+    // ...
+
+    // #partitionedTransactionalSink
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
+        consumeString(targetTopic, 10);
+    produceString(sourceTopic, 10, partition0);
+    assertDone(consumer.isShutdown());
+    // #partitionedTransactionalSink
+    control.drainAndShutdown(ec);
+    // #partitionedTransactionalSink
+    assertDone(control.isShutdown());
+    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
+  }
 }

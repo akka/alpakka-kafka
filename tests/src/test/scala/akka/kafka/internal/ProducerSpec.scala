@@ -94,7 +94,7 @@ class ProducerSpec(_system: ActorSystem)
       .fromGraph(
         new DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout,
                                                                              closeOnStop,
-                                                                             () => mock.mock)
+                                                                             _ => mock.mock)
       )
       .mapAsync(1)(identity)
 
@@ -104,7 +104,8 @@ class ProducerSpec(_system: ActorSystem)
       .fromGraph(
         new TransactionalProducerStage[K, V, P](settings.closeTimeout,
                                                 closeOnStop,
-                                                () => mock.mock,
+                                                _ => mock.mock,
+                                                "some-transaction-id",
                                                 settings.eosCommitInterval)
       )
       .mapAsync(1)(identity)

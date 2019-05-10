@@ -21,10 +21,10 @@ import scala.concurrent.duration._
  * Implemented by [[DefaultProducerStage]] and [[TransactionalProducerStage]].
  */
 @InternalApi
-private[internal] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]] {
+private[internal] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P], S] {
   val closeTimeout: FiniteDuration
   val closeProducerOnStop: Boolean
-  val producerProvider: () => Producer[K, V]
+  val producerProvider: S => Producer[K, V]
 
   val in: Inlet[IN] = Inlet[IN]("messages")
   val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")

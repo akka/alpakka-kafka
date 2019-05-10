@@ -122,9 +122,14 @@ object ConsumerMessage {
   final case class PartitionOffsetMetadata(key: GroupTopicPartition, offset: Long, metadata: String)
 
   /**
+   * Messages that originate from a transactional partitioned source
+   */
+  trait FromPartitionedSource
+
+  /**
    * Internal Api
    */
-  @InternalApi private[kafka] final case class PartitionOffsetCommittedMarker(
+  @InternalApi private[kafka] case class PartitionOffsetCommittedMarker(
       override val key: GroupTopicPartition,
       override val offset: Long,
       private[kafka] val committedMarker: CommittedMarker

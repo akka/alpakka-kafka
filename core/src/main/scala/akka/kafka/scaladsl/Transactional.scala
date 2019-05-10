@@ -7,13 +7,14 @@ package akka.kafka.scaladsl
 
 import akka.kafka.ConsumerMessage.TransactionalMessage
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource}
+import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource, TransactionalSubSource}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
+import akka.kafka.{AutoSubscription, ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
 
@@ -29,6 +30,21 @@ object Transactional {
   def source[K, V](settings: ConsumerSettings[K, V],
                    subscription: Subscription): Source[TransactionalMessage[K, V], Control] =
     Source.fromGraph(new TransactionalSource[K, V](settings, subscription))
+
+  /**
+   * The `partitionedSource` is a way to track automatic partition assignment from kafka.
+   * Each source is setup for for Exactly Only Once (EoS) kafka message semantics.
+   * To enable EoS it's necessary to use the [[Transactional.sink]] or [[Transactional.flow]] (for passthrough).
+   * When Kafka rebalances partitions, all sources complete before the remaining sources are issued again.
+   *
+   * By generating the `transactionalId` from the [[TopicPartition]], multiple instances of your application can run
+   * without having to manually assign partitions to each instance.
+   */
+  def partitionedSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription
+  ): Source[(TopicPartition, Source[TransactionalMessage[K, V], NotUsed]), Control] =
+    Source.fromGraph(new TransactionalSubSource[K, V](settings, subscription))
 
   /**
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
@@ -51,24 +67,29 @@ object Transactional {
   ): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
     require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
 
-    val txSettings = settings.withProperties(
-      ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
-      ProducerConfig.TRANSACTIONAL_ID_CONFIG -> transactionalId,
-      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
-    )
+    val txSettingsToProducer = (txid: String) => {
+      settings
+        .withProperties(
+          ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
+          ProducerConfig.TRANSACTIONAL_ID_CONFIG -> txid,
+          ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
+        )
+        .createKafkaProducer()
+    }
 
     val flow = Flow
       .fromGraph(
         new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](
-          txSettings.closeTimeout,
+          settings.closeTimeout,
           closeProducerOnStop = true,
-          () => txSettings.createKafkaProducer(),
+          txSettingsToProducer,
+          transactionalId,
           settings.eosCommitInterval
         )
       )
-      .mapAsync(txSettings.parallelism)(identity)
+      .mapAsync(settings.parallelism)(identity)
 
-    flowWithDispatcher(txSettings, flow)
+    flowWithDispatcher(settings, flow)
   }
 
   private def flowWithDispatcher[PassThrough, V, K](

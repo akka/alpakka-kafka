@@ -54,6 +54,20 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #transactionalFailureRetry }
 
+### Partitioned Example
+
+`Transactional.partitionedSource` 
+(@scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)])
+ support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
+ 
+By generating the `transactional.id` from the [[TopicPartition]], multiple instances of your application can run without having to manually assign partitions to each instance.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #partitionedTransactionalSink }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #partitionedTransactionalSink }
+
 ## Caveats
 
 There are several scenarios that this library's implementation of Kafka transactions does not automatically account for.

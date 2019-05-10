@@ -29,12 +29,14 @@ import scala.util.{Failure, Success, Try}
 private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
     val closeTimeout: FiniteDuration,
     val closeProducerOnStop: Boolean,
-    val producerProvider: () => Producer[K, V]
+    val producerProvider: Unit => Producer[K, V]
 ) extends GraphStage[FlowShape[IN, Future[OUT]]]
-    with ProducerStage[K, V, P, IN, OUT] {
+    with ProducerStage[K, V, P, IN, OUT, Unit] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
+    new DefaultProducerStageLogic(this, producerProvider, inheritedAttributes) {
+      override protected var producer: Producer[K, V] = producerProvider(())
+    }
 }
 
 /**
@@ -42,15 +44,16 @@ private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT 
  *
  * Used by [[DefaultProducerStage]], extended by [[TransactionalProducerStageLogic]].
  */
-private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
-    stage: ProducerStage[K, V, P, IN, OUT],
-    producer: Producer[K, V],
+private abstract class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P], S](
+    stage: ProducerStage[K, V, P, IN, OUT, S],
+    producerProvider: S => Producer[K, V],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageLogging
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
+  protected var producer: Producer[K, V]
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
   protected val awaitingConfirmation = new AtomicInteger(0)
@@ -80,6 +83,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     failStage(ex)
   }
 
+  def preSend(msg: Envelope[K, V, P]) = ()
+
   def postSend(msg: Envelope[K, V, P]) = ()
 
   setHandler(stage.out, new OutHandler {
@@ -108,6 +113,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   def produce(in: Envelope[K, V, P]): Unit =
     in match {
       case msg: Message[K, V, P] =>
+        preSend(msg)
         val r = Promise[Result[K, V, P]]
         awaitingConfirmation.incrementAndGet()
         producer.send(msg.record, sendCallback(r, onSuccess = metadata => {
@@ -118,6 +124,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         push(stage.out, future)
 
       case multiMsg: MultiMessage[K, V, P] =>
+        preSend(multiMsg)
         val promises = for {
           msg <- multiMsg.records
         } yield {
@@ -135,6 +142,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         push(stage.out, future)
 
       case passthrough: PassThroughMessage[K, V, P] =>
+        preSend(passthrough)
         postSend(passthrough)
         val future = Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]]
         push(stage.out, future)
@@ -162,7 +170,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   override def postStop(): Unit = {
     log.debug("Stage completed")
 
-    if (stage.closeProducerOnStop) {
+    if (stage.closeProducerOnStop && producer != null) {
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()

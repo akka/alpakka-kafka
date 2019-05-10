@@ -14,7 +14,7 @@ import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.AskTimeoutException
 import akka.stream.SourceShape
 import akka.stream.scaladsl.Source
-import akka.stream.stage.GraphStageLogic
+import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, OffsetAndMetadata}
@@ -78,16 +78,28 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
     ) {
   override protected def logic(
       shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]
-  ): GraphStageLogic with Control =
-    new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-    with CommittableMessageBuilder[K, V] with MetricsControl {
-      override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
-      override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: InternalCommitter = {
-        val ec = materializer.executionContext
-        KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+  ): GraphStageLogic with Control = {
+    def factory(shape: SourceShape[CommittableMessage[K, V]],
+                tp: TopicPartition,
+                consumerActor: ActorRef,
+                subSourceStartedCb: AsyncCallback[(TopicPartition, (Control, ActorRef))],
+                subSourceCancelledCb: AsyncCallback[(TopicPartition, Option[ConsumerRecord[K, V]])],
+                actorNumber: Int): MessageSubSourceLogic[K, V, CommittableMessage[K, V]] =
+      new MessageSubSourceLogic[K, V, CommittableMessage[K, V]](shape,
+                                                                tp,
+                                                                consumerActor,
+                                                                subSourceStartedCb,
+                                                                subSourceCancelledCb,
+                                                                actorNumber) with CommittableMessageBuilder[K, V] {
+        override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
+        override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
+        lazy val committer: InternalCommitter = {
+          val ec = materializer.executionContext
+          KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+        }
       }
-    }
+    new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription, factory)
+  }
 }
 
 /**
