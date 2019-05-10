@@ -45,12 +45,14 @@ object ReactiveKafkaTransactionBenchmarks extends LazyLogging {
       .via(fixture.flow)
       .toMat(Sink.foreach {
         case result: Result[Key, Val, PassThrough] =>
+          meter.mark()
           val offset = result.offset
           if (result.offset % loggedStep == 0)
             logger.info(s"Transformed $offset elements to Kafka (${100 * offset / msgCount}%)")
           if (result.offset >= fixture.msgCount - 1)
             promise.complete(Success(()))
         case other: Results[Key, Val, PassThrough] =>
+          meter.mark()
           promise.complete(Success(()))
       })(Keep.left)
       .run()
