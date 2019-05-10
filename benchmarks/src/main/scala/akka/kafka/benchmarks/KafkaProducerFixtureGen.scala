@@ -8,7 +8,10 @@ package akka.kafka.benchmarks
 import akka.kafka.benchmarks.app.RunTestCommand
 import org.apache.kafka.clients.producer.KafkaProducer
 
-case class KafkaProducerTestFixture(topic: String, msgCount: Int, producer: KafkaProducer[Array[Byte], String]) {
+case class KafkaProducerTestFixture(topic: String,
+                                    msgCount: Int,
+                                    msgSize: Int,
+                                    producer: KafkaProducer[Array[Byte], String]) {
   def close(): Unit = producer.close()
 }
 
@@ -17,7 +20,7 @@ object KafkaProducerFixtures extends PerfFixtureHelpers {
   def noopFixtureGen(c: RunTestCommand) = FixtureGen[KafkaProducerTestFixture](
     c,
     msgCount => {
-      KafkaProducerTestFixture("topic", msgCount, null)
+      KafkaProducerTestFixture("topic", msgCount, c.msgSize, null)
     }
   )
 
@@ -25,8 +28,8 @@ object KafkaProducerFixtures extends PerfFixtureHelpers {
     c,
     msgCount => {
       val topic = randomId()
-      val rawProducer = initTopicAndProducer(c.kafkaHost, topic)
-      KafkaProducerTestFixture(topic, msgCount, rawProducer)
+      val rawProducer = initTopicAndProducer(c.kafkaHost, topic, 1, c.msgSize)
+      KafkaProducerTestFixture(topic, msgCount, c.msgSize, rawProducer)
     }
   )
 }

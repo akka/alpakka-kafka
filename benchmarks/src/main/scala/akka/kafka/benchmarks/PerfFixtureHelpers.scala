@@ -13,29 +13,38 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.language.postfixOps
 
+object PerfFixtureHelpers {
+  def stringOfSize(size: Int) = new String(Array.fill(size)('0'))
+}
+
 private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
+  import PerfFixtureHelpers._
 
   val producerTimeout = 6 minutes
   val logPercentStep = 1
 
   def randomId() = UUID.randomUUID().toString
 
-  def fillTopic(kafkaHost: String, topic: String, msgCount: Int): Unit = {
-    val producer = initTopicAndProducer(kafkaHost, topic, msgCount)
+  def fillTopic(kafkaHost: String, topic: String, msgCount: Int, msgSize: Int): Unit = {
+    val producer = initTopicAndProducer(kafkaHost, topic, msgCount, msgSize)
     producer.close()
   }
 
-  def initTopicAndProducer(kafkaHost: String, topic: String, msgCount: Int = 1): KafkaProducer[Array[Byte], String] = {
+  def initTopicAndProducer(kafkaHost: String,
+                           topic: String,
+                           msgCount: Int,
+                           msgSize: Int): KafkaProducer[Array[Byte], String] = {
     val producerJavaProps = new java.util.Properties
     producerJavaProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
     val producer =
       new KafkaProducer[Array[Byte], String](producerJavaProps, new ByteArraySerializer, new StringSerializer)
     val lastElementStoredPromise = Promise[Unit]
     val loggedStep = if (msgCount > logPercentStep) msgCount / (100 / logPercentStep) else 1
+    val msg = stringOfSize(msgSize)
     for (i <- 0L to msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
         producer.send(
-          new ProducerRecord[Array[Byte], String](topic, i.toString),
+          new ProducerRecord[Array[Byte], String](topic, msg),
           new Callback {
             override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit =
               if (e == null) {

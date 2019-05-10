@@ -25,7 +25,10 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
   type Out[PassThrough] = Results[K, V, PassThrough]
   type FlowType[PassThrough] = Flow[In[PassThrough], Out[PassThrough], NotUsed]
 
-  case class ReactiveKafkaProducerTestFixture[PassThrough](topic: String, msgCount: Int, flow: FlowType[PassThrough])
+  case class ReactiveKafkaProducerTestFixture[PassThrough](topic: String,
+                                                           msgCount: Int,
+                                                           msgSize: Int,
+                                                           flow: FlowType[PassThrough])
 
   private def createProducerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem): ProducerSettings[K, V] =
     ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
@@ -38,8 +41,8 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
       msgCount => {
         val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
         val topic = randomId()
-        initTopicAndProducer(c.kafkaHost, topic)
-        ReactiveKafkaProducerTestFixture(topic, msgCount, flow)
+        initTopicAndProducer(c.kafkaHost, topic, 1, c.msgSize)
+        ReactiveKafkaProducerTestFixture(topic, msgCount, c.msgSize, flow)
       }
     )
 

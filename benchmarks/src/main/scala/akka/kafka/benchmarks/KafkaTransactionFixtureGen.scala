@@ -44,7 +44,7 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
       c,
       msgCount => {
         val sourceTopic = randomId()
-        fillTopic(c.kafkaHost, sourceTopic, msgCount)
+        fillTopic(c.kafkaHost, sourceTopic, msgCount, c.msgSize)
         val groupId = randomId()
         val sinkTopic = randomId()
 

@@ -5,4 +5,4 @@
 
 package akka.kafka.benchmarks.app
 
-case class RunTestCommand(testName: String, kafkaHost: String, msgCount: Int, numberOfPartitions: Int = 1)
+case class RunTestCommand(testName: String, kafkaHost: String, msgCount: Int, msgSize: Int, numberOfPartitions: Int = 1)

@@ -32,10 +32,11 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
     logger.debug("Creating and starting a stream")
     @volatile var lastPartStart = System.nanoTime()
 
+    val msg = PerfFixtureHelpers.stringOfSize(fixture.msgSize)
+
     val future = Source(0 to fixture.msgCount)
       .map(
-        number =>
-          ProducerMessage.single(new ProducerRecord[Array[Byte], String](fixture.topic, number.toString), number)
+        number => ProducerMessage.single(new ProducerRecord[Array[Byte], String](fixture.topic, msg), number)
       )
       .via(fixture.flow)
       .map {
