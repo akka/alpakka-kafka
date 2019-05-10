@@ -21,8 +21,10 @@ object KafkaProducerBenchmarks extends LazyLogging {
     val producer = fixture.producer
     var lastPartStart = System.nanoTime()
 
+    val msg = PerfFixtureHelpers.stringOfSize(fixture.msgSize)
+
     for (i <- 1 to fixture.msgCount) {
-      producer.send(new ProducerRecord[Array[Byte], String](fixture.topic, i.toString))
+      producer.send(new ProducerRecord[Array[Byte], String](fixture.topic, msg))
       meter.mark()
       if (i % logStep == 0) {
         val lastPartEnd = System.nanoTime()

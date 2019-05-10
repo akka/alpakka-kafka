@@ -13,13 +13,17 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.language.postfixOps
 
+object PerfFixtureHelpers {
+  def stringOfSize(size: Int) = new String(Array.fill(size)('0'))
+}
+
 private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
+  import PerfFixtureHelpers._
 
   val producerTimeout = 6 minutes
   val logPercentStep = 1
 
   def randomId() = UUID.randomUUID().toString
-  def stringOfSize(size: Int) = new String(Array.fill(size)('0'))
 
   def fillTopic(kafkaHost: String, topic: String, msgCount: Int, msgSize: Int): Unit = {
     val producer = initTopicAndProducer(kafkaHost, topic, msgCount, msgSize)
