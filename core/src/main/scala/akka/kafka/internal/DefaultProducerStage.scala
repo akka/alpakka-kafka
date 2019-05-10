@@ -114,8 +114,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
           r.success(Result(metadata, msg))
         }))
         postSend(msg)
-        val future = r.future.asInstanceOf[Future[OUT]]
-        push(stage.out, future)
+        emit(r.future.asInstanceOf[Future[OUT]])
 
       case multiMsg: MultiMessage[K, V, P] =>
         val promises = for {
@@ -131,13 +130,11 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         val res = Future.sequence(promises).map { parts =>
           MultiResult(parts, multiMsg.passThrough)
         }
-        val future = res.asInstanceOf[Future[OUT]]
-        push(stage.out, future)
+        emit(res.asInstanceOf[Future[OUT]])
 
       case passthrough: PassThroughMessage[K, V, P] =>
         postSend(passthrough)
-        val future = Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]]
-        push(stage.out, future)
+        emit(Future.successful(PassThroughResult[K, V, P](in.passThrough)).asInstanceOf[Future[OUT]])
 
     }
 
@@ -157,6 +154,10 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
         checkForCompletionCB.invoke(())
     }
+  }
+
+  protected def emit(future: Future[OUT]): Unit = {
+    push(stage.out, future)
   }
 
   override def postStop(): Unit = {
