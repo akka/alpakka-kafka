@@ -53,20 +53,34 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
 }
 
 class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 1000000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 1000 * 1000, 100)
     runPerfTest(cmd,
                 KafkaConsumerFixtures.filledTopics(cmd),
                 KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
   }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("apache-kafka-batched-consumer-normal-msg", bootstrapServers, 1000 * 1000, 5 * 1000)
+    runPerfTest(cmd,
+      KafkaConsumerFixtures.filledTopics(cmd),
+      KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
+  }
 }
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000 * 1000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
+  }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-batched-consumer-normal-msg", bootstrapServers, 1000 * 1000, 5 * 1000)
+    runPerfTest(cmd,
+      ReactiveKafkaConsumerFixtures.committableSources(cmd),
+      ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
   }
 }
 
@@ -87,15 +101,25 @@ class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
 }
 
 class ApacheKafkaPlainProducer extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-plain-producer", bootstrapServers, 2000000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("apache-kafka-plain-producer", bootstrapServers, 2000 * 1000, 100)
+    runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
+  }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("apache-kafka-plain-producer-normal-msg", bootstrapServers, 2000 * 1000, 5000)
     runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
   }
 }
 
 class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-producer", bootstrapServers, 2000000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-plain-producer", bootstrapServers, 2000 * 1000, 100)
+    runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
+  }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-plain-producer-normal-msg", bootstrapServers, 2000 * 1000, 5000)
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 }
