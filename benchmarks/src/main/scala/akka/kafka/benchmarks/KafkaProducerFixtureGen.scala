@@ -25,7 +25,7 @@ object KafkaProducerFixtures extends PerfFixtureHelpers {
     c,
     msgCount => {
       val topic = randomId()
-      val rawProducer = initTopicAndProducer(c.kafkaHost, topic)
+      val rawProducer = initTopicAndProducer(c.kafkaHost, topic, 1, c.msgSize)
       KafkaProducerTestFixture(topic, msgCount, rawProducer)
     }
   )

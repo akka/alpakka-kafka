@@ -38,7 +38,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
       msgCount => {
         val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
         val topic = randomId()
-        initTopicAndProducer(c.kafkaHost, topic)
+        initTopicAndProducer(c.kafkaHost, topic, 1, c.msgSize)
         ReactiveKafkaProducerTestFixture(topic, msgCount, flow)
       }
     )

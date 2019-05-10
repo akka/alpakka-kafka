@@ -24,14 +24,14 @@ abstract class BenchmarksBase() extends ScalatestKafkaSpec(0) with FlatSpecLike 
 
 class ApacheKafkaConsumerNokafka extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-plain-consumer-nokafka", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("apache-kafka-plain-consumer-nokafka", bootstrapServers, 2000000, 100)
     runPerfTest(cmd, KafkaConsumerFixtures.noopFixtureGen(cmd), KafkaConsumerBenchmarks.consumePlainNoKafka)
   }
 }
 
 class AlpakkaKafkaConsumerNokafka extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-consumer-nokafka", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("alpakka-kafka-plain-consumer-nokafka", bootstrapServers, 10, 2000000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.noopFixtureGen(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumePlainNoKafka)
@@ -40,21 +40,21 @@ class AlpakkaKafkaConsumerNokafka extends BenchmarksBase() {
 
 class ApacheKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-plain-consumer", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("apache-kafka-plain-consumer", bootstrapServers, 10, 2000000, 100)
     runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
   }
 }
 
 class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, 10, 2000000, 100)
     runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
   }
 }
 
 class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 1000000)
+    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 1000000, 100)
     runPerfTest(cmd,
                 KafkaConsumerFixtures.filledTopics(cmd),
                 KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
@@ -63,7 +63,7 @@ class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000000)
+    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
@@ -72,14 +72,14 @@ class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
 
 class ApacheKafkaAtMostOnceConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-at-most-once-consumer", bootstrapServers, 50000)
+    val cmd = RunTestCommand("apache-kafka-at-most-once-consumer", bootstrapServers, 50000, 100)
     runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumeCommitAtMostOnce)
   }
 }
 
 class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 50000)
+    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 50000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
@@ -88,21 +88,21 @@ class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
 
 class ApacheKafkaPlainProducer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-plain-producer", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("apache-kafka-plain-producer", bootstrapServers, 2000000, 100)
     runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
   }
 }
 
 class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-producer", bootstrapServers, 2000000)
+    val cmd = RunTestCommand("alpakka-kafka-plain-producer", bootstrapServers, 2000000, 100)
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 }
 
 class ApacheKafkaTransactions extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-transactions", bootstrapServers, 100000)
+    val cmd = RunTestCommand("apache-kafka-transactions", bootstrapServers, 100000, 100)
     runPerfTest(cmd,
                 KafkaTransactionFixtures.initialize(cmd),
                 KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
@@ -111,7 +111,7 @@ class ApacheKafkaTransactions extends BenchmarksBase() {
 
 class AlpakkaKafkaTransactions extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-transactions", bootstrapServers, 100000)
+    val cmd = RunTestCommand("alpakka-kafka-transactions", bootstrapServers, 100000, 100)
     runPerfTest(
       cmd,
       ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),

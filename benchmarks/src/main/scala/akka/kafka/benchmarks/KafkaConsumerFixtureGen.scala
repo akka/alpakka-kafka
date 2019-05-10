@@ -28,7 +28,7 @@ object KafkaConsumerFixtures extends PerfFixtureHelpers {
     c,
     msgCount => {
       val topic = randomId()
-      fillTopic(c.kafkaHost, topic, msgCount)
+      fillTopic(c.kafkaHost, topic, msgCount, c.msgSize)
       val consumerJavaProps = new java.util.Properties
       consumerJavaProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, c.kafkaHost)
       consumerJavaProps.put(ConsumerConfig.CLIENT_ID_CONFIG, randomId())
