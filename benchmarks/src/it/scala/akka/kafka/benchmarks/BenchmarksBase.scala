@@ -36,11 +36,11 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase("AlpakkaKafkaPlainConsume
 }
 
 class ApacheKafkaBatchedConsumer extends BenchmarksBase("ApacheKafkaBatchedConsumer") {
-  it should "bench" in Benchmarks.run(RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 20000))
+  it should "bench" in Benchmarks.run(RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, 1000000))
 }
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase("AlpakkaKafkaBatchedConsumer") {
-  it should "bench" in Benchmarks.run(RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 20000))
+  it should "bench" in Benchmarks.run(RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000000))
 }
 
 class ApacheKafkaAtMostOnceConsumer extends BenchmarksBase("ApacheKafkaAtMostOnceConsumer") {

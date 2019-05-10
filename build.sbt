@@ -302,7 +302,7 @@ lazy val benchmarks = project
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
-    dockerComposeTestLogging := true,
+    dockerComposeTestLogging := false,
     dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
     dockerComposeTestCommandOptions := {
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
