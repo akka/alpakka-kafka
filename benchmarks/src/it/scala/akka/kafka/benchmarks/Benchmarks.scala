@@ -31,7 +31,7 @@ class ApacheKafkaConsumerNokafka extends BenchmarksBase() {
 
 class AlpakkaKafkaConsumerNokafka extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-consumer-nokafka", bootstrapServers, 10, 2000000, 100)
+    val cmd = RunTestCommand("alpakka-kafka-plain-consumer-nokafka", bootstrapServers, 2000000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.noopFixtureGen(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumePlainNoKafka)
@@ -40,14 +40,14 @@ class AlpakkaKafkaConsumerNokafka extends BenchmarksBase() {
 
 class ApacheKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-plain-consumer", bootstrapServers, 10, 2000000, 100)
+    val cmd = RunTestCommand("apache-kafka-plain-consumer", bootstrapServers, 2000000, 100)
     runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
   }
 }
 
 class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, 10, 2000000, 100)
+    val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, 2000000, 100)
     runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
   }
 }
