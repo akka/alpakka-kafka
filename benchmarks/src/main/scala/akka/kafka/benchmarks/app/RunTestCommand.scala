@@ -5,4 +5,12 @@
 
 package akka.kafka.benchmarks.app
 
-case class RunTestCommand(testName: String, kafkaHost: String, msgCount: Int, msgSize: Int, numberOfPartitions: Int = 1)
+import akka.kafka.benchmarks.BuildInfo
+
+case class RunTestCommand(testName: String,
+                          kafkaHost: String,
+                          msgCount: Int,
+                          msgSize: Int,
+                          numberOfPartitions: Int = 1) {
+  def replicationFactor = BuildInfo.kafkaScale
+}

@@ -56,7 +56,7 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
       c,
       msgCount => {
         val sourceTopic = randomId()
-        fillTopic(c.kafkaHost, sourceTopic, msgCount, c.msgSize)
+        fillTopic(sourceTopic, c)
         val sinkTopic = randomId()
 
         val consumerSettings = createConsumerSettings(c.kafkaHost)
