@@ -9,7 +9,7 @@ import akka.kafka.benchmarks.KafkaConsumerBenchmarks.pollTimeoutMs
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -62,7 +62,9 @@ object KafkaTransactionBenchmarks extends LazyLogging {
           lastProcessedOffset = record.offset()
 
           val producerRecord = new ProducerRecord(fixture.sinkTopic, record.partition(), record.key(), record.value())
-          producer.send(producerRecord, (_: RecordMetadata, _: Exception) => meter.mark())
+          producer.send(producerRecord, new Callback {
+            override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = meter.mark()
+          })
           if (lastProcessedOffset % loggedStep == 0)
             logger.info(
               s"Transformed $lastProcessedOffset elements to Kafka (${100 * lastProcessedOffset / msgCount}%)"
