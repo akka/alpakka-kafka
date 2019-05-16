@@ -147,8 +147,15 @@ class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
 }
 
 class ApacheKafkaTransactions extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("apache-kafka-transactions", bootstrapServers, 100000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("apache-kafka-transactions", bootstrapServers, 100 * 1000, 100)
+    runPerfTest(cmd,
+                KafkaTransactionFixtures.initialize(cmd),
+                KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
+  }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("apache-kafka-transactions-normal-msg", bootstrapServers, 100 * 1000, 5000)
     runPerfTest(cmd,
                 KafkaTransactionFixtures.initialize(cmd),
                 KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
@@ -156,8 +163,17 @@ class ApacheKafkaTransactions extends BenchmarksBase() {
 }
 
 class AlpakkaKafkaTransactions extends BenchmarksBase() {
-  it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-transactions", bootstrapServers, 100000, 100)
+  it should "bench with small messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-transactions", bootstrapServers, 100 * 1000, 100)
+    runPerfTest(
+      cmd,
+      ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),
+      ReactiveKafkaTransactionBenchmarks.consumeTransformProduceTransaction
+    )
+  }
+
+  it should "bench with normal messages" in {
+    val cmd = RunTestCommand("alpakka-kafka-transactions-normal-msg", bootstrapServers, 100 * 1000, 5000)
     runPerfTest(
       cmd,
       ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),
