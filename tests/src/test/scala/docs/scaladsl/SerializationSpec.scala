@@ -17,6 +17,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
 import org.apache.avro.util.Utf8
 import org.apache.kafka.common.TopicPartition
 // #imports
@@ -139,9 +140,10 @@ class SerializationSpec
 
     // #serializer #de-serializer
 
-    val kafkaAvroSerDeConfig = Map[String, Any] {
-      AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl
-    }
+    val kafkaAvroSerDeConfig = Map[String, Any](
+      AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl,
+      KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG -> true.toString
+    )
     // #serializer #de-serializer
 
     // #de-serializer
@@ -167,8 +169,7 @@ class SerializationSpec
         .withBootstrapServers(bootstrapServers)
     }
 
-    val sample = new SampleAvroClass("key", "name")
-    val samples = immutable.Seq(sample, sample, sample)
+    val samples = (1 to 3).map(i => SampleAvroClass(s"key_$i", s"name_$i"))
     val producerCompletion =
       Source(samples)
         .map(n => new ProducerRecord[String, SpecificRecord](topic, n.key, n))
@@ -181,12 +182,13 @@ class SerializationSpec
       Consumer
         .plainSource(consumerSettings, Subscriptions.topics(topic))
         .take(samples.size.toLong)
+        .map(_.value())
         .toMat(Sink.seq)(Keep.both)
         .run()
     // #de-serializer
 
     control.isShutdown.futureValue should be(Done)
-    result.futureValue should have size samples.size.toLong
+    result.futureValue should contain theSameElementsInOrderAs samples
   }
 
   "Error in deserialization" should "signal undisguised" in assertAllStagesStopped {
@@ -313,6 +315,8 @@ class SerializationSpec
 
 case class SampleAvroClass(var key: String, var name: String) extends SpecificRecordBase {
 
+  def this() = this(null, null)
+
   override def get(i: Int): AnyRef = i match {
     case 0 => key
     case 1 => name
@@ -330,13 +334,14 @@ case class SampleAvroClass(var key: String, var name: String) extends SpecificRe
       case utf8: Utf8 => utf8.toString
       case _ => v.asInstanceOf[String]
     }
+
   override def getSchema: Schema = SampleAvroClass.SCHEMA$
 }
 
 object SampleAvroClass {
   val SCHEMA$ : Schema =
     new org.apache.avro.Schema.Parser().parse("""
-              |{"namespace": "akka.kafka.testing",
+              |{"namespace": "docs.scaladsl",
               | "type": "record",
               | "name": "SampleAvroClass",
               | "fields": [
