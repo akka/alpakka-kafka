@@ -88,6 +88,33 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   }
 
   @Test
+  public void withContext() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId());
+    String sourceTopic = createTopic(1);
+    String targetTopic = createTopic(2);
+    String transactionalId = createTransactionalId();
+    Consumer.DrainingControl<Done> control =
+        Transactional.sourceWithContext(consumerSettings, Subscriptions.topics(sourceTopic))
+            .via(business())
+            .map(
+                record ->
+                    ProducerMessage.single(
+                        new ProducerRecord<>(targetTopic, record.key(), record.value())))
+            .toMat(Transactional.sinkWithContext(producerSettings, transactionalId), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
+
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
+        consumeString(targetTopic, 10);
+    produceString(sourceTopic, 10, partition0);
+    assertDone(consumer.isShutdown());
+    control.drainAndShutdown(ec);
+    assertDone(control.isShutdown());
+    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
+  }
+
+  @Test
   public void usingRestartSource() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId());

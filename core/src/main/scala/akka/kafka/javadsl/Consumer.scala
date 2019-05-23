@@ -13,11 +13,10 @@ import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
-import akka.kafka.internal.ConsumerControlAsJava
+import akka.kafka.internal.{CommittableSourceWithContext, ConsumerControlAsJava}
 import akka.stream.javadsl.{Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.requests.OffsetFetchResponse
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.collection.JavaConverters._
@@ -165,13 +164,11 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
-    committableSourceWithContext(
-      settings,
-      subscription,
-      new java.util.function.Function[ConsumerRecord[K, V], String]() {
-        override def apply(v1: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
-      }
-    )
+    Source
+      .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(_._2)
+      .map(_._1)
 
   /**
    * API MAY CHANGE
@@ -193,14 +190,15 @@ object Consumer {
       subscription: Subscription,
       metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
-    // TODO this should use `committableSourceWithContext` but `mapMaterializedValue` is not available, yet
-    // See https://github.com/akka/akka/issues/26836
-    scaladsl.Consumer
-      .commitWithMetadataSource(settings, subscription, (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+    Source
+      .fromGraph(
+        new CommittableSourceWithContext[K, V](settings,
+                                               subscription,
+                                               (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+      )
       .mapMaterializedValue(ConsumerControlAsJava.apply)
-      .asSourceWithContext(msg => msg.committableOffset)
-      .map(msg => msg.record)
-      .asJava
+      .asSourceWithContext(_._2)
+      .map(_._1)
 
   /**
    * The `commitWithMetadataSource` makes it possible to add additional metadata (in the form of a string)

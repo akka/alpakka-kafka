@@ -48,8 +48,7 @@ object Committer {
     akka.stream.scaladsl
       .Flow[Pair[E, C]]
       .map(_.toScala)
-      .via(flowWithContext(settings))
-      .toMat(akka.stream.scaladsl.Sink.ignore)(akka.stream.scaladsl.Keep.right)
+      .toMat(scaladsl.Committer.sinkWithContext(settings))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue[CompletionStage[Done]](_.toJava)
       .asJava[Pair[E, C]]
 }

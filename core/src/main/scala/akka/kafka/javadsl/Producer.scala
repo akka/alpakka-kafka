@@ -8,7 +8,6 @@ package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
 
 import akka.annotation.ApiMayChange
-import akka.japi.Pair
 import akka.{Done, NotUsed}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, ConsumerMessage, ProducerSettings}
@@ -212,13 +211,8 @@ object Producer {
   @ApiMayChange
   def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V]
-  ): Flow[Pair[Envelope[K, V, NotUsed], C], Pair[Results[K, V, C], C], NotUsed] =
-    akka.stream.scaladsl
-      .Flow[Pair[Envelope[K, V, NotUsed], C]]
-      .map(pair => pair.first.withPassThrough(pair.second))
-      .via(scaladsl.Producer.flexiFlow(settings))
-      .map(res => Pair(res, res.passThrough))
-      .asJava
+  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] =
+    scaladsl.Producer.flowWithContext(settings).asJava
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
@@ -288,12 +282,7 @@ object Producer {
   def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Flow[Pair[Envelope[K, V, NotUsed], C], Pair[Results[K, V, C], C], NotUsed] =
-    akka.stream.scaladsl
-      .Flow[Pair[Envelope[K, V, NotUsed], C]]
-      .map(pair => pair.first.withPassThrough(pair.second))
-      .via(scaladsl.Producer.flexiFlow(settings, producer))
-      .map(res => Pair(res, res.passThrough))
-      .asJava
+  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] =
+    scaladsl.Producer.flowWithContext(settings, producer).asJava
 
 }

@@ -221,13 +221,11 @@ object Producer {
   @ApiMayChange
   def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V]
-  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] = {
-    val unwrapped: Flow[Envelope[K, V, C], Results[K, V, C], NotUsed] = flexiFlow(settings)
-    unwrapped
+  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] =
+    flexiFlow[K, V, C](settings)
       .asFlowWithContext[Envelope[K, V, NotUsed], C, C]({
         case (env, c) => env.withPassThrough(c)
       })(res => res.passThrough)
-  }
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
@@ -313,16 +311,11 @@ object Producer {
   def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Flow[(Envelope[K, V, NotUsed], C), (Results[K, V, C], C), NotUsed] =
-    Flow[(Envelope[K, V, NotUsed], C)]
-      .map {
-        case (wm, pt) =>
-          wm.withPassThrough(pt)
-      }
-      .via(flexiFlow(settings, producer))
-      .map { wr =>
-        (wr, wr.passThrough)
-      }
+  ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] =
+    flexiFlow[K, V, C](settings, producer)
+      .asFlowWithContext[Envelope[K, V, NotUsed], C, C]({
+        case (env, c) => env.withPassThrough(c)
+      })(res => res.passThrough)
 
   private def flowWithDispatcher[PassThrough, V, K](
       settings: ProducerSettings[K, V],

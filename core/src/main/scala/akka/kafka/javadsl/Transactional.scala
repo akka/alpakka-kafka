@@ -8,6 +8,7 @@ package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
 
 import akka.annotation.ApiMayChange
+import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
 import akka.kafka._
@@ -76,11 +77,11 @@ object Transactional {
   def sinkWithContext[K, V](
       settings: ProducerSettings[K, V],
       transactionalId: String
-  ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), CompletionStage[Done]] =
-    scaladsl.Transactional
-      .flowWithContext(settings, transactionalId)
-      .asFlow
-      .toMat(akka.stream.scaladsl.Sink.ignore)(akka.stream.scaladsl.Keep.right)
+  ): Sink[Pair[Envelope[K, V, NotUsed], PartitionOffset], CompletionStage[Done]] =
+    akka.stream.scaladsl
+      .Flow[Pair[Envelope[K, V, NotUsed], PartitionOffset]]
+      .map(_.toScala)
+      .toMat(scaladsl.Transactional.sinkWithContext(settings, transactionalId))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue(_.toJava)
       .asJava
 
