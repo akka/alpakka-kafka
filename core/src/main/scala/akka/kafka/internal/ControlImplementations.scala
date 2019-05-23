@@ -110,8 +110,4 @@ final private[kafka] class ConsumerControlAsJava(underlying: scaladsl.Consumer.C
 @InternalApi
 private[kafka] object ConsumerControlAsJava {
   def apply(underlying: scaladsl.Consumer.Control): javadsl.Consumer.Control = new ConsumerControlAsJava(underlying)
-  val convert = new akka.japi.function.Function[scaladsl.Consumer.Control, javadsl.Consumer.Control]() {
-    override def apply(underlying: scaladsl.Consumer.Control): javadsl.Consumer.Control =
-      new ConsumerControlAsJava(underlying)
-  }
 }
