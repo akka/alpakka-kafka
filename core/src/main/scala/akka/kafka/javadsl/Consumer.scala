@@ -164,11 +164,13 @@ object Consumer {
       settings: ConsumerSettings[K, V],
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    // TODO this could use `scaladsl committableSourceWithContext` but `mapMaterializedValue` is not available, yet
+    // See https://github.com/akka/akka/issues/26836
     Source
       .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription))
-      .mapMaterializedValue(ConsumerControlAsJava.apply)
-      .asSourceWithContext(_._2)
-      .map(_._1)
+      .mapMaterializedValue(ConsumerControlAsJava.convert)
+      .asSourceWithContext(keepPassthrough)
+      .map(keepRecord)
 
   /**
    * API MAY CHANGE
@@ -190,15 +192,17 @@ object Consumer {
       subscription: Subscription,
       metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    // TODO this could use `scaladsl committableSourceWithContext` but `mapMaterializedValue` is not available, yet
+    // See https://github.com/akka/akka/issues/26836
     Source
       .fromGraph(
         new CommittableSourceWithContext[K, V](settings,
                                                subscription,
                                                (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
       )
-      .mapMaterializedValue(ConsumerControlAsJava.apply)
-      .asSourceWithContext(_._2)
-      .map(_._1)
+      .mapMaterializedValue(ConsumerControlAsJava.convert)
+      .asSourceWithContext(keepPassthrough)
+      .map(keepRecord)
 
   /**
    * The `commitWithMetadataSource` makes it possible to add additional metadata (in the form of a string)
@@ -356,4 +360,17 @@ object Consumer {
       .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
       .asInstanceOf[Source[CommittableMessage[K, V], Control]]
+
+  private def keepPassthrough[K, V]
+    : akka.japi.function.Function[(ConsumerRecord[K, V], CommittableOffset), CommittableOffset] =
+    new akka.japi.function.Function[(ConsumerRecord[K, V], CommittableOffset), CommittableOffset] {
+      override def apply(param: (ConsumerRecord[K, V], CommittableOffset)): CommittableOffset = param._2
+    }
+
+  private def keepRecord[K, V]
+    : akka.japi.function.Function[(ConsumerRecord[K, V], CommittableOffset), ConsumerRecord[K, V]] =
+    new akka.japi.function.Function[(ConsumerRecord[K, V], CommittableOffset), ConsumerRecord[K, V]] {
+      override def apply(param: (ConsumerRecord[K, V], CommittableOffset)): ConsumerRecord[K, V] = param._1
+    }
+
 }

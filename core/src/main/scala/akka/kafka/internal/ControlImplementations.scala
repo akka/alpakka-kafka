@@ -11,6 +11,8 @@ import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
+import akka.kafka.javadsl.Consumer
+import akka.kafka.scaladsl.Consumer
 import akka.kafka.{javadsl, scaladsl}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic
@@ -110,4 +112,8 @@ final private[kafka] class ConsumerControlAsJava(underlying: scaladsl.Consumer.C
 @InternalApi
 private[kafka] object ConsumerControlAsJava {
   def apply(underlying: scaladsl.Consumer.Control): javadsl.Consumer.Control = new ConsumerControlAsJava(underlying)
+  val convert = new akka.japi.function.Function[scaladsl.Consumer.Control, javadsl.Consumer.Control]() {
+    override def apply(underlying: scaladsl.Consumer.Control): javadsl.Consumer.Control =
+      new ConsumerControlAsJava(underlying)
+  }
 }
