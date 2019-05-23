@@ -68,18 +68,6 @@ private[kafka] final class TransactionalSourceWithContext[K, V](consumerSettings
 
   require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
 
-  /**
-   * We set the isolation.level config to read_committed to make sure that any consumed messages are from
-   * committed transactions. Note that the consuming partitions may be produced by multiple producers, and these
-   * producers may either use transactional messaging or not at all. So the fetching partitions may have both
-   * transactional and non-transactional messages, and by setting isolation.level config to read_committed consumers
-   * will still consume non-transactional messages.
-   */
-  private val txConsumerSettings = consumerSettings.withProperty(
-    ConsumerConfig.ISOLATION_LEVEL_CONFIG,
-    IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH)
-  )
-
   override protected def logic(
       shape: SourceShape[(ConsumerRecord[K, V], PartitionOffset)]
   ): GraphStageLogic with Control =

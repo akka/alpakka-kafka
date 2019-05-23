@@ -11,8 +11,6 @@ import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
-import akka.kafka.javadsl.Consumer
-import akka.kafka.scaladsl.Consumer
 import akka.kafka.{javadsl, scaladsl}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic
