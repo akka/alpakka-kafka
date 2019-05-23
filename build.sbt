@@ -1,4 +1,3 @@
-import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
@@ -242,15 +241,15 @@ lazy val docs = project
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
+    previewPath := (Paradox / siteSubdirName).value,
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
       ("\\.java\\.scala".r, _ => ".java")
     ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
-    Paradox / sourceDirectory := sourceDirectory.value / "main",
-    Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
-    Paradox / paradoxProperties ++= Map(
+    paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
+    paradoxProperties ++= Map(
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,
