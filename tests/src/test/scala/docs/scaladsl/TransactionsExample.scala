@@ -83,7 +83,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     awaitProduce(produce(sourceTopic, 1 to 10))
     control.shutdown().futureValue shouldBe Done
     control2.shutdown().futureValue shouldBe Done
-    control.drainAndShutdown() shouldBe Done
+    control.drainAndShutdown().futureValue shouldBe Done
     result.futureValue should have size 10
   }
 
