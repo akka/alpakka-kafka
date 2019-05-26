@@ -52,7 +52,6 @@ val commonSettings = Seq(
     if (scalaBinaryVersion.value == Scala213) Seq.empty
     else Seq("-Yno-adapted-args", "-Xfuture")
   },
-
   scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
       "-doc-title",
       "Alpakka Kafka",
@@ -162,17 +161,20 @@ lazy val testkit = project
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
-      ) ++ { if (scalaBinaryVersion.value == Scala213) Seq.empty
-      else Seq(
-        "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
-        "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
-      )},
+      ) ++ {
+        if (scalaBinaryVersion.value == Scala213) Seq()
+        else
+          Seq(
+            "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
+            "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
+          )
+      },
     Compile / unmanagedSources / excludeFilter := {
       if (scalaBinaryVersion.value == Scala213) {
         HiddenFileFilter ||
-          "EmbeddedKafkaLike.scala" ||
-          "EmbeddedKafkaTest.java" ||
-          "EmbeddedKafkaJunit4Test.java"
+        "EmbeddedKafkaLike.scala" ||
+        "EmbeddedKafkaTest.java" ||
+        "EmbeddedKafkaJunit4Test.java"
       } else (Test / unmanagedSources / excludeFilter).value
     },
     mimaPreviousArtifacts := Set(
@@ -211,10 +213,13 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "2.24.5" % Test
-      ) ++ { if (scalaBinaryVersion.value == Scala213) Seq.empty
-        else Seq(
-        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
-        )} ++
+      ) ++ {
+        if (scalaBinaryVersion.value == Scala213) Seq()
+        else
+          Seq(
+            "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+          )
+      } ++
       Seq( // integration test dependencies
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
@@ -232,16 +237,16 @@ lazy val tests = project
     Test / unmanagedSources / excludeFilter := {
       if (scalaBinaryVersion.value == Scala213) {
         HiddenFileFilter ||
-          "RetentionPeriodSpec.scala" ||
-          "IntegrationSpec.scala" ||
-          "MultiConsumerSpec.scala" ||
-          "ReconnectSpec.scala" ||
-          "EmbeddedKafkaSampleSpec.scala" ||
-          "TransactionsSpec.scala" ||
-          "SerializationSpec.scala" ||
-          "PartitionExamples.scala" ||
-          "TransactionsExample.scala" ||
-          GlobFilter("*.java")
+        "RetentionPeriodSpec.scala" ||
+        "IntegrationSpec.scala" ||
+        "MultiConsumerSpec.scala" ||
+        "ReconnectSpec.scala" ||
+        "EmbeddedKafkaSampleSpec.scala" ||
+        "TransactionsSpec.scala" ||
+        "SerializationSpec.scala" ||
+        "PartitionExamples.scala" ||
+        "TransactionsExample.scala" ||
+        GlobFilter("*.java")
       } else (Test / unmanagedSources / excludeFilter).value
     },
     kafkaScale := 3,
