@@ -320,6 +320,7 @@ lazy val benchmarks = project
   .settings(Defaults.itSettings)
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
+    crossScalaVersions -= Scala213,
     name := "akka-stream-kafka-benchmarks",
     skip in publish := true,
     whitesourceIgnore := true,
