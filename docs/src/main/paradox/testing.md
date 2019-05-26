@@ -89,10 +89,13 @@ Some Alpakka Kafka tests implemented in Scala use [Scalatest](http://www.scalate
   scope=test
 }
 
+Scala
+: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit }
+
 By mixing in `EmbeddedKafkaLike` an embedded Kafka instance will be started before the tests in this test class execute shut down after all tests in this test class are finished.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/EmbeddedKafkaSampleSpec.scala) { #testkit #embeddedkafka }
+: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/EmbeddedKafkaSampleSpec.scala) { #embeddedkafka }
 
 With this `EmbeddedKafkaSpecBase` class test classes can extend it to automatically start and stop a Kafka broker to test with. To configure the Kafka broker non-default, override the `createKafkaConfig` as shown above.
 
