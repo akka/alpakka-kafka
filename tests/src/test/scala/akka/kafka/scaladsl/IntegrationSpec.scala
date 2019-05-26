@@ -370,7 +370,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       // Wait a tiny bit to avoid a race on "not yet initialized: only setHandler is allowed in GraphStageLogic constructor"
       sleep(1.milli)
       val metrics: Future[Map[MetricName, Metric]] = control.metrics
-      metrics.futureValue should not be 'empty
+      metrics.futureValue should not be Symbol("empty")
 
       Await.result(control.shutdown(), remainingOrDefault)
     }

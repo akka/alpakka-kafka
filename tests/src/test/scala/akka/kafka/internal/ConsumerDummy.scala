@@ -25,7 +25,7 @@ object ConsumerDummy {
   object Resumed extends TpState
 }
 
-trait ConsumerDummy[K, V] extends Consumer[K, V] {
+abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   def name: String
   lazy val log: Logger = LoggerFactory.getLogger(name)
 

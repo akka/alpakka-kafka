@@ -21,7 +21,7 @@ abstract class DocsSpecBase(kafkaPort: Int)
     with ScalaFutures
     with Eventually {
 
-  this: Suite ⇒
+  this: Suite =>
 
   protected def this() = this(kafkaPort = -1)
 

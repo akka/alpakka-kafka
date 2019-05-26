@@ -2,10 +2,11 @@ enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
 
-val akkaVersion = "2.5.21"
+val Scala213 = "2.13.0-RC2"
+val akkaVersion = "2.5.23"
 val kafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
-val scalatestVersion = "3.0.5"
+val scalatestVersion = "3.0.8-RC4"
 val testcontainersVersion = "1.11.2"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.1"
@@ -32,7 +33,7 @@ val commonSettings = Seq(
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq("2.12.8", "2.11.12"),
+  crossScalaVersions := Seq(Scala213, "2.12.8", "2.11.12"),
   scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -45,11 +46,13 @@ val commonSettings = Seq(
       "-feature",
       "-unchecked",
       "-Xlint",
-      "-Yno-adapted-args",
       "-Ywarn-dead-code",
-      "-Ywarn-numeric-widen",
-      "-Xfuture"
-    ),
+      "-Ywarn-numeric-widen"
+    )   ++ {
+    if (scalaBinaryVersion.value == Scala213) Seq.empty
+    else Seq("-Yno-adapted-args", "-Xfuture")
+  },
+
   scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
       "-doc-title",
       "Alpakka Kafka",
@@ -154,14 +157,24 @@ lazy val testkit = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
-        "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j"),
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
-        "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
-      ),
+      ) ++ { if (scalaBinaryVersion.value == Scala213) Seq.empty
+      else Seq(
+        "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
+        "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
+      )},
+    Compile / unmanagedSources / excludeFilter := {
+      if (scalaBinaryVersion.value == Scala213) {
+        HiddenFileFilter ||
+          "EmbeddedKafkaLike.scala" ||
+          "EmbeddedKafkaTest.java" ||
+          "EmbeddedKafkaJunit4Test.java"
+      } else (Test / unmanagedSources / excludeFilter).value
+    },
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -182,7 +195,6 @@ lazy val tests = project
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
@@ -199,11 +211,14 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "2.24.5" % Test
-      ) ++
+      ) ++ { if (scalaBinaryVersion.value == Scala213) Seq.empty
+        else Seq(
+        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+        )} ++
       Seq( // integration test dependencies
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-        "com.spotify" % "docker-client" % "8.16.0" % IntegrationTest,
+        "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
@@ -214,6 +229,21 @@ lazy val tests = project
     Test / fork := true,
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
+    Test / unmanagedSources / excludeFilter := {
+      if (scalaBinaryVersion.value == Scala213) {
+        HiddenFileFilter ||
+          "RetentionPeriodSpec.scala" ||
+          "IntegrationSpec.scala" ||
+          "MultiConsumerSpec.scala" ||
+          "ReconnectSpec.scala" ||
+          "EmbeddedKafkaSampleSpec.scala" ||
+          "TransactionsSpec.scala" ||
+          "SerializationSpec.scala" ||
+          "PartitionExamples.scala" ||
+          "TransactionsExample.scala" ||
+          GlobFilter("*.java")
+      } else (Test / unmanagedSources / excludeFilter).value
+    },
     kafkaScale := 3,
     buildInfoPackage := "akka.kafka",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),

@@ -452,8 +452,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     val resumeOnCommitFailed: Supervision.Decider = {
-      case _: CommitFailedException ⇒ Supervision.Resume
-      case _ ⇒ Supervision.Stop
+      case _: CommitFailedException => Supervision.Resume
+      case _ => Supervision.Stop
     }
 
     val (control, probe) = createCommittableSource(mock.mock)

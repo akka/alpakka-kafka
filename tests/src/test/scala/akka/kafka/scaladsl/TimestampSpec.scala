@@ -34,7 +34,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }
-        val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)): _*)
+        val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)).toSeq: _*)
 
         val probe = Consumer
           .plainSource(consumerSettings, topicsAndTs)
@@ -61,7 +61,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }
-        val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)): _*)
+        val topicsAndTs = Subscriptions.assignmentOffsetsForTimes(partitions.map(_ -> (now + 50)).toSeq: _*)
 
         val probe = Consumer
           .plainSource(consumerSettings, topicsAndTs)

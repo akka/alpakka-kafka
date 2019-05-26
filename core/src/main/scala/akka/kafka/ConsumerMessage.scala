@@ -172,7 +172,7 @@ object ConsumerMessage {
    */
   def createCommittableOffsetBatch(offsets: java.util.List[CommittableOffset]): CommittableOffsetBatch = {
     import scala.collection.JavaConverters._
-    CommittableOffsetBatch(offsets.asScala)
+    CommittableOffsetBatch(offsets.asScala.toList)
   }
 
   /**

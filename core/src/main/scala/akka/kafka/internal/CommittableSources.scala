@@ -103,13 +103,12 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
     implicit ec: ExecutionContext
 ) extends InternalCommitter {
   import akka.pattern.ask
-  import scala.collection.breakOut
 
   override def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
     val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = offsets.map { offset =>
       new TopicPartition(offset.key.topic, offset.key.partition) ->
       new OffsetAndMetadata(offset.offset + 1, offset.metadata)
-    }(breakOut)
+    }.toMap
 
     consumerActor
       .ask(Commit(offsetsMap))(Timeout(commitTimeout))
@@ -131,7 +130,7 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
           )
           val offsets: immutable.Seq[PartitionOffsetMetadata] = offsetsMap.map {
             case (ctp, offset) => PartitionOffsetMetadata(ctp, offset.offset(), offset.metadata())
-          }(breakOut)
+          }.toList
           committer.commit(offsets)
       }
       Future.sequence(futures).map(_ => Done)
