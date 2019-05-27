@@ -203,7 +203,7 @@ lazy val tests = project
     Seq( // integration test dependencies
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
       "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-      "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
+      "com.spotify" % "docker-client" % "8.16.0" % IntegrationTest,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
       "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
       "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
