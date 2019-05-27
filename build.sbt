@@ -96,6 +96,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
+      crossScalaVersions := Nil,
       dockerComposeIgnore := true,
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
