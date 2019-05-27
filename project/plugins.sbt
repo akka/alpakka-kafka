@@ -24,3 +24,5 @@ resolvers += Resolver.bintrayIvyRepo("2m", "sbt-plugins")
 
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.2")
 resolvers += Resolver.jcenterRepo
+
+libraryDependencies += "com.spotify" % "docker-client" % "8.16.0"
