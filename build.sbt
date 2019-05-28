@@ -36,34 +36,34 @@ val commonSettings = Seq(
   scalaVersion := crossScalaVersions.value.head,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
-    "-Xlint:deprecation"
-  ),
+      "-Xlint:deprecation"
+    ),
   scalacOptions ++= Seq(
-    "-deprecation",
-    "-encoding",
-    "UTF-8", // yes, this is 2 args
-    "-feature",
-    "-unchecked",
-    "-Xlint",
-    "-Yno-adapted-args",
-    "-Ywarn-dead-code",
-    "-Ywarn-numeric-widen",
-    "-Xfuture"
-  ),
+      "-deprecation",
+      "-encoding",
+      "UTF-8", // yes, this is 2 args
+      "-feature",
+      "-unchecked",
+      "-Xlint",
+      "-Yno-adapted-args",
+      "-Ywarn-dead-code",
+      "-Ywarn-numeric-widen",
+      "-Xfuture"
+    ),
   scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
-    "-doc-title",
-    "Alpakka Kafka",
-    "-doc-version",
-    version.value,
-    "-sourcepath",
-    (baseDirectory in ThisBuild).value.toString,
-    "-doc-source-url", {
-      val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-      s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
-    },
-    "-skip-packages",
-    "akka.pattern" // for some reason Scaladoc creates this
-  ),
+      "-doc-title",
+      "Alpakka Kafka",
+      "-doc-version",
+      version.value,
+      "-sourcepath",
+      (baseDirectory in ThisBuild).value.toString,
+      "-doc-source-url", {
+        val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+        s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
+      },
+      "-skip-packages",
+      "akka.pattern" // for some reason Scaladoc creates this
+    ),
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
   // https://github.com/maichler/sbt-jupiter-interface#framework-options
@@ -74,16 +74,16 @@ val commonSettings = Seq(
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
   scalafmtOnCompile := true,
   headerLicense := Some(
-    HeaderLicense.Custom(
-      """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
+      HeaderLicense.Custom(
+        """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
          |Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
          |""".stripMargin
-    )
-  ),
+      )
+    ),
   bintrayOrganization := Some("akka"),
   bintrayPackage := "alpakka-kafka",
   bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven"),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
 )
 
 lazy val `alpakka-kafka` =
@@ -135,13 +135,13 @@ lazy val core = project
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-    ),
+        "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+        "org.apache.kafka" % "kafka-clients" % kafkaVersion
+      ),
     mimaPreviousArtifacts := Set(
-      organization.value %% name.value % previousStableVersion.value
-        .getOrElse(throw new Error("Unable to determine previous version"))
-    )
+        organization.value %% name.value % previousStableVersion.value
+          .getOrElse(throw new Error("Unable to determine previous version"))
+      )
   )
 
 lazy val testkit = project
@@ -153,19 +153,19 @@ lazy val testkit = project
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
-      "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j"),
-      "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
-      "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-      "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-      "junit" % "junit" % "4.12" % Provided,
-      "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
-      "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
-    ),
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
+        "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j"),
+        "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
+        "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+        "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
+        "junit" % "junit" % "4.12" % Provided,
+        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
+        "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12")
+      ),
     mimaPreviousArtifacts := Set(
-      organization.value %% name.value % previousStableVersion.value
-        .getOrElse(throw new Error("Unable to determine previous version"))
-    )
+        organization.value %% name.value % previousStableVersion.value
+          .getOrElse(throw new Error("Unable to determine previous version"))
+      )
   )
 
 lazy val tests = project
@@ -179,35 +179,35 @@ lazy val tests = project
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
-      "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
-      // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
-      "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-      "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
-      "org.testcontainers" % "kafka" % testcontainersVersion % Test,
-      "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
-      "org.scalatest" %% "scalatest" % scalatestVersion % Test,
-      "io.spray" %% "spray-json" % "1.3.5" % Test,
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.8" % Test, // ApacheV2
-      "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
-      // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
-      "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
-      "org.hamcrest" % "hamcrest" % "2.1" % Test,
-      "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
-      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-      "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
-      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
-      // Schema registry uses Glassfish which uses java.util.logging
-      "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-      "org.mockito" % "mockito-core" % "2.24.5" % Test
-    ) ++
-    Seq( // integration test dependencies
-      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-      "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-      "com.spotify" % "docker-client" % "8.16.0" % IntegrationTest,
-      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-      "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
-      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
-    ),
+        "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
+        // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
+        "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
+        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
+        "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
+        "org.scalatest" %% "scalatest" % scalatestVersion % Test,
+        "io.spray" %% "spray-json" % "1.3.5" % Test,
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.8" % Test, // ApacheV2
+        "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
+        // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
+        "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
+        "org.hamcrest" % "hamcrest" % "2.1" % Test,
+        "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+        "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
+        "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
+        // Schema registry uses Glassfish which uses java.util.logging
+        "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
+        "org.mockito" % "mockito-core" % "2.24.5" % Test
+      ) ++
+      Seq( // integration test dependencies
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
+        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
+        "com.spotify" % "docker-client" % "8.16.0" % IntegrationTest,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
+        "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
+        "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
+      ),
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -245,31 +245,31 @@ lazy val docs = project
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
-      ("\\.java\\.scala".r, _ => ".java")
-    ),
+        ("\\.java\\.scala".r, _ => ".java")
+      ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
-      "akka.version" -> akkaVersion,
-      "kafka.version" -> kafkaVersion,
-      "confluent.version" -> confluentAvroSerializerVersion,
-      "scalatest.version" -> scalatestVersion,
-      "testcontainers.version" -> testcontainersVersion,
-      "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
-      "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
-      "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
-      "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
-      "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
-      "scaladoc.akka.kafka.base_url" -> {
-        val docsHost = sys.env
-          .get("CI")
-          .map(_ => "https://doc.akka.io")
-          .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
-        s"$docsHost/api/alpakka-kafka/${projectInfoVersion.value}/"
-      },
-      "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
-      "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
-    ),
+        "akka.version" -> akkaVersion,
+        "kafka.version" -> kafkaVersion,
+        "confluent.version" -> confluentAvroSerializerVersion,
+        "scalatest.version" -> scalatestVersion,
+        "testcontainers.version" -> testcontainersVersion,
+        "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
+        "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
+        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
+        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
+        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
+        "scaladoc.akka.kafka.base_url" -> {
+          val docsHost = sys.env
+            .get("CI")
+            .map(_ => "https://doc.akka.io")
+            .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
+          s"$docsHost/api/alpakka-kafka/${projectInfoVersion.value}/"
+        },
+        "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+        "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
+      ),
     resolvers += Resolver.jcenterRepo,
     publishRsyncArtifact := makeSite.value -> "www/",
     publishRsyncHost := "akkarepo@gustav.akka.io"
@@ -290,14 +290,14 @@ lazy val benchmarks = project
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-      "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
-      "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-      "org.scalatest" %% "scalatest" % scalatestVersion % "it"
-    ),
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+        "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
+        "ch.qos.logback" % "logback-classic" % "1.2.3",
+        "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
+        "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+      ),
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
     buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
