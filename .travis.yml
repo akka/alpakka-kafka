@@ -25,7 +25,7 @@ script:
 jobs:
   include:
     - stage: check
-      script: sbt scalafmtCheckAll || { echo "[error] Unformatted code found. Please run 'Test/compile' and commit the reformatted code."; false; }
+      script: sbt scalafmtCheckAll || { echo "[error] Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code."; false; }
       name: "Code style check (fixed with `sbt Test/compile`)"
     - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
       name: "Build code style check (fixed with `sbt scalafmtSbt`)"
