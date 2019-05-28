@@ -1,4 +1,3 @@
-import sbt.Resolver
 enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
@@ -204,7 +203,7 @@ lazy val tests = project
     Seq( // integration test dependencies
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
       "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-      "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
+      "com.spotify" % "docker-client" % "8.16.0" % IntegrationTest,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
       "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
       "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
@@ -242,15 +241,15 @@ lazy val docs = project
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
+    previewPath := (Paradox / siteSubdirName).value,
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
       ("\\.java\\.scala".r, _ => ".java")
     ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
-    Paradox / sourceDirectory := sourceDirectory.value / "main",
-    Paradox / paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
-    Paradox / paradoxProperties ++= Map(
+    paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
+    paradoxProperties ++= Map(
       "akka.version" -> akkaVersion,
       "kafka.version" -> kafkaVersion,
       "confluent.version" -> confluentAvroSerializerVersion,

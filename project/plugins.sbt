@@ -12,10 +12,7 @@ addSbtPlugin("com.lightbend" % "sbt-whitesource" % "0.1.14")
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.0")
 addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.4")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
-// has following PRs merged in:
-// * https://github.com/sbt/sbt-site/pull/141
-// * https://github.com/sbt/sbt-site/pull/139
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.2+24-b76fdbbe")
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.0")
 addSbtPlugin("com.eed3si9n" % "sbt-unidoc" % "0.4.2")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 // latest version with https://github.com/ehsanyou/sbt-docker-compose/pull/10
@@ -27,3 +24,5 @@ resolvers += Resolver.bintrayIvyRepo("2m", "sbt-plugins")
 
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.2")
 resolvers += Resolver.jcenterRepo
+
+libraryDependencies += "com.spotify" % "docker-client" % "8.16.0"
