@@ -187,13 +187,13 @@ import scala.util.control.NonFatal
 
       def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
         requestedOffsets = requestedOffsets ++ assignedOffsets.map {
-          case (partition, offset) =>
-            partition -> requestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-        }
+            case (partition, offset) =>
+              partition -> requestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+          }
         committedOffsets = committedOffsets ++ assignedOffsets.map {
-          case (partition, offset) =>
-            partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-        }
+            case (partition, offset) =>
+              partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+          }
         updateRefreshDeadlines(assignedTps)
       }
 

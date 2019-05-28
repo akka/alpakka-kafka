@@ -82,7 +82,7 @@ class TestkitSamplesSpec
           ProducerMessage.Message(
             new ProducerRecord[String, String](targetTopic, msg.record.value),
             msg.committableOffset
-        )
+          )
       )
       .via(mockedKafkaProducerFlow)
       .map(_.passThrough)
