@@ -9,8 +9,9 @@ import akka.Done
 import akka.kafka.Subscriptions
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -57,7 +58,6 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
           .mapConcat { msg =>
             topics.map(topic => new ProducerRecord(topic, 0, DefaultKey, msg.toString))
           }
-          .concat(Source.single(new ProducerRecord(topics.last, 0, DefaultKey, (totalMessages + 1).toString)))
           .runWith(Producer.plainSink(producerDefaults))
 
       producerCompletion.futureValue shouldBe Done
@@ -69,7 +69,15 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
       // #topic-pattern
 
       val messages =
-        consumer.takeWhile(_.value().toInt <= totalMessages).runWith(Sink.seq)
+        consumer
+          .alsoTo(
+            // cancel once we've seen the last message on all topics
+            Flow[ConsumerRecord[String, String]]
+              .filter(_.value.toInt == totalMessages)
+              .take(topics.length)
+              .to(Sink.ignore)
+          )
+          .runWith(Sink.seq)
       messages.futureValue.size shouldBe totalMessages * topics.size
     }
 
