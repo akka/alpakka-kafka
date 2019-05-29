@@ -46,7 +46,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
                 new ProducerRecord(topic3, msg.record.key, msg.record.value)
               ),
               msg.committableOffset
-          )
+            )
         )
         .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
