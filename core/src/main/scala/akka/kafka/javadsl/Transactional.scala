@@ -86,9 +86,9 @@ object Transactional {
       .asJava
 
   /**
-   * Publish records to Kafka topics and then continue the flow.  The flow can only used with a [[Transactional.source]] that
+   * Publish records to Kafka topics and then continue the flow.  The flow can only be used with a [[Transactional.source]] that
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
-   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
+   * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
   def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
       settings: ProducerSettings[K, V],
@@ -99,9 +99,9 @@ object Transactional {
   /**
    * API MAY CHANGE
    *
-   * Publish records to Kafka topics and then continue the flow.  The flow should only used with a [[Transactional.sourceWithContext]] that
+   * Publish records to Kafka topics and then continue the flow.  The flow can only be used with a [[Transactional.sourceWithContext]] that
    * carries [[ConsumerMessage.PartitionOffset]] as context.  The flow requires a unique `transactional.id` across all app
-   * instances. The flow will override producer properties to enable Kafka exactly once transactional support.
+   * instances. The flow will override producer properties to enable Kafka exactly-once transactional support.
    *
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
    * and [[Transactional.sourceWithContext]].
