@@ -48,10 +48,10 @@ val commonSettings = Seq(
       "-Xlint",
       "-Ywarn-dead-code",
       "-Ywarn-numeric-widen"
-    )   ++ {
-    if (scalaBinaryVersion.value == Scala213) Seq.empty
-    else Seq("-Yno-adapted-args", "-Xfuture")
-  },
+    ) ++ {
+      if (scalaBinaryVersion.value == Scala213) Seq.empty
+      else Seq("-Yno-adapted-args", "-Xfuture")
+    },
   scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
       "-doc-title",
       "Alpakka Kafka",
@@ -161,7 +161,7 @@ lazy val testkit = project
         "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
-        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
+        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
       ) ++ {
         if (scalaBinaryVersion.value == Scala213) Seq()
         else
@@ -218,7 +218,7 @@ lazy val tests = project
         if (scalaBinaryVersion.value == Scala213) Seq()
         else
           Seq(
-            "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"),
+            "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
           )
       } ++
       Seq( // integration test dependencies
