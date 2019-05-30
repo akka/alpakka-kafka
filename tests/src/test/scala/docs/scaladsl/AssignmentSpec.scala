@@ -48,7 +48,7 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
     }
 
     "consume from the specified topic pattern" in assertAllStagesStopped {
-      val suffix = 0
+      val suffix = (System.currentTimeMillis() % 10000).toInt
 
       val topics = immutable.Seq(createTopic(suffix), createTopic(suffix))
       val group = createGroupId()
@@ -78,7 +78,11 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
               .to(Sink.ignore)
           )
           .runWith(Sink.seq)
-      messages.futureValue.size shouldBe totalMessages * topics.size
+      val received = messages.futureValue
+      if (received.size != totalMessages * topics.size) {
+        received.foreach(r => println(s"topic=${r.topic()} value=${r.value()}"))
+      }
+      received.size shouldBe totalMessages * topics.size
     }
 
     "consume from the specified partition" in assertAllStagesStopped {
