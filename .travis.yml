@@ -31,7 +31,7 @@ jobs:
       name: "Build code style check (fixed with `sbt scalafmtSbt`)"
     - env: CMD="++2.11.12 Test/compile"
       name: "Compile all tests (with Scala 2.11)"
-    - env: CMD="++2.13.0-RC2 Test/compile"
+    - env: CMD="++2.13.0-RC3 Test/compile"
       name: "Compile all tests (with Scala 2.13)"
     - env: CMD="unidoc"
       name: "Create all API docs"

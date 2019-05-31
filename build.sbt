@@ -2,11 +2,11 @@ enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
 
-val Scala213 = "2.13.0-RC2"
+val Scala213 = "2.13.0-RC3"
 val akkaVersion = "2.5.23"
 val kafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
-val scalatestVersion = "3.0.8-RC4"
+val scalatestVersion = "3.0.8-RC5"
 val testcontainersVersion = "1.11.2"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.1"
