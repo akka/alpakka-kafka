@@ -42,6 +42,8 @@ To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.
 
 As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run [Kafka in a Docker container](#testing-with-kafka-in-docker).
 
+The helpers for running Embedded Kafka are available for **Scala 2.11 and 2.12**.
+
 @@@
 
 The testkit contains helper classes used by the tests in the Alpakka Kafka connector and may be used for other testing, as well.
