@@ -3,7 +3,7 @@
 To simplify testing of streaming integrations with Alpakka Kafka, it provides the **Alpakka Kafka testkit**. It provides help for
 
 * @ref:[mocking the Alpakka Kafka Consumers and Producers](#mocking-the-consumer-or-producer)
-* @ref:[using an embedded Kafka](#testing-with-an-embedded-kafka-server)
+* @ref:[using an embedded Kafka broker](#testing-with-an-embedded-kafka-server)
 * @ref:[starting and stopping Kafka in Docker](#testing-with-kafka-in-docker)
 
 @@project-info{ projectId="testkit" }
@@ -16,7 +16,7 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between patch releases.
 
-The table below shows Alpakka Kafka testkits's direct dependencies and the second tab shows all libraries it depends on transitively. We've overriden the `commons-compress` library to use a version with [fewer known security vulnerabilities](https://commons.apache.org/proper/commons-compress/security-reports.html).
+The table below shows Alpakka Kafka testkit's direct dependencies and the second tab shows all libraries it depends on transitively. We've overriden the `commons-compress` library to use a version with [fewer known security vulnerabilities](https://commons.apache.org/proper/commons-compress/security-reports.html).
 
 @@dependencies { projectId="testkit" }
 
@@ -37,6 +37,12 @@ Java
 ## Testing with an embedded Kafka server
 
 To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.com/embeddedkafka/embedded-kafka) is an important tool as it helps to easily start and stop Kafka brokers from test cases.
+
+@@@ note
+
+As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run [Kafka in a Docker container](#testing-with-kafka-in-docker).
+
+@@@
 
 The testkit contains helper classes used by the tests in the Alpakka Kafka connector and may be used for other testing, as well.
 
@@ -114,7 +120,24 @@ The Testcontainers support is new to Alpakka Kafka since 1.0.2 and may evolve a 
 
 ### Testing from Java code
 
-Testcontainers is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
+The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
+
+The Testcontainers dependency must be added to your project explicitly.
+
+@@dependency [Maven,sbt,Gradle] {
+  group=org.testcontainers
+  artifact=kafka
+  version=$testcontainers.version$
+  scope=test
+}
+
+The example below shows skeleton test classes for JUnit 4 and JUnit 5. The Kafka broker will start before the first test and be stopped after all test classes are finished.
+
+Java JUnit 4
+: @@snip [snip](/tests/src/test/java/docs/javadsl/AssignmentWithTestcontainersTest.java) { #testkit }
+
+Java JUnit 5
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #testkit }
 
 
 ### Testing from Scala code

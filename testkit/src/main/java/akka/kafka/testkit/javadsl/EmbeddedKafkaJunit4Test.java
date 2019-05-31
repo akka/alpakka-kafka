@@ -15,10 +15,8 @@ import org.junit.Before;
 import scala.collection.immutable.HashMap$;
 
 /**
- * JUnit 5 aka Jupiter base-class with some convenience for creating an embedded Kafka broker before
- * running the tests. Extending classes must be annotated with `@TestInstance(Lifecycle.PER_CLASS)`
- * to create a single instance of the test class with `@BeforeAll` and `@AfterAll` annotated methods
- * called by the test framework.
+ * JUnit 4 base-class with some convenience for creating an embedded Kafka broker before running the
+ * tests.
  */
 public abstract class EmbeddedKafkaJunit4Test extends KafkaJunit4Test {
 

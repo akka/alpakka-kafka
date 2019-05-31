@@ -247,7 +247,11 @@ lazy val tests = project
         "SerializationSpec.scala" ||
         "PartitionExamples.scala" ||
         "TransactionsExample.scala" ||
-        GlobFilter("*.java")
+        "EmbeddedKafkaWithSchemaRegistryTest.java" ||
+        "AssignmentTest.java" ||
+        "ProducerExampleTest.java" ||
+        "SerializationTest.java" ||
+        "TransactionsExampleTest.java"
       } else (Test / unmanagedSources / excludeFilter).value
     },
     kafkaScale := 3,

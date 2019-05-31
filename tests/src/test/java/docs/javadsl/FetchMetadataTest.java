@@ -9,8 +9,8 @@ package docs.javadsl;
 import akka.actor.ActorRef;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaConsumerActor;
-import akka.kafka.KafkaPorts;
 import akka.kafka.Metadata;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.pattern.Patterns;
 import java.time.Duration;
 import java.util.List;
@@ -22,7 +22,6 @@ import org.apache.kafka.common.PartitionInfo;
 // #metadata
 import akka.actor.ActorSystem;
 import java.util.concurrent.TimeUnit;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
@@ -31,13 +30,13 @@ import org.junit.Test;
 
 import static junit.framework.TestCase.assertTrue;
 
-public class FetchMetadataTest extends EmbeddedKafkaJunit4Test {
+public class FetchMetadataTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
 
   public FetchMetadataTest() {
-    super(sys, mat, KafkaPorts.FetchMetadataTest());
+    super(sys, mat);
   }
 
   @AfterClass

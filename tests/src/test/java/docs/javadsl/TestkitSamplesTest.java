@@ -18,13 +18,10 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Keep;
-import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import akka.stream.testkit.javadsl.StreamTestKit;
 import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Test;
 
