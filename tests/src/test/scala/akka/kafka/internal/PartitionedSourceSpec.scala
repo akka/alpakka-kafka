@@ -67,7 +67,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.started.futureValue should be(Done)
 
-    dummy.tpsPaused should be('empty)
+    dummy.tpsPaused should be(Symbol("empty"))
     dummy.assignWithCallback(tp0, tp1)
     dummy.setNextPollData(tp0 -> singleRecord)
     sink.requestNext().record.value() should be("value")
@@ -76,14 +76,14 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     eventually {
       dummy.tpsResumed should contain allOf (tp0, tp1)
-      dummy.tpsPaused should be('empty)
+      dummy.tpsPaused should be(Symbol("empty"))
     }
 
     dummy.assignWithCallback(tp0)
 
     eventually {
       dummy.tpsResumed should contain only tp0
-      dummy.tpsPaused should be('empty)
+      dummy.tpsPaused should be(Symbol("empty"))
     }
 
     sink.cancel()
@@ -98,7 +98,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.started.futureValue should be(Done)
 
-    dummy.tpsPaused should be('empty)
+    dummy.tpsPaused should be(Symbol("empty"))
     dummy.assignWithCallback(tp0, tp1)
 
     // Two (TopicPartition, Source) tuples should be issued
@@ -124,7 +124,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     dummy.started.futureValue should be(Done)
 
-    dummy.tpsPaused should be('empty)
+    dummy.tpsPaused should be(Symbol("empty"))
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued
@@ -455,7 +455,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     probeTp0.request(1L)
     probeTp1.request(1L)
     eventually {
-      dummy.tpsPaused should be('empty)
+      dummy.tpsPaused should be(Symbol("empty"))
     }
     // make records available and get expect them
     dummy.setNextPollData(tp0 -> singleRecord, tp1 -> singleRecord)
@@ -490,7 +490,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     probeTp0.request(1L)
     probeTp1.request(1L)
     eventually {
-      dummy.tpsPaused should be('empty)
+      dummy.tpsPaused should be(Symbol("empty"))
     }
 
     dummy.setNextPollData(tp0 -> singleRecord, tp1 -> singleRecord)
@@ -587,7 +587,7 @@ object PartitionedSourceSpec {
       log.debug(s"seek($partition, $offset)")
       seeks = seeks.updated(partition, offset)
     }
-    override def seek(partition: TopicPartition, offsetAndMeta: OffsetAndMetadata): Unit =
+    def seek(partition: TopicPartition, offsetAndMeta: OffsetAndMetadata): Unit =
       seek(partition, offsetAndMeta.offset)
     override def paused(): java.util.Set[TopicPartition] = tpsPaused.asJava
     override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {

@@ -126,7 +126,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     val committers: Map[String, InternalCommitter],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
-  def offsets = offsetsAndMetadata.mapValues(_.offset())
+  def offsets = offsetsAndMetadata.mapValues(_.offset()).toMap
 
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)

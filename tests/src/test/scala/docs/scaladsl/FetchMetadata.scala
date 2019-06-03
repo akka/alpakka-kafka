@@ -48,8 +48,8 @@ class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryVa
       }
     })
     // #metadata
-    topicsFuture.futureValue.response should be a 'success
-    topicsFuture.futureValue.response.get(topic) should not be 'empty
+    topicsFuture.futureValue.response should be a Symbol("success")
+    topicsFuture.futureValue.response.get(topic) should not be Symbol("empty")
   }
 
   "Get offsets" should "timeout fast" in {
@@ -67,7 +67,7 @@ class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryVa
         .mapTo[Metadata.EndOffsets]
 
     val response = topicsFuture.futureValue.response
-    response should be a 'failure
+    response should be a Symbol("failure")
     response.failed.get shouldBe a[org.apache.kafka.common.errors.TimeoutException]
   }
 
@@ -86,7 +86,7 @@ class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryVa
       (consumer ? Metadata.GetEndOffsets(Set(tp))).mapTo[Metadata.EndOffsets]
 
     val response = topicsFuture.futureValue.response
-    response should be a 'success
+    response should be a Symbol("success")
     response.get(tp) should be(0L)
   }
 }

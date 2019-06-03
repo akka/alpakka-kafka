@@ -284,7 +284,7 @@ import scala.util.control.NonFatal
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
       val topicPartitionToOffsetAndTimestamp =
-        consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).asJava, offsetForTimesTimeout)
+        consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
       val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()
@@ -465,7 +465,7 @@ import scala.util.control.NonFatal
         }
       } else {
         // resume partitions to fetch
-        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics)(collection.breakOut)
+        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics).toSet
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)

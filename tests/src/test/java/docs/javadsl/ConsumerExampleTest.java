@@ -16,7 +16,7 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -47,14 +47,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.Assert.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class ConsumerExampleTest extends EmbeddedKafkaTest {
+class ConsumerExampleTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private static final Executor executor = Executors.newSingleThreadExecutor();
 
   ConsumerExampleTest() {
-    super(system, materializer, KafkaPorts.ConsumerExamplesTest());
+    super(system, materializer);
   }
 
   @AfterAll

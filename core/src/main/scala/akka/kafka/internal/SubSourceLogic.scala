@@ -10,7 +10,7 @@ import akka.actor.Status
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
-import akka.kafka._
+import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source

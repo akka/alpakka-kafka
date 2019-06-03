@@ -82,7 +82,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
-      inFlightRecords.committed(offsets.mapValues(_.offset() - 1))
+      inFlightRecords.committed(offsets.mapValues(_.offset() - 1).toMap)
       sender ! Done
     case (sender, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")

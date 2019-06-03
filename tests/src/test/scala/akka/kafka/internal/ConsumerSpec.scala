@@ -144,11 +144,11 @@ class ConsumerSpec(_system: ActorSystem)
   }
 
   it should "emit messages received as medium chunks" in assertAllStagesStopped {
-    checkMessagesReceiving(messages.grouped(97).to[Seq])
+    checkMessagesReceiving(messages.grouped(97).toList)
   }
 
   it should "emit messages received as one message per chunk" in assertAllStagesStopped {
-    checkMessagesReceiving((1 to 100).map(createMessage).grouped(1).to[Seq])
+    checkMessagesReceiving((1 to 100).map(createMessage).grouped(1).toList)
   }
 
   it should "emit messages received with empty some messages" in assertAllStagesStopped {
@@ -157,7 +157,7 @@ class ConsumerSpec(_system: ActorSystem)
         .grouped(97)
         .map(x => Seq(Seq.empty, x))
         .flatten
-        .to[Seq]
+        .toList
     )
   }
 

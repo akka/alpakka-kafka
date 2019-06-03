@@ -40,7 +40,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[String, java.util.List[PartitionInfo]]] =
       response
         .map { m =>
-          Optional.of(m.mapValues(_.asJava).asJava)
+          Optional.of(m.mapValues(_.asJava).toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }
@@ -90,7 +90,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[TopicPartition, java.lang.Long]] =
       response
         .map { m =>
-          Optional.of(m.mapValues(Long.box).asJava)
+          Optional.of(m.mapValues(Long.box).toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }
@@ -120,7 +120,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[TopicPartition, java.lang.Long]] =
       response
         .map { m =>
-          Optional.of(m.mapValues(Long.box).asJava)
+          Optional.of(m.mapValues(Long.box).toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }

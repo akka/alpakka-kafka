@@ -56,8 +56,8 @@ class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpe
       allReceived should contain theSameElementsAs (expectedData)
 
       // Consumers are not fair, most of the time one receives all
-      // seq1 should not be 'empty
-      // seq2 should not be 'empty
+      // seq1 should not be Symbol("empty")
+      // seq2 should not be Symbol("empty")
 
       Await.result(Future.sequence(Seq(control1.shutdown(), control2.shutdown())), remainingOrDefault)
     }

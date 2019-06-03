@@ -20,7 +20,6 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.admin._
 import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 import org.apache.kafka.common.ConsumerGroupState
@@ -31,26 +30,6 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
-
-trait EmbeddedKafkaLike extends KafkaSpec {
-
-  lazy implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig
-
-  def createKafkaConfig: EmbeddedKafkaConfig = EmbeddedKafkaConfig(kafkaPort, zooKeeperPort)
-
-  override def bootstrapServers =
-    s"localhost:${embeddedKafkaConfig.kafkaPort}"
-
-  override def setUp(): Unit = {
-    EmbeddedKafka.start()(embeddedKafkaConfig)
-    super.setUp()
-  }
-
-  override def cleanUp(): Unit = {
-    EmbeddedKafka.stop()
-    super.cleanUp()
-  }
-}
 
 abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
     extends TestKit(actorSystem)

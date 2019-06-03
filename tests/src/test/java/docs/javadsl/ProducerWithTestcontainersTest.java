@@ -11,7 +11,7 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 // #testkit
-import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 // #testkit
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
@@ -41,9 +41,9 @@ import static org.junit.Assert.assertFalse;
 // #testkit
 
 @TestInstance(Lifecycle.PER_CLASS)
-class ProducerExampleTest extends EmbeddedKafkaTest {
+class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
 
-  private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
+  private static final ActorSystem system = ActorSystem.create();
   private static final Materializer materializer = ActorMaterializer.create(system);
   // #testkit
 
@@ -52,8 +52,8 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
 
   // #testkit
 
-  ProducerExampleTest() {
-    super(system, materializer, KafkaPorts.ProducerExamplesTest());
+  ProducerWithTestcontainersTest() {
+    super(system, materializer);
   }
 
   @AfterAll
