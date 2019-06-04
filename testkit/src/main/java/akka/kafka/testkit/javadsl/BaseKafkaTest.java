@@ -25,6 +25,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.ConsumerGroupState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.compat.java8.functionConverterImpls.FromJavaPredicate;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -34,11 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
-import static scala.compat.java8.FunctionConverters.package$.MODULE$;
-
 public abstract class BaseKafkaTest extends KafkaTestKitClass {
-
-  private static scala.compat.java8.FunctionConverters.package$ functionConverters = MODULE$;
 
   public static final int partition0 = 0;
 
@@ -88,7 +85,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         settings().clusterTimeout(),
         settings().checkInterval(),
         adminClient(),
-        functionConverters.asScalaFromPredicate(predicate),
+        new FromJavaPredicate(predicate),
         log());
   }
 
@@ -104,7 +101,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         settings().consumerGroupTimeout(),
         settings().checkInterval(),
         adminClient(),
-        functionConverters.asScalaFromPredicate(predicate),
+        new FromJavaPredicate(predicate),
         log());
   }
 
