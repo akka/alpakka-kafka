@@ -10,15 +10,25 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 ## Matching Kafka Versions
 
-|Kafka  | Akka version | Alpakka Kafka Connector
-|-------|--------------|-------------------------
-|[2.1.1](https://dist.apache.org/repos/dist/release/kafka/2.1.1/RELEASE_NOTES.html) | 2.5.x        | @ref:[release 1.0.1](release-notes/1.0.x.md#1-0-1)
-|[2.1.0](https://dist.apache.org/repos/dist/release/kafka/2.1.0/RELEASE_NOTES.html) | 2.5.x        | @ref:[release 1.0](release-notes/1.0.x.md#1-0)
-|2.0.x  | 2.5.x        | @ref:[release 1.0-M1](release-notes/1.0-M1.md)
-|1.1.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
-|1.0.x  | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
-|0.11.x | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
+|Kafka client | Scala Versions | Akka version | Alpakka Kafka Connector
+|-------------|----------------|--------------|-------------------------
+|[2.1.1](https://dist.apache.org/repos/dist/release/kafka/2.1.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.x        | @ref:[release 1.0.4](release-notes/1.0.x.md#1-0-4)
+|[2.1.1](https://dist.apache.org/repos/dist/release/kafka/2.1.1/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x        | @ref:[release 1.0.1](release-notes/1.0.x.md#1-0-1)
+|[2.1.0](https://dist.apache.org/repos/dist/release/kafka/2.1.0/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x        | @ref:[release 1.0](release-notes/1.0.x.md#1-0)
+|2.0.x        | 2.12, 2.11 | 2.5.x        | @ref:[release 1.0-M1](release-notes/1.0-M1.md)
+|1.1.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
+|1.0.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
+|0.11.x       | 2.12, 2.11 | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
 
+@@@ note
+
+As Kakfka's client protocol negotiates the version to use with the Kafka broker, you may use a Kafka client version that is different than the Kafka broker's version.
+
+These client can communicate with brokers that are version 0.10.0 or newer. Older or newer brokers may not support certain features. For example, 0.10.0 brokers do not support offsetsForTimes, because this feature was added in version 0.10.1. You will receive an UnsupportedVersionException when invoking an API that is not available on the running broker version.
+
+-- [Javadoc for `KafkaConsumer`](https://kafka.apache.org/21/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) 
+
+@@@
 
 ## Dependencies
 
