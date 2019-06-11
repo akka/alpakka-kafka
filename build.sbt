@@ -2,11 +2,11 @@ enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
 
-val Scala213 = "2.13.0-RC3"
+val Scala213 = "2.13.0"
 val akkaVersion = "2.5.23"
 val kafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
-val scalatestVersion = "3.0.8-RC5"
+val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.11.2"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.1"
@@ -49,7 +49,7 @@ val commonSettings = Seq(
       "-Ywarn-dead-code",
       "-Ywarn-numeric-widen"
     ) ++ {
-      if (scalaBinaryVersion.value == Scala213) Seq.empty
+      if (scalaBinaryVersion.value == "2.13") Seq.empty
       else Seq("-Yno-adapted-args", "-Xfuture")
     },
   scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
@@ -163,7 +163,7 @@ lazy val testkit = project
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
       ) ++ {
-        if (scalaBinaryVersion.value == Scala213) Seq()
+        if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
             "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
@@ -171,7 +171,7 @@ lazy val testkit = project
           )
       },
     Compile / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == Scala213) {
+      if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
         "EmbeddedKafkaLike.scala" ||
         "EmbeddedKafkaTest.java" ||
@@ -215,7 +215,7 @@ lazy val tests = project
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "2.24.5" % Test
       ) ++ {
-        if (scalaBinaryVersion.value == Scala213) Seq()
+        if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
             "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
@@ -236,7 +236,7 @@ lazy val tests = project
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == Scala213) {
+      if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
         "RetentionPeriodSpec.scala" ||
         "IntegrationSpec.scala" ||
