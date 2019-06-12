@@ -1,0 +1,14 @@
+# Config for https://github.com/toolmantim/release-drafter
+name-template: 'Alpakka Kafka $NEXT_PATCH_VERSION'
+tag-template: 'v$NEXT_PATCH_VERSION'
+categories:
+  - title: 'Alpakka Kafka Testkit'
+    label: 'testkit'
+  - title: 'Documentation'
+    label: 'documentation'
+
+change-template: '- $TITLE [#$NUMBER](https://github.com/akka/alpakka-kafka/issues/$NUMBER) by [@$AUTHOR](https://github.com/$AUTHOR)'
+template: |
+  ## Changes
+
+  $CHANGES
