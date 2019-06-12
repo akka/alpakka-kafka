@@ -1,48 +1,37 @@
 /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 - 2018 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.kafka.scaladsl
 
-import java.util
-import java.util.Collections
-import java.util.concurrent.ConcurrentLinkedQueue
-
-import akka.Done
-import akka.kafka.ConsumerMessage.CommittableOffsetBatch
-import akka.kafka.ProducerMessage.Message
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.test.Utils._
-import akka.pattern.ask
+import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.KillSwitches
-import akka.stream.SubstreamCancelStrategies.Drain
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.TestProbe
-import akka.util.Timeout
+import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
-import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization._
-import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import org.scalatest._
 
-import scala.collection.JavaConverters._
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
-import scala.util.Success
+import collection.JavaConverters._
 
-class SlowConsumptionSpec extends SpecBase(kafkaPort = KafkaPorts.SlowConsumptionSpec) with Inside {
+class SlowConsumptionSpec extends SpecBase(kafkaPort = KafkaPorts.SlowConsumptionSpec) with EmbeddedKafkaLike {
 
-  def createKafkaConfig: EmbeddedKafkaConfig =
+  override def createKafkaConfig: EmbeddedKafkaConfig =
     EmbeddedKafkaConfig(kafkaPort,
                         zooKeeperPort,
                         Map(
-                          "offsets.topic.replication.factor" -> "1"
+                          "offsets.topic.replication.factor" -> "1",
+                          "offsets.retention.minutes" -> "1",
+                          "offsets.retention.check.interval.ms" -> "100"
                         ))
+
+  implicit val patience: PatienceConfig = PatienceConfig(30 seconds, 2 second)
 
   /* This test case exercises a slow consumer which leads to a behaviour where the Kafka client
    * discards already fetched records, which is shown by the `o.a.k.c.consumer.internals.Fetcher`
@@ -59,42 +48,76 @@ class SlowConsumptionSpec extends SpecBase(kafkaPort = KafkaPorts.SlowConsumptio
    */
   "Reading slower than writing" must {
     "work" in assertAllStagesStopped {
-      val topic1 = createTopic(1)
+      val topic1 = createTopic(1, 3)
       val group1 = createGroupId(1)
 
       val producerSettings = ProducerSettings(system, new StringSerializer, new IntegerSerializer)
         .withBootstrapServers(bootstrapServers)
+        .withProperty("batch.size", "50") // max batches of 50 bytes to trigger more fetch requests on the consumer side
+      val producer = producerSettings.createKafkaProducer()
       val (producing, lastProduced) = Source
         .fromIterator(() => Iterator.from(2))
         .viaMat(KillSwitches.single)(Keep.right)
         .map(
-          n =>
-            ProducerMessage.Message[String, Integer, Integer](new ProducerRecord(topic1, partition0, DefaultKey, n), n)
+          n => ProducerMessage.Message[String, Integer, Integer](new ProducerRecord(topic1, n), n)
         )
-        .via(Producer.flexiFlow(producerSettings))
+        .via(Producer.flexiFlow(producerSettings, producer))
         .map(_.passThrough)
         .toMat(Sink.last)(Keep.both)
         .run()
 
-      val control = Consumer
+      val control: DrainingControl[Integer] = Consumer
         .plainSource(
           ConsumerSettings(system, new StringDeserializer, new IntegerDeserializer)
             .withBootstrapServers(bootstrapServers)
             .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-            .withWakeupTimeout(10.seconds)
-            .withMaxWakeups(10)
             .withGroupId(group1)
-            .withProperty("max.poll.records", "5"),
+            .withProperty("max.poll.records", "1"),
           Subscriptions.topics(topic1)
         )
-        .throttle(1, 1.seconds)
+        .throttle(100, 1.seconds)
         .map(_.value())
         .toMat(Sink.last)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
-      sleep(5.seconds)
+      sleep(30.seconds)
+
+      println("Producer metrics")
+      producer
+        .metrics()
+        .asScala
+        .filter {
+          case (name, _) => List("records-per-request-avg").contains(name.name())
+        }
+        .foreach {
+          case (name, metric) =>
+            println(s"${name.name()} ${metric.metricValue()}")
+        }
+
       producing.shutdown()
+
+      println("Consumer metrics")
+      control.metrics.futureValue
+        .filter {
+          case (name, _) =>
+            List("bytes-consumed-total",
+                 "fetch-rate",
+                 "fetch-total",
+                 "records-per-request-avg",
+                 "records-consumed-total").contains(name.name())
+        }
+        // filter out topic-level or partition-level metrics
+        .filterNot {
+          case (name, _) => name.tags.containsKey("topic") || name.tags.containsKey("partition")
+        }
+        .foreach {
+          case (name, metric) =>
+            println(s"${name.name()} ${metric.metricValue()}")
+        }
+
+      control.drainAndShutdown().futureValue
+
       val lastConsumed = control.drainAndShutdown()
       val (produced, consumed) = Future
         .sequence(Seq(lastProduced, lastConsumed))
@@ -106,6 +129,7 @@ class SlowConsumptionSpec extends SpecBase(kafkaPort = KafkaPorts.SlowConsumptio
         }
         .futureValue
       produced should be > consumed
+      succeed
     }
   }
 }

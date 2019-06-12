@@ -4,7 +4,9 @@ name := "akka-stream-kafka"
 
 val Scala213 = "2.13.0"
 val akkaVersion = "2.5.23"
-val kafkaVersion = "2.1.1"
+//val kafkaVersion = "2.4.0-SNAPSHOT"
+val kafkaVersion = "2.2.1"
+val embeddedKafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.11.2"
@@ -17,7 +19,8 @@ resolvers in ThisBuild ++= Seq(
   // for Embedded Kafka
   Resolver.bintrayRepo("manub", "maven"),
   // for Jupiter interface (JUnit 5)
-  Resolver.jcenterRepo
+  Resolver.jcenterRepo,
+  Resolver.mavenLocal
 )
 
 val commonSettings = Seq(
@@ -167,7 +170,7 @@ lazy val testkit = project
         else
           Seq(
             "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
-            "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
+            "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion exclude ("log4j", "log4j")
           )
       },
     Compile / unmanagedSources / excludeFilter := {

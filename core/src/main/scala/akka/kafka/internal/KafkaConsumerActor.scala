@@ -448,6 +448,7 @@ import scala.util.control.NonFatal
         def checkNoResult(rawResult: ConsumerRecords[K, V]): Unit =
           if (!rawResult.isEmpty)
             throw new IllegalStateException(s"Got ${rawResult.count} unexpected messages")
+        log.debug("### Alpakka Kafka Polls (busy spin polls). Pausing partitions {}", currentAssignmentsJava)
         consumer.pause(currentAssignmentsJava)
         checkNoResult(consumer.poll(java.time.Duration.ZERO))
 
@@ -467,6 +468,7 @@ import scala.util.control.NonFatal
         // resume partitions to fetch
         val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics).toSet
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
+        log.debug("### Alpakka Kafka (fetch poll): Pausing partitions {}", pauseThese.asJava)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)
         processResult(partitionsToFetch, consumer.poll(pollTimeout))
@@ -641,6 +643,7 @@ import scala.util.control.NonFatal
       with NoSerializationVerificationNeeded {
 
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
+      log.debug("### Alpakka Kafka (onPartitionsAssigned): Pausing partitions {}", partitions)
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
       commitRefreshing.assignedPositions(tps, consumer, positionTimeout)
