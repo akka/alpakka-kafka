@@ -8,7 +8,7 @@ package akka.kafka.scaladsl
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource, TransactionalSourceWithContext}
+import akka.kafka.internal.{TransactionalProducerStage, TransactionalSource, TransactionalSourceWithOffsetContext}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.{ConsumerMessage, ConsumerSettings, ProducerSettings, Subscription}
 import akka.stream.ActorAttributes
@@ -44,7 +44,7 @@ object Transactional {
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
     Source
-      .fromGraph(new TransactionalSourceWithContext[K, V](settings, subscription))
+      .fromGraph(new TransactionalSourceWithOffsetContext[K, V](settings, subscription))
       .asSourceWithContext(_._2)
       .map(_._1)
 

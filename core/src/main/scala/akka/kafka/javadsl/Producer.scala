@@ -207,6 +207,8 @@ object Producer {
    * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
    *
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
+   *
+   * @tparam C the flow context type
    */
   @ApiMayChange
   def flowWithContext[K, V, C](
@@ -277,6 +279,8 @@ object Producer {
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html).
    *
    * Supports sharing a Kafka Producer instance.
+   *
+   * @tparam C the flow context type
    */
   @ApiMayChange
   def flowWithContext[K, V, C](

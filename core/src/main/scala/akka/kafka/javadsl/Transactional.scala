@@ -12,7 +12,7 @@ import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
 import akka.kafka._
-import akka.kafka.internal.{ConsumerControlAsJava, TransactionalSourceWithContext}
+import akka.kafka.internal.{ConsumerControlAsJava, TransactionalSourceWithOffsetContext}
 import akka.kafka.javadsl.Consumer.Control
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink, Source, SourceWithContext}
 import akka.{Done, NotUsed}
@@ -48,7 +48,7 @@ object Transactional {
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
     akka.stream.scaladsl.Source
-      .fromGraph(new TransactionalSourceWithContext[K, V](consumerSettings, subscription))
+      .fromGraph(new TransactionalSourceWithOffsetContext[K, V](consumerSettings, subscription))
       .mapMaterializedValue(ConsumerControlAsJava.apply)
       .asSourceWithContext(_._2)
       .map(_._1)

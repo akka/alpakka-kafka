@@ -60,10 +60,10 @@ private[internal] object TransactionalSource {
 
 /** Internal API */
 @InternalApi
-private[kafka] final class TransactionalSourceWithContext[K, V](consumerSettings: ConsumerSettings[K, V],
-                                                                subscription: Subscription)
+private[kafka] final class TransactionalSourceWithOffsetContext[K, V](consumerSettings: ConsumerSettings[K, V],
+                                                                      subscription: Subscription)
     extends KafkaSourceStage[K, V, (ConsumerRecord[K, V], PartitionOffset)](
-      s"TransactionalSourceWithContext ${subscription.renderStageAttribute}"
+      s"TransactionalSourceWithOffsetContext ${subscription.renderStageAttribute}"
     ) {
 
   require(consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG).nonEmpty, "You must define a Consumer group.id.")
@@ -72,7 +72,7 @@ private[kafka] final class TransactionalSourceWithContext[K, V](consumerSettings
       shape: SourceShape[(ConsumerRecord[K, V], PartitionOffset)]
   ): GraphStageLogic with Control =
     new TransactionalSourceLogic(shape, TransactionalSource.txConsumerSettings(consumerSettings), subscription)
-    with TransactionalWithContextBuilder[K, V]
+    with TransactionalOffsetContextBuilder[K, V]
 
 }
 

@@ -69,7 +69,7 @@ private[kafka] trait TransactionalMessageBuilder[K, V]
 
 /** Internal API */
 @InternalApi
-private[kafka] trait TransactionalWithContextBuilder[K, V]
+private[kafka] trait TransactionalOffsetContextBuilder[K, V]
     extends TransactionalMessageBuilderBase[K, V, (ConsumerRecord[K, V], PartitionOffset)] {
   override def createMessage(rec: ConsumerRecord[K, V]): (ConsumerRecord[K, V], PartitionOffset) = {
     onMessage(rec)
