@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage
 import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.{Done, NotUsed}
-import akka.kafka.ConsumerMessage.Committable
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.{scaladsl, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 
@@ -24,13 +24,22 @@ object Committer {
     scaladsl.Committer.flow(settings).asJava
 
   /**
+   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
+   */
+  def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.batchFlow(settings).asJava
+
+  /**
    * API MAY CHANGE
    *
-   * Batches offsets and commits them to Kafka, emits `Done` for every committed batch.
+   * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed
+   * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithContext[E](settings: CommitterSettings): FlowWithContext[E, Committable, Done, Done, NotUsed] =
-    scaladsl.Committer.flowWithContext(settings).asJava
+  def flowWithOffsetContext[E](
+      settings: CommitterSettings
+  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
 
   /**
    * Batches offsets and commits them to Kafka.
@@ -41,14 +50,14 @@ object Committer {
   /**
    * API MAY CHANGE
    *
-   * Batches offsets and commits them to Kafka.
+   * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithContext[E, C <: Committable](settings: CommitterSettings): Sink[Pair[E, C], CompletionStage[Done]] =
+  def sinkWithOffsetContext[E, C <: Committable](settings: CommitterSettings): Sink[Pair[E, C], CompletionStage[Done]] =
     akka.stream.scaladsl
       .Flow[Pair[E, C]]
       .map(_.toScala)
-      .toMat(scaladsl.Committer.sinkWithContext(settings))(akka.stream.scaladsl.Keep.right)
+      .toMat(scaladsl.Committer.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue[CompletionStage[Done]](_.toJava)
       .asJava[Pair[E, C]]
 }

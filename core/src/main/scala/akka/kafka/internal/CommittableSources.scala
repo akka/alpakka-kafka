@@ -53,18 +53,18 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
 
 /** Internal API */
 @InternalApi
-private[kafka] final class CommittableSourceWithContext[K, V](
+private[kafka] final class SourceWithOffsetContext[K, V](
     settings: ConsumerSettings[K, V],
     subscription: Subscription,
     _metadataFromRecord: ConsumerRecord[K, V] => String = CommittableMessageBuilder.NoMetadataFromRecord
 ) extends KafkaSourceStage[K, V, (ConsumerRecord[K, V], CommittableOffset)](
-      s"CommittableSourceWithContext ${subscription.renderStageAttribute}"
+      s"SourceWithOffsetContext ${subscription.renderStageAttribute}"
     ) {
   override protected def logic(
       shape: SourceShape[(ConsumerRecord[K, V], CommittableOffset)]
   ): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, (ConsumerRecord[K, V], CommittableOffset)](shape, settings, subscription)
-    with CommittableWithContextBuilder[K, V] {
+    with OffsetContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: InternalCommitter = {

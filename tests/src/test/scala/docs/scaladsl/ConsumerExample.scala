@@ -176,16 +176,16 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val topic = createTopic()
     val control =
       Consumer
-        .committableSourceWithContext(consumerSettings, Subscriptions.topics(topic))
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(10) { record =>
           business(record.key, record.value)
         }
-        .via(Committer.flowWithContext(committerDefaults.withMaxBatch(1)))
+        .via(Committer.flowWithOffsetContext(committerDefaults))
         .toMat(Sink.seq)(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     awaitProduce(produce(topic, 1 to 10))
-    Await.result(control.drainAndShutdown(), 5.seconds) should have size (10)
+    control.drainAndShutdown().futureValue.map { case (_, b) => b.batchSize }.sum shouldBe 10
   }
 
   "Consume messages at-least-once, and commit in batches" should "work" in assertAllStagesStopped {

@@ -165,45 +165,47 @@ object Consumer {
   /**
    * API MAY CHANGE
    *
-   * The `committableSourceWithContext` makes it possible to commit offset positions to Kafka.
+   * This source emits `ConsumerRecord` together with the offset position as flow context, thus makes it possible
+   * to commit offset positions to Kafka.
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Producer.flowWithContext]].
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
+   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
    */
   @ApiMayChange
-  def committableSourceWithContext[K, V](
+  def sourceWithOffsetContext[K, V](
       settings: ConsumerSettings[K, V],
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
     Source
-      .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription))
+      .fromGraph(new SourceWithOffsetContext[K, V](settings, subscription))
       .asSourceWithContext(_._2)
       .map(_._1)
 
   /**
    * API MAY CHANGE
    *
-   * The `committableSourceWithContext` makes it possible to commit offset positions to Kafka.
+   * This source emits `ConsumerRecord` together with the offset position as flow context, thus makes it possible
+   * to commit offset positions to Kafka.
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Producer.flowWithContext]].
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
+   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
    *
-   * This source makes it possible to add additional metadata (in the form of a string)
+   * This variant makes it possible to add additional metadata (in the form of a string)
    * when an offset is committed based on the record. This can be useful (for example) to store information about which
    * node made the commit, what time the commit was made, the timestamp of the record etc.
    */
   @ApiMayChange
-  def committableSourceWithContext[K, V](
+  def sourceWithOffsetContext[K, V](
       settings: ConsumerSettings[K, V],
       subscription: Subscription,
       metadataFromRecord: ConsumerRecord[K, V] => String
   ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
     Source
-      .fromGraph(new CommittableSourceWithContext[K, V](settings, subscription, metadataFromRecord))
+      .fromGraph(new SourceWithOffsetContext[K, V](settings, subscription, metadataFromRecord))
       .asSourceWithContext(_._2)
       .map(_._1)
 
@@ -221,7 +223,7 @@ object Consumer {
 
   /**
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
-   * before it is emitted downstream.
+   * before being emitted downstream.
    */
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
@@ -243,10 +245,12 @@ object Consumer {
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
-   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetsOnAssign`
-   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
-   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
-   * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `getOffsetsOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition.
+   *
+   * The `onRevoke` function gives the consumer a chance to store any uncommitted offsets, and do any other cleanup
+   * that is required. Also allows the user access to the `onPartitionsRevoked` hook, useful for cleaning up any
+   * partition-specific resources being used by the consumer.
    */
   def plainPartitionedManualOffsetSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -257,7 +261,7 @@ object Consumer {
     Source.fromGraph(new PlainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
 
   /**
-   * The same as [[#plainPartitionedSource]] but with offset commit support
+   * The same as [[#plainPartitionedSource]] but with offset commit support.
    */
   def committablePartitionedSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -266,7 +270,7 @@ object Consumer {
     Source.fromGraph(new CommittableSubSource[K, V](settings, subscription))
 
   /**
-   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support
+   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support.
    */
   def commitWithMetadataPartitionedSource[K, V](
       settings: ConsumerSettings[K, V],

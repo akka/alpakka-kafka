@@ -14,21 +14,21 @@ These factory methods are part of the @scala[@scaladoc[Producer API](akka.kafka.
 
 | Shared producer | Factory method    | Stream element type | Pass-through |
 |-----------------|-------------------|---------------------|--------------|
-| Available       | `plainSink`       | `ProducerRecord`    | -   |
-| Available       | `flexiFlow`       | `Envelope`          | Any |
-| Available       | `flowWithContext` | `Envelope`          | No  |
+| Available       | `plainSink`       | `ProducerRecord`    | N/A   |
+| Available       | `flexiFlow`       | `Envelope`          | Any   |
+| Available       | `flowWithContext` | `Envelope`          | No    |
 
 
 ### Transactional producers
 
 These factory methods are part of the @scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]. For details see @ref[Transactions](transactions.md).
 
-| Shared producer | Factory method    | Stream element type | Pass-through |
-|-----------------|-------------------|---------------------|--------------|
-| No              | `sink`            | `Envelope`          | -  |
-| No              | `sinkWithContext` | `Envelope`          | -  |
-| No              | `flow`            | `Envelope`          | No |
-| No              | `flowWithContext` | `Envelope`          | No |
+| Shared producer | Factory method          | Stream element type | Pass-through |
+|-----------------|-------------------------|---------------------|--------------|
+| No              | `sink`                  | `Envelope`          | N/A  |
+| No              | `flow`                  | `Envelope`          | No   |
+| No              | `sinkWithOffsetContext` | `Envelope`          | N/A  |
+| No              | `flowWithOffsetContext` | `Envelope`          | No   |
 
 
 ## Settings

@@ -113,7 +113,7 @@ private[kafka] object CommittableMessageBuilder {
 
 /** Internal API */
 @InternalApi
-private[kafka] trait CommittableWithContextBuilder[K, V]
+private[kafka] trait OffsetContextBuilder[K, V]
     extends MessageBuilder[K, V, (ConsumerRecord[K, V], CommittableOffset)] {
   def groupId: String
   def committer: InternalCommitter

@@ -13,7 +13,6 @@ import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.javadsl.FlowWithContext;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.testkit.javadsl.TestKit;
@@ -107,18 +106,18 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
     Consumer.DrainingControl<Done> control =
-        Consumer.committableSourceWithContext(consumerSettings, Subscriptions.topics(topic1))
+        Consumer.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
             .map(
-                msg -> {
+                record -> {
                   Envelope<String, String, NotUsed> multiMsg =
                       ProducerMessage.multi(
                           Arrays.asList(
-                              new ProducerRecord<>(topic2, msg.value()),
-                              new ProducerRecord<>(topic3, msg.value())));
+                              new ProducerRecord<>(topic2, record.value()),
+                              new ProducerRecord<>(topic3, record.value())));
                   return multiMsg;
                 })
             .via(Producer.flowWithContext(producerSettings))
-            .toMat(Committer.sinkWithContext(committerSettings), Keep.both())
+            .toMat(Committer.sinkWithOffsetContext(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =

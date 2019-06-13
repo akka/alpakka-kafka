@@ -95,13 +95,14 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
     String targetTopic = createTopic(2);
     String transactionalId = createTransactionalId();
     Consumer.DrainingControl<Done> control =
-        Transactional.sourceWithContext(consumerSettings, Subscriptions.topics(sourceTopic))
+        Transactional.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
             .via(business())
             .map(
                 record ->
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, record.key(), record.value())))
-            .toMat(Transactional.sinkWithContext(producerSettings, transactionalId), Keep.both())
+            .toMat(
+                Transactional.sinkWithOffsetContext(producerSettings, transactionalId), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 

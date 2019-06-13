@@ -20,7 +20,7 @@ These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.
 | Explicit committing                 | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |
 | Explicit committing                 | No              | Partition           | Yes             | `committableExternalSource` | `CommittableMessage` |
 | Explicit committing with metadata   | No              | Topic or Partition  | No              | `commitWithMetadataSource` | `CommittableMessage` |
-| Explicit committing (with metadata) | No              | Topic or Partition  | No              | `committableSourceWithContext` | `ConsumerRecord` |
+| Explicit committing (with metadata) | No              | Topic or Partition  | No              | `sourceWithOffsetContext` | `ConsumerRecord` |
 | Offset committed per element        | No              | Topic or Partition  | No              | `atMostOnceSource` | `ConsumerRecord` |
 | No (auto commit can be enabled)     | Yes             | Topic or Partition  | No              | `plainPartitionedSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
 | External to Kafka                   | Yes             | Topic or Partition  | No              | `plainPartitionedManualOffsetSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
@@ -34,7 +34,7 @@ These factory methods are part of the @scala[@scaladoc[Transactional API](akka.k
 | Offsets handling                  | Partition aware | Shared consumer | Factory method | Stream element type |
 |-----------------------------------|-----------------|-----------------|----------------|---------------------|
 | Transactional                     | No              | No              | `Transactional.source` | `TransactionalMessage` |
-| Transactional                     | No              | No              | `Transactional.sourceWithContext` | `ConsumerRecord` |
+| Transactional                     | No              | No              | `Transactional.sourceWithOffsetContext` | `ConsumerRecord` |
 
 
 ## Settings
@@ -145,6 +145,19 @@ reference.conf
 The bigger the values are, the less load you put on Kafka and the smaller are chances that committing offsets will become a bottleneck. However, increasing these values also means that in case of a failure you will have to re-process more messages. 
 
 If you consume from a topic with low activity, and possibly no messages arrive for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage.
+
+#### Committer variants
+
+These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka.scaladsl.Committer$)]@java[@scaladoc[Committer API](akka.kafka.javadsl.Committer$)].
+
+| Factory method          | Stream element type            | Emits |
+|-------------------------|--------------------------------|--------------|
+| `sink`                  | `Committable`                  | N/A       |
+| `sinkWithOffsetContext` | Any (`Committable` in context) | N/A       |
+| `flow`                  | `Committable`                  | `Done`    |
+| `batchFlow`             | `Committable`                  | `CommittableOffsetBatch`  |
+| `flowWithOffsetContext` | Any (`Committable` in context) | `NotUsed` (`CommittableOffsetBatch` in context) |
+
 
 ### Commit with meta-data
 

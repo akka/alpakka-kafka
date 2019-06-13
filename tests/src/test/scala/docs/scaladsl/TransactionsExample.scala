@@ -66,12 +66,12 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     val transactionalId = createTransactionalId()
     val control =
       Transactional
-        .sourceWithContext(consumerSettings, Subscriptions.topics(sourceTopic))
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
         .via(businessFlow)
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithContext(producerSettings, transactionalId))(Keep.both)
+        .toMat(Transactional.sinkWithOffsetContext(producerSettings, transactionalId))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
@@ -138,12 +138,12 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     val transactionalId = createTransactionalId()
     val control =
       Transactional
-        .sourceWithContext(consumerSettings, Subscriptions.topics(sourceTopic))
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
         .via(businessFlow)
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithContext(producerSettings, transactionalId))(Keep.both)
+        .toMat(Transactional.sinkWithOffsetContext(producerSettings, transactionalId))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 

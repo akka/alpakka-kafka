@@ -36,10 +36,10 @@ object Transactional {
    * API MAY CHANGE
    *
    * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Transactional.flowWithContext]].
+   * and [[Transactional.flowWithOffsetContext]].
    */
   @ApiMayChange
-  def sourceWithContext[K, V](
+  def sourceWithOffsetContext[K, V](
       settings: ConsumerSettings[K, V],
       subscription: Subscription
   ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
@@ -61,11 +61,11 @@ object Transactional {
   /**
    * API MAY CHANGE
    *
-   * Sink that uses the context as [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.sourceWithContext]].
+   * Sink that requires the context to be [[ConsumerMessage.PartitionOffset]] from a [[Transactional.sourceWithOffsetContext]].
    * It will initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
   @ApiMayChange
-  def sinkWithContext[K, V](
+  def sinkWithOffsetContext[K, V](
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), Future[Done]] =
@@ -110,15 +110,15 @@ object Transactional {
   /**
    * API MAY CHANGE
    *
-   * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.sourceWithContext]] that
+   * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.sourceWithOffsetContext]] which
    * carries [[ConsumerMessage.PartitionOffset]] as context. The flow requires a unique `transactional.id` across all app
    * instances. The flow will override producer properties to enable Kafka exactly-once transactional support.
    *
    * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
-   * and [[Transactional.sourceWithContext]].
+   * and [[Transactional.sourceWithOffsetContext]].
    */
   @ApiMayChange
-  def flowWithContext[K, V](
+  def flowWithOffsetContext[K, V](
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): FlowWithContext[Envelope[K, V, NotUsed],

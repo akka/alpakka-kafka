@@ -12,6 +12,7 @@ import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
 object Committer {
@@ -36,14 +37,22 @@ object Committer {
   /**
    * API MAY CHANGE
    *
-   * Batches offsets and commits them to Kafka, emits `Done` for every committed batch.
+   * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed
+   * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithContext[E](settings: CommitterSettings): FlowWithContext[E, Committable, Done, Done, NotUsed] =
-    Flow[(NotUsed, Committable)]
+  def flowWithOffsetContext[E](
+      settings: CommitterSettings
+  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value: Flow[(E, Committable), (NotUsed, CommittableOffsetBatch), NotUsed] = Flow[(E, Committable)]
       .map(_._2)
-      .via(flow(settings))
-      .asFlowWithContext[E, Committable, Done]({ case (_, c) => (NotUsed, c) })(_ => Done)
+      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
+      .map(CommittableOffsetBatch.apply)
+      .mapAsync(settings.parallelism) { b =>
+        b.commitScaladsl().map(_ => (NotUsed, b))(ExecutionContexts.sameThreadExecutionContext)
+      }
+    new FlowWithContext(value)
+  }
 
   /**
    * Batches offsets and commits them to Kafka.
@@ -55,12 +64,12 @@ object Committer {
   /**
    * API MAY CHANGE
    *
-   * Batches offsets and commits them to Kafka.
+   * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
+  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
     Flow[(E, Committable)]
-      .via(flowWithContext(settings))
+      .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
 
 }

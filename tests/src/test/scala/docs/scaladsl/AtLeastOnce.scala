@@ -74,7 +74,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
     val committerSettings = committerDefaults
     val control =
       Consumer
-        .committableSourceWithContext(consumerSettings, Subscriptions.topics(topic1))
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
         .map { msg =>
           ProducerMessage.multi(
             immutable.Seq(
@@ -84,7 +84,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
           )
         }
         .via(Producer.flowWithContext(producerSettings))
-        .toMat(Committer.sinkWithContext(committerSettings))(Keep.both)
+        .toMat(Committer.sinkWithOffsetContext(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     val (control2, result) = Consumer
@@ -165,7 +165,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
     val committerSettings = committerDefaults
     val control =
       Consumer
-        .committableSourceWithContext(consumerSettings, Subscriptions.topics(topic1))
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
         .map(record => {
           val out: Envelope[String, String, NotUsed] =
             if (duplicate(record.value))
@@ -184,7 +184,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
           out
         })
         .via(Producer.flowWithContext(producerSettings))
-        .toMat(Committer.sinkWithContext(committerSettings))(Keep.both)
+        .toMat(Committer.sinkWithOffsetContext(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
