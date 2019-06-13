@@ -88,7 +88,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   }
 
   @Test
-  public void withContext() throws Exception {
+  public void withOffsetContext() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId());
     String sourceTopic = createTopic(1);

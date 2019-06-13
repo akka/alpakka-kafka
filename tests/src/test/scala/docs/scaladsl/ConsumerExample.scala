@@ -171,7 +171,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     Future.successful(Done)
   // format: on
 
-  it should "support withContext" in assertAllStagesStopped {
+  it should "support withOffsetContext" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val control =

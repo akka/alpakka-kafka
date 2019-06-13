@@ -97,7 +97,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
   }
 
   @Test
-  public void consumeOneProduceManyWithContext() throws Exception {
+  public void consumeOneProduceManyWithOffsetContext() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId(0));
     String topic1 = createTopic(1, 1, 1);

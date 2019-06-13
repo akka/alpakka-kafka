@@ -58,12 +58,10 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     result.futureValue should have size (10)
   }
 
-  it should "support `withContext`" in assertAllStagesStopped {
+  it should "support `withOffsetContext`" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val producerSettings = producerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
-    val transactionalId = createTransactionalId()
     val control =
       Transactional
         .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
@@ -71,7 +69,7 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithOffsetContext(producerSettings, transactionalId))(Keep.both)
+        .toMat(Transactional.sinkWithOffsetContext(producerDefaults, createTransactionalId()))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
@@ -127,39 +125,6 @@ class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamp
     awaitProduce(produce(sourceTopic, 1 to 10))
     innerControl.get.shutdown().futureValue should be(Done)
     control2.shutdown().futureValue should be(Done)
-    result.futureValue should have size (10)
-  }
-
-  "withContext" should "work" in assertAllStagesStopped {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val producerSettings = producerDefaults
-    val sourceTopic = createTopic(1)
-    val sinkTopic = createTopic(2)
-    val transactionalId = createTransactionalId()
-    val control =
-      Transactional
-        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
-        .via(businessFlow)
-        .map { record =>
-          ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
-        }
-        .toMat(Transactional.sinkWithOffsetContext(producerSettings, transactionalId))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
-
-    // ...
-
-    val (control2, result) = Consumer
-      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
-      .toMat(Sink.seq)(Keep.both)
-      .run()
-
-    awaitProduce(produce(sourceTopic, 1 to 10))
-    control.shutdown().futureValue should be(Done)
-    control2.shutdown().futureValue should be(Done)
-    // #transactionalSink
-    control.drainAndShutdown()
-    // #transactionalSink
     result.futureValue should have size (10)
   }
 
