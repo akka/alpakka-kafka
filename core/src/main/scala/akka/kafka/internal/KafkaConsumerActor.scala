@@ -26,6 +26,7 @@ import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
 import akka.kafka._
+import akka.kafka.internal.KafkaConnectionChecker.KafkaConnectionFailed
 import akka.stream.stage.AsyncCallback
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -241,6 +242,10 @@ import scala.util.control.NonFatal
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
 
+  settings.kafkaConnectionCheckerSettings.foreach(
+    config => context.actorOf(KafkaConnectionChecker.props(config).withDispatcher(config.dispatcher))
+  )
+
   /**
    * While `true`, committing is delayed.
    * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[WrappedAutoPausedListener]].
@@ -342,6 +347,10 @@ import scala.util.control.NonFatal
         stopInProgress = true
         context.become(stopping)
       }
+
+    case kcf: KafkaConnectionFailed =>
+      processErrors(kcf)
+      self ! Stop
 
     case RequestMetrics =>
       val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()

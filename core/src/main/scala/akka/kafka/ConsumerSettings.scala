@@ -71,6 +71,12 @@ object ConsumerSettings {
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
+
+    val enablePath = s"${KafkaConnectionCheckerSettings.configPath}.enable"
+    val kafkaConnectionCheckerConfig =
+      if (config.hasPath(enablePath) && config.getBoolean(enablePath)) Some(KafkaConnectionCheckerSettings(config))
+      else None
+
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -88,7 +94,8 @@ object ConsumerSettings {
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
-      ConsumerSettings.createKafkaConsumer
+      ConsumerSettings.createKafkaConsumer,
+      kafkaConnectionCheckerConfig
     )
   }
 
@@ -199,7 +206,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
-    val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]
+    val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
+    val kafkaConnectionCheckerSettings: Option[KafkaConnectionCheckerSettings]
 ) {
 
   @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
@@ -234,7 +242,45 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
-    consumerFactory = ConsumerSettings.createKafkaConsumer
+    consumerFactory = ConsumerSettings.createKafkaConsumer,
+    kafkaConnectionCheckerSettings = None
+  )
+
+  def this(properties: Map[String, String],
+           keyDeserializerOpt: Option[Deserializer[K]],
+           valueDeserializerOpt: Option[Deserializer[V]],
+           pollInterval: FiniteDuration,
+           pollTimeout: FiniteDuration,
+           stopTimeout: FiniteDuration,
+           closeTimeout: FiniteDuration,
+           commitTimeout: FiniteDuration,
+           commitRefreshInterval: Duration,
+           dispatcher: String,
+           commitTimeWarning: FiniteDuration,
+           waitClosePartition: FiniteDuration,
+           positionTimeout: FiniteDuration,
+           offsetForTimesTimeout: FiniteDuration,
+           metadataRequestTimeout: FiniteDuration,
+           drainingCheckInterval: FiniteDuration,
+           consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]) = this(
+    properties,
+    keyDeserializerOpt,
+    valueDeserializerOpt,
+    pollInterval,
+    pollTimeout,
+    stopTimeout,
+    closeTimeout,
+    commitTimeout,
+    commitRefreshInterval,
+    dispatcher,
+    commitTimeWarning,
+    waitClosePartition,
+    positionTimeout,
+    offsetForTimesTimeout,
+    metadataRequestTimeout,
+    drainingCheckInterval,
+    consumerFactory,
+    kafkaConnectionCheckerSettings = None
   )
 
   /**
@@ -440,6 +486,17 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(waitClosePartition = waitClosePartition)
 
   /**
+   * Enable kafka connection checker with provided settings
+   */
+  def withKafkaConnectionChecker(kafkaConnectionCheckerConfig: KafkaConnectionCheckerSettings): ConsumerSettings[K, V] =
+    copy(kafkaConnectionCheckerConfig = Some(kafkaConnectionCheckerConfig))
+
+  /**
+   * Disable kafka connection checker
+   */
+  def withoutKafkaConnectionChecker: ConsumerSettings[K, V] = copy(kafkaConnectionCheckerConfig = None)
+
+  /**
    * Java API:
    * Time to wait for pending requests when a partition is closed.
    */
@@ -512,7 +569,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
-      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory
+      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
+      kafkaConnectionCheckerConfig: Option[KafkaConnectionCheckerSettings] = kafkaConnectionCheckerSettings
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -531,7 +589,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
-      consumerFactory
+      consumerFactory,
+      kafkaConnectionCheckerConfig
     )
 
   /**
