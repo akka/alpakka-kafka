@@ -46,6 +46,7 @@ jobs:
 
     - env:
       - JDK="adopt@~1.11.0-2"
+      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
       - CMD="+test"
       name: "Run tests (AdoptOpenJDK 11)"
 
