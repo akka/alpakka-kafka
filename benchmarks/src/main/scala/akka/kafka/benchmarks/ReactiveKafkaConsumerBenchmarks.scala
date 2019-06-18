@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
 import akka.kafka.CommitterSettings
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.scaladsl.Committer
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -74,7 +74,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         meter.mark()
         msg.committableOffset
       }
-      .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize).withParallelism(3)))
+      .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize.toLong).withParallelism(3)))
       .toMat(Sink.foreach {
         _.offsets().values
           .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)

@@ -74,7 +74,7 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
             // cancel once we've seen the last message on all topics
             Flow[ConsumerRecord[String, String]]
               .filter(_.value.toInt == totalMessages)
-              .take(topics.length)
+              .take(topics.length.toLong)
               .to(Sink.ignore)
           )
           .runWith(Sink.seq)
