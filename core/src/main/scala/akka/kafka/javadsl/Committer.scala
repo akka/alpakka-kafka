@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage
 import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.{Done, NotUsed}
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.{scaladsl, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 
@@ -26,7 +26,7 @@ object Committer {
   /**
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
-  def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+  def batchFlow[C <: Committable](settings: CommitterSettings): Flow[C, CommittableOffsetBatch, NotUsed] =
     scaladsl.Committer.batchFlow(settings).asJava
 
   /**
@@ -36,9 +36,9 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithOffsetContext[E](
+  def flowWithOffsetContext[E, C <: CommittableOffset](
       settings: CommitterSettings
-  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] =
+  ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
     scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
 
   /**
@@ -53,7 +53,9 @@ object Committer {
    * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithOffsetContext[E, C <: Committable](settings: CommitterSettings): Sink[Pair[E, C], CompletionStage[Done]] =
+  def sinkWithOffsetContext[E, C <: CommittableOffset](
+      settings: CommitterSettings
+  ): Sink[Pair[E, C], CompletionStage[Done]] =
     akka.stream.scaladsl
       .Flow[Pair[E, C]]
       .map(_.toScala)

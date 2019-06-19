@@ -9,10 +9,9 @@ import akka.dispatch.ExecutionContexts
 import akka.annotation.ApiMayChange
 import akka.{Done, NotUsed}
 import akka.kafka.CommitterSettings
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 object Committer {
@@ -43,14 +42,11 @@ object Committer {
   @ApiMayChange
   def flowWithOffsetContext[E](
       settings: CommitterSettings
-  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] = {
-    val value: Flow[(E, Committable), (NotUsed, CommittableOffsetBatch), NotUsed] = Flow[(E, Committable)]
+  ): FlowWithContext[E, CommittableOffset, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value = Flow[(E, CommittableOffset)]
       .map(_._2)
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
-      .mapAsync(settings.parallelism) { b =>
-        b.commitScaladsl().map(_ => (NotUsed, b))(ExecutionContexts.sameThreadExecutionContext)
-      }
+      .via(batchFlow(settings))
+      .map(b => (NotUsed, b))
     new FlowWithContext(value)
   }
 
@@ -67,8 +63,8 @@ object Committer {
    * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
-    Flow[(E, Committable)]
+  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, CommittableOffset), Future[Done]] =
+    Flow[(E, CommittableOffset)]
       .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
 
