@@ -11,6 +11,10 @@ val testcontainersVersion = "1.11.2"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.1"
 
+// this depends on Kafka, and should be upgraded to such latest version
+// that depends on the same Kafka version, as is defined above
+val embeddedKafkaSchemaRegistry = "5.1.2"
+
 val kafkaScale = settingKey[Int]("Number of kafka docker containers")
 
 resolvers in ThisBuild ++= Seq(
@@ -221,7 +225,7 @@ lazy val tests = project
         if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
-            "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.2.1" % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
+            "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
           )
       } ++
       Seq( // integration test dependencies
