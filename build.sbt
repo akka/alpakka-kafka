@@ -300,13 +300,7 @@ lazy val docs = project
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
-        "scaladoc.akka.kafka.base_url" -> {
-          val docsHost = sys.env
-            .get("CI")
-            .map(_ => "https://doc.akka.io")
-            .getOrElse(s"http://localhost:${(previewSite / previewFixedPort).value}")
-          s"$docsHost/api/alpakka-kafka/${projectInfoVersion.value}/"
-        },
+        "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
       ),
