@@ -150,13 +150,13 @@ If you consume from a topic with low activity, and possibly no messages arrive f
 
 These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka.scaladsl.Committer$)]@java[@scaladoc[Committer API](akka.kafka.javadsl.Committer$)].
 
-| Factory method          | Stream element type            | Emits |
-|-------------------------|--------------------------------|--------------|
-| `sink`                  | `Committable`                  | N/A       |
-| `sinkWithOffsetContext` | Any (`Committable` in context) | N/A       |
-| `flow`                  | `Committable`                  | `Done`    |
-| `batchFlow`             | `Committable`                  | `CommittableOffsetBatch`  |
-| `flowWithOffsetContext` | Any (`Committable` in context) | `NotUsed` (`CommittableOffsetBatch` in context) |
+| Factory method          | Stream element type                  | Emits |
+|-------------------------|--------------------------------------|--------------|
+| `sink`                  | `Committable`                        | N/A       |
+| `sinkWithOffsetContext` | Any (`CommittableOffset` in context) | N/A       |
+| `flow`                  | `Committable`                        | `Done`    |
+| `batchFlow`             | `Committable`                        | `CommittableOffsetBatch`  |
+| `flowWithOffsetContext` | Any (`CommittableOffset` in context) | `NotUsed` (`CommittableOffsetBatch` in context) |
 
 
 ### Commit with meta-data
