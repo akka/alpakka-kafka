@@ -8,6 +8,7 @@ package docs.javadsl;
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
 
+import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
@@ -80,6 +81,45 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #oneToMany
+    Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
+            .toMat(Sink.seq(), Keep.both())
+            .run(materializer);
+
+    produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
+    sleepSeconds(10, "to make produce happen");
+    assertThat(
+        control.drainAndShutdown(ec).toCompletableFuture().get(5, TimeUnit.SECONDS),
+        is(Done.done()));
+    assertThat(
+        tuple.first().shutdown().toCompletableFuture().get(5, TimeUnit.SECONDS), is(Done.done()));
+    assertThat(tuple.second().toCompletableFuture().get(5, TimeUnit.SECONDS).size(), is(20));
+  }
+
+  @Test
+  public void consumeOneProduceManyWithOffsetContext() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId(0));
+    String topic1 = createTopic(1, 1, 1);
+    String topic2 = createTopic(2, 1, 1);
+    String topic3 = createTopic(3, 1, 1);
+    ProducerSettings<String, String> producerSettings = producerDefaults();
+    CommitterSettings committerSettings = committerDefaults();
+    Consumer.DrainingControl<Done> control =
+        Consumer.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
+            .map(
+                record -> {
+                  Envelope<String, String, NotUsed> multiMsg =
+                      ProducerMessage.multi(
+                          Arrays.asList(
+                              new ProducerRecord<>(topic2, record.value()),
+                              new ProducerRecord<>(topic3, record.value())));
+                  return multiMsg;
+                })
+            .via(Producer.flowWithContext(producerSettings))
+            .toMat(Committer.sinkWithOffsetContext(committerSettings), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
             .toMat(Sink.seq(), Keep.both())

@@ -171,6 +171,23 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     Future.successful(Done)
   // format: on
 
+  it should "support withOffsetContext" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    val control =
+      Consumer
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic))
+        .mapAsync(10) { record =>
+          business(record.key, record.value)
+        }
+        .via(Committer.flowWithOffsetContext(committerDefaults))
+        .toMat(Sink.seq)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    control.drainAndShutdown().futureValue.map { case (_, b) => b.batchSize }.sum shouldBe 10
+  }
+
   "Consume messages at-least-once, and commit in batches" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()

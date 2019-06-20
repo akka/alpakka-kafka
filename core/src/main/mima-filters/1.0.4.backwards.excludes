@@ -1,0 +1,2 @@
+# PR #780
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ProducerMessage#Envelope.withPassThrough")

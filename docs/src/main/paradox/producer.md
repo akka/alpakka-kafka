@@ -4,6 +4,33 @@ A producer publishes messages to Kafka topics. The message itself contains infor
 
 The underlying implementation is using the `KafkaProducer`, see the @javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer) for details.
 
+## Choosing a producer
+
+Alpakka Kafka offers producer flows and sinks that connect to Kafka and write data. The tables below may help you to find the producer best suited for your use-case.
+
+### Producers
+
+These factory methods are part of the @scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer$)]@java[@scaladoc[Producer API](akka.kafka.javadsl.Producer$)].
+
+| Shared producer | Factory method    | Stream element type | Pass-through |
+|-----------------|-------------------|---------------------|--------------|
+| Available       | `plainSink`       | `ProducerRecord`    | N/A   |
+| Available       | `flexiFlow`       | `Envelope`          | Any   |
+| Available       | `flowWithContext` | `Envelope`          | No    |
+
+
+### Transactional producers
+
+These factory methods are part of the @scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]. For details see @ref[Transactions](transactions.md).
+
+| Shared producer | Factory method          | Stream element type | Pass-through |
+|-----------------|-------------------------|---------------------|--------------|
+| No              | `sink`                  | `Envelope`          | N/A  |
+| No              | `flow`                  | `Envelope`          | No   |
+| No              | `sinkWithOffsetContext` | `Envelope`          | N/A  |
+| No              | `flowWithOffsetContext` | `Envelope`          | No   |
+
+
 ## Settings
 
 When creating a producer stream you need to pass in `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) that define things like:

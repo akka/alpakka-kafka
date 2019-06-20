@@ -69,6 +69,25 @@ private[kafka] trait TransactionalMessageBuilder[K, V]
 
 /** Internal API */
 @InternalApi
+private[kafka] trait TransactionalOffsetContextBuilder[K, V]
+    extends TransactionalMessageBuilderBase[K, V, (ConsumerRecord[K, V], PartitionOffset)] {
+  override def createMessage(rec: ConsumerRecord[K, V]): (ConsumerRecord[K, V], PartitionOffset) = {
+    onMessage(rec)
+    val offset = PartitionOffsetCommittedMarker(
+      GroupTopicPartition(
+        groupId = groupId,
+        topic = rec.topic,
+        partition = rec.partition
+      ),
+      offset = rec.offset,
+      committedMarker
+    )
+    (rec, offset)
+  }
+}
+
+/** Internal API */
+@InternalApi
 private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
   def groupId: String
   def committer: InternalCommitter
@@ -84,6 +103,32 @@ private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V
       offset = rec.offset
     )
     ConsumerMessage.CommittableMessage(rec, CommittableOffsetImpl(offset, metadataFromRecord(rec))(committer))
+  }
+}
+
+private[kafka] object CommittableMessageBuilder {
+  val NoMetadataFromRecord: ConsumerRecord[_, _] => String = (_: ConsumerRecord[_, _]) =>
+    OffsetFetchResponse.NO_METADATA
+}
+
+/** Internal API */
+@InternalApi
+private[kafka] trait OffsetContextBuilder[K, V]
+    extends MessageBuilder[K, V, (ConsumerRecord[K, V], CommittableOffset)] {
+  def groupId: String
+  def committer: InternalCommitter
+  def metadataFromRecord(record: ConsumerRecord[K, V]): String
+
+  override def createMessage(rec: ConsumerRecord[K, V]): (ConsumerRecord[K, V], CommittableOffset) = {
+    val offset = ConsumerMessage.PartitionOffset(
+      GroupTopicPartition(
+        groupId = groupId,
+        topic = rec.topic,
+        partition = rec.partition
+      ),
+      offset = rec.offset
+    )
+    (rec, CommittableOffsetImpl(offset, metadataFromRecord(rec))(committer))
   }
 }
 

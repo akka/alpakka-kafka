@@ -7,13 +7,16 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.kafka.ConsumerMessage.TransactionalMessage
+import akka.annotation.ApiMayChange
+import akka.japi.Pair
+import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
 import akka.kafka._
-import akka.kafka.internal.ConsumerControlAsJava
+import akka.kafka.internal.{ConsumerControlAsJava, TransactionalSourceWithOffsetContext}
 import akka.kafka.javadsl.Consumer.Control
-import akka.stream.javadsl.{Flow, Sink, Source}
+import akka.stream.javadsl.{Flow, FlowWithContext, Sink, Source, SourceWithContext}
 import akka.{Done, NotUsed}
+import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.compat.java8.FutureConverters.FutureOps
 
@@ -34,6 +37,24 @@ object Transactional {
       .asJava
 
   /**
+   * API MAY CHANGE
+   *
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Transactional.flowWithOffsetContext]].
+   */
+  @ApiMayChange
+  def sourceWithOffsetContext[K, V](
+      consumerSettings: ConsumerSettings[K, V],
+      subscription: Subscription
+  ): SourceWithContext[ConsumerRecord[K, V], PartitionOffset, Control] =
+    akka.stream.scaladsl.Source
+      .fromGraph(new TransactionalSourceWithOffsetContext[K, V](consumerSettings, subscription))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(_._2)
+      .map(_._1)
+      .asJava
+
+  /**
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
@@ -47,9 +68,27 @@ object Transactional {
       .asJava
 
   /**
-   * Publish records to Kafka topics and then continue the flow.  The flow can only used with a [[Transactional.source]] that
+   * API MAY CHANGE
+   *
+   * Sink that uses the context as [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.sourceWithOffsetContext]].
+   * It will initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  @ApiMayChange
+  def sinkWithOffsetContext[K, V](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): Sink[Pair[Envelope[K, V, NotUsed], PartitionOffset], CompletionStage[Done]] =
+    akka.stream.scaladsl
+      .Flow[Pair[Envelope[K, V, NotUsed], PartitionOffset]]
+      .map(_.toScala)
+      .toMat(scaladsl.Transactional.sinkWithOffsetContext(settings, transactionalId))(akka.stream.scaladsl.Keep.right)
+      .mapMaterializedValue(_.toJava)
+      .asJava
+
+  /**
+   * Publish records to Kafka topics and then continue the flow.  The flow can only be used with a [[Transactional.source]] that
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
-   * instances.  The flow will override producer properties to enable Kafka exactly once transactional support.
+   * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
   def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
       settings: ProducerSettings[K, V],
@@ -57,4 +96,24 @@ object Transactional {
   ): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
     scaladsl.Transactional.flow(settings, transactionalId).asJava
 
+  /**
+   * API MAY CHANGE
+   *
+   * Publish records to Kafka topics and then continue the flow.  The flow can only be used with a [[Transactional.sourceWithOffsetContext]] that
+   * carries [[ConsumerMessage.PartitionOffset]] as context.  The flow requires a unique `transactional.id` across all app
+   * instances. The flow will override producer properties to enable Kafka exactly-once transactional support.
+   *
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Transactional.sourceWithOffsetContext]].
+   */
+  @ApiMayChange
+  def flowWithOffsetContext[K, V](
+      settings: ProducerSettings[K, V],
+      transactionalId: String
+  ): FlowWithContext[Envelope[K, V, NotUsed],
+                     ConsumerMessage.PartitionOffset,
+                     Results[K, V, ConsumerMessage.PartitionOffset],
+                     ConsumerMessage.PartitionOffset,
+                     NotUsed] =
+    scaladsl.Transactional.flowWithOffsetContext(settings, transactionalId).asJava
 }

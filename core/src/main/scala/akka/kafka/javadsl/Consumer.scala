@@ -8,12 +8,13 @@ package akka.kafka.javadsl
 import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
+import akka.annotation.ApiMayChange
 import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
-import akka.kafka.ConsumerMessage.CommittableMessage
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
-import akka.kafka.internal.ConsumerControlAsJava
-import akka.stream.javadsl.Source
+import akka.kafka.internal.{ConsumerControlAsJava, SourceWithOffsetContext}
+import akka.stream.javadsl.{Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -112,13 +113,13 @@ object Consumer {
 
   /**
    * The `plainSource` emits `ConsumerRecord` elements (as received from the underlying `KafkaConsumer`).
-   * It has not support for committing offsets to Kafka. It can be used when offset is stored externally
+   * It has no support for committing offsets to Kafka. It can be used when the offset is stored externally
    * or with auto-commit (note that auto-commit is by default disabled).
    *
-   * The consumer application doesn't need to use Kafka's built-in offset storage, it can store offsets in a store of its own
+   * The consumer application doesn't need to use Kafka's built-in offset storage and can store offsets in a store of its own
    * choosing. The primary use case for this is allowing the application to store both the offset and the results of the
    * consumption in the same system in a way that both the results and offsets are stored atomically. This is not always
-   * possible, but when it is it will make the consumption fully atomic and give "exactly once" semantics that are
+   * possible, but when it is, it will make the consumption fully atomic and give "exactly once" semantics that are
    * stronger than the "at-least once" semantics you get with Kafka's offset commit functionality.
    */
   def plainSource[K, V](settings: ConsumerSettings[K, V],
@@ -136,7 +137,7 @@ object Consumer {
    * If you commit the offset before processing the message you get "at-most once delivery" semantics,
    * and for that there is a [[#atMostOnceSource]].
    *
-   * Compared to auto-commit this gives exact control of when a message is considered consumed.
+   * Compared to auto-commit, this gives exact control over when a message is considered consumed.
    *
    * If you need to store offsets in anything other than Kafka, [[#plainSource]] should be used
    * instead of this API.
@@ -146,6 +147,65 @@ object Consumer {
     scaladsl.Consumer
       .committableSource(settings, subscription)
       .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asJava
+
+  /**
+   * API MAY CHANGE
+   *
+   * This source emits `ConsumerRecord` together with the offset position as flow context, thus makes it possible
+   * to commit offset positions to Kafka.
+   * This is useful when "at-least once delivery" is desired, as each message will likely be
+   * delivered one time but in failure cases could be duplicated.
+   *
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Producer.flowWithContext]].
+   */
+  @ApiMayChange
+  def sourceWithOffsetContext[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription
+  ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    // TODO this could use `scaladsl committableSourceWithContext` but `mapMaterializedValue` is not available, yet
+    // See https://github.com/akka/akka/issues/26836
+    akka.stream.scaladsl.Source
+      .fromGraph(new SourceWithOffsetContext[K, V](settings, subscription))
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(_._2)
+      .map(_._1)
+      .asJava
+
+  /**
+   * API MAY CHANGE
+   *
+   * This source emits `ConsumerRecord` together with the offset position as flow context, thus makes it possible
+   * to commit offset positions to Kafka.
+   * This is useful when "at-least once delivery" is desired, as each message will likely be
+   * delivered one time but in failure cases could be duplicated.
+   *
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * and [[Producer.flowWithContext]].
+   *
+   * This variant makes it possible to add additional metadata (in the form of a string)
+   * when an offset is committed based on the record. This can be useful (for example) to store information about which
+   * node made the commit, what time the commit was made, the timestamp of the record etc.
+   */
+  @ApiMayChange
+  def sourceWithOffsetContext[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: Subscription,
+      metadataFromRecord: java.util.function.Function[ConsumerRecord[K, V], String]
+  ): SourceWithContext[ConsumerRecord[K, V], CommittableOffset, Control] =
+    // TODO this could use `scaladsl committableSourceWithContext` but `mapMaterializedValue` is not available, yet
+    // See https://github.com/akka/akka/issues/26836
+    akka.stream.scaladsl.Source
+      .fromGraph(
+        new SourceWithOffsetContext[K, V](settings,
+                                          subscription,
+                                          (record: ConsumerRecord[K, V]) => metadataFromRecord(record))
+      )
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asSourceWithContext(_._2)
+      .map(_._1)
       .asJava
 
   /**
@@ -176,8 +236,9 @@ object Consumer {
 
   /**
    * The `plainPartitionedSource` is a way to track automatic partition assignment from kafka.
-   * When topic-partition is assigned to a consumer this source will emit tuple with assigned topic-partition and a corresponding source
-   * When topic-partition is revoked then corresponding source completes
+   * When a topic-partition is assigned to a consumer, this source will emit pairs with the assigned topic-partition and a corresponding
+   * source of `ConsumerRecord`s.
+   * When a topic-partition is revoked, the corresponding source completes.
    */
   def plainPartitionedSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -193,9 +254,8 @@ object Consumer {
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
-   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
-   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
-   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required.
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `getOffsetsOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition.
    */
   def plainPartitionedManualOffsetSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -220,11 +280,12 @@ object Consumer {
 
   /**
    * The `plainPartitionedManualOffsetSource` is similar to [[#plainPartitionedSource]] but allows the use of an offset store outside
-   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `loadOffsetOnAssign`
-   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition. The `onRevoke` function gives
-   * the consumer a chance to store any uncommitted offsets, and do any other cleanup that is required. Also allows the user access to the
-   * `onPartitionsRevoked` hook, useful for cleaning up any partition-specific resources being used by the consumer.
+   * of Kafka, while retaining the automatic partition assignment. When a topic-partition is assigned to a consumer, the `getOffsetsOnAssign`
+   * function will be called to retrieve the offset, followed by a seek to the correct spot in the partition.
    *
+   * The `onRevoke` function gives the consumer a chance to store any uncommitted offsets, and do any other cleanup
+   * that is required. Also allows the user access to the `onPartitionsRevoked` hook, useful for cleaning up any
+   * partition-specific resources being used by the consumer.
    */
   def plainPartitionedManualOffsetSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -249,7 +310,7 @@ object Consumer {
       .asJava
 
   /**
-   * The same as [[#plainPartitionedSource]] but with offset commit support
+   * The same as [[#plainPartitionedSource]] but with offset commit support.
    */
   def committablePartitionedSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -264,7 +325,7 @@ object Consumer {
       .asJava
 
   /**
-   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support
+   * The same as [[#plainPartitionedSource]] but with offset commit with metadata support.
    */
   def commitWithMetadataPartitionedSource[K, V](
       settings: ConsumerSettings[K, V],
@@ -282,8 +343,8 @@ object Consumer {
       .asJava
 
   /**
-   * Special source that can use external `KafkaAsyncConsumer`. This is useful in case when
-   * you have lot of manually assigned topic-partitions and want to keep only one kafka consumer
+   * Special source that can use an external `KafkaAsyncConsumer`. This is useful when you have
+   * a lot of manually assigned topic-partitions and want to keep only one kafka consumer.
    */
   def plainExternalSource[K, V](consumer: ActorRef,
                                 subscription: ManualSubscription): Source[ConsumerRecord[K, V], Control] =
@@ -293,7 +354,7 @@ object Consumer {
       .asJava
 
   /**
-   * The same as [[#plainExternalSource]] but with offset commit support
+   * The same as [[#plainExternalSource]] but with offset commit support.
    */
   def committableExternalSource[K, V](consumer: ActorRef,
                                       subscription: ManualSubscription,
@@ -304,4 +365,5 @@ object Consumer {
       .mapMaterializedValue(new ConsumerControlAsJava(_))
       .asJava
       .asInstanceOf[Source[CommittableMessage[K, V], Control]]
+
 }
