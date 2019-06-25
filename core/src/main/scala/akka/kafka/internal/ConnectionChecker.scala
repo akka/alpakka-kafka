@@ -8,22 +8,24 @@ package akka.kafka.internal
 import akka.actor.{Actor, ActorLogging, Props, Timers}
 import akka.annotation.InternalApi
 import akka.event.LoggingReceive
-import akka.kafka.internal.KafkaConnectionChecker.KafkaConnectionFailed
-import akka.kafka.{KafkaConnectionCheckerSettings, Metadata}
+import akka.kafka.{ConnectionCheckerSettings, KafkaConnectionFailed, Metadata}
 import org.apache.kafka.common.errors.TimeoutException
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
-@InternalApi private class KafkaConnectionChecker(config: KafkaConnectionCheckerSettings)
+@InternalApi private class ConnectionChecker(config: ConnectionCheckerSettings)
     extends Actor
     with ActorLogging
     with Timers {
 
-  import KafkaConnectionChecker.Internal._
-  import config.{dispatcher => _, _}
+  import ConnectionChecker.Internal._
+  import config._
 
-  startRegularTimer()
+  override def preStart(): Unit = {
+    super.preStart()
+    startRegularTimer()
+  }
 
   override def receive: Receive = regular
 
@@ -66,12 +68,9 @@ import scala.util.{Failure, Success}
 
 }
 
-object KafkaConnectionChecker {
+@InternalApi object ConnectionChecker {
 
-  def props(config: KafkaConnectionCheckerSettings): Props = Props(new KafkaConnectionChecker(config))
-
-  final case class KafkaConnectionFailed(te: TimeoutException, attempts: Int)
-      extends Exception(s"Can't establish connection with kafkaBroker after $attempts attempts", te)
+  def props(config: ConnectionCheckerSettings): Props = Props(new ConnectionChecker(config))
 
   private object Internal {
     //Timer labels

@@ -26,7 +26,6 @@ import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.StoppingException
 import akka.kafka._
-import akka.kafka.internal.KafkaConnectionChecker.KafkaConnectionFailed
 import akka.stream.stage.AsyncCallback
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -242,9 +241,7 @@ import scala.util.control.NonFatal
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
 
-  settings.kafkaConnectionCheckerSettings.foreach(
-    config => context.actorOf(KafkaConnectionChecker.props(config).withDispatcher(config.dispatcher))
-  )
+  settings.kafkaConnectionCheckerSettings.foreach(config => context.actorOf(ConnectionChecker.props(config)))
 
   /**
    * While `true`, committing is delayed.

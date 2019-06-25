@@ -7,8 +7,8 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.Metadata
-import akka.kafka.KafkaConnectionCheckerSettings
-import akka.kafka.internal.KafkaConnectionChecker.KafkaConnectionFailed
+import akka.kafka.ConnectionCheckerSettings
+import akka.kafka.KafkaConnectionFailed
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.errors.TimeoutException
@@ -17,7 +17,7 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-class KafkaConnectionCheckerSpec
+class ConnectionCheckerSpec
     extends TestKit(ActorSystem("KafkaConnectionCheckerSpec", ConfigFactory.load()))
     with WordSpecLike
     with Matchers {
@@ -25,8 +25,8 @@ class KafkaConnectionCheckerSpec
   "KafkaConnectionChecker" must {
 
     val retryInterval = 100.millis
-    implicit val config: KafkaConnectionCheckerSettings =
-      KafkaConnectionCheckerSettings(3, retryInterval, 2d, "default")
+    implicit val config: ConnectionCheckerSettings =
+      ConnectionCheckerSettings(3, retryInterval, 2d)
 
     "wait for response and retryInterval before perform new ask" in withCheckerActorRef { checker =>
       expectListTopicsRequest(retryInterval)
@@ -69,10 +69,10 @@ class KafkaConnectionCheckerSpec
     expectMsg(Metadata.ListTopics)
   }
 
-  def withCheckerActorRef[T](block: ActorRef => T)(implicit config: KafkaConnectionCheckerSettings): T =
+  def withCheckerActorRef[T](block: ActorRef => T)(implicit config: ConnectionCheckerSettings): T =
     withCheckerActorRef(config)(block)
-  def withCheckerActorRef[T](config: KafkaConnectionCheckerSettings)(block: ActorRef => T): T = {
-    val checker = childActorOf(KafkaConnectionChecker.props(config))
+  def withCheckerActorRef[T](config: ConnectionCheckerSettings)(block: ActorRef => T): T = {
+    val checker = childActorOf(ConnectionChecker.props(config))
     val res = block(checker)
     system.stop(watch(checker))
     expectTerminated(checker)
