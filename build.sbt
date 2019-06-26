@@ -146,7 +146,8 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-        "org.apache.kafka" % "kafka-clients" % kafkaVersion
+        "org.apache.kafka" % "kafka-clients" % kafkaVersion,
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.1"
       ),
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value

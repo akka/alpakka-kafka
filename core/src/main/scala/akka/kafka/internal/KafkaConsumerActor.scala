@@ -30,7 +30,8 @@ import akka.stream.stage.AsyncCallback
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -284,7 +285,7 @@ import scala.util.control.NonFatal
       val previousAssigned = consumer.assignment()
       consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
       val topicPartitionToOffsetAndTimestamp =
-        consumer.offsetsForTimes(timestampsToSearch.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
+        consumer.offsetsForTimes(timestampsToSearch.view.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
       val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
         case (tp, oat: OffsetAndTimestamp) =>
           val offset = oat.offset()

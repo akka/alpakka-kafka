@@ -11,5 +11,5 @@ import org.scalatest.Suite
 abstract class ScalatestKafkaSpec(kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
     with Suite
-    with TestFrameworkInterface.Scalatest { this: Suite ⇒
+    with TestFrameworkInterface.Scalatest { this: Suite =>
 }

@@ -14,7 +14,7 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.mockito.{ArgumentMatchers, Mockito}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 
