@@ -247,44 +247,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     kafkaConnectionCheckerSettings = None
   )
 
-  //TODO: remove this constructor and add mima exclusions
-  def this(properties: Map[String, String],
-           keyDeserializerOpt: Option[Deserializer[K]],
-           valueDeserializerOpt: Option[Deserializer[V]],
-           pollInterval: FiniteDuration,
-           pollTimeout: FiniteDuration,
-           stopTimeout: FiniteDuration,
-           closeTimeout: FiniteDuration,
-           commitTimeout: FiniteDuration,
-           commitRefreshInterval: Duration,
-           dispatcher: String,
-           commitTimeWarning: FiniteDuration,
-           waitClosePartition: FiniteDuration,
-           positionTimeout: FiniteDuration,
-           offsetForTimesTimeout: FiniteDuration,
-           metadataRequestTimeout: FiniteDuration,
-           drainingCheckInterval: FiniteDuration,
-           consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]) = this(
-    properties,
-    keyDeserializerOpt,
-    valueDeserializerOpt,
-    pollInterval,
-    pollTimeout,
-    stopTimeout,
-    closeTimeout,
-    commitTimeout,
-    commitRefreshInterval,
-    dispatcher,
-    commitTimeWarning,
-    waitClosePartition,
-    positionTimeout,
-    offsetForTimesTimeout,
-    metadataRequestTimeout,
-    drainingCheckInterval,
-    consumerFactory,
-    kafkaConnectionCheckerSettings = None
-  )
-
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    */
