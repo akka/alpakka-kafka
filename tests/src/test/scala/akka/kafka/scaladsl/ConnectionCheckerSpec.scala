@@ -7,7 +7,14 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
-import akka.kafka.{ConnectionCheckerSettings, ConsumerSettings, EnabledConnectionCheckerSettings, KafkaConnectionFailed, KafkaPorts, Subscriptions}
+import akka.kafka.{
+  ConnectionCheckerSettings,
+  ConsumerSettings,
+  EnabledConnectionCheckerSettings,
+  KafkaConnectionFailed,
+  KafkaPorts,
+  Subscriptions
+}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.TestSink
