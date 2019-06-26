@@ -1,0 +1,2 @@
+# PR #831
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
