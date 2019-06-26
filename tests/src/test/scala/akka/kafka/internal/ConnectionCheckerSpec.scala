@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.Metadata
-import akka.kafka.ConnectionCheckerSettings
+import akka.kafka.EnabledConnectionCheckerSettings
 import akka.kafka.KafkaConnectionFailed
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
@@ -25,8 +25,8 @@ class ConnectionCheckerSpec
   "KafkaConnectionChecker" must {
 
     val retryInterval = 100.millis
-    implicit val config: ConnectionCheckerSettings =
-      ConnectionCheckerSettings(3, retryInterval, 2d)
+    implicit val config: EnabledConnectionCheckerSettings =
+      EnabledConnectionCheckerSettings(3, retryInterval, 2d)
 
     "wait for response and retryInterval before perform new ask" in withCheckerActorRef { checker =>
       expectListTopicsRequest(retryInterval)
@@ -69,9 +69,9 @@ class ConnectionCheckerSpec
     expectMsg(Metadata.ListTopics)
   }
 
-  def withCheckerActorRef[T](block: ActorRef => T)(implicit config: ConnectionCheckerSettings): T =
+  def withCheckerActorRef[T](block: ActorRef => T)(implicit config: EnabledConnectionCheckerSettings): T =
     withCheckerActorRef(config)(block)
-  def withCheckerActorRef[T](config: ConnectionCheckerSettings)(block: ActorRef => T): T = {
+  def withCheckerActorRef[T](config: EnabledConnectionCheckerSettings)(block: ActorRef => T): T = {
     val checker = childActorOf(ConnectionChecker.props(config))
     val res = block(checker)
     system.stop(watch(checker))

@@ -71,12 +71,7 @@ object ConsumerSettings {
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
-
-    //TODO: reimplement to avoid Option value using
-    val enablePath = s"${ConnectionCheckerSettings.configPath}.enable"
-    val kafkaConnectionCheckerConfig =
-      if (config.hasPath(enablePath) && config.getBoolean(enablePath)) Some(ConnectionCheckerSettings(config))
-      else None
+    val connectionCheckerSettings = ConnectionCheckerSettings(config.getConfig(ConnectionCheckerSettings.configPath))
 
     new ConsumerSettings[K, V](
       properties,
@@ -96,7 +91,7 @@ object ConsumerSettings {
       metadataRequestTimeout,
       drainingCheckInterval,
       ConsumerSettings.createKafkaConsumer,
-      kafkaConnectionCheckerConfig
+      connectionCheckerSettings
     )
   }
 
@@ -208,7 +203,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
-    val kafkaConnectionCheckerSettings: Option[ConnectionCheckerSettings]
+    val connectionCheckerSettings: ConnectionCheckerSettings
 ) {
 
   @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
@@ -243,8 +238,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
-    consumerFactory = ConsumerSettings.createKafkaConsumer,
-    kafkaConnectionCheckerSettings = None
+    consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
+    connectionCheckerSettings = DisabledConnectionCheckerSettings
   )
 
   /**
@@ -388,6 +383,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -396,6 +392,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Java API:
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -410,6 +407,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -438,6 +436,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -452,13 +451,16 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Enable kafka connection checker with provided settings
    */
-  def withKafkaConnectionChecker(kafkaConnectionCheckerConfig: ConnectionCheckerSettings): ConsumerSettings[K, V] =
-    copy(kafkaConnectionCheckerConfig = Some(kafkaConnectionCheckerConfig))
+  def withConnectionChecker(
+      kafkaConnectionCheckerConfig: ConnectionCheckerSettings
+  ): ConsumerSettings[K, V] =
+    copy(connectionCheckerConfig = kafkaConnectionCheckerConfig)
 
   /**
    * Disable kafka connection checker
    */
-  def withoutKafkaConnectionChecker: ConsumerSettings[K, V] = copy(kafkaConnectionCheckerConfig = None)
+  def withoutConnectionChecker: ConsumerSettings[K, V] =
+    copy(connectionCheckerConfig = DisabledConnectionCheckerSettings)
 
   /**
    * Java API:
@@ -534,7 +536,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
-      kafkaConnectionCheckerConfig: Option[ConnectionCheckerSettings] = kafkaConnectionCheckerSettings
+      connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -554,7 +556,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       metadataRequestTimeout,
       drainingCheckInterval,
       consumerFactory,
-      kafkaConnectionCheckerConfig
+      connectionCheckerConfig
     )
 
   /**
@@ -562,7 +564,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    */
   def createKafkaConsumer(): Consumer[K, V] = consumerFactory.apply(this)
 
-  //TODO: add connection checker config
   override def toString: String =
     s"akka.kafka.ConsumerSettings(" +
     s"properties=${properties.mkString(",")}," +
@@ -579,5 +580,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
     s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}" +
+    s"connectionCheckerSettings=$connectionCheckerSettings" +
     ")"
 }

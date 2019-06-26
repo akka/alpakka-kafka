@@ -1,2 +1,2 @@
 # PR #831
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerSettings.<init>")

@@ -241,7 +241,10 @@ import scala.util.control.NonFatal
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
 
-  settings.kafkaConnectionCheckerSettings.foreach(config => context.actorOf(ConnectionChecker.props(config)))
+  settings.connectionCheckerSettings match {
+    case settings: EnabledConnectionCheckerSettings => context.actorOf(ConnectionChecker.props(settings))
+    case DisabledConnectionCheckerSettings => ()
+  }
 
   /**
    * While `true`, committing is delayed.
