@@ -17,13 +17,17 @@ object ConnectionCheckerSettings {
   val configPath: String = "connection-checker"
   val fullConfigPath: String = ConsumerSettings.configPath + "." + configPath
 
-  //TODO: add description about layer
+  /**
+   * Create settings from a configuration with layout `connection-checker`.
+   */
   def apply(config: Config): ConnectionCheckerSettings = {
     val enable = if (config.hasPath("enable")) config.getBoolean("enable") else false
     if (enable) EnabledConnectionCheckerSettings(config) else DisabledConnectionCheckerSettings
   }
 
-  //TODO: add description about layer
+  /**
+   * Java API: Create settings from a configuration with layout `connection-checker`.
+   */
   def create(config: Config): ConnectionCheckerSettings = apply(config)
 
 }
@@ -56,7 +60,7 @@ class EnabledConnectionCheckerSettings private[kafka] (val maxRetries: Int,
 
   override def toString: String =
     s"akka.kafka.EnabledConnectionCheckerSettings(" +
-    s"enable=$enable" +
+    s"enable=$enable," +
     s"maxRetries=$maxRetries," +
     s"checkInterval=${checkInterval.toCoarsest}," +
     s"factor=$factor" +

@@ -579,7 +579,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
-    s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}" +
+    s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
     s"connectionCheckerSettings=$connectionCheckerSettings" +
     ")"
 }
