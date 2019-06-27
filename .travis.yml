@@ -96,8 +96,10 @@ before_cache:
 
 cache:
   directories:
+    - $HOME/.coursier
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
+    - $HOME/.sbt/launchers
     - $HOME/.jabba/jdk
 
 env:
