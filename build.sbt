@@ -70,7 +70,7 @@ val commonSettings = Seq(
       if (insideCI.value) Seq("-Xfatal-warnings")
       else Seq.empty
     },
-  scalacOptions in (Compile, doc) := scalacOptions.value ++ Seq(
+  Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
       "-doc-title",
       "Alpakka Kafka",
       "-doc-version",
@@ -84,6 +84,7 @@ val commonSettings = Seq(
       "-skip-packages",
       "akka.pattern" // for some reason Scaladoc creates this
     ),
+  Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
   // https://github.com/maichler/sbt-jupiter-interface#framework-options
