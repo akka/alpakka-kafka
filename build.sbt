@@ -35,6 +35,20 @@ resolvers in ThisBuild ++= Seq(
   Resolver.jcenterRepo
 )
 
+TaskKey[Unit]("verifyCodeStyle") := {
+  scalafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
+    throw new MessageOnlyException("Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code")
+  }
+  (Compile / scalafmtSbtCheck).result.value.toEither.left.foreach { _ =>
+    throw new MessageOnlyException(
+      "Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code"
+    )
+  }
+}
+
+addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradox")
+addCommandAlias("verifyCompilation", """;set scalacOptions += "-Xfatal-warnings" ;Test/compile ;It/compile""")
+
 val commonSettings = Seq(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
@@ -136,6 +150,15 @@ lazy val `alpakka-kafka` =
             |  docs/previewSite
             |    builds Paradox and Scaladoc documentation, starts a webserver and
             |    opens a new browser window
+            |
+            |  verifyCodeStyle
+            |    checks if all of the code is formatted according to the configuration
+            |
+            |  verifyCompilation
+            |    compiles all the code and checks for compilation warnings
+            |
+            |  verifyDocs
+            |    builds all of the docs
             |
             |  test
             |    runs all the tests

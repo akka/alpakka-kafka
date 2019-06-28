@@ -25,20 +25,14 @@ script:
 jobs:
   include:
     - stage: check
-      script: sbt scalafmtCheckAll || { echo "[error] Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code."; false; }
-      name: "Code style check (fixed with `sbt Test/compile`)"
-    - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
-      name: "Build code style check (fixed with `sbt scalafmtSbt`)"
-    - env: CMD="++2.11.12 Test/compile"
-      name: "Compile all tests (with Scala 2.11)"
-    - env: CMD="++2.13.0 Test/compile"
-      name: "Compile all tests (with Scala 2.13)"
-    - env: CMD="+doc"
-      name: "Create all API docs for artifacts"
-    - env: CMD="unidoc"
-      name: "Create all API docs for website"
-    - env: CMD="docs/paradox"
-      name: "Create site with Paradox"
+      script: sbt verifyCodeStyle
+      name: "Code style check"
+    - env: CMD="++2.11.12! verifyCompilation"
+      name: "Compile all code (with Scala 2.11)"
+    - env: CMD="++2.13.0! verifyCompilation"
+      name: "Compile all code (with Scala 2.13)"
+    - env: CMD="verifyDocs"
+      name: "Create all API docs for artifacts/website and all reference docs"
 
     - stage: test
       env: CMD="+test"
