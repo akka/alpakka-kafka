@@ -54,7 +54,7 @@ The testkit contains helper classes used by the tests in the Alpakka Kafka conne
 If you need to run tests using [Confluent's Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html), you might include [embedded-kafka-schema-registry](https://github.com/embeddedkafka/embedded-kafka-schema-registry) instead.
 
 
-### Testing from Java code
+### Testing with Avro and Schema Registry from Java code
 
 Test classes may extend `akka.kafka.testkit.javadsl.EmbeddedKafkaTest` (JUnit 5) or `akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test` (JUnit 4) to automatically start and stop an embedded Kafka broker.
 
@@ -76,7 +76,7 @@ Java JUnit 5
 The JUnit test base classes run the [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/javadsl/StreamTestKit$.html#assertAllStagesStopped) check from Akka Stream testkit to ensure all stages are shut down properly within each test. This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
 
 
-### Testing from Scala code
+### Testing with Avro and Schema Registry from Scala code
 
 The `KafkaSpec` class offers access to 
 
@@ -120,7 +120,7 @@ The Testcontainers support is new to Alpakka Kafka since 1.0.2 and may evolve a 
 
 @@@
 
-### Testing from Java code
+### Testing with Kafka in Docker from Java code
 
 The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
 
@@ -142,7 +142,7 @@ Java JUnit 5
 : @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #testkit }
 
 
-### Testing from Scala code
+### Testing with Kafka in Docker from Scala code
 
 The Testcontainers dependency must be added to your project explicitly.
 
