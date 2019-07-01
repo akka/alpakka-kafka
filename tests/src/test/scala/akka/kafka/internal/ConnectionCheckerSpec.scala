@@ -26,7 +26,7 @@ class ConnectionCheckerSpec
 
     val retryInterval = 100.millis
     implicit val config: ConnectionCheckerSettings =
-      ConnectionCheckerSettings(true, 3, retryInterval, 2d)
+      ConnectionCheckerSettings(3, retryInterval, 2d)
 
     "wait for response and retryInterval before perform new ask" in withCheckerActorRef { checker =>
       expectListTopicsRequest(retryInterval)

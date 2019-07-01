@@ -37,7 +37,7 @@ class ConnectionCheckerSpec extends WordSpecLike with Matchers {
   )
 
   val retryInterval: FiniteDuration = 100.millis
-  val connectionCheckerConfig: ConnectionCheckerSettings = ConnectionCheckerSettings(true, 1, retryInterval, 2d)
+  val connectionCheckerConfig: ConnectionCheckerSettings = ConnectionCheckerSettings(1, retryInterval, 2d)
   val settings: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(s"localhost:${KafkaPorts.KafkaConnectionCheckerTest}")
