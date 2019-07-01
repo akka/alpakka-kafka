@@ -457,12 +457,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(connectionCheckerConfig = kafkaConnectionCheckerConfig)
 
   /**
-   * Disable kafka connection checker
-   */
-  def withoutConnectionChecker: ConsumerSettings[K, V] =
-    copy(connectionCheckerConfig = DisabledConnectionCheckerSettings)
-
-  /**
    * Java API:
    * Time to wait for pending requests when a partition is closed.
    */
