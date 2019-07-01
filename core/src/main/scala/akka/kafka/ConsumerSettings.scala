@@ -239,7 +239,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
     consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
-    connectionCheckerSettings = DisabledConnectionCheckerSettings
+    connectionCheckerSettings = ConnectionCheckerSettings(false, 3, 15.seconds, 2d)
   )
 
   /**

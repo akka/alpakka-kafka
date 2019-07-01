@@ -8,19 +8,19 @@ package akka.kafka.internal
 import akka.actor.{Actor, ActorLogging, Props, Timers}
 import akka.annotation.InternalApi
 import akka.event.LoggingReceive
-import akka.kafka.{EnabledConnectionCheckerSettings, KafkaConnectionFailed, Metadata}
+import akka.kafka.{ConnectionCheckerSettings, KafkaConnectionFailed, Metadata}
 import org.apache.kafka.common.errors.TimeoutException
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
-@InternalApi private class ConnectionChecker(config: EnabledConnectionCheckerSettings)
+@InternalApi private class ConnectionChecker(config: ConnectionCheckerSettings)
     extends Actor
     with ActorLogging
     with Timers {
 
   import ConnectionChecker.Internal._
-  import config._
+  import config.{enable => _, _}
 
   override def preStart(): Unit = {
     super.preStart()
@@ -70,7 +70,7 @@ import scala.util.{Failure, Success}
 
 @InternalApi object ConnectionChecker {
 
-  def props(config: EnabledConnectionCheckerSettings): Props = Props(new ConnectionChecker(config))
+  def props(config: ConnectionCheckerSettings): Props = Props(new ConnectionChecker(config))
 
   private object Internal {
     //Timer labels

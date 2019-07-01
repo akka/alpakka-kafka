@@ -10,7 +10,6 @@ import akka.event.{Logging, LoggingAdapter}
 import akka.kafka.{
   ConnectionCheckerSettings,
   ConsumerSettings,
-  EnabledConnectionCheckerSettings,
   KafkaConnectionFailed,
   KafkaPorts,
   Subscriptions
@@ -44,8 +43,8 @@ class ConnectionCheckerSpec extends WordSpecLike with Matchers {
   )
 
   val retryInterval: FiniteDuration = 100.millis
-  val connectionCheckerConfig: EnabledConnectionCheckerSettings =
-    EnabledConnectionCheckerSettings(system.settings.config.getConfig(ConnectionCheckerSettings.fullConfigPath))
+  val connectionCheckerConfig: ConnectionCheckerSettings =
+    ConnectionCheckerSettings(system.settings.config.getConfig(ConnectionCheckerSettings.fullConfigPath))
       .withMaxRetries(1)
       .withCheckInterval(retryInterval)
       .withFactor(2d)

@@ -241,10 +241,8 @@ import scala.util.control.NonFatal
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
 
-  settings.connectionCheckerSettings match {
-    case settings: EnabledConnectionCheckerSettings => context.actorOf(ConnectionChecker.props(settings))
-    case DisabledConnectionCheckerSettings => ()
-  }
+  if (settings.connectionCheckerSettings.enable)
+    context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
 
   /**
    * While `true`, committing is delayed.
