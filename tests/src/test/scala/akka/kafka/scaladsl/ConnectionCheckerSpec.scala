@@ -7,13 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
-import akka.kafka.{
-  ConnectionCheckerSettings,
-  ConsumerSettings,
-  KafkaConnectionFailed,
-  KafkaPorts,
-  Subscriptions
-}
+import akka.kafka.{ConnectionCheckerSettings, ConsumerSettings, KafkaConnectionFailed, KafkaPorts, Subscriptions}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.TestSink
@@ -43,11 +37,7 @@ class ConnectionCheckerSpec extends WordSpecLike with Matchers {
   )
 
   val retryInterval: FiniteDuration = 100.millis
-  val connectionCheckerConfig: ConnectionCheckerSettings =
-    ConnectionCheckerSettings(system.settings.config.getConfig(ConnectionCheckerSettings.fullConfigPath))
-      .withMaxRetries(1)
-      .withCheckInterval(retryInterval)
-      .withFactor(2d)
+  val connectionCheckerConfig: ConnectionCheckerSettings = ConnectionCheckerSettings(true, 1, retryInterval, 2d)
   val settings: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(s"localhost:${KafkaPorts.KafkaConnectionCheckerTest}")
