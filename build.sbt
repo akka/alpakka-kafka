@@ -47,9 +47,8 @@ TaskKey[Unit]("verifyCodeStyle") := {
 }
 
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradox")
-addCommandAlias("verifyCompilation", """;set scalacOptions += "-Xfatal-warnings" ;Test/compile ;It/compile""")
 
-val commonSettings = Seq(
+val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
   organizationHomepage := Some(url("https://www.lightbend.com/")),
