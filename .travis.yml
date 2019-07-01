@@ -33,18 +33,17 @@ jobs:
       name: Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ";++2.13.0 Test/compile ;++2.13.0 It/compile"
     - env: CMD="verifyDocs"
       name: Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs
+    - env: CMD="mimaReportBinaryIssues"
+      name: Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues
 
     - stage: test
       env: CMD="+test"
-      name: "Run tests (AdoptOpenJDK 8)"
+      name: Run tests (AdoptOpenJDK 8)
 
     - env:
       - JDK="adopt@~1.11.0-2"
       - CMD="+test"
-      name: "Run tests (AdoptOpenJDK 11)"
-
-    - env: CMD="mimaReportBinaryIssues"
-      name: "Check binary compatibility"
+      name: Run tests (AdoptOpenJDK 11)
 
     - stage: integration
       env: CMD="dockerComposeTestAll"
@@ -55,9 +54,9 @@ jobs:
 
     - stage: publish
       env: CMD="+publish"
-      name: "Publish artifacts for all Scala versions"
+      name: Publish artifacts for all Scala versions
     - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis docs/publishRsync
-      name: "Publish API and reference documentation"
+      name: Publish API and reference documentation
 
 stages:
   # runs on master commits and PRs
