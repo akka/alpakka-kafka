@@ -24,7 +24,7 @@ import scala.util.{Failure, Success}
 
   override def preStart(): Unit = {
     super.preStart()
-    startRegularTimer()
+    startTimer()
   }
 
   override def receive: Receive = regular
@@ -49,11 +49,11 @@ import scala.util.{Failure, Success}
       } else context.become(backoff(failedAttempts + 1, startBackoffTimer(interval)))
 
     case Metadata.Topics(Success(_)) =>
-      startRegularTimer()
+      startTimer()
       context.become(regular)
   }
 
-  def startRegularTimer(): Unit = timers.startSingleTimer(RegularCheck, CheckConnection, checkInterval)
+  def startTimer(): Unit = timers.startSingleTimer(RegularCheck, CheckConnection, checkInterval)
 
   /** start single timer and return it's interval
    *
