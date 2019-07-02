@@ -1,3 +1,0 @@
-# PR #831
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
-

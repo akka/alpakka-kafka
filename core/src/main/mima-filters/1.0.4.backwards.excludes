@@ -1,2 +1,5 @@
 # PR #780
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ProducerMessage#Envelope.withPassThrough")
+
+# PR #831
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
