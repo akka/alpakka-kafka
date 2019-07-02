@@ -247,6 +247,7 @@ lazy val tests = project
         "SerializationSpec.scala" ||
         "PartitionExamples.scala" ||
         "TransactionsExample.scala" ||
+        "ConnectionCheckerSpec.scala" ||
         "EmbeddedKafkaWithSchemaRegistryTest.java" ||
         "AssignmentTest.java" ||
         "ProducerExampleTest.java" ||

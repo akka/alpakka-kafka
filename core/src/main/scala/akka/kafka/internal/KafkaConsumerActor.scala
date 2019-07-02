@@ -241,6 +241,9 @@ import scala.util.control.NonFatal
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
 
+  if (settings.connectionCheckerSettings.enable)
+    context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
+
   /**
    * While `true`, committing is delayed.
    * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[WrappedAutoPausedListener]].
@@ -342,6 +345,10 @@ import scala.util.control.NonFatal
         stopInProgress = true
         context.become(stopping)
       }
+
+    case kcf: KafkaConnectionFailed =>
+      processErrors(kcf)
+      self ! Stop
 
     case RequestMetrics =>
       val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()

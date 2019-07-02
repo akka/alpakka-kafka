@@ -71,6 +71,8 @@ object ConsumerSettings {
     val offsetForTimesTimeout = config.getDuration("offset-for-times-timeout").asScala
     val metadataRequestTimeout = config.getDuration("metadata-request-timeout").asScala
     val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
+    val connectionCheckerSettings = ConnectionCheckerSettings(config.getConfig(ConnectionCheckerSettings.configPath))
+
     new ConsumerSettings[K, V](
       properties,
       keyDeserializer,
@@ -88,7 +90,8 @@ object ConsumerSettings {
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
-      ConsumerSettings.createKafkaConsumer
+      ConsumerSettings.createKafkaConsumer,
+      connectionCheckerSettings
     )
   }
 
@@ -199,7 +202,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
-    val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V]
+    val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
+    val connectionCheckerSettings: ConnectionCheckerSettings
 ) {
 
   @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
@@ -234,7 +238,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
-    consumerFactory = ConsumerSettings.createKafkaConsumer
+    consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
+    connectionCheckerSettings = ConnectionCheckerSettings.Disabled
   )
 
   /**
@@ -378,6 +383,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -386,6 +392,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Java API:
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -400,6 +407,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -428,6 +436,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Not used anymore
+   *
    * @deprecated not used anymore, since 1.0-RC1
    */
   @deprecated("not used anymore", "1.0-RC1")
@@ -438,6 +447,14 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    */
   def withWaitClosePartition(waitClosePartition: FiniteDuration): ConsumerSettings[K, V] =
     copy(waitClosePartition = waitClosePartition)
+
+  /**
+   * Enable kafka connection checker with provided settings
+   */
+  def withConnectionChecker(
+      kafkaConnectionCheckerConfig: ConnectionCheckerSettings
+  ): ConsumerSettings[K, V] =
+    copy(connectionCheckerConfig = kafkaConnectionCheckerConfig)
 
   /**
    * Java API:
@@ -512,7 +529,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
-      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory
+      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
+      connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -531,7 +549,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
-      consumerFactory
+      consumerFactory,
+      connectionCheckerConfig
     )
 
   /**
@@ -554,6 +573,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
     s"waitClosePartition=${waitClosePartition.toCoarsest}," +
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
-    s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}" +
+    s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
+    s"connectionCheckerSettings=$connectionCheckerSettings" +
     ")"
 }

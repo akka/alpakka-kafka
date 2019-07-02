@@ -63,9 +63,6 @@ object Consumer {
         .flatMap { result =>
           shutdown()
             .map(_ => result)
-            .recover {
-              case shutdownError: Throwable => throw shutdownError
-            }
         }
 
     /**
