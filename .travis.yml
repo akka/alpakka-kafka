@@ -25,20 +25,16 @@ script:
 jobs:
   include:
     - stage: check
-      script: sbt scalafmtCheckAll || { echo "[error] Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code."; false; }
-      name: "Code style check (fixed with `sbt Test/compile`)"
-    - script: sbt scalafmtSbtCheck || { echo "[error] Unformatted sbt code found. Please run 'scalafmtSbt' and commit the reformatted code."; false; }
-      name: "Build code style check (fixed with `sbt scalafmtSbt`)"
-    - env: CMD="++2.11.12 Test/compile"
-      name: "Compile all tests (with Scala 2.11)"
-    - env: CMD="++2.13.0 Test/compile"
-      name: "Compile all tests (with Scala 2.13)"
-    - env: CMD="+doc"
-      name: "Create all API docs for artifacts"
-    - env: CMD="unidoc"
-      name: "Create all API docs for website"
-    - env: CMD="docs/paradox"
-      name: "Create site with Paradox"
+      script: sbt verifyCodeStyle
+      name: "Code style check. Run locally with: sbt verifyCodeStyle"
+    - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
+    - env: CMD=";++2.13.0 Test/compile ;++2.13.0 It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.0 Test/compile ;++2.13.0 It/compile'"
+    - env: CMD="verifyDocs"
+      name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
+    - env: CMD="mimaReportBinaryIssues"
+      name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
     - stage: test
       env: CMD="+test"
@@ -48,9 +44,6 @@ jobs:
       - JDK="adopt@~1.11.0-2"
       - CMD="+test"
       name: "Run tests (AdoptOpenJDK 11)"
-
-    - env: CMD="mimaReportBinaryIssues"
-      name: "Check binary compatibility"
 
     - stage: integration
       env: CMD="dockerComposeTestAll"

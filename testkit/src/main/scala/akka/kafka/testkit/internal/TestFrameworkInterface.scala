@@ -15,7 +15,7 @@ trait TestFrameworkInterface {
 object TestFrameworkInterface {
 
   trait Scalatest extends TestFrameworkInterface with BeforeAndAfterAll {
-    this: Suite ⇒
+    this: Suite =>
 
     abstract override protected def beforeAll(): Unit = {
       setUp()

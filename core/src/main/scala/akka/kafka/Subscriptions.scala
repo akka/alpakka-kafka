@@ -9,7 +9,7 @@ import akka.actor.ActorRef
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.varargs
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 sealed trait Subscription {
 

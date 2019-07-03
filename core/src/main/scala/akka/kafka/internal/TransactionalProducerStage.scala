@@ -19,7 +19,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
  * INTERNAL API

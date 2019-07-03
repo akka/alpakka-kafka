@@ -37,7 +37,7 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{FlatSpecLike, Matchers}
 import org.slf4j.bridge.SLF4JBridgeHandler
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 

@@ -13,7 +13,7 @@ import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetada
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
 
 object KafkaTransactionBenchmarks extends LazyLogging {

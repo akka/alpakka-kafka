@@ -30,7 +30,7 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -138,7 +138,6 @@ class ProducerSpec(_system: ActorSystem)
 
       Await.result(fut, Duration.apply("1 second"))
       mockProducer.close()
-      import collection.JavaConverters._
       mockProducer.history().asScala.toVector shouldEqual input
     }
   }

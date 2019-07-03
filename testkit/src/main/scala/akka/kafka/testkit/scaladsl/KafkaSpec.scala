@@ -25,7 +25,7 @@ import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 import org.apache.kafka.common.ConsumerGroupState
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

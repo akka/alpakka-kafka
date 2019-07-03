@@ -21,6 +21,7 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, Offset
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.IsolationLevel
 
+import scala.collection.compat._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -107,7 +108,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
-      inFlightRecords.committed(offsets.mapValues(_.offset() - 1).toMap)
+      inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
       sender ! Done
     case (sender, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")

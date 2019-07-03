@@ -12,7 +12,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.Inside
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
