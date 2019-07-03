@@ -13,7 +13,8 @@ before_install:
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
-  - if [ ! -f ~/.jabba/jabba.sh ]; then curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash && . ~/.jabba/jabba.sh ; fi
+  - if [ ! -f ~/.jabba/jabba.sh ]; then curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash ; fi
+  - . ~/.jabba/jabba.sh
   - jabba install adopt@~1.8.202-08
   - jabba install adopt@~1.11.0-2
 
