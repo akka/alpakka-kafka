@@ -13,7 +13,7 @@ before_install:
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
-  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash && . ~/.jabba/jabba.sh
+  - if [ ! -f ~/.jabba/jabba.sh ]; then curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash && . ~/.jabba/jabba.sh ; fi
   - jabba install adopt@~1.8.202-08
   - jabba install adopt@~1.11.0-2
 
@@ -29,8 +29,8 @@ jobs:
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
     - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
-    - env: CMD=";++2.13.0 Test/compile ;++2.13.0 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.0 Test/compile ;++2.13.0 It/compile'"
+    - env: CMD=";++2.12.8 Test/compile ;++2.12.8 It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.12. Run locally with: env CI=true sbt ';++2.12.8 Test/compile ;++2.12.8 It/compile'"
     - env: CMD="verifyDocs"
       name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
     - env: CMD="mimaReportBinaryIssues"
@@ -93,6 +93,8 @@ cache:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
     - $HOME/.sbt/launchers
+    - $HOME/.jabba/jabba.sh
+    - $HOME/.jabba/bin
     - $HOME/.jabba/jdk
 
 env:
