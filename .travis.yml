@@ -93,9 +93,7 @@ cache:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
     - $HOME/.sbt/launchers
-    - $HOME/.jabba/jabba.sh
-    - $HOME/.jabba/bin
-    - $HOME/.jabba/jdk
+    - $HOME/.jabba
 
 env:
   global:
