@@ -357,7 +357,7 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
   .enablePlugins(DockerPlugin)
-  .disablePlugins(SitePlugin)
+  .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
