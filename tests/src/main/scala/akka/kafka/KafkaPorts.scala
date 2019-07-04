@@ -11,7 +11,6 @@ package akka.kafka
  */
 object KafkaPorts {
 
-  val IntegrationSpec = 9002
   val RetentionPeriodSpec = 9012
   val TransactionsSpec = 9022
   val ReconnectSpec = 9032
