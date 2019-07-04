@@ -26,12 +26,26 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
-    Flow[Committable]
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
+    batch(settings)
       .mapAsync(settings.parallelism) { b =>
         b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
       }
+
+  /**
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.  Emits
+   * `CommittableOffsetBatch` for every committed batch.
+   */
+  def batchFlowWithNoCallback(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+    batch(settings)
+      .map { b =>
+        b.commitWithNoCallback()
+        b
+      }
+
+  private def batch(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+    Flow[Committable]
+      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
+      .map(CommittableOffsetBatch.apply)
 
   /**
    * API MAY CHANGE
@@ -51,10 +65,34 @@ object Committer {
   }
 
   /**
+   * API MAY CHANGE
+   *
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.  Emits
+   * `CommittableOffsetBatch` for every committed batch.
+   */
+  @ApiMayChange
+  def flowWithOffsetContextAndNoCallback[E](
+      settings: CommitterSettings
+  ): FlowWithContext[E, CommittableOffset, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value = Flow[(E, CommittableOffset)]
+      .map(_._2)
+      .via(batchFlowWithNoCallback(settings))
+      .map(b => (NotUsed, b))
+    new FlowWithContext(value)
+  }
+
+  /**
    * Batches offsets and commits them to Kafka.
    */
   def sink(settings: CommitterSettings): Sink[Committable, Future[Done]] =
     flow(settings)
+      .toMat(Sink.ignore)(Keep.right)
+
+  /**
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.
+   */
+  def sinkWithNoCallback(settings: CommitterSettings): Sink[Committable, Future[Done]] =
+    batchFlowWithNoCallback(settings)
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -68,4 +106,14 @@ object Committer {
       .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
 
+  /**
+   * API MAY CHANGE
+   *
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.
+   */
+  @ApiMayChange
+  def sinkWithOffsetContextAndNoCallback[E](settings: CommitterSettings): Sink[(E, CommittableOffset), Future[Done]] =
+    Flow[(E, CommittableOffset)]
+      .via(flowWithOffsetContextAndNoCallback(settings))
+      .toMat(Sink.ignore)(Keep.right)
 }

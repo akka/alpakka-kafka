@@ -63,7 +63,11 @@ import scala.util.control.NonFatal
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
-    final case class Commit(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
+    sealed trait Commit extends NoSerializationVerificationNeeded {
+      def offsets: Map[TopicPartition, OffsetAndMetadata]
+    }
+    final case class CommitWithCallback(offsets: Map[TopicPartition, OffsetAndMetadata]) extends Commit
+    final case class CommitWithNoCallback(offsets: Map[TopicPartition, OffsetAndMetadata]) extends Commit
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -75,6 +79,11 @@ import scala.util.control.NonFatal
       def getMetrics: java.util.Map[MetricName, Metric] = metrics.asJava
     }
     //internal
+    private[KafkaConsumerActor] final case class CommitWithCallbackAndSender(
+        offsets: Map[TopicPartition, OffsetAndMetadata],
+        sender: ActorRef
+    ) extends Commit
+
     private[KafkaConsumerActor] final case class Poll[K, V](
         target: KafkaConsumerActor[K, V],
         periodic: Boolean
@@ -252,14 +261,10 @@ import scala.util.control.NonFatal
   private var rebalanceInProgress = false
 
   /**
-   * Keeps commit offsets during rebalances for later commit.
+   * Keep commit requests during rebalances for later commit.
    */
-  private var rebalanceCommitStash = Map.empty[TopicPartition, OffsetAndMetadata]
-
-  /**
-   * Keeps commit senders that need a reply once stashed commits are made.
-   */
-  private var rebalanceCommitSenders = Vector.empty[ActorRef]
+  private var rebalanceCommitWithCallbackStash = Vector.empty[CommitWithCallbackAndSender]
+  private var rebalanceCommitWithNoCallbackStash = Vector.empty[CommitWithNoCallback]
 
   private var delayedPollInFlight = false
 
@@ -299,14 +304,18 @@ import scala.util.control.NonFatal
       }
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
-    case Commit(offsets) if rebalanceInProgress =>
-      rebalanceCommitStash ++= offsets
-      rebalanceCommitSenders = rebalanceCommitSenders :+ sender()
+    case c: CommitWithCallback if rebalanceInProgress =>
+      rebalanceCommitWithCallbackStash =
+        rebalanceCommitWithCallbackStash :+ CommitWithCallbackAndSender(c.offsets, sender())
 
-    case Commit(offsets) =>
-      commitRefreshing.add(offsets)
+    case c: CommitWithNoCallback if rebalanceInProgress =>
+      rebalanceCommitWithNoCallbackStash = rebalanceCommitWithNoCallbackStash :+ c
+
+    case CommitWithCallback(offsets) =>
       val replyTo = sender()
       commit(offsets, replyTo ! _)
+
+    case CommitWithNoCallback(offsets) => commitWithNoCallback(offsets)
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -496,6 +505,7 @@ import scala.util.control.NonFatal
   }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], sendReply: AnyRef => Unit): Unit = {
+    commitRefreshing.add(commitMap)
     commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
@@ -518,16 +528,27 @@ import scala.util.control.NonFatal
         }
       }
     )
-    // When many requestors, e.g. many partitions with committablePartitionedSource the
-    // performance is much by collecting more requests/commits before performing the poll.
-    // That is done by sending a message to self, and thereby collect pending messages in mailbox.
+    pollAfterCommit()
+  }
+
+  private def commitWithNoCallback(commitMap: Map[TopicPartition, OffsetAndMetadata]): Unit = {
+    // passing a `null` callback will force the consumer to use a default which will log errors, but nothing else
+    consumer.commitAsync(commitMap.asJava, null)
+    pollAfterCommit()
+  }
+
+  /**
+   * When many requestors, e.g. many partitions with committablePartitionedSource the
+   * performance is much by collecting more requests/commits before performing the poll.
+   * That is done by sending a message to self, and thereby collect pending messages in mailbox.
+   */
+  private def pollAfterCommit(): Unit =
     if (requestors.size == 1)
       poll()
     else if (!delayedPollInFlight) {
       delayedPollInFlight = true
       self ! delayedPollMsg
     }
-  }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit =
     if (!rawResult.isEmpty) {
@@ -622,14 +643,27 @@ import scala.util.control.NonFatal
   /**
    * Detects state changes of [[rebalanceInProgress]] and takes action on it.
    */
-  private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit =
-    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitSenders.nonEmpty) {
-      log.debug("committing stash {} replying to {}", rebalanceCommitStash, rebalanceCommitSenders)
-      val replyTo = rebalanceCommitSenders
-      commit(rebalanceCommitStash, msg => replyTo.foreach(_ ! msg))
-      rebalanceCommitStash = Map.empty
-      rebalanceCommitSenders = Vector.empty
+  private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit = {
+    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitWithCallbackStash.nonEmpty) {
+      val callbackStash: Map[TopicPartition, OffsetAndMetadata] =
+        rebalanceCommitWithCallbackStash.flatMap(_.offsets).toMap
+      val replyTo = rebalanceCommitWithCallbackStash.map(_.sender)
+      if (callbackStash.nonEmpty) {
+        log.debug("committing with callbacks: stash {} replying to {}", callbackStash, replyTo)
+        commit(callbackStash, msg => replyTo.foreach(_ ! msg))
+      }
+      rebalanceCommitWithCallbackStash = Vector.empty
     }
+
+    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitWithNoCallbackStash.nonEmpty) {
+      val noCallbackStash = rebalanceCommitWithNoCallbackStash.flatMap(_.offsets).toMap
+      if (noCallbackStash.nonEmpty) {
+        log.debug("committing with no callbacks: stash {}", noCallbackStash)
+        commitWithNoCallback(noCallbackStash)
+      }
+      rebalanceCommitWithNoCallbackStash = Vector.empty
+    }
+  }
 
   /**
    * Copied from the implemented interface: "

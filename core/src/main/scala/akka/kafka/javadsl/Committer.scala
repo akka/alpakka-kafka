@@ -30,6 +30,13 @@ object Committer {
     scaladsl.Committer.batchFlow(settings).asJava
 
   /**
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.  Emits
+   * `CommittableOffsetBatch` for every committed batch.
+   */
+  def batchFlowWithNoCallback[C <: Committable](settings: CommitterSettings): Flow[C, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.batchFlowWithNoCallback(settings).asJava
+
+  /**
    * API MAY CHANGE
    *
    * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed
@@ -42,10 +49,28 @@ object Committer {
     scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
 
   /**
+   * API MAY CHANGE
+   *
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.  Emits
+   * `CommittableOffsetBatch` for every committed batch.
+   */
+  @ApiMayChange
+  def flowWithOffsetContextAndNoCallback[E, C <: CommittableOffset](
+      settings: CommitterSettings
+  ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.flowWithOffsetContextAndNoCallback(settings).asJava
+
+  /**
    * Batches offsets and commits them to Kafka.
    */
   def sink[C <: Committable](settings: CommitterSettings): Sink[C, CompletionStage[Done]] =
     scaladsl.Committer.sink(settings).mapMaterializedValue(_.toJava).asJava
+
+  /**
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.
+   */
+  def sinkWithNoCallback[C <: Committable](settings: CommitterSettings): Sink[C, CompletionStage[Done]] =
+    scaladsl.Committer.sinkWithNoCallback(settings).mapMaterializedValue(_.toJava).asJava
 
   /**
    * API MAY CHANGE
@@ -60,6 +85,22 @@ object Committer {
       .Flow[Pair[E, C]]
       .map(_.toScala)
       .toMat(scaladsl.Committer.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
+      .mapMaterializedValue[CompletionStage[Done]](_.toJava)
+      .asJava[Pair[E, C]]
+
+  /**
+   * API MAY CHANGE
+   *
+   * Batches offsets and commits them to Kafka without acknowledging a successful commit callback.
+   */
+  @ApiMayChange
+  def sinkWithOffsetContextAndNoCallback[E, C <: CommittableOffset](
+      settings: CommitterSettings
+  ): Sink[Pair[E, C], CompletionStage[Done]] =
+    akka.stream.scaladsl
+      .Flow[Pair[E, C]]
+      .map(_.toScala)
+      .toMat(scaladsl.Committer.sinkWithOffsetContextAndNoCallback(settings))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue[CompletionStage[Done]](_.toJava)
       .asJava[Pair[E, C]]
 }

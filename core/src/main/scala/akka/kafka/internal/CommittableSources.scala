@@ -14,7 +14,7 @@ import akka.kafka.ConsumerMessage.{
   PartitionOffsetMetadata
 }
 import akka.kafka._
-import akka.kafka.internal.KafkaConsumerActor.Internal.Commit
+import akka.kafka.internal.KafkaConsumerActor.Internal.{CommitWithCallback, CommitWithNoCallback}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.AskTimeoutException
 import akka.stream.SourceShape
@@ -133,13 +133,10 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
   import akka.pattern.ask
 
   override def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
-    val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = offsets.map { offset =>
-      new TopicPartition(offset.key.topic, offset.key.partition) ->
-      new OffsetAndMetadata(offset.offset + 1, offset.metadata)
-    }.toMap
+    val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = getOffsetsMap(offsets)
 
     consumerActor
-      .ask(Commit(offsetsMap))(Timeout(commitTimeout))
+      .ask(CommitWithCallback(offsetsMap))(Timeout(commitTimeout))
       .map(_ => Done)
       .recoverWith {
         case _: AskTimeoutException =>
@@ -150,23 +147,52 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
 
   override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
-      val futures = b.offsetsAndMetadata.groupBy(_._1.groupId).map {
-        case (groupId, offsetsMap) =>
-          val committer = b.committers.getOrElse(
-            groupId,
-            throw new IllegalStateException(s"Unknown committer, got [$groupId]")
-          )
-          val offsets: immutable.Seq[PartitionOffsetMetadata] = offsetsMap.map {
-            case (ctp, offset) => PartitionOffsetMetadata(ctp, offset.offset(), offset.metadata())
-          }.toList
+      val futures = groupBatch(b).map {
+        case (committer, offsets) =>
           committer.commit(offsets)
       }
       Future.sequence(futures).map(_ => Done)
-
-    case _ =>
-      throw new IllegalArgumentException(
-        s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
-        s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
-      )
+    case _ => invalidBatchImpl(batch)
   }
+
+  override def commitWithNoCallback(offsets: immutable.Seq[PartitionOffsetMetadata]): Unit = {
+    val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = getOffsetsMap(offsets)
+    consumerActor ! CommitWithNoCallback(offsetsMap)
+  }
+
+  override def commitWithNoCallback(batch: CommittableOffsetBatch): Unit = batch match {
+    case b: CommittableOffsetBatchImpl =>
+      groupBatch(b).foreach {
+        case (committer, offsets) =>
+          committer.commitWithNoCallback(offsets)
+      }
+    case _ => invalidBatchImpl(batch)
+  }
+
+  private def getOffsetsMap(offsets: immutable.Seq[PartitionOffsetMetadata]): Map[TopicPartition, OffsetAndMetadata] =
+    offsets.map { offset =>
+      new TopicPartition(offset.key.topic, offset.key.partition) ->
+      new OffsetAndMetadata(offset.offset + 1, offset.metadata)
+    }.toMap
+
+  private def groupBatch(
+      b: CommittableOffsetBatchImpl
+  ): Map[InternalCommitter, immutable.Seq[PartitionOffsetMetadata]] =
+    b.offsetsAndMetadata.groupBy(_._1.groupId).map {
+      case (groupId, offsetsMap) =>
+        val committer = b.committers.getOrElse(
+          groupId,
+          throw new IllegalStateException(s"Unknown committer, got [$groupId]")
+        )
+        val offsets: immutable.Seq[PartitionOffsetMetadata] = offsetsMap.map {
+          case (ctp, offset) => PartitionOffsetMetadata(ctp, offset.offset(), offset.metadata())
+        }.toList
+        (committer, offsets)
+    }
+
+  private def invalidBatchImpl(batch: CommittableOffsetBatch) =
+    throw new IllegalArgumentException(
+      s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
+      s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+    )
 }

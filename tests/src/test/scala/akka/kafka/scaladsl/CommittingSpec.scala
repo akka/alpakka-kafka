@@ -7,7 +7,7 @@ package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
@@ -246,6 +246,16 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     }
 
     "work with a committer sink" in assertAllStagesStopped {
+      val committerSettings = committerDefaults.withMaxBatch(5)
+      committerSink(Committer.sink(committerSettings))
+    }
+
+    "work with a committer no callback sink" in assertAllStagesStopped {
+      val committerSettings = committerDefaults.withMaxBatch(5)
+      committerSink(Committer.sinkWithNoCallback(committerSettings))
+    }
+
+    def committerSink(sink: Sink[Committable, Future[Done]]) = {
       val topic = createTopic()
       val group = createGroupId()
 
@@ -264,7 +274,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             case other => other
           }
           .map(_.committableOffset)
-          .toMat(Committer.sink(committerSettings))(Keep.right)
+          .toMat(sink)(Keep.right)
           .run()
 
       // Consume and fail in the middle of the commit batch
@@ -276,7 +286,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val element1 = probe1.request(1).expectNext(60.seconds)
 
       Assertions.assert(element1.toInt >= failAt - committerSettings.maxBatch,
-                        "Should re-process at most maxBatch elements")
+        "Should re-process at most maxBatch elements")
       probe1.cancel()
     }
 

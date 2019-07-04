@@ -26,6 +26,8 @@ object ConsumerResultFactory {
         offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]
     ): Future[Done] = Future.successful(Done)
     override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] = Future.successful(Done)
+    override def commitWithNoCallback(offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]): Unit = ()
+    override def commitWithNoCallback(offsets: ConsumerMessage.CommittableOffsetBatch): Unit = ()
   }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =

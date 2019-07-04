@@ -50,6 +50,7 @@ object ConsumerMessage {
   @DoNotInherit trait Committable {
     def commitScaladsl(): Future[Done]
     def commitJavadsl(): CompletionStage[Done]
+    def commitWithNoCallback(): Unit
 
     /**
      * Get a number of processed messages this committable contains

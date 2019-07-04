@@ -140,9 +140,11 @@ private[kafka] trait OffsetContextBuilder[K, V]
 )(
     val committer: InternalCommitter
 ) extends CommittableOffsetMetadata {
-  override def commitScaladsl(): Future[Done] =
-    committer.commit(immutable.Seq(partitionOffset.withMetadata(metadata)))
+  private lazy val offsets = immutable.Seq(partitionOffset.withMetadata(metadata))
+
+  override def commitScaladsl(): Future[Done] = committer.commit(offsets)
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
+  override def commitWithNoCallback(): Unit = committer.commitWithNoCallback(offsets)
   override val batchSize: Long = 1
 }
 
@@ -152,6 +154,8 @@ private[kafka] trait InternalCommitter {
   // Commit all offsets (of different topics) belonging to the same stage
   def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done]
   def commit(batch: CommittableOffsetBatch): Future[Done]
+  def commitWithNoCallback(offsets: immutable.Seq[PartitionOffsetMetadata]): Unit
+  def commitWithNoCallback(offsets: CommittableOffsetBatch): Unit
 }
 
 /** Internal API */
@@ -259,4 +263,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
 
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
 
+  override def commitWithNoCallback(): Unit =
+    if (offsets.nonEmpty)
+      committers.head._2.commitWithNoCallback(this)
 }
