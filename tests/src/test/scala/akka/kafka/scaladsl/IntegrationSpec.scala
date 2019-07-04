@@ -64,7 +64,7 @@ class IntegrationSpec extends SpecBase(kafkaPort = KafkaPorts.IntegrationSpec) w
       val rebalanceActor2 = TestProbe()
 
       val (counterQueue, counterCompletion) = Source
-        .queue[String](8, OverflowStrategy.fail)
+        .queue[String](100, OverflowStrategy.backpressure)
         .scan(0L)((c, _) => c + 1)
         .takeWhile(_ < totalMessages, inclusive = true)
         .toMat(Sink.last)(Keep.both)
