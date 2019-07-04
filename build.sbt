@@ -355,27 +355,25 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
-  .enablePlugins(DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin, DockerPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
-    crossScalaVersions -= Scala213,
     name := "akka-stream-kafka-benchmarks",
-    skip in publish := true,
+    publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-        "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
+        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
       ),
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
