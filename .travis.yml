@@ -13,7 +13,8 @@ before_install:
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
-  - curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash && . ~/.jabba/jabba.sh
+  - if [ ! -f ~/.jabba/jabba.sh ]; then curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash ; fi
+  - . ~/.jabba/jabba.sh
   - jabba install adopt@~1.8.202-08
   - jabba install adopt@~1.11.0-2
 
@@ -55,7 +56,7 @@ jobs:
     - stage: publish
       env: CMD="+publish"
       name: "Publish artifacts for all Scala versions"
-    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis docs/publishRsync
+    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.0 docs/publishRsync'
       name: "Publish API and reference documentation"
 
 stages:
@@ -93,7 +94,7 @@ cache:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
     - $HOME/.sbt/launchers
-    - $HOME/.jabba/jdk
+    - $HOME/.jabba
 
 env:
   global:

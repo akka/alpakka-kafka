@@ -52,7 +52,7 @@ val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
   organizationHomepage := Some(url("https://www.lightbend.com/")),
-  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current/")),
+  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
@@ -90,13 +90,26 @@ val commonSettings = Def.settings(
       version.value,
       "-sourcepath",
       (baseDirectory in ThisBuild).value.toString,
-      "-doc-source-url", {
-        val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-        s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
-      },
       "-skip-packages",
       "akka.pattern" // for some reason Scaladoc creates this
-    ),
+    ) ++ {
+      if (scalaBinaryVersion.value == "2.13")
+        Seq(
+          "-doc-source-url", {
+            val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#€{FILE_LINE}"
+          },
+          "-doc-canonical-base-url",
+          "https://doc.akka.io/api/alpakka-kafka/current/"
+        )
+      else
+        Seq(
+          "-doc-source-url", {
+            val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
+          }
+        )
+    },
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
@@ -282,7 +295,6 @@ lazy val tests = project
       if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
         "RetentionPeriodSpec.scala" ||
-        "IntegrationSpec.scala" ||
         "MultiConsumerSpec.scala" ||
         "ReconnectSpec.scala" ||
         "EmbeddedKafkaSampleSpec.scala" ||
@@ -355,27 +367,25 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
-  .enablePlugins(DockerPlugin)
-  .disablePlugins(SitePlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin, DockerPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
   .settings(automateHeaderSettings(IntegrationTest))
   .settings(
-    crossScalaVersions -= Scala213,
     name := "akka-stream-kafka-benchmarks",
-    skip in publish := true,
+    publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "it",
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "it",
-        "org.scalatest" %% "scalatest" % scalatestVersion % "it"
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
+        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
       ),
     kafkaScale := 1,
     buildInfoPackage := "akka.kafka.benchmarks",
