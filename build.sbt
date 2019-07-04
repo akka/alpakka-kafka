@@ -52,7 +52,7 @@ val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
   organizationHomepage := Some(url("https://www.lightbend.com/")),
-  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current/")),
+  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
@@ -90,13 +90,26 @@ val commonSettings = Def.settings(
       version.value,
       "-sourcepath",
       (baseDirectory in ThisBuild).value.toString,
-      "-doc-source-url", {
-        val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-        s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
-      },
       "-skip-packages",
       "akka.pattern" // for some reason Scaladoc creates this
-    ),
+    ) ++ {
+      if (scalaBinaryVersion.value == "2.13")
+        Seq(
+          "-doc-source-url", {
+            val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#€{FILE_LINE}"
+          },
+          "-doc-canonical-base-url",
+          "https://doc.akka.io/api/alpakka-kafka/current/"
+        )
+      else
+        Seq(
+          "-doc-source-url", {
+            val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
+          }
+        )
+    },
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
