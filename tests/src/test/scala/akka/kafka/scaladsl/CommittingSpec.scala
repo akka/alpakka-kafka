@@ -363,6 +363,5 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
                         "Should re-process at most maxBatch elements")
       probe1.cancel()
     }
-
   }
 }

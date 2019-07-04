@@ -5,12 +5,11 @@
 
 package akka.kafka.scaladsl
 
-import akka.dispatch.ExecutionContexts
 import akka.annotation.ApiMayChange
-import akka.{Done, NotUsed}
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
+import akka.{Done, NotUsed}
 
 import scala.concurrent.Future
 
@@ -26,12 +25,16 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+    batch(settings)
+      .map { b =>
+        b.commit()
+        b
+      }
+
+  private def batch(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
     Flow[Committable]
       .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
       .map(CommittableOffsetBatch.apply)
-      .mapAsync(settings.parallelism) { b =>
-        b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
-      }
 
   /**
    * API MAY CHANGE
@@ -67,5 +70,4 @@ object Committer {
     Flow[(E, CommittableOffset)]
       .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
-
 }

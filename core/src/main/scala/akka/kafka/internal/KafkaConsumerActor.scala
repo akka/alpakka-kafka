@@ -222,14 +222,9 @@ import scala.util.control.NonFatal
   private var rebalanceInProgress = false
 
   /**
-   * Keeps commit offsets during rebalances for later commit.
+   * Keep commit requests during rebalances for later commit.
    */
-  private var rebalanceCommitStash = Map.empty[TopicPartition, OffsetAndMetadata]
-
-  /**
-   * Keeps commit senders that need a reply once stashed commits are made.
-   */
-  private var rebalanceCommitSenders = Vector.empty[ActorRef]
+  private var commitStash = Vector.empty[Commit]
 
   private var delayedPollInFlight = false
   private var partitionAssignmentHandler: RebalanceListener = RebalanceListener.Empty
@@ -270,14 +265,8 @@ import scala.util.control.NonFatal
       }
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
-    case Commit(offsets) if rebalanceInProgress =>
-      rebalanceCommitStash ++= offsets
-      rebalanceCommitSenders = rebalanceCommitSenders :+ sender()
-
-    case Commit(offsets) =>
-      commitRefreshing.add(offsets)
-      val replyTo = sender()
-      commit(offsets, replyTo ! _)
+    case c: Commit =>
+      commitStash = commitStash :+ c
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -296,7 +285,7 @@ import scala.util.control.NonFatal
       requests = requests.updated(sender(), req)
       requestors += sender()
       // When many requestors, e.g. many partitions with committablePartitionedSource the
-      // performance is much by collecting more requests/commits before performing the poll.
+      // performance is much faster when collecting more requests/commits before performing the poll.
       // That is done by sending a message to self, and thereby collect pending messages in mailbox.
       if (requestors.size == 1)
         poll()
@@ -309,6 +298,7 @@ import scala.util.control.NonFatal
       commitRefreshing.committed(offsets)
 
     case Stop =>
+      maybeCommit()
       if (commitsInProgress == 0) {
         log.debug("Received Stop from {}, stopping", sender())
         context.stop(self)
@@ -410,7 +400,7 @@ import scala.util.control.NonFatal
       val refreshOffsets = commitRefreshing.refreshOffsets
       if (refreshOffsets.nonEmpty) {
         log.debug("Refreshing committed offsets: {}", refreshOffsets)
-        commit(refreshOffsets, context.system.deadLetters ! _)
+        commit(refreshOffsets)
       }
       poll()
       if (p.periodic)
@@ -424,8 +414,10 @@ import scala.util.control.NonFatal
 
   def poll(): Unit = {
     val currentAssignmentsJava = consumer.assignment()
-    val initialRebalanceInProgress = rebalanceInProgress
+
     try {
+      // send any outstanding offset commit requests
+      maybeCommit()
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
@@ -463,7 +455,6 @@ import scala.util.control.NonFatal
         log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
         context.stop(self)
     }
-    checkRebalanceState(initialRebalanceInProgress)
 
     if (stopInProgress && commitsInProgress == 0) {
       log.debug("Stopping")
@@ -471,7 +462,19 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], sendReply: AnyRef => Unit): Unit = {
+  /**
+   * Commit the stash of commits when a consumer group rebalance is not in progress and when there are commit requests.
+   */
+  private def maybeCommit(): Unit =
+    if (!rebalanceInProgress && commitStash.nonEmpty) {
+      val combinedStash = commitStash.flatMap(_.offsets).toMap
+      log.debug("committing stash: {}", combinedStash)
+      commit(combinedStash)
+      commitStash = Vector.empty
+    }
+
+  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata]): Unit = {
+    commitRefreshing.add(commitMap)
     commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
@@ -482,27 +485,21 @@ import scala.util.control.NonFatal
                                 exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
+          if (exception == null) {
+            self ! Committed(offsets.asScala.toMap)
+          } else {
+            log.error("Kafka commit failed", exception)
+          }
+          commitsInProgress -= 1
           if (duration > settings.commitTimeWarning.toNanos) {
             log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration / 1000000L)
           }
-          commitsInProgress -= 1
-          if (exception != null) sendReply(Status.Failure(exception))
-          else {
-            self ! Committed(offsets.asScala.toMap)
-            sendReply(Done)
+          if (duration > settings.commitTimeout.toNanos) {
+            throw new CommitTimeoutException(s"Kafka commit took longer than: ${settings.commitTimeout}")
           }
         }
       }
     )
-    // When many requestors, e.g. many partitions with committablePartitionedSource the
-    // performance is much by collecting more requests/commits before performing the poll.
-    // That is done by sending a message to self, and thereby collect pending messages in mailbox.
-    if (requestors.size == 1)
-      poll()
-    else if (!delayedPollInFlight) {
-      delayedPollInFlight = true
-      self ! delayedPollMsg
-    }
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit =
@@ -594,18 +591,6 @@ import scala.util.control.NonFatal
         partition
       )
   }
-
-  /**
-   * Detects state changes of [[rebalanceInProgress]] and takes action on it.
-   */
-  private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit =
-    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitSenders.nonEmpty) {
-      log.debug("committing stash {} replying to {}", rebalanceCommitStash, rebalanceCommitSenders)
-      val replyTo = rebalanceCommitSenders
-      commit(rebalanceCommitStash, msg => replyTo.foreach(_ ! msg))
-      rebalanceCommitStash = Map.empty
-      rebalanceCommitSenders = Vector.empty
-    }
 
   /**
    * Copied from the implemented interface: "

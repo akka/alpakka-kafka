@@ -222,10 +222,13 @@ object Consumer {
    * Convenience for "at-most once delivery" semantics. The offset of each message is committed to Kafka
    * before being emitted downstream.
    */
+  // TODO: this should probably be deprecated since it can no longer be guaranteed
+  //   we should guide the user to using auto commit interval setting of the Consumer to do this instead
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
-    committableSource[K, V](settings, subscription).mapAsync(1) { m =>
-      m.committableOffset.commitScaladsl().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
+    committableSource[K, V](settings, subscription).map { m =>
+      m.committableOffset.commit()
+      m.record
     }
 
   /**

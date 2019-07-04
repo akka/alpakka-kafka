@@ -48,8 +48,13 @@ object ConsumerMessage {
    * This interface might move into `akka.stream`
    */
   @DoNotInherit trait Committable {
+    @deprecated("Commits responses no longer back pressure the committer.  Commits occur asynchronously at every poll.",
+                "1.0.5")
     def commitScaladsl(): Future[Done]
+    @deprecated("Commits responses no longer back pressure the committer.  Commits occur asynchronously at every poll.",
+                "1.0.5")
     def commitJavadsl(): CompletionStage[Done]
+    def commit(): Unit
 
     /**
      * Get a number of processed messages this committable contains

@@ -5,7 +5,6 @@
 
 package akka.kafka.testkit
 
-import akka.Done
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffsetCommittedMarker}
@@ -13,7 +12,6 @@ import akka.kafka.internal.{CommittableOffsetImpl, InternalCommitter}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.collection.immutable
-import scala.concurrent.Future
 
 /**
  * Factory methods to create instances that normally are emitted by [[akka.kafka.scaladsl.Consumer]] and [[akka.kafka.javadsl.Consumer]] flows.
@@ -22,10 +20,8 @@ import scala.concurrent.Future
 object ConsumerResultFactory {
 
   val fakeCommitter = new InternalCommitter {
-    override def commit(
-        offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]
-    ): Future[Done] = Future.successful(Done)
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] = Future.successful(Done)
+    override def commit(offsets: immutable.Seq[ConsumerMessage.PartitionOffsetMetadata]): Unit = ()
+    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Unit = ()
   }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =

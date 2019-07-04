@@ -8,9 +8,9 @@ package akka.kafka.internal
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
-import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.scaladsl.{Committer, Consumer}
+import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -22,10 +22,10 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters._
 
 object CommittingWithMockSpec {
   type K = String
@@ -116,7 +116,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
+    probe.expectNext().committableOffset.commit()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -134,7 +134,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
@@ -149,7 +148,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
+    probe.expectNext().committableOffset.commit()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -166,64 +165,67 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  it should "fail future in case of commit fail" in assertAllStagesStopped {
-    val commitLog = new ConsumerMock.LogHandler()
-    val mock = new ConsumerMock[K, V](commitLog)
-    val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
+  // TODO: the new implementation will only log an error when an exception is returned to the commit callback
+  //       is this test still required?
+//  it should "fail future in case of commit fail" in assertAllStagesStopped {
+//    val commitLog = new ConsumerMock.LogHandler()
+//    val mock = new ConsumerMock[K, V](commitLog)
+//    val (control, probe) = createCommittableSource(mock.mock)
+//      .toMat(TestSink.probe)(Keep.both)
+//      .run()
+//
+//    val msg = createMessage(1)
+//    mock.enqueue(List(toRecord(msg)))
+//
+//    probe.request(100)
+//    val done = probe.expectNext().committableOffset.commitScaladsl()
+//
+//    awaitAssert {
+//      commitLog.calls should have size (1)
+//    }
+//
+//    //emulate commit failure
+//    val failure = new Exception()
+//    commitLog.calls.head match {
+//      case (offsets, callback) => callback.onComplete(null, failure)
+//    }
+//
+//    intercept[Exception] {
+//      Await.result(done, remainingOrDefault)
+//    } should be(failure)
+//    Await.result(control.shutdown(), remainingOrDefault)
+//  }
 
-    val msg = createMessage(1)
-    mock.enqueue(List(toRecord(msg)))
-
-    probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
-
-    awaitAssert {
-      commitLog.calls should have size (1)
-    }
-
-    //emulate commit failure
-    val failure = new Exception()
-    commitLog.calls.head match {
-      case (offsets, callback) => callback.onComplete(null, failure)
-    }
-
-    intercept[Exception] {
-      Await.result(done, remainingOrDefault)
-    } should be(failure)
-    Await.result(control.shutdown(), remainingOrDefault)
-  }
-
-  it should "call commitAsync for every commit message (no commit batching)" in assertAllStagesStopped {
-    val commitLog = new ConsumerMock.LogHandler()
-    val mock = new ConsumerMock[K, V](commitLog)
-    val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    val msgs = (1 to 100).map(createMessage)
-    mock.enqueue(msgs.map(toRecord))
-
-    probe.request(100)
-    val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commitScaladsl()))
-
-    awaitAssert {
-      commitLog.calls should have size (100)
-    }
-
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
-
-    Await.result(done, remainingOrDefault)
-    Await.result(control.shutdown(), remainingOrDefault)
-  }
+  // TODO: each call to the commit DSL no longer triggers a Consumer.commitAsync. this test is no longer relevant
+  //   the new behaviour can be asserted somewhere else
+//  it should "call commitAsync for every commit message (no commit batching)" in assertAllStagesStopped {
+//    val commitLog = new ConsumerMock.LogHandler()
+//    val mock = new ConsumerMock[K, V](commitLog)
+//    val (control, probe) = createCommittableSource(mock.mock)
+//      .toMat(TestSink.probe)(Keep.both)
+//      .run()
+//
+//    val msgs = (1 to 100).map(createMessage)
+//    mock.enqueue(msgs.map(toRecord))
+//
+//    probe.request(100)
+//    val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commitScaladsl()))
+//
+//    awaitAssert {
+//      commitLog.calls should have size (100)
+//    }
+//
+//    //emulate commit
+//    commitLog.calls.foreach {
+//      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+//    }
+//
+//    Await.result(done, remainingOrDefault)
+//    Await.result(control.shutdown(), remainingOrDefault)
+//  }
 
   it should "support commit batching" in assertAllStagesStopped {
     val commitLog = new ConsumerMock.LogHandler()
@@ -245,7 +247,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
         b.updated(c)
       }
 
-    val done = batch.commitScaladsl()
+    batch.commit()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -260,7 +262,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
@@ -286,7 +287,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
         b.updated(c)
       }
 
-    val done = batch.commitScaladsl()
+    batch.commit()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -303,7 +304,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
@@ -329,7 +329,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       .map(_.foldLeft(CommittableOffsetBatch.empty)(_ updated _))
       .foldLeft(CommittableOffsetBatch.empty)(_ updated _)
 
-    val done = batch.commitScaladsl()
+    batch.commit()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -346,7 +346,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
@@ -390,7 +389,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
         b.updated(c)
       }
 
-    val done2 = batch2.commitScaladsl()
+    batch2.commit()
 
     awaitAssert {
       commitLog1.calls should have size (1)
@@ -413,34 +412,35 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done2, remainingOrDefault)
     Await.result(control1.shutdown(), remainingOrDefault)
     Await.result(control2.shutdown(), remainingOrDefault)
   }
 
-  "Committer.flow" should "fail in case of an exception during commit" in assertAllStagesStopped {
-    val committerSettings = CommitterSettings(system)
-      .withMaxBatch(1L)
-
-    val commitLog = new internal.ConsumerMock.LogHandler()
-    val mock = new ConsumerMock[K, V](commitLog)
-    val msg = createMessage(1)
-    mock.enqueue(List(toRecord(msg)))
-
-    val (control, probe) = createCommittableSource(mock.mock)
-      .map(_.committableOffset)
-      .toMat(Committer.sink(committerSettings))(Keep.both)
-      .run()
-
-    awaitAssert {
-      commitLog.calls should have size 1
-    }
-
-    emulateFailedCommit(commitLog)
-
-    probe.failed.futureValue shouldBe a[CommitFailedException]
-    control.shutdown().futureValue shouldBe Done
-  }
+  // TODO: the new implementation will only log an error when an exception is returned to the commit callback
+  //       is this test still required?
+//  "Committer.flow" should "fail in case of an exception during commit" in assertAllStagesStopped {
+//    val committerSettings = CommitterSettings(system)
+//      .withMaxBatch(1L)
+//
+//    val commitLog = new internal.ConsumerMock.LogHandler()
+//    val mock = new ConsumerMock[K, V](commitLog)
+//    val msg = createMessage(1)
+//    mock.enqueue(List(toRecord(msg)))
+//
+//    val (control, probe) = createCommittableSource(mock.mock)
+//      .map(_.committableOffset)
+//      .toMat(Committer.sink(committerSettings))(Keep.both)
+//      .run()
+//
+//    awaitAssert {
+//      commitLog.calls should have size 1
+//    }
+//
+//    emulateFailedCommit(commitLog)
+//
+//    probe.failed.futureValue shouldBe a[CommitFailedException]
+//    control.shutdown().futureValue shouldBe Done
+//  }
 
   it should "recover with supervision in case of commit fail" in assertAllStagesStopped {
     val committerSettings = CommitterSettings(system)

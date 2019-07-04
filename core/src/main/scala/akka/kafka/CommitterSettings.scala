@@ -12,6 +12,8 @@ import com.typesafe.config.Config
 
 import scala.concurrent.duration._
 
+// TODO: should we just deprecate CommitterSettings entirely?  if the user wants more fine-grained control they can
+//   use the lower-level committing DSL
 object CommitterSettings {
 
   val configPath = "akka.kafka.committer"
@@ -30,8 +32,7 @@ object CommitterSettings {
   def apply(config: Config): CommitterSettings = {
     val maxBatch = config.getLong("max-batch")
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
-    val parallelism = config.getInt("parallelism")
-    new CommitterSettings(maxBatch, maxInterval, parallelism)
+    new CommitterSettings(maxBatch, maxInterval)
   }
 
   /**
@@ -58,8 +59,7 @@ object CommitterSettings {
  */
 class CommitterSettings private (
     val maxBatch: Long,
-    val maxInterval: FiniteDuration,
-    val parallelism: Int
+    val maxInterval: FiniteDuration
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -71,19 +71,17 @@ class CommitterSettings private (
   def withMaxInterval(maxInterval: java.time.Duration): CommitterSettings =
     copy(maxInterval = maxInterval.asScala)
 
-  def withParallelism(parallelism: Int): CommitterSettings =
-    copy(parallelism = parallelism)
+  @deprecated("Commits responses no longer back pressure the committer.  Commits occur asynchronously at every poll.",
+              "1.0.5")
+  def withParallelism(parallelism: Int): CommitterSettings = copy()
 
-  private def copy(maxBatch: Long = maxBatch,
-                   maxInterval: FiniteDuration = maxInterval,
-                   parallelism: Int = parallelism): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval, parallelism)
+  private def copy(maxBatch: Long = maxBatch, maxInterval: FiniteDuration = maxInterval): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
     s"maxBatch=$maxBatch," +
-    s"maxInterval=${maxInterval.toCoarsest}," +
-    s"parallelism=$parallelism" +
+    s"maxInterval=${maxInterval.toCoarsest}" +
     ")"
 
 }
