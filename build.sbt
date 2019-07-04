@@ -282,7 +282,6 @@ lazy val tests = project
       if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
         "RetentionPeriodSpec.scala" ||
-        "IntegrationSpec.scala" ||
         "MultiConsumerSpec.scala" ||
         "ReconnectSpec.scala" ||
         "EmbeddedKafkaSampleSpec.scala" ||
