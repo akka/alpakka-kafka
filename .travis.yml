@@ -30,6 +30,7 @@ jobs:
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
     - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
+      if: type != cron
     - env: CMD=";++2.13.0 Test/compile ;++2.13.0 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.0 Test/compile ;++2.13.0 It/compile'"
     - env: CMD="verifyDocs"
