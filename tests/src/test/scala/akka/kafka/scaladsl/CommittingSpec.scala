@@ -233,7 +233,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
 
       // commit ALL messages via consumer 1
-      val consumer1Read = Future.sequence(
+      Future.sequence(
         committables1
           .map { elem =>
             elem.committableOffset.commitScaladsl().map { _ =>
@@ -243,8 +243,8 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       )
 
       val committables2: immutable.Seq[ConsumerMessage.CommittableMessage[String, String]] = probe2
-        .request(count)
-        .expectNextN(count)
+        .request(count.toLong)
+        .expectNextN(count.toLong)
 
       // messages that belonged to the revoked partition show up in the new consumer, even though they were
       // committed after the rebalance
