@@ -83,7 +83,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    */
-  final class DrainingControl[T] private (control: Control, streamCompletion: Future[T]) extends Control {
+  final class DrainingControl[T] private (control: Control, val streamCompletion: Future[T]) extends Control {
 
     override def stop(): Future[Done] = control.stop()
 

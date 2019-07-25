@@ -13,7 +13,8 @@ import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.{ConsumerFailed, ConsumerSettings, Subscription}
+import akka.kafka.scaladsl.PartitionAssignmentHandler
+import akka.kafka.{ConsumerFailed, ConsumerSettings, RestrictedConsumer, Subscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic
 import akka.util.Timeout
@@ -141,14 +142,25 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     sourceActor.ref
       .tell(Drain(inFlightRecords.assigned(), Some(consumerActor), KafkaConsumerActor.Internal.Stop), sourceActor.ref)
 
-  // This is invoked in the KafkaConsumerActor thread when doing poll.
-  override def blockingRevokedHandler(revokedTps: Set[TopicPartition]): Unit =
-    if (waitForDraining(revokedTps)) {
-      sourceActor.ref ! Revoked(revokedTps.toList)
-    } else {
-      sourceActor.ref ! Failure(new Error("Timeout while draining"))
-      consumerActor ! KafkaConsumerActor.Internal.Stop
+  override protected def addToPartitionAssignmentHandler(
+      handler: PartitionAssignmentHandler
+  ): PartitionAssignmentHandler = {
+    val blockingRevokedCall = new PartitionAssignmentHandler {
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+
+      // This is invoked in the KafkaConsumerActor thread when doing poll.
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        if (waitForDraining(revokedTps)) {
+          sourceActor.ref ! Revoked(revokedTps.toList)
+        } else {
+          sourceActor.ref ! Failure(new Error("Timeout while draining"))
+          consumerActor ! KafkaConsumerActor.Internal.Stop
+        }
+
+      override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }
+    new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
+  }
 
   private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
     import akka.pattern.ask

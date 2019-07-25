@@ -83,6 +83,7 @@ class ConsumerSpec(_system: ActorSystem)
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
         .withCloseTimeout(ConsumerMock.closeTimeout)
+        .withCommitTimeout(500.millis)
         .withConsumerFactory(_ => mock),
       Subscriptions.topics(topics)
     )

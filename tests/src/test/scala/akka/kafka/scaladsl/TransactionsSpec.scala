@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
-import akka.kafka.Subscriptions.TopicSubscription
 import akka.kafka.{ProducerMessage, _}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
@@ -67,7 +66,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       val consumerSettings = consumerDefaults.withGroupId(group)
 
       val control = Transactional
-        .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+        .source(consumerSettings, Subscriptions.topics(sourceTopic))
         .map { msg =>
           if (msg.record.value.toInt % 10 == 0) {
             ProducerMessage.passThrough[String, String, ConsumerMessage.PartitionOffset](msg.partitionOffset)
@@ -111,7 +110,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
         ) { () =>
           restartCount += 1
           Transactional
-            .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+            .source(consumerSettings, Subscriptions.topics(sourceTopic))
             .map { msg =>
               if (msg.record.value().toInt == 500 && restartCount < 2) {
                 // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
@@ -164,7 +163,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       ) { () =>
         restartCount += 1
         Transactional
-          .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+          .source(consumerSettings, Subscriptions.topics(sourceTopic))
           .map { msg =>
             if (msg.record.value().toInt == 50 && restartCount < 2) {
               // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
@@ -376,7 +375,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       def runStream(id: String): Consumer.Control = {
         val control: Control =
           Transactional
-            .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+            .source(consumerSettings, Subscriptions.topics(sourceTopic))
             .map { msg =>
               ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value),
                                      msg.partitionOffset)
@@ -424,7 +423,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
 
       val control = {
         Transactional
-          .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+          .source(consumerSettings, Subscriptions.topics(sourceTopic))
           .groupedWithin(10, 5.seconds)
           .map { msgs =>
             val sum = msgs.map(_.record.value().toInt).sum.toString
@@ -470,7 +469,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
       idleTimeout: FiniteDuration
   ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
     Transactional
-      .source(consumerSettings, TopicSubscription(Set(sourceTopic), None))
+      .source(consumerSettings, Subscriptions.topics(sourceTopic))
       .zip(Source.unfold(1)(count => Some((count + 1, count))))
       .map {
         case (msg, count) =>
@@ -497,7 +496,7 @@ class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with Embedd
   private def offsetValueSource(settings: ConsumerSettings[String, String],
                                 topic: String): Source[(Long, String), Consumer.Control] =
     Consumer
-      .plainSource(settings, TopicSubscription(Set(topic), None))
+      .plainSource(settings, Subscriptions.topics(topic))
       .map(r => (r.offset(), r.value()))
 
   override def producerDefaults: ProducerSettings[String, String] =

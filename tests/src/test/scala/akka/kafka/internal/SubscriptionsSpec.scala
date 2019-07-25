@@ -16,7 +16,9 @@ class SubscriptionsSpec extends WordSpec with Matchers {
 
   "URL encoded subscription" should {
     "be readable for topics" in {
-      encode(Subscriptions.topics(Set("topic1", "topic2"))) should be("topic1+topic2")
+      encode(Subscriptions.topics(Set("topic1", "topic2"))) should be(
+        "topic1+topic2"
+      )
     }
 
     "be readable for patterns" in {
