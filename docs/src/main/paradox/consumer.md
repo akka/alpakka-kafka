@@ -309,7 +309,7 @@ To manage this shutdown process, use the `Consumer.DrainingControl`
 (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$DrainingControl)])
 by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue`. That control offers the method `drainAndShutdown` which implements the process descibed above.
 
-Note: The `ConsummerSettings` `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
+Note: The `ConsumerSettings` `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommittableSource }
