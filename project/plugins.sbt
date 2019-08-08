@@ -1,5 +1,5 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0")
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.1")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.3")
 addSbtPlugin("com.lightbend.sbt" % "sbt-java-formatter" % "0.4.4")
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.9")
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.2.0")
