@@ -77,5 +77,5 @@ Key links:
 
 ### Afterwards
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository
-- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/reactive-platform/2.0/supported-modules/#other-akka-modules) in [private project](https://github.com/lightbend/reactive-platform-docs/blob/master/build.sbt)
+- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/build-dependencies.html#_alpakka_kafka) in [private project](https://github.com/lightbend/lightbend-platform-docs/blob/master/docs/modules/getting-help/examples/build.sbt)
 - Close this issue
