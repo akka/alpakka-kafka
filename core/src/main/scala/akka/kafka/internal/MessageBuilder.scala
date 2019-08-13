@@ -142,9 +142,9 @@ private[kafka] trait OffsetContextBuilder[K, V]
 ) extends CommittableOffsetMetadata {
   private lazy val offsets = immutable.Seq(partitionOffset.withMetadata(metadata))
 
-  override def commitScaladsl(): Future[Done] = Future.successful {
-    committer.commit(offsets)
-    Done
+  override def commitScaladsl(): Future[Done] = {
+    commit()
+    Future.successful(Done)
   }
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   override def commit(): Unit = committer.commit(offsets)

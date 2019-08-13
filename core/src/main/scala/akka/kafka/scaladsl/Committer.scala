@@ -25,16 +25,13 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
-    batch(settings)
+    Flow[Committable]
+      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
+      .map(CommittableOffsetBatch.apply)
       .map { b =>
         b.commit()
         b
       }
-
-  private def batch(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
-    Flow[Committable]
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
 
   /**
    * API MAY CHANGE
