@@ -199,7 +199,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  it should "call commitAsync for every commit message (no commit batching)" in assertAllStagesStopped {
+  it should "collect commits to be sent in one commitAsync" in assertAllStagesStopped {
     val commitLog = new ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
@@ -213,7 +213,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commitScaladsl()))
 
     awaitAssert {
-      commitLog.calls should have size (100)
+      commitLog.calls should have size (1)
     }
 
     //emulate commit

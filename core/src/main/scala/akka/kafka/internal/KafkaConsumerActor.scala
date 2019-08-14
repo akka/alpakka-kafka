@@ -222,14 +222,14 @@ import scala.util.control.NonFatal
   private var rebalanceInProgress = false
 
   /**
-   * Keeps commit offsets during rebalances for later commit.
+   * Aggregates commit offsets until the next poll.
    */
-  private var rebalanceCommitStash = Map.empty[TopicPartition, OffsetAndMetadata]
+  private var commitStash = Map.empty[TopicPartition, OffsetAndMetadata]
 
   /**
    * Keeps commit senders that need a reply once stashed commits are made.
    */
-  private var rebalanceCommitSenders = Vector.empty[ActorRef]
+  private var commitSenders = Vector.empty[ActorRef]
 
   private var delayedPollInFlight = false
   private var partitionAssignmentHandler: RebalanceListener = RebalanceListener.Empty
@@ -270,14 +270,9 @@ import scala.util.control.NonFatal
       }
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
-    case Commit(offsets) if rebalanceInProgress =>
-      rebalanceCommitStash ++= offsets
-      rebalanceCommitSenders = rebalanceCommitSenders :+ sender()
-
     case Commit(offsets) =>
-      commitRefreshing.add(offsets)
-      val replyTo = sender()
-      commit(offsets, replyTo ! _)
+      commitStash ++= offsets
+      commitSenders = commitSenders :+ sender()
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -309,6 +304,7 @@ import scala.util.control.NonFatal
       commitRefreshing.committed(offsets)
 
     case Stop =>
+      commitOffsets()
       if (commitsInProgress == 0) {
         log.debug("Received Stop from {}, stopping", sender())
         context.stop(self)
@@ -410,7 +406,7 @@ import scala.util.control.NonFatal
       val refreshOffsets = commitRefreshing.refreshOffsets
       if (refreshOffsets.nonEmpty) {
         log.debug("Refreshing committed offsets: {}", refreshOffsets)
-        commit(refreshOffsets, context.system.deadLetters ! _)
+        commit(refreshOffsets, _ => ())
       }
       poll()
       if (p.periodic)
@@ -424,8 +420,8 @@ import scala.util.control.NonFatal
 
   def poll(): Unit = {
     val currentAssignmentsJava = consumer.assignment()
-    val initialRebalanceInProgress = rebalanceInProgress
     try {
+      commitOffsets()
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
@@ -463,12 +459,18 @@ import scala.util.control.NonFatal
         log.error(e, "Exception when polling from consumer, stopping actor: {}", e.toString)
         context.stop(self)
     }
-    checkRebalanceState(initialRebalanceInProgress)
 
     if (stopInProgress && commitsInProgress == 0) {
       log.debug("Stopping")
       context.stop(self)
     }
+  }
+
+  private def commitOffsets(): Unit = if (commitStash.nonEmpty && !rebalanceInProgress) {
+    val replyTo = commitSenders
+    commit(commitStash, msg => replyTo.foreach(_ ! msg))
+    commitStash = Map.empty
+    commitSenders = Vector.empty
   }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], sendReply: AnyRef => Unit): Unit = {
@@ -494,15 +496,6 @@ import scala.util.control.NonFatal
         }
       }
     )
-    // When many requestors, e.g. many partitions with committablePartitionedSource the
-    // performance is much by collecting more requests/commits before performing the poll.
-    // That is done by sending a message to self, and thereby collect pending messages in mailbox.
-    if (requestors.size == 1)
-      poll()
-    else if (!delayedPollInFlight) {
-      delayedPollInFlight = true
-      self ! delayedPollMsg
-    }
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit =
@@ -594,18 +587,6 @@ import scala.util.control.NonFatal
         partition
       )
   }
-
-  /**
-   * Detects state changes of [[rebalanceInProgress]] and takes action on it.
-   */
-  private def checkRebalanceState(initialRebalanceInProgress: Boolean): Unit =
-    if (initialRebalanceInProgress && !rebalanceInProgress && rebalanceCommitSenders.nonEmpty) {
-      log.debug("committing stash {} replying to {}", rebalanceCommitStash, rebalanceCommitSenders)
-      val replyTo = rebalanceCommitSenders
-      commit(rebalanceCommitStash, msg => replyTo.foreach(_ ! msg))
-      rebalanceCommitStash = Map.empty
-      rebalanceCommitSenders = Vector.empty
-    }
 
   /**
    * Copied from the implemented interface: "
