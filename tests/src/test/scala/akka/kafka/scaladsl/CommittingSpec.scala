@@ -6,6 +6,7 @@
 package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.IntUnaryOperator
 
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka.ProducerMessage.MultiMessage
@@ -49,7 +50,9 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .mapAsync(10) { elem =>
           elem.committableOffset.commitScaladsl().map { _ =>
-            committedElements.updateAndGet(v => Math.max(v, elem.record.value.toInt))
+            committedElements.updateAndGet(new IntUnaryOperator {
+              override def applyAsInt(operand: Int): Int = Math.max(operand, elem.record.value.toInt)
+            })
             elem.record.value
           }
         }
