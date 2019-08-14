@@ -205,6 +205,8 @@ import scala.util.control.NonFatal
   private val positionTimeout = settings.getPositionTimeout
 
   private var requests = Map.empty[ActorRef, RequestMessages]
+
+  /** ActorRefs to all stages that requested messages from this actor (removed on their termination). */
   private var requestors = Set.empty[ActorRef]
   private var consumer: Consumer[K, V] = _
   private var subscriptions = Set.empty[SubscriptionRequest]
@@ -224,7 +226,7 @@ import scala.util.control.NonFatal
   /**
    * Aggregates commit offsets until the next poll.
    */
-  private var commitStash = Map.empty[TopicPartition, OffsetAndMetadata]
+  private var commitAggregate = Map.empty[TopicPartition, OffsetAndMetadata]
 
   /**
    * Keeps commit senders that need a reply once stashed commits are made.
@@ -271,7 +273,7 @@ import scala.util.control.NonFatal
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
     case Commit(offsets) =>
-      commitStash ++= offsets
+      commitAggregate ++= offsets
       commitSenders = commitSenders :+ sender()
 
     case s: SubscriptionRequest =>
@@ -291,7 +293,7 @@ import scala.util.control.NonFatal
       requests = requests.updated(sender(), req)
       requestors += sender()
       // When many requestors, e.g. many partitions with committablePartitionedSource the
-      // performance is much by collecting more requests/commits before performing the poll.
+      // performance is much improved by collecting more requests/commits before performing the poll.
       // That is done by sending a message to self, and thereby collect pending messages in mailbox.
       if (requestors.size == 1)
         poll()
@@ -304,7 +306,7 @@ import scala.util.control.NonFatal
       commitRefreshing.committed(offsets)
 
     case Stop =>
-      commitOffsets()
+      commitAggregatedOffsets()
       if (commitsInProgress == 0) {
         log.debug("Received Stop from {}, stopping", sender())
         context.stop(self)
@@ -421,7 +423,7 @@ import scala.util.control.NonFatal
   def poll(): Unit = {
     val currentAssignmentsJava = consumer.assignment()
     try {
-      commitOffsets()
+      commitAggregatedOffsets()
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
         // drive the KafkaConsumer by polling
@@ -466,10 +468,10 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def commitOffsets(): Unit = if (commitStash.nonEmpty && !rebalanceInProgress) {
+  private def commitAggregatedOffsets(): Unit = if (commitAggregate.nonEmpty && !rebalanceInProgress) {
     val replyTo = commitSenders
-    commit(commitStash, msg => replyTo.foreach(_ ! msg))
-    commitStash = Map.empty
+    commit(commitAggregate, msg => replyTo.foreach(_ ! msg))
+    commitAggregate = Map.empty
     commitSenders = Vector.empty
   }
 
