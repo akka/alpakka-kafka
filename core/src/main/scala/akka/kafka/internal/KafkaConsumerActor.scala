@@ -32,6 +32,7 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -179,6 +180,17 @@ import scala.util.control.NonFatal
   }
 
   private val oneMilli = java.time.Duration.ofMillis(1)
+
+  /**
+   * Create map with just the highest received offsets.
+   */
+  private[internal] def aggregateOffsets(cm: List[Map[TopicPartition, OffsetAndMetadata]]) =
+    cm.foldLeft(Map.empty[TopicPartition, OffsetAndMetadata]) { (aggregate, add) =>
+      val higherThanExisting = add.filterNot {
+        case (tp, toBeAdded) => aggregate.get(tp).exists(_.offset() > toBeAdded.offset())
+      }
+      aggregate ++ higherThanExisting
+    }
 }
 
 /**
@@ -224,9 +236,9 @@ import scala.util.control.NonFatal
   private var rebalanceInProgress = false
 
   /**
-   * Aggregates commit offsets until the next poll.
+   * Collect commit offset maps until the next poll.
    */
-  private var commitAggregate = Map.empty[TopicPartition, OffsetAndMetadata]
+  private var commitMaps = List.empty[Map[TopicPartition, OffsetAndMetadata]]
 
   /**
    * Keeps commit senders that need a reply once stashed commits are made.
@@ -273,7 +285,8 @@ import scala.util.control.NonFatal
       commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
     case Commit(offsets) =>
-      commitAggregate ++= offsets
+      // prepending, as later received offsets most likely are higher
+      commitMaps = offsets :: commitMaps
       commitSenders = commitSenders :+ sender()
 
     case s: SubscriptionRequest =>
@@ -468,10 +481,10 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def commitAggregatedOffsets(): Unit = if (commitAggregate.nonEmpty && !rebalanceInProgress) {
+  private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
     val replyTo = commitSenders
-    commit(commitAggregate, msg => replyTo.foreach(_ ! msg))
-    commitAggregate = Map.empty
+    commit(aggregateOffsets(commitMaps), msg => replyTo.foreach(_ ! msg))
+    commitMaps = List.empty
     commitSenders = Vector.empty
   }
 
