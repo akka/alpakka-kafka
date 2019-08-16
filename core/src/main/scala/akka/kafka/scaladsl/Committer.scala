@@ -29,7 +29,7 @@ object Committer {
     Flow[Committable]
       .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
       .map(CommittableOffsetBatch.apply)
-      .mapAsync(settings.parallelism) { b =>
+      .mapAsyncUnordered(settings.parallelism) { b =>
         b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
       }
 
