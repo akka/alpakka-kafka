@@ -18,6 +18,7 @@ import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
 import scala.concurrent.duration._
+import scala.util.Random
 
 class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
@@ -31,7 +32,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     // The `max.poll.records` controls how many records Kafka fetches internally during a poll.
     "do actually show even if partition is revoked" in assertAllStagesStopped {
       val count = 200
-      val topic1 = createTopic(1, partitions = 2)
+      // de-coupling consecutive test runs with crossScalaVersions on Travis
+      val topicSuffix = Random.nextInt()
+      val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
         .withProperty("max.poll.records", "1")
