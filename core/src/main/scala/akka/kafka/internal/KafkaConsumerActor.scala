@@ -70,8 +70,6 @@ import scala.util.control.NonFatal
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Messages[K, V](requestId: Int, messages: Iterator[ConsumerRecord[K, V]])
         extends NoSerializationVerificationNeeded
-    final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
-        extends NoSerializationVerificationNeeded
     final case class ConsumerMetrics(metrics: Map[MetricName, Metric]) extends NoSerializationVerificationNeeded {
       def getMetrics: java.util.Map[MetricName, Metric] = metrics.asJava
     }
@@ -92,7 +90,7 @@ import scala.util.control.NonFatal
 
   private[KafkaConsumerActor] trait CommitRefreshing {
     def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
-    def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
+    def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit
     def revoke(revokedTps: Set[TopicPartition]): Unit
     def refreshOffsets: Map[TopicPartition, OffsetAndMetadata]
     def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit
@@ -111,7 +109,7 @@ import scala.util.control.NonFatal
 
     private object NoOp extends CommitRefreshing {
       def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
-      def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+      def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {}
       def revoke(revokedTps: Set[TopicPartition]): Unit = {}
       val refreshOffsets: Map[TopicPartition, OffsetAndMetadata] = Map.empty
       def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {}
@@ -131,8 +129,8 @@ import scala.util.control.NonFatal
       def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
         requestedOffsets = requestedOffsets ++ offsets
 
-      def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
-        committedOffsets = committedOffsets ++ offsets
+      def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit =
+        committedOffsets = committedOffsets ++ offsets.asScala.toMap
 
       def revoke(revokedTps: Set[TopicPartition]): Unit = {
         requestedOffsets = requestedOffsets -- revokedTps
@@ -314,9 +312,6 @@ import scala.util.control.NonFatal
         delayedPollInFlight = true
         self ! delayedPollMsg
       }
-
-    case Committed(offsets) =>
-      commitRefreshing.committed(offsets)
 
     case Stop =>
       commitAggregatedOffsets()
@@ -505,7 +500,7 @@ import scala.util.control.NonFatal
           commitsInProgress -= 1
           if (exception != null) sendReply(Status.Failure(exception))
           else {
-            self ! Committed(offsets.asScala.toMap)
+            commitRefreshing.committed(offsets)
             sendReply(Done)
           }
         }
