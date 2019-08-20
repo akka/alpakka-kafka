@@ -216,7 +216,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {
         val callsToCommitAsync = commitLog.calls.size
-        callsToCommitAsync should be > 1
+        callsToCommitAsync should be >= 1
         callsToCommitAsync should be < count / 10
       }
     }
