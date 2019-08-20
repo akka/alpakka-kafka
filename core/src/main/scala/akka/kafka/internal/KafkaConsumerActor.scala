@@ -286,6 +286,7 @@ import scala.util.control.NonFatal
       // prepending, as later received offsets most likely are higher
       commitMaps = offsets :: commitMaps
       commitSenders = commitSenders :+ sender()
+      requestDelayedPoll()
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -303,15 +304,9 @@ import scala.util.control.NonFatal
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
       requests = requests.updated(sender(), req)
       requestors += sender()
-      // When many requestors, e.g. many partitions with committablePartitionedSource the
-      // performance is much improved by collecting more requests/commits before performing the poll.
-      // That is done by sending a message to self, and thereby collect pending messages in mailbox.
       if (requestors.size == 1)
         poll()
-      else if (!delayedPollInFlight) {
-        delayedPollInFlight = true
-        self ! delayedPollMsg
-      }
+      else requestDelayedPoll()
 
     case Stop =>
       commitAggregatedOffsets()
@@ -410,6 +405,19 @@ import scala.util.control.NonFatal
 
   def schedulePollTask(): Unit =
     timers.startSingleTimer(PollTask, pollMsg, settings.pollInterval)
+
+  /**
+   * Sends an extra `Poll(periodic=false)` request to self.
+   * Enqueueing an extra poll via the actor mailbox allows other requests to be handled
+   * before the actual poll is executed.
+   * With many requestors, e.g. many partitions with `committablePartitionedSource` the
+   * performance is much improved by collecting more requests/commits before performing the poll.
+   */
+  private def requestDelayedPoll(): Unit =
+    if (!delayedPollInFlight) {
+      delayedPollInFlight = true
+      self ! delayedPollMsg
+    }
 
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {

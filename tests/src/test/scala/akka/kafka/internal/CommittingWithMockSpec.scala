@@ -199,21 +199,26 @@ class CommittingWithMockSpec(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  it should "collect commits to be sent in one commitAsync" in assertAllStagesStopped {
+  it should "collect commits to be sent to commitAsync" in assertAllStagesStopped {
     val commitLog = new ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
-    val msgs = (1 to 100).map(createMessage)
+    val count = 100
+    val msgs = (1 to count).map(createMessage)
     mock.enqueue(msgs.map(toRecord))
 
-    probe.request(100)
-    val done = Future.sequence(probe.expectNextN(100).map(_.committableOffset.commitScaladsl()))
+    probe.request(count.toLong)
+    val done = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitScaladsl()))
 
-    awaitAssert {
-      commitLog.calls should have size (1)
+    withClue("the commits are aggregated to a low number of calls to commitAsync:") {
+      awaitAssert {
+        val callsToCommitAsync = commitLog.calls.size
+        callsToCommitAsync should be >= 1
+        callsToCommitAsync should be < count / 10
+      }
     }
 
     //emulate commit
