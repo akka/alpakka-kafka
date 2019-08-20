@@ -286,7 +286,7 @@ import scala.util.control.NonFatal
       // prepending, as later received offsets most likely are higher
       commitMaps = offsets :: commitMaps
       commitSenders = commitSenders :+ sender()
-      requestExtraPoll()
+      requestDelayedPoll()
 
     case s: SubscriptionRequest =>
       subscriptions = subscriptions + s
@@ -306,7 +306,7 @@ import scala.util.control.NonFatal
       requestors += sender()
       if (requestors.size == 1)
         poll()
-      else requestExtraPoll()
+      else requestDelayedPoll()
 
     case Stop =>
       commitAggregatedOffsets()
@@ -407,13 +407,13 @@ import scala.util.control.NonFatal
     timers.startSingleTimer(PollTask, pollMsg, settings.pollInterval)
 
   /**
-   * Sends an extra `Poll` request to self.
-   * Enqueing an extra poll via the actor mailbox allows other requests to be handled
+   * Sends an extra `Poll(periodic=false)` request to self.
+   * Enqueueing an extra poll via the actor mailbox allows other requests to be handled
    * before the actual poll is executed.
-   *  When many requestors, e.g. many partitions with committablePartitionedSource the
+   * With many requestors, e.g. many partitions with `committablePartitionedSource` the
    * performance is much improved by collecting more requests/commits before performing the poll.
    */
-  private def requestExtraPoll(): Unit =
+  private def requestDelayedPoll(): Unit =
     if (!delayedPollInFlight) {
       delayedPollInFlight = true
       self ! delayedPollMsg
