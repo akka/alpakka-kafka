@@ -14,7 +14,7 @@ import akka.kafka.ConsumerMessage.{
   PartitionOffsetMetadata
 }
 import akka.kafka._
-import akka.kafka.internal.KafkaConsumerActor.Internal.Commit
+import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.AskTimeoutException
 import akka.stream.SourceShape
@@ -44,9 +44,9 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
     with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: InternalCommitter = {
+      lazy val committer: KafkaAsyncConsumerCommitterRef = {
         val ec = materializer.executionContext
-        KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+        new KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
       }
     }
 }
@@ -67,9 +67,9 @@ private[kafka] final class SourceWithOffsetContext[K, V](
     with OffsetContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: InternalCommitter = {
+      lazy val committer: KafkaAsyncConsumerCommitterRef = {
         val ec = materializer.executionContext
-        KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+        new KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
       }
     }
 }
@@ -88,9 +88,9 @@ private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
     with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
       override def groupId: String = _groupId
-      lazy val committer: InternalCommitter = {
+      lazy val committer: KafkaAsyncConsumerCommitterRef = {
         val ec = materializer.executionContext
-        KafkaAsyncConsumerCommitterRef(consumerActor, commitTimeout)(ec)
+        new KafkaAsyncConsumerCommitterRef(consumerActor, commitTimeout)(ec)
       }
     }
 }
@@ -111,9 +111,9 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
     with CommittableMessageBuilder[K, V] with MetricsControl {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
-      lazy val committer: InternalCommitter = {
+      lazy val committer: KafkaAsyncConsumerCommitterRef = {
         val ec = materializer.executionContext
-        KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
+        new KafkaAsyncConsumerCommitterRef(consumerActor, settings.commitTimeout)(ec)
       }
     }
 }
@@ -127,28 +127,27 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
  *
  * This should be case class to be comparable based on consumerActor and commitTimeout. This comparison is used in [[CommittableOffsetBatchImpl]].
  */
-private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
+private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
-) extends InternalCommitter {
-  import akka.pattern.ask
+) {
 
-  override def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
+  def commitSingle(offset: CommittableOffsetImpl): Future[Done] =
+    sendCommit(
+      CommitSingle(
+        new TopicPartition(offset.partitionOffset.key.topic, offset.partitionOffset.key.partition),
+        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata)
+      )
+    )
+
+  private def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
     val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = offsets.map { offset =>
       new TopicPartition(offset.key.topic, offset.key.partition) ->
       new OffsetAndMetadata(offset.offset + 1, offset.metadata)
     }.toMap
-
-    consumerActor
-      .ask(Commit(offsetsMap))(Timeout(commitTimeout))
-      .map(_ => Done)
-      .recoverWith {
-        case _: AskTimeoutException =>
-          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
-        case other => Future.failed(other)
-      }
+    sendCommit(Commit(offsetsMap))
   }
 
-  override def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
+  def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
       val futures = b.offsetsAndMetadata.groupBy(_._1.groupId).map {
         case (groupId, offsetsMap) =>
@@ -168,5 +167,17 @@ private final case class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef,
         s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
         s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
       )
+  }
+
+  private[this] def sendCommit(msg: AnyRef): Future[Done] = {
+    import akka.pattern.ask
+    consumerActor
+      .ask(msg)(Timeout(commitTimeout))
+      .map(_ => Done)(ec)
+      .recoverWith {
+        case _: AskTimeoutException =>
+          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
+        case other => Future.failed(other)
+      }(ec)
   }
 }

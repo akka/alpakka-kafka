@@ -91,7 +91,7 @@ private[kafka] trait TransactionalOffsetContextBuilder[K, V]
 @InternalApi
 private[kafka] trait CommittableMessageBuilder[K, V] extends MessageBuilder[K, V, CommittableMessage[K, V]] {
   def groupId: String
-  def committer: InternalCommitter
+  def committer: KafkaAsyncConsumerCommitterRef
   def metadataFromRecord(record: ConsumerRecord[K, V]): String
 
   override def createMessage(rec: ConsumerRecord[K, V]): CommittableMessage[K, V] = {
@@ -117,7 +117,7 @@ private[kafka] object CommittableMessageBuilder {
 private[kafka] trait OffsetContextBuilder[K, V]
     extends MessageBuilder[K, V, (ConsumerRecord[K, V], CommittableOffset)] {
   def groupId: String
-  def committer: InternalCommitter
+  def committer: KafkaAsyncConsumerCommitterRef
   def metadataFromRecord(record: ConsumerRecord[K, V]): String
 
   override def createMessage(rec: ConsumerRecord[K, V]): (ConsumerRecord[K, V], CommittableOffset) = {
@@ -138,20 +138,11 @@ private[kafka] trait OffsetContextBuilder[K, V]
     override val partitionOffset: ConsumerMessage.PartitionOffset,
     override val metadata: String
 )(
-    val committer: InternalCommitter
+    val committer: KafkaAsyncConsumerCommitterRef
 ) extends CommittableOffsetMetadata {
-  override def commitScaladsl(): Future[Done] =
-    committer.commit(immutable.Seq(partitionOffset.withMetadata(metadata)))
+  override def commitScaladsl(): Future[Done] = committer.commitSingle(this)
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
   override val batchSize: Long = 1
-}
-
-/** Internal API */
-@InternalApi
-private[kafka] trait InternalCommitter {
-  // Commit all offsets (of different topics) belonging to the same stage
-  def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done]
-  def commit(batch: CommittableOffsetBatch): Future[Done]
 }
 
 /** Internal API */
@@ -169,7 +160,7 @@ private[kafka] trait CommittedMarker {
 @InternalApi
 private[kafka] final class CommittableOffsetBatchImpl(
     val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-    val committers: Map[String, InternalCommitter],
+    val committers: Map[String, KafkaAsyncConsumerCommitterRef],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets = offsetsAndMetadata.view.mapValues(_.offset()).toMap
