@@ -12,7 +12,6 @@ import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, Parti
 import akka.kafka.internal.{CommittableOffsetImpl, KafkaAsyncConsumerCommitterRef}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 /**
