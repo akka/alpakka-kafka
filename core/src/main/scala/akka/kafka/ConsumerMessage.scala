@@ -5,7 +5,7 @@
 
 package akka.kafka
 
-import java.util.{Objects, Map => JMap}
+import java.util.Objects
 import java.util.concurrent.CompletionStage
 
 import akka.Done
@@ -195,7 +195,7 @@ object ConsumerMessage {
     /**
      * Java API: Get current offset positions
      */
-    def getOffsets(): JMap[GroupTopicPartition, Long]
+    def getOffsets(): java.util.Map[GroupTopicPartition, Long]
 
   }
 

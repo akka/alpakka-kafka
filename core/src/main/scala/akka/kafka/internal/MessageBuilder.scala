@@ -5,7 +5,6 @@
 
 package akka.kafka.internal
 import java.util.concurrent.CompletionStage
-import java.util.{Map => JMap}
 
 import akka.Done
 import akka.annotation.InternalApi
@@ -172,7 +171,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     val committers: Map[String, InternalCommitter],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
-  def offsets = offsetsAndMetadata.view.mapValues(_.offset()).toMap
+  def offsets: Map[GroupTopicPartition, Long] = offsetsAndMetadata.view.mapValues(_.offset()).toMap
 
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)
@@ -244,14 +243,14 @@ private[kafka] final class CommittableOffsetBatchImpl(
         )
     }
 
-  override def getOffsets(): JMap[GroupTopicPartition, Long] =
+  override def getOffsets(): java.util.Map[GroupTopicPartition, Long] =
     offsets.asJava
 
   override def toString(): String =
-    s"CommittableOffsetBatch(${offsets.mkString("->")})"
+    s"CommittableOffsetBatch(batchSize=$batchSize, ${offsetsAndMetadata.mkString("->")})"
 
   override def commitScaladsl(): Future[Done] =
-    if (offsets.isEmpty)
+    if (batchSize == 0L)
       Future.successful(Done)
     else {
       committers.head._2.commit(this)
