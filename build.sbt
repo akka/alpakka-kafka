@@ -100,7 +100,7 @@ val commonSettings = Def.settings(
         Seq(
           "-doc-source-url", {
             val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#€{FILE_LINE}"
+            s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
           },
           "-doc-canonical-base-url",
           "https://doc.akka.io/api/alpakka-kafka/current/"
