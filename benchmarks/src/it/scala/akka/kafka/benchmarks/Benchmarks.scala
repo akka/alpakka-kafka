@@ -80,15 +80,17 @@ class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
 }
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
+  val factor = 1
+
   it should "bench with small messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000 * 1000, 100)
+    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000 * factor, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
   }
 
   it should "bench with normal messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer-normal-msg", bootstrapServers, 1000 * 1000, 5 * 1000)
+    val cmd = RunTestCommand("alpakka-kafka-batched-consumer-normal-msg", bootstrapServers, 1000 * factor, 5 * 1000)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
@@ -97,7 +99,7 @@ class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
   it should "bench with normal messages and eight partitions" in {
     val cmd = RunTestCommand("alpakka-kafka-batched-consumer-normal-msg-8-partitions",
                              bootstrapServers,
-                             msgCount = 1000 * 1000,
+                             msgCount = 1000 * factor,
                              msgSize = 5 * 1000,
                              numberOfPartitions = 8)
     runPerfTest(cmd,
@@ -115,7 +117,7 @@ class ApacheKafkaAtMostOnceConsumer extends BenchmarksBase() {
 
 class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 50000, 100)
+    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 500, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
