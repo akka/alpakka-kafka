@@ -12,6 +12,7 @@ import akka.Done
 import akka.annotation.{DoNotInherit, InternalApi}
 import akka.kafka.internal.{CommittableOffsetBatchImpl, CommittedMarker}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
 import scala.runtime.AbstractFunction2
@@ -137,7 +138,9 @@ object ConsumerMessage {
       groupId: String,
       topic: String,
       partition: Int
-  )
+  ) {
+    def topicPartition: TopicPartition = new TopicPartition(topic, partition)
+  }
 
   object CommittableOffsetBatch {
     val empty: CommittableOffsetBatch = new CommittableOffsetBatchImpl(Map.empty, Map.empty, 0)
