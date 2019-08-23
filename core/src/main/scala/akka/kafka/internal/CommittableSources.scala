@@ -7,12 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.{
-  CommittableMessage,
-  CommittableOffset,
-  CommittableOffsetBatch,
-  PartitionOffsetMetadata
-}
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch, GroupTopicPartition}
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle}
 import akka.kafka.scaladsl.Consumer.Control
@@ -26,7 +21,6 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, Offset
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -139,26 +133,20 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
       )
     )
 
-  private def commit(offsets: immutable.Seq[PartitionOffsetMetadata]): Future[Done] = {
-    val offsetsMap: Map[TopicPartition, OffsetAndMetadata] = offsets.map { offset =>
-      new TopicPartition(offset.key.topic, offset.key.partition) ->
-      new OffsetAndMetadata(offset.offset + 1, offset.metadata)
-    }.toMap
-    sendCommit(Commit(offsetsMap))
-  }
-
   def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
-      val futures = b.offsetsAndMetadata.groupBy(_._1.groupId).map {
+      val groupIdOffsetMaps: Map[String, Map[GroupTopicPartition, OffsetAndMetadata]] =
+        b.offsetsAndMetadata.groupBy(_._1.groupId)
+      val futures = groupIdOffsetMaps.map {
         case (groupId, offsetsMap) =>
           val committer = b.committers.getOrElse(
             groupId,
             throw new IllegalStateException(s"Unknown committer, got [$groupId]")
           )
-          val offsets: immutable.Seq[PartitionOffsetMetadata] = offsetsMap.map {
-            case (ctp, offset) => PartitionOffsetMetadata(ctp, offset.offset(), offset.metadata())
-          }.toList
-          committer.commit(offsets)
+          val offsets: Map[TopicPartition, OffsetAndMetadata] = offsetsMap.map {
+            case (gtp, offset) => gtp.topicPartition -> offset
+          }
+          committer.sendCommit(Commit(offsets))
       }
       Future.sequence(futures).map(_ => Done)
 
@@ -169,7 +157,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
       )
   }
 
-  private[this] def sendCommit(msg: AnyRef): Future[Done] = {
+  private def sendCommit(msg: AnyRef): Future[Done] = {
     import akka.pattern.ask
     consumerActor
       .ask(msg)(Timeout(commitTimeout))

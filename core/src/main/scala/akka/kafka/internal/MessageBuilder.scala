@@ -162,7 +162,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     val committers: Map[String, KafkaAsyncConsumerCommitterRef],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
-  def offsets: Map[GroupTopicPartition, Long] = offsetsAndMetadata.view.mapValues(_.offset()).toMap
+  def offsets: Map[GroupTopicPartition, Long] = offsetsAndMetadata.view.mapValues(_.offset() - 1L).toMap
 
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)
@@ -180,7 +180,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     }
 
     val newOffsets =
-      offsetsAndMetadata.updated(key, new OffsetAndMetadata(committableOffset.partitionOffset.offset, metadata))
+      offsetsAndMetadata.updated(key, new OffsetAndMetadata(committableOffset.partitionOffset.offset + 1L, metadata))
 
     val committer = committableOffset match {
       case c: CommittableOffsetImpl => c.committer
@@ -238,7 +238,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
     offsets.asJava
 
   override def toString(): String =
-    s"CommittableOffsetBatch(batchSize=$batchSize, ${offsetsAndMetadata.mkString("->")})"
+    s"CommittableOffsetBatch(batchSize=$batchSize, ${offsets.mkString(", ")})"
 
   override def commitScaladsl(): Future[Done] =
     if (batchSize == 0L)
