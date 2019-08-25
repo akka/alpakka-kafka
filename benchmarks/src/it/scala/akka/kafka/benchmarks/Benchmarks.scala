@@ -80,7 +80,7 @@ class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
 }
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
-  val factor = 1
+  val factor = 1000
 
   it should "bench with small messages" in {
     val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000 * factor, 100)
@@ -117,7 +117,7 @@ class ApacheKafkaAtMostOnceConsumer extends BenchmarksBase() {
 
 class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
   it should "bench" in {
-    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 500, 100)
+    val cmd = RunTestCommand("alpakka-kafka-at-most-once-consumer", bootstrapServers, 50000, 100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
