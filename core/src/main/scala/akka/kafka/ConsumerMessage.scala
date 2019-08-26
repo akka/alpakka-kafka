@@ -200,6 +200,11 @@ object ConsumerMessage {
      */
     def getOffsets(): java.util.Map[GroupTopicPartition, Long]
 
+    /**
+     * Internal API.
+     */
+    @InternalApi
+    private[kafka] def commitAndForget(): CommittableOffsetBatch
   }
 
 }

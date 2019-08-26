@@ -34,6 +34,19 @@ object Committer {
       }
 
   /**
+   * API may change!
+   *
+   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every batch sent for
+   * committing.
+   */
+  @ApiMayChange
+  def batchSender(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+    Flow[Committable]
+      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
+      .map(CommittableOffsetBatch.apply)
+      .map(_.commitAndForget())
+
+  /**
    * API MAY CHANGE
    *
    * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed

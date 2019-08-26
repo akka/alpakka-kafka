@@ -22,7 +22,6 @@ import org.apache.kafka.common.requests.OffsetFetchResponse
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
-import scala.collection.immutable
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
 
@@ -260,6 +259,13 @@ private[kafka] final class CommittableOffsetBatchImpl(
     else {
       committers.head._2.commit(this)
     }
+
+  override def commitAndForget(): CommittableOffsetBatch = {
+    if (batchSize != 0L) {
+      committers.head._2.commitAndForget(this)
+    }
+    this
+  }
 
   override def commitJavadsl(): CompletionStage[Done] = commitScaladsl().toJava
 
