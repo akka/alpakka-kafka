@@ -169,6 +169,20 @@ private[kafka] final class CommittableOffsetBatchImpl(
     case batch: CommittableOffsetBatch => updatedWithBatch(batch)
   }
 
+  private[internal] def committerFor(groupId: String) = committers.getOrElse(
+    groupId,
+    throw new IllegalStateException(s"Unknown committer, got [$groupId]")
+  )
+
+  private[internal] def groupIdOffsetMaps: Map[String, Map[TopicPartition, OffsetAndMetadata]] =
+    offsetsAndMetadata.groupBy(_._1.groupId).map {
+      case (groupId, offsetsMap) =>
+        val offsets: Map[TopicPartition, OffsetAndMetadata] = offsetsMap.map {
+          case (gtp, offset) => gtp.topicPartition -> offset
+        }
+        (groupId, offsets)
+    }
+
   private def updatedWithOffset(committableOffset: CommittableOffset): CommittableOffsetBatch = {
     val partitionOffset = committableOffset.partitionOffset
     val key = partitionOffset.key

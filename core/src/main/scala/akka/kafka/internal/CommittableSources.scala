@@ -135,27 +135,20 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
 
   def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
-      val groupIdOffsetMaps: Map[String, Map[GroupTopicPartition, OffsetAndMetadata]] =
-        b.offsetsAndMetadata.groupBy(_._1.groupId)
-      val futures = groupIdOffsetMaps.map {
-        case (groupId, offsetsMap) =>
-          val committer = b.committers.getOrElse(
-            groupId,
-            throw new IllegalStateException(s"Unknown committer, got [$groupId]")
-          )
-          val offsets: Map[TopicPartition, OffsetAndMetadata] = offsetsMap.map {
-            case (gtp, offset) => gtp.topicPartition -> offset
-          }
-          committer.sendCommit(Commit(offsets))
+      val futures = b.groupIdOffsetMaps.map {
+        case (groupId, offsets) =>
+          b.committerFor(groupId).sendCommit(Commit(offsets))
       }
       Future.sequence(futures).map(_ => Done)
 
-    case _ =>
-      throw new IllegalArgumentException(
-        s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
-        s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
-      )
+    case _ => failForUnexpectedImplementation(batch)
   }
+
+  private def failForUnexpectedImplementation(batch: CommittableOffsetBatch) =
+    throw new IllegalArgumentException(
+      s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
+      s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+    )
 
   private def sendCommit(msg: AnyRef): Future[Done] = {
     import akka.pattern.ask
