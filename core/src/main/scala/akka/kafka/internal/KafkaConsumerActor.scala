@@ -65,6 +65,8 @@ import scala.util.control.NonFatal
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
     final case class Commit(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
+    final case class CommitWithoutReply(offsets: Map[TopicPartition, OffsetAndMetadata])
+        extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
     final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
@@ -290,6 +292,10 @@ import scala.util.control.NonFatal
       // prepending, as later received offsets most likely are higher
       commitMaps = offsets :: commitMaps
       commitSenders = commitSenders :+ sender()
+
+    case CommitWithoutReply(offsets) =>
+      // prepending, as later received offsets most likely are higher
+      commitMaps = offsets :: commitMaps
 
     case CommitSingle(tp, offset) =>
       commitMaps = Map(tp -> offset) :: commitMaps
