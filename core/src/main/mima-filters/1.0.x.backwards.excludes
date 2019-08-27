@@ -1,2 +1,5 @@
 # always exclude changes to the internal APIs
 ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
+
+# PR #874 committing without backpressure
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommit")
