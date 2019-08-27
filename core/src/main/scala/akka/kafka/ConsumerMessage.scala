@@ -202,9 +202,11 @@ object ConsumerMessage {
 
     /**
      * Internal API.
+     *
+     * Sends this offset batch to the consumer actor without expecting an answer.
      */
     @InternalApi
-    private[kafka] def commitAndForget(): CommittableOffsetBatch
+    private[kafka] def tellCommit(): CommittableOffsetBatch
   }
 
 }

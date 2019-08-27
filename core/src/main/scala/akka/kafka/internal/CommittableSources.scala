@@ -121,6 +121,7 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
  *
  * This should be case class to be comparable based on consumerActor and commitTimeout. This comparison is used in [[CommittableOffsetBatchImpl]].
  */
+@InternalApi
 private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
 ) {
@@ -144,7 +145,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
     case _ => failForUnexpectedImplementation(batch)
   }
 
-  def commitAndForget(batch: CommittableOffsetBatch): Unit = batch match {
+  def tellCommit(batch: CommittableOffsetBatch): Unit = batch match {
     case b: CommittableOffsetBatchImpl =>
       b.groupIdOffsetMaps.foreach {
         case (groupId, offsets) =>

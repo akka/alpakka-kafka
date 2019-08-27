@@ -37,14 +37,14 @@ object Committer {
    * API may change!
    *
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every batch sent for
-   * committing.
+   * committing without expecting replies (no backpressure).
    */
   @ApiMayChange
-  def batchSender(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
-    Flow[Committable]
+  def tellFlow(settings: CommitterSettings): Flow[CommittableOffset, CommittableOffsetBatch, NotUsed] =
+    Flow[CommittableOffset]
       .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
       .map(CommittableOffsetBatch.apply)
-      .map(_.commitAndForget())
+      .map(_.tellCommit())
 
   /**
    * API MAY CHANGE
