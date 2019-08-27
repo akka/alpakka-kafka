@@ -88,6 +88,33 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
+   * Reads elements from Kafka source and commits in batches with no backpressure on committing.
+   */
+  def consumerCommitAndForget(commitBatchSize: Int)(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem,
+                                                                                               mat: Materializer): Unit = {
+    logger.debug("Creating and starting a stream")
+    val committerDefaults = CommitterSettings(sys)
+    val promise = Promise[Unit]
+    val counter = new AtomicInteger(fixture.numberOfPartitions)
+    val control = fixture.source
+      .map { msg =>
+        meter.mark()
+        msg.committableOffset
+      }
+      .via(Committer.tellFlow(committerDefaults.withMaxBatch(commitBatchSize.toLong)))
+      .toMat(Sink.foreach {
+        _.offsets().values
+          .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
+          .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
+      })(Keep.left)
+      .run()
+
+    Await.result(promise.future, streamingTimeout)
+    control.shutdown()
+    logger.debug("Stream finished")
+  }
+
+  /**
    * Reads elements from Kafka source and commits each one immediately after read.
    */
   def consumeCommitAtMostOnce(fixture: CommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
