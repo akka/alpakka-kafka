@@ -126,7 +126,6 @@ object KafkaConsumerBenchmarks extends LazyLogging {
     var lastProcessedOffset = 0L
     var accumulatedMsgCount = 0L
     var commitInProgress = false
-    val assignment = consumer.assignment()
 
     def doCommit(): Unit = {
       accumulatedMsgCount = 0
