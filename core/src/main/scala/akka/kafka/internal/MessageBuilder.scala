@@ -260,9 +260,9 @@ private[kafka] final class CommittableOffsetBatchImpl(
       committers.head._2.commit(this)
     }
 
-  override def commitAndForget(): CommittableOffsetBatch = {
+  override def tellCommit(): CommittableOffsetBatch = {
     if (batchSize != 0L) {
-      committers.head._2.commitAndForget(this)
+      committers.head._2.tellCommit(this)
     }
     this
   }
