@@ -27,7 +27,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
   import PerfFixtureHelpers._
 
   val producerTimeout = 6 minutes
-  val logPercentStep = 1
+  val logPercentStep = 25
 
   def randomId() = UUID.randomUUID().toString
 

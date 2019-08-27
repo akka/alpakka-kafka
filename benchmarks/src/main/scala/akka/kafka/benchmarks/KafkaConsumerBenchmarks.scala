@@ -117,6 +117,58 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
+   * Reads messages from topic in a loop and groups in batches of given max size. Once a batch is completed,
+   * batches the next part.
+   */
+  def consumerAtLeastOnceBatchedNoPausing(batchSize: Int)(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
+    val consumer = fixture.consumer
+
+    var lastProcessedOffset = 0L
+    var accumulatedMsgCount = 0L
+    var commitInProgress = false
+    val assignment = consumer.assignment()
+
+    def doCommit(): Unit = {
+      accumulatedMsgCount = 0
+      val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
+      logger.debug("Committing offset " + offsetMap.head._2.offset())
+      consumer.commitAsync(
+        offsetMap.asJava,
+        new OffsetCommitCallback {
+          override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit =
+            commitInProgress = false
+        }
+      )
+    }
+
+    @tailrec
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
+      if (readSoFar >= readLimit)
+        readSoFar
+      else {
+        logger.debug("Polling")
+        val records = consumer.poll(pollTimeoutMs)
+        for (record <- records.iterator().asScala) {
+          accumulatedMsgCount = accumulatedMsgCount + 1
+          meter.mark()
+          lastProcessedOffset = record.offset()
+          if (accumulatedMsgCount >= batchSize) {
+            if (!commitInProgress) {
+              commitInProgress = true
+              doCommit()
+            }
+          }
+        }
+        val recordCount = records.count()
+        logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
+        pollInLoop(readLimit, readSoFar + recordCount)
+      }
+
+    pollInLoop(readLimit = fixture.msgCount)
+    fixture.close()
+  }
+
+  /**
    * Reads messages from topic in a loop and commits each single message.
    */
   def consumeCommitAtMostOnce(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
