@@ -90,8 +90,9 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   /**
    * Reads elements from Kafka source and commits in batches with no backpressure on committing.
    */
-  def consumerCommitAndForget(commitBatchSize: Int)(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem,
-                                                                                               mat: Materializer): Unit = {
+  def consumerCommitAndForget(
+      commitBatchSize: Int
+  )(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem, mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val committerDefaults = CommitterSettings(sys)
     val promise = Promise[Unit]
