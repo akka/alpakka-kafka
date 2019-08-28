@@ -25,8 +25,9 @@ object KafkaProducerBenchmarks extends LazyLogging {
     val msg = PerfFixtureHelpers.stringOfSize(fixture.msgSize)
 
     for (i <- 1 to fixture.msgCount) {
+      val partition: Int = (i % fixture.numberOfPartitions).toInt
       producer.send(
-        new ProducerRecord[Array[Byte], String](fixture.topic, msg),
+        new ProducerRecord[Array[Byte], String](fixture.topic, partition, null, msg),
         new Callback {
           override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = meter.mark()
         }

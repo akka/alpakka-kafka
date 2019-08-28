@@ -11,6 +11,8 @@ import org.scalatest.FlatSpecLike
 import scala.concurrent.duration._
 
 abstract class BenchmarksBase() extends ScalatestKafkaSpec(0) with FlatSpecLike {
+  val factor = 1000
+
   override def bootstrapServers: String =
     (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
 
@@ -80,7 +82,6 @@ class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
 }
 
 class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
-  val factor = 1000
 
   it should "bench with small messages" in {
     val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, 1000 * factor, 100)
@@ -125,25 +126,39 @@ class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
 }
 
 class ApacheKafkaPlainProducer extends BenchmarksBase() {
+  private val prefix = "apache-kafka-plain-producer"
+
   it should "bench with small messages" in {
-    val cmd = RunTestCommand("apache-kafka-plain-producer", bootstrapServers, 2000 * 1000, 100)
+    val cmd = RunTestCommand(prefix, bootstrapServers, 2000 * factor, 100)
     runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
   }
 
   it should "bench with normal messages" in {
-    val cmd = RunTestCommand("apache-kafka-plain-producer-normal-msg", bootstrapServers, 2000 * 1000, 5000)
+    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000)
+    runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
+  }
+
+  it should "bench with normal messages written to 8 partitions" in {
+    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
     runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
   }
 }
 
 class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
+  private val prefix = "alpakka-kafka-plain-producer"
+
   it should "bench with small messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-producer", bootstrapServers, 2000 * 1000, 100)
+    val cmd = RunTestCommand(prefix, bootstrapServers, 2000 * factor, 100)
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 
   it should "bench with normal messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-plain-producer-normal-msg", bootstrapServers, 2000 * 1000, 5000)
+    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000)
+    runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
+  }
+
+  it should "bench with normal messages written to 8 partitions" in {
+    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 }

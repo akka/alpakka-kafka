@@ -35,9 +35,10 @@ object ReactiveKafkaProducerBenchmarks extends LazyLogging {
     val msg = PerfFixtureHelpers.stringOfSize(fixture.msgSize)
 
     val future = Source(0 to fixture.msgCount)
-      .map(
-        number => ProducerMessage.single(new ProducerRecord[Array[Byte], String](fixture.topic, msg), number)
-      )
+      .map { number =>
+        val partition: Int = (number % fixture.numberOfPartitions).toInt
+        ProducerMessage.single(new ProducerRecord[Array[Byte], String](fixture.topic, partition, null, msg), number)
+      }
       .via(fixture.flow)
       .map {
         case msg: Result[Array[Byte], String, Int] =>

@@ -28,7 +28,8 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
   case class ReactiveKafkaProducerTestFixture[PassThrough](topic: String,
                                                            msgCount: Int,
                                                            msgSize: Int,
-                                                           flow: FlowType[PassThrough])
+                                                           flow: FlowType[PassThrough],
+                                                           numberOfPartitions: Int)
 
   private def createProducerSettings(kafkaHost: String)(implicit actorSystem: ActorSystem): ProducerSettings[K, V] =
     ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
@@ -42,7 +43,7 @@ object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
         val flow: FlowType[Int] = Producer.flexiFlow(createProducerSettings(c.kafkaHost))
         val topic = randomId()
         initTopicAndProducer(topic, c.copy(msgCount = 1))
-        ReactiveKafkaProducerTestFixture(topic, msgCount, c.msgSize, flow)
+        ReactiveKafkaProducerTestFixture(topic, msgCount, c.msgSize, flow, c.numberOfPartitions)
       }
     )
 
