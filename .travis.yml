@@ -39,14 +39,28 @@ jobs:
       name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
     - stage: test
-      env: CMD="+test"
-      name: "Run tests (AdoptOpenJDK 8)"
+      env: CMD="++2.11.12 test"
+      name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
+    - env: CMD="++2.12.9 test"
+      name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
+    - env: CMD="++2.13.0 test"
+      name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
 
     - env:
       - JDK="adopt@~1.11.0-2"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="+test"
-      name: "Run tests (AdoptOpenJDK 11)"
+      - CMD="++2.11.12 test"
+      name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
+    - env:
+      - JDK="adopt@~1.11.0-2"
+      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+      - CMD="++2.12.9 test"
+      name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
+    - env:
+      - JDK="adopt@~1.11.0-2"
+      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+      - CMD="++2.13.0 test"
+      name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
 
     - stage: integration
       env: CMD="dockerComposeTestAll"
@@ -69,7 +83,7 @@ stages:
   # runs on master commits and PRs
   - name: test
     if: NOT tag =~ ^v
-    
+
   # runs on master commits and PRs
   - name: integration
     if: NOT tag =~ ^v
