@@ -12,6 +12,7 @@ import akka.dispatch.ExecutionContexts
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.scaladsl.Committer
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.metrics.Meter
@@ -100,18 +101,16 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
     val control = fixture.source
       .map { msg =>
         meter.mark()
+        if (counter.decrementAndGet() == 0) promise.complete(Success(()))
         msg.committableOffset
       }
       .via(Committer.tellFlow(committerDefaults.withMaxBatch(commitBatchSize.toLong)))
-      .toMat(Sink.foreach {
-        _.offsets().values
-          .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
-          .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
-      })(Keep.left)
+      .toMat(Sink.ignore)(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
       .run()
 
     Await.result(promise.future, streamingTimeout)
-    control.shutdown()
+    control.drainAndShutdown()(sys.dispatcher)
     logger.debug("Stream finished")
   }
 
