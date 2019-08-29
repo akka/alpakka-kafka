@@ -139,7 +139,7 @@ class ApacheKafkaPlainProducer extends BenchmarksBase() {
   }
 
   it should "bench with normal messages written to 8 partitions" in {
-    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
+    val cmd = RunTestCommand(prefix + "-normal-msg-8-partitions", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
     runPerfTest(cmd, KafkaProducerFixtures.initializedProducer(cmd), KafkaProducerBenchmarks.plainFlow)
   }
 }
@@ -158,7 +158,7 @@ class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
   }
 
   it should "bench with normal messages written to 8 partitions" in {
-    val cmd = RunTestCommand(prefix + "-normal-msg", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
+    val cmd = RunTestCommand(prefix + "-normal-msg-8-partitions", bootstrapServers, 2000 * factor, 5000, numberOfPartitions = 8)
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 }
