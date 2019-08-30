@@ -110,6 +110,14 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     consumerSettingsWithAutoCommit
   }
 
+  "ConsumerSettings" should "read from settings that inherit default" in {
+    // #config-inheritance
+    val config = system.settings.config.getConfig("our-kafka-consumer")
+    val consumerSettings = ConsumerSettings(config, new StringDeserializer, new StringDeserializer)
+    // #config-inheritance
+    consumerSettings.getProperty("bootstrap.servers") shouldBe "kafka-host:9092"
+  }
+
   "Consume messages at-most-once" should "work" in assertAllStagesStopped {
     val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()

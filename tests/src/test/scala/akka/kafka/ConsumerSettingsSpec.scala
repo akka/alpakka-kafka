@@ -5,6 +5,7 @@
 
 package akka.kafka
 
+import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 import org.scalatest._
