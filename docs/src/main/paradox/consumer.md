@@ -136,7 +136,7 @@ Table
 |-------------|----------------------------------------------|-----|
 | maxBatch    | maximum number of messages to commit at once | 1000 |
 | maxInterval | maximum interval between commits             | 10 seconds |
-| parallelism | parallelsim for async committing             | 1 |
+| parallelism | parallelsim for async committing             | 100 |
 
 reference.conf
 : @@snip [snip](/core/src/main/resources/reference.conf) { #committer-settings }
@@ -150,14 +150,21 @@ If you use Kafka older than version 2.1.0 and consume from a topic with low acti
 
 These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka.scaladsl.Committer$)]@java[@scaladoc[Committer API](akka.kafka.javadsl.Committer$)].
 
-| Factory method          | Stream element type                  | Emits |
-|-------------------------|--------------------------------------|--------------|
-| `sink`                  | `Committable`                        | N/A       |
-| `sinkWithOffsetContext` | Any (`CommittableOffset` in context) | N/A       |
-| `flow`                  | `Committable`                        | `Done`    |
-| `batchFlow`             | `Committable`                        | `CommittableOffsetBatch`  |
-| `flowWithOffsetContext` | Any (`CommittableOffset` in context) | `NotUsed` (`CommittableOffsetBatch` in context) |
+| Factory method              | Stream element type                  | Emits        | Backpressures |
+|-----------------------------|--------------------------------------|--------------|---------------|
+| `sink`                      | `Committable`                        | N/A          | Yes |
+| `sinkWithOffsetContext`     | Any (`CommittableOffset` in context) | N/A          | Yes |
+| `flow`                      | `Committable`                        | `Done`       | Yes |
+| `batchFlow`                 | `Committable`                        | `CommittableOffsetBatch`  | Yes |
+| `flowWithOffsetContext`     | Any (`CommittableOffset` in context) | `NotUsed` (`CommittableOffsetBatch` in context) | Yes |
+| `tellFlow`                  | `CommittableOffset`                  | `CommittableOffsetBatch`                            | No |
+| `tellFlowWithOffsetContext` | Any (`CommittableOffset` in context) | `NotUsed` (`CommittableOffsetBatch` in context) | No |
 
+@@@ note { title="Committing without backpressure" }
+
+Committing without waiting for commit acknowledgement from the Kafka Broker is a new experimental feature since Alpakka Kafka 1.1.0. `tellFlow` and `tellFlowWithOffsetContext` may change or even be dropped in future releases.
+
+@@@
 
 ### Commit with meta-data
 
