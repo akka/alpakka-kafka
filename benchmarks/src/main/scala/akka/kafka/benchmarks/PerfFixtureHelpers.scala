@@ -47,8 +47,9 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     val msg = stringOfSize(cmd.msgSize)
     for (i <- 0L to cmd.msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
+        val partition: Int = (i % cmd.numberOfPartitions).toInt
         producer.send(
-          new ProducerRecord[Array[Byte], String](topic, msg),
+          new ProducerRecord[Array[Byte], String](topic, partition, null, msg),
           new Callback {
             override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit =
               if (e == null) {
