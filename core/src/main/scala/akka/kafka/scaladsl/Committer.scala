@@ -34,7 +34,7 @@ object Committer {
       }
 
   /**
-   * API may change!
+   * API may change - this is an experimental feature.
    *
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every batch sent for
    * committing without expecting replies (no backpressure).
@@ -59,6 +59,24 @@ object Committer {
     val value = Flow[(E, CommittableOffset)]
       .map(_._2)
       .via(batchFlow(settings))
+      .map(b => (NotUsed, b))
+    new FlowWithContext(value)
+  }
+
+  /**
+   * API may change - this is an experimental feature.
+   *
+   * Batches offsets from context and commits them to Kafka without expecting replies (no backpressure on committing).
+   * Emits no useful value, but keeps the committed
+   * `CommittableOffsetBatch` as context.
+   */
+  @ApiMayChange
+  def tellFlowWithOffsetContext[E](
+      settings: CommitterSettings
+  ): FlowWithContext[E, CommittableOffset, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value = Flow[(E, CommittableOffset)]
+      .map(_._2)
+      .via(tellFlow(settings))
       .map(b => (NotUsed, b))
     new FlowWithContext(value)
   }

@@ -30,6 +30,16 @@ object Committer {
     scaladsl.Committer.batchFlow(settings).asJava
 
   /**
+   * API may change - this is an experimental feature.
+   *
+   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every batch sent for
+   * committing without expecting replies (no backpressure on committing).
+   */
+  @ApiMayChange
+  def tellFlow[C <: CommittableOffset](settings: CommitterSettings): Flow[C, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.tellFlow(settings).asJava
+
+  /**
    * API MAY CHANGE
    *
    * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed
@@ -40,6 +50,18 @@ object Committer {
       settings: CommitterSettings
   ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
     scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
+
+  /**
+   * API may change - this is an experimental feature.
+   *
+   * Batches offsets from context and commits them to Kafka without expecting replies (no backpressure on committing).
+   * Emits no useful value, but keeps the committed
+   * `CommittableOffsetBatch` as context.
+   */
+  def tellFlowWithOffsetContext[E, C <: CommittableOffset](
+      settings: CommitterSettings
+  ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.tellFlowWithOffsetContext[E](settings).asJava
 
   /**
    * Batches offsets and commits them to Kafka.
