@@ -223,7 +223,6 @@ import scala.util.control.NonFatal
   /** ActorRefs to all stages that requested messages from this actor (removed on their termination). */
   private var requestors = Set.empty[ActorRef]
   private var consumer: Consumer[K, V] = _
-  private var subscriptions = Set.empty[SubscriptionRequest]
   private var commitsInProgress = 0
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
@@ -297,7 +296,6 @@ import scala.util.control.NonFatal
       requestDelayedPoll()
 
     case s: SubscriptionRequest =>
-      subscriptions = subscriptions + s
       handleSubscription(s)
 
     case Seek(offsets) =>
