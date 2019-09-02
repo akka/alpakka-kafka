@@ -156,16 +156,15 @@ When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scala
 
 Table
 : | Setting   | Description                                  | Default Value |
-|-------------|----------------------------------------------|-----|
+|-------------|----------------------------------------------|---------------|
 | maxBatch    | maximum number of messages to commit at once | 1000 |
 | maxInterval | maximum interval between commits             | 10 seconds |
-| parallelism | parallelsim for async committing             | 1 |
+| parallelism | maximum number of commit batches in flight   | 100 |
 
 reference.conf
 : @@snip [snip](/core/src/main/resources/reference.conf) { #committer-settings }
 
-
-The bigger the values are, the less load you put on Kafka and the smaller are chances that committing offsets will become a bottleneck. However, increasing these values also means that in case of a failure you will have to re-process more messages. 
+All commit batches are aggregated internally and passed on to Kafka very often (in every poll cycle), the Committer settings configure how the stream sends the offsets to the internal actor which communicates with the Kafka broker. Increasing these values means that in case of a failure you may have to re-process more messages.
 
 If you use Kafka older than version 2.1.0 and consume from a topic with low activity, and possibly no messages arrive for more than 24 hours, consider enabling periodical commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters), otherwise offsets might expire in the Kafka storage. This has been fixed in Kafka 2.1.0 (See [KAFKA-4682](https://issues.apache.org/jira/browse/KAFKA-4682)).
 
@@ -186,7 +185,7 @@ These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka
 
 The `Consumer.commitWithMetadataSource` allows you to add metadata to the committed offset based on the last consumed record.
 
-Note that the first offset provided to the consumer during a partition assignment will not contain metadata. This offset can get committed due to a periodic commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parmeters) and the commit will not contain metadata.
+Note that the first offset provided to the consumer during a partition assignment will not contain metadata. This offset can get committed due to a periodic commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters) and the commit will not contain metadata.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #commitWithMetadata }
@@ -194,7 +193,10 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #commitWithMetadata }
 
-If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended.
+
+## Consume "at-most-once"
+
+If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended. If your "at-most-once" requirements are more relaxed, consider a `Consumer.plainSource` and enable Kafka's auto committing with `enable.auto.commit = true`.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atMostOnce }
@@ -202,7 +204,10 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #atMostOnce }
 
-Maintaining at-least-once delivery semantics requires care, many risks and solutions are covered in @ref:[At-Least-Once Delivery](atleastonce.md).
+
+## Consume "at-least-once"
+
+How to achieve at-least-once delivery semantics is covered in @ref:[At-Least-Once Delivery](atleastonce.md).
 
 
 ## Connecting Producer and Consumer
@@ -211,21 +216,11 @@ For cases when you need to read messages from one topic, transform or enrich the
 
 The `committableSink` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
 
-Note that there is a risk that something fails after publishing but before committing, so `committableSink` has "at-least-once" delivery semantics. 
-
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerSink }
-
-As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits with `Committer.sink`.
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
 
 @@@note 
 
@@ -234,6 +229,15 @@ There is a risk that something fails after publishing, but before committing, so
 To get delivery guarantees, please read about @ref[transactions](transactions.md).
 
 @@@
+
+
+As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits with `Committer.sink`.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
 
 
 ## Source per partition
