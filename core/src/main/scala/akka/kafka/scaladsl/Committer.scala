@@ -25,26 +25,24 @@ object Committer {
   /**
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
-  def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] =
+  def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
+    // See https://github.com/akka/alpakka-kafka/issues/882
+    import akka.kafka.CommitDelivery._
+    val deliver = settings.delivery match {
+      case Ask =>
+        Flow[CommittableOffsetBatch]
+          .mapAsyncUnordered(settings.parallelism) { b =>
+            b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
+          }
+      case Tell =>
+        Flow[CommittableOffsetBatch]
+          .map(_.tellCommit())
+    }
     Flow[Committable]
       .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
       .map(CommittableOffsetBatch.apply)
-      .mapAsyncUnordered(settings.parallelism) { b =>
-        b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
-      }
-
-  /**
-   * API may change!
-   *
-   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every batch sent for
-   * committing without expecting replies (no backpressure).
-   */
-  @ApiMayChange
-  def tellFlow(settings: CommitterSettings): Flow[CommittableOffset, CommittableOffsetBatch, NotUsed] =
-    Flow[CommittableOffset]
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
-      .map(_.tellCommit())
+      .via(deliver)
+  }
 
   /**
    * API MAY CHANGE

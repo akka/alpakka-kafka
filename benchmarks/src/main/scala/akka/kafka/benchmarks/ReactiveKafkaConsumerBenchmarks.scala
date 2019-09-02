@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
-import akka.kafka.CommitterSettings
+import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.scaladsl.Committer
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -104,8 +104,9 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         if (counter.decrementAndGet() == 0) promise.complete(Success(()))
         msg.committableOffset
       }
-      .via(Committer.tellFlow(committerDefaults.withMaxBatch(commitBatchSize.toLong)))
-      .toMat(Sink.ignore)(Keep.both)
+      .toMat(Committer.sink(committerDefaults.withDelivery(CommitDelivery.Tell).withMaxBatch(commitBatchSize.toLong)))(
+        Keep.both
+      )
       .mapMaterializedValue(DrainingControl.apply)
       .run()
 

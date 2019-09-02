@@ -7,10 +7,50 @@ package akka.kafka
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.annotation.ApiMayChange
 import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 
 import scala.concurrent.duration._
+
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+sealed trait CommitDelivery
+
+/**
+ * Selects how the stream delivers commits to the internal actor.
+ */
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+object CommitDelivery {
+
+  /**
+   * Expect replies for commits, and backpressure the stream if replies do not
+   * arrive.
+   */
+  case object Ask extends CommitDelivery
+
+  /**
+   * Send off commits to the internal actor without expecting replies,
+   * and don't create backpressure in the stream.
+   */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+  case object Tell extends CommitDelivery
+
+  /**
+   * Java API.
+   */
+  val ask: CommitDelivery = Ask
+
+  /**
+   * Java API.
+   */
+  val tell: CommitDelivery = Tell
+
+  def valueOf(s: String): CommitDelivery = s match {
+    case "Ask" => Ask
+    case "Tell" => Tell
+    case other => throw new IllegalArgumentException(s"allowed values are: Ask, Tell. Received: $other")
+  }
+}
 
 object CommitterSettings {
 
@@ -31,7 +71,8 @@ object CommitterSettings {
     val maxBatch = config.getLong("max-batch")
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
-    new CommitterSettings(maxBatch, maxInterval, parallelism)
+    val delivery = CommitDelivery.valueOf(config.getString("delivery"))
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
   }
 
   /**
@@ -59,7 +100,8 @@ object CommitterSettings {
 class CommitterSettings private (
     val maxBatch: Long,
     val maxInterval: FiniteDuration,
-    val parallelism: Int
+    val parallelism: Int,
+    val delivery: CommitDelivery
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -74,16 +116,22 @@ class CommitterSettings private (
   def withParallelism(parallelism: Int): CommitterSettings =
     copy(parallelism = parallelism)
 
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+  def withDelivery(value: CommitDelivery): CommitterSettings =
+    copy(delivery = value)
+
   private def copy(maxBatch: Long = maxBatch,
                    maxInterval: FiniteDuration = maxInterval,
-                   parallelism: Int = parallelism): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval, parallelism)
+                   parallelism: Int = parallelism,
+                   delivery: CommitDelivery = delivery): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
     s"maxBatch=$maxBatch," +
     s"maxInterval=${maxInterval.toCoarsest}," +
-    s"parallelism=$parallelism" +
-    ")"
+    s"parallelism=$parallelism," +
+    s"delivery=$delivery"
+  ")"
 
 }
