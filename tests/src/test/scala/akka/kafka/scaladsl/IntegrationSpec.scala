@@ -5,13 +5,14 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.atomic.AtomicLong
+
 import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.pattern.ask
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -63,12 +64,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val rebalanceActor1 = TestProbe()
       val rebalanceActor2 = TestProbe()
 
-      val (counterQueue, counterCompletion) = Source
-        .queue[String](100, OverflowStrategy.backpressure)
-        .scan(0L)((c, _) => c + 1)
-        .takeWhile(_ < totalMessages, inclusive = true)
-        .toMat(Sink.last)(Keep.both)
-        .run()
+      val receivedCounter = new AtomicLong(0L)
 
       val topicSubscription = Subscriptions.topics(topic)
       val subscription1 = topicSubscription.withRebalanceListener(rebalanceActor1.ref)
@@ -77,7 +73,10 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       def createAndRunConsumer(subscription: Subscription) =
         Consumer
           .plainSource(sourceSettings, subscription)
-          .mapAsync(1)(el => counterQueue.offer(el.value()).map(_ => el))
+          .map { el =>
+            receivedCounter.incrementAndGet()
+            Done
+          }
           .scan(0L)((c, _) => c + 1)
           .toMat(Sink.last)(Keep.both)
           .mapMaterializedValue(DrainingControl.apply)
@@ -119,7 +118,9 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
       createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
 
-      counterCompletion.futureValue shouldBe totalMessages
+      eventually {
+        receivedCounter.get() shouldBe totalMessages
+      }
 
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
