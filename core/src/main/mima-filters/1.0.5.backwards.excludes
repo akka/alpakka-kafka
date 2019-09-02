@@ -1,0 +1,3 @@
+# PR #883 Committing without backpressure
+# https://github.com/akka/alpakka-kafka/pull/883
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings.this")
