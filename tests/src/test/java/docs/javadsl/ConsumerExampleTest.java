@@ -144,6 +144,16 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
   // #plainSource
 
   @Test
+  void configInheritance() throws Exception {
+    // #config-inheritance
+    Config config = system.settings().config().getConfig("our-kafka-consumer");
+    ConsumerSettings<String, String> consumerSettings =
+        ConsumerSettings.create(config, new StringDeserializer(), new StringDeserializer());
+    // #config-inheritance
+    assertEquals("kafka-host:9092", consumerSettings.getProperty("bootstrap.servers"));
+  }
+
+  @Test
   void atMostOnce() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId());
