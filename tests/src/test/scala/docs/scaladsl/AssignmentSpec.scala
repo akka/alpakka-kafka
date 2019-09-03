@@ -7,10 +7,9 @@ package docs.scaladsl
 
 import akka.Done
 import akka.kafka.Subscriptions
-import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
