@@ -26,29 +26,32 @@ object CommitDelivery {
    * Expect replies for commits, and backpressure the stream if replies do not
    * arrive.
    */
-  case object Ask extends CommitDelivery
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+  case object WaitForAck extends CommitDelivery
 
   /**
    * Send off commits to the internal actor without expecting replies,
    * and don't create backpressure in the stream.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
-  case object Tell extends CommitDelivery
+  case object SendAndForget extends CommitDelivery
 
   /**
    * Java API.
    */
-  val ask: CommitDelivery = Ask
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+  val waitForAck: CommitDelivery = WaitForAck
 
   /**
    * Java API.
    */
-  val tell: CommitDelivery = Tell
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
+  val sendAndForget: CommitDelivery = SendAndForget
 
   def valueOf(s: String): CommitDelivery = s match {
-    case "Ask" => Ask
-    case "Tell" => Tell
-    case other => throw new IllegalArgumentException(s"allowed values are: Ask, Tell. Received: $other")
+    case "WaitForAck" => WaitForAck
+    case "SendAndForget" => SendAndForget
+    case other => throw new IllegalArgumentException(s"allowed values are: WaitForAck, SendAndForget. Received: $other")
   }
 }
 

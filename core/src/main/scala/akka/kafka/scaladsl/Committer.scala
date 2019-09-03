@@ -26,22 +26,21 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
+    val offsetBatches = Flow[Committable]
+      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
+      .map(CommittableOffsetBatch.apply)
     // See https://github.com/akka/alpakka-kafka/issues/882
     import akka.kafka.CommitDelivery._
-    val deliver = settings.delivery match {
-      case Ask =>
-        Flow[CommittableOffsetBatch]
+    settings.delivery match {
+      case WaitForAck =>
+        offsetBatches
           .mapAsyncUnordered(settings.parallelism) { b =>
             b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
           }
-      case Tell =>
-        Flow[CommittableOffsetBatch]
+      case SendAndForget =>
+        offsetBatches
           .map(_.tellCommit())
     }
-    Flow[Committable]
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
-      .via(deliver)
   }
 
   /**

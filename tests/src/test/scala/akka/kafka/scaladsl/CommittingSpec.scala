@@ -376,7 +376,10 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             Subscriptions.topics(topic)
           )
           .map(_.committableOffset)
-          .via(Committer.batchFlow(committerDefaults.withDelivery(CommitDelivery.Tell).withMaxBatch(commitBatchSize)))
+          .via(
+            Committer
+              .batchFlow(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize))
+          )
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
