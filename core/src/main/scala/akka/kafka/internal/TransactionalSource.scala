@@ -121,10 +121,13 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
         ack.getOrElse(sender).tell(msg, sourceActor.ref)
       } else {
         log.debug(s"Draining partitions {}", partitions)
-        materializer.scheduleOnce(consumerSettings.drainingCheckInterval, new Runnable {
-          override def run(): Unit =
-            sourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), sourceActor.ref)
-        })
+        materializer.scheduleOnce(
+          consumerSettings.drainingCheckInterval,
+          new Runnable {
+            override def run(): Unit =
+              sourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), sourceActor.ref)
+          }
+        )
       }
   }
 
