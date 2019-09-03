@@ -1,3 +1,6 @@
+---
+project.description: Snapshot builds of Alpakka Kafka are provided via a Bintray repository.
+---
 # Snapshots
 
 [snapshots-badge]:  https://api.bintray.com/packages/akka/snapshots/alpakka-kafka/images/download.svg

@@ -1,3 +1,6 @@
+---
+project.description: An Alpakka Kafka consumer source can subscribe to Kafka topics within a consumer group, or to specific partitions.
+---
 # Subscription
 
 Consumer Sources are created with different types of subscriptions, which control from which topics, partitions and offsets data is to be consumed.
