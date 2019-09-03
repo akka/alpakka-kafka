@@ -104,7 +104,10 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         if (counter.decrementAndGet() == 0) promise.complete(Success(()))
         msg.committableOffset
       }
-      .toMat(Committer.sink(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize.toLong)))(
+      .toMat(
+        Committer
+          .sink(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize.toLong))
+      )(
         Keep.both
       )
       .mapMaterializedValue(DrainingControl.apply)
