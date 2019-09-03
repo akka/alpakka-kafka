@@ -7,9 +7,10 @@ package docs.scaladsl
 
 import akka.Done
 import akka.kafka.Subscriptions
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -156,6 +157,56 @@ class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
       messages.futureValue.map(_ - now).count(_ > 5000) shouldBe 0
     }
   }
+
+  "illegal subscriptions" should {
+    "fail the stream with invalid topic" in {
+      val streamCompletion = Consumer
+        .plainSource(consumerDefaults.withGroupId(createGroupId()), Subscriptions.topics("illegal topic name"))
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
+    }
+
+    "fail the stream for empty subscriptions list" in {
+      val streamCompletion = Consumer
+        .plainSource(consumerDefaults.withGroupId(createGroupId()), Subscriptions.topics())
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[java.lang.IllegalStateException]
+    }
+
+    "fail the stream for `null` topic name" in {
+      val streamCompletion = Consumer
+        .plainSource(consumerDefaults.withGroupId(createGroupId()), Subscriptions.topics(Set(null: String)))
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[java.lang.IllegalArgumentException]
+    }
+
+    "fail the stream with invalid topic for assignments" in {
+      val streamCompletion = Consumer
+        .plainSource(consumerDefaults.withGroupId(createGroupId()),
+                     Subscriptions.assignment(new TopicPartition("illegal topic name", 2)))
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
+    }
+
+    "fail the stream for illegal topic pattern" in {
+      val streamCompletion = Consumer
+        .plainSource(consumerDefaults.withGroupId(createGroupId()), Subscriptions.topicPattern("illegal regex (*"))
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[java.util.regex.PatternSyntaxException]
+    }
+
+    "fail the stream for illegal offsets for times" in {
+      val streamCompletion = Consumer
+        .plainSource(
+          consumerDefaults.withGroupId(createGroupId()),
+          Subscriptions.assignmentOffsetsForTimes(new TopicPartition("topic", 0) -> 232L,
+                                                  new TopicPartition("topic", 1) -> -232L)
+        )
+        .runWith(Sink.ignore)
+      streamCompletion.failed.futureValue shouldBe a[java.lang.IllegalArgumentException]
+    }
+  }
+
   // #testkit
 
 }

@@ -10,6 +10,7 @@ import akka.actor.Status
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
+import akka.kafka.internal.KafkaConsumerActor.Internal.RegisterSubStage
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.{ask, AskTimeoutException}
@@ -318,6 +319,7 @@ private final class SubSourceStage[K, V, Msg](
             failStage(new ConsumerFailed)
         }
         subSourceActor.watch(consumerActor)
+        consumerActor.tell(RegisterSubStage, subSourceActor.ref)
       }
 
       override def postStop(): Unit = {
