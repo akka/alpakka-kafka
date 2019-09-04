@@ -50,10 +50,17 @@ The table below shows Alpakka Kafka's direct dependencies and the second tab sho
 
 ## Scala and Java APIs
 
-There are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.docs.javadsl`
+Following Akka's conventions there are two separate packages named `akka.kafka.scaladsl` and `akka.kafka.javadsl`
 with the API for Scala and Java. These packages contain `Producer` and `Consumer`
 classes with factory methods for the various Akka Streams `Flow`, `Sink` and `Source`
 that are producing or consuming messages to/from Kafka.
+
+
+## Examples
+
+A few self-contained examples using Alpakka are available as [Alpakka Samples](https://akka.io/alpakka-samples/).
+
+To read and see how others use Alpakka see the [Alpakka documentation's Webinars, Presentations and Articles](https://doc.akka.io/docs/alpakka/current/other-docs/webinars-presentations-articles.html) listing.
 
 
 ## Contributing
