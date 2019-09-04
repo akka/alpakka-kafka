@@ -20,20 +20,24 @@ For performance monitoring consider [Lightbend Telemetry](https://developer.ligh
 
 ## Security setup
 
-Configure the Kafka brokers as described in [Confluent's article 
-“Configuring Kafka Clients”](https://www.confluent.io/blog/apache-kafka-security-authorization-authentication-encryption/).
+The different security setups offered by Kafka brokers are described in the [Apache Kafka documentation](http://kafka.apache.org/documentation/#security).
 
-For Alpakka Kafka the client configuration parameters go in the `akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration.
+
+### SSL
+
+The properties described in Kafka's [Configuring Kafka Clients for SSL](http://kafka.apache.org/documentation/#security_configclients) go in the
+`akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration, or can be added programmatically via
+`ProducerSettings.withProperties` and `ConsumerSettings.withProperties`.
 
 ```hocon
-akka.kafka.producer {
+akka.kafka.producer { # and akka.kafka.consumer respectively
   kafka-clients {
-   security.protocol=SSL
-   ssl.truststore.location=/var/private/ssl/kafka.client.truststore.jks
-   ssl.truststore.password=test1234
-   ssl.keystore.location=/var/private/ssl/kafka.client.keystore.jks
-   ssl.keystore.password=test1234
-   ssl.key.password=test1234
+    security.protocol=SSL
+    ssl.truststore.location=/var/private/ssl/kafka.client.truststore.jks
+    ssl.truststore.password=test1234
+    ssl.keystore.location=/var/private/ssl/kafka.client.keystore.jks
+    ssl.keystore.password=test1234
+    ssl.key.password=test1234
   }
 }
 ```
@@ -41,3 +45,20 @@ akka.kafka.producer {
 The truststore and keystore locations may specify URLs, absolute paths or relative paths (starting with `./`).
 
 You have the option to pass the passwords as command line parameters or environment values via the support in [Config](https://github.com/lightbend/config#optional-system-or-env-variable-overrides).
+
+
+### Kerberos
+
+The properties described in Kafka's [Configuring Kafka Clients for Kerberos](http://kafka.apache.org/documentation/#security_sasl_kerberos_clientconfig) go in the
+`akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration, or can be added programmatically via
+`ProducerSettings.withProperties` and `ConsumerSettings.withProperties`.
+
+```hocon
+akka.kafka.producer { # and akka.kafka.consumer respectively
+  kafka-clients {
+    security.protocol=SASL_PLAINTEXT # (or SASL_SSL)
+    sasl.mechanism=GSSAPI
+    sasl.kerberos.service.name=kafka
+  }
+}
+```
