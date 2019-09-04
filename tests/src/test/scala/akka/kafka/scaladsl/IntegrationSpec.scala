@@ -114,7 +114,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
 
-      sleep(2.seconds,
+      sleep(4.seconds,
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
       createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
 
