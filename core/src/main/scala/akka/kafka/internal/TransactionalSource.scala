@@ -110,7 +110,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
       inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
-      sender ! Done
+      sender.tell(Done, sourceActor.ref)
     case (sender, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")
       inFlightRecords.reset()
@@ -118,13 +118,16 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     case (sender, Drain(partitions, ack, msg)) =>
       if (inFlightRecords.empty(partitions)) {
         log.debug(s"Partitions drained ${partitions.mkString(",")}")
-        ack.getOrElse(sender) ! msg
+        ack.getOrElse(sender).tell(msg, sourceActor.ref)
       } else {
         log.debug(s"Draining partitions {}", partitions)
-        materializer.scheduleOnce(consumerSettings.drainingCheckInterval, new Runnable {
-          override def run(): Unit =
-            sourceActor.ref ! Drain(partitions, ack.orElse(Some(sender)), msg)
-        })
+        materializer.scheduleOnce(
+          consumerSettings.drainingCheckInterval,
+          new Runnable {
+            override def run(): Unit =
+              sourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), sourceActor.ref)
+          }
+        )
       }
   }
 
@@ -151,10 +154,10 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       // This is invoked in the KafkaConsumerActor thread when doing poll.
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         if (waitForDraining(revokedTps)) {
-          sourceActor.ref ! Revoked(revokedTps.toList)
+          sourceActor.ref.tell(Revoked(revokedTps.toList), consumerActor)
         } else {
-          sourceActor.ref ! Failure(new Error("Timeout while draining"))
-          consumerActor ! KafkaConsumerActor.Internal.Stop
+          sourceActor.ref.tell(Failure(new Error("Timeout while draining")), consumerActor)
+          consumerActor.tell(KafkaConsumerActor.Internal.Stop, consumerActor)
         }
 
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()

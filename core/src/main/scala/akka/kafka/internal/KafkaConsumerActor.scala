@@ -32,7 +32,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
-import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -45,21 +44,19 @@ import scala.util.control.NonFatal
 @InternalApi private object KafkaConsumerActor {
 
   object Internal {
-    sealed trait SubscriptionRequest
+    sealed trait SubscriptionRequest extends NoSerializationVerificationNeeded
 
     //requests
-    final case class Assign(tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
-    final case class AssignWithOffset(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
-    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long])
-        extends NoSerializationVerificationNeeded
+    final case class Assign(tps: Set[TopicPartition]) extends SubscriptionRequest
+    final case class AssignWithOffset(tps: Map[TopicPartition, Long]) extends SubscriptionRequest
+    final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends SubscriptionRequest
     final case class Subscribe(topics: Set[String], rebalanceHandler: PartitionAssignmentHandler)
         extends SubscriptionRequest
-        with NoSerializationVerificationNeeded
     case object RequestMetrics extends NoSerializationVerificationNeeded
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, rebalanceHandler: PartitionAssignmentHandler)
         extends SubscriptionRequest
-        with NoSerializationVerificationNeeded
+    final case object RegisterSubStage extends NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
@@ -220,10 +217,9 @@ import scala.util.control.NonFatal
 
   private var requests = Map.empty[ActorRef, RequestMessages]
 
-  /** ActorRefs to all stages that requested messages from this actor (removed on their termination). */
-  private var requestors = Set.empty[ActorRef]
+  /** ActorRefs of all stages that sent subscriptions requests or `RegisterSubStage` to this actor (removed on their termination). */
+  private var stageActors = Set.empty[ActorRef]
   private var consumer: Consumer[K, V] = _
-  private var subscriptions = Set.empty[SubscriptionRequest]
   private var commitsInProgress = 0
   private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
   private var stopInProgress = false
@@ -251,41 +247,6 @@ import scala.util.control.NonFatal
   private var partitionAssignmentHandler: RebalanceListener = RebalanceListener.Empty
 
   def receive: Receive = LoggingReceive {
-    case Assign(assignedTps) =>
-      scheduleFirstPollTask()
-      checkOverlappingRequests("Assign", sender(), assignedTps)
-      val previousAssigned = consumer.assignment()
-      consumer.assign((assignedTps.toSeq ++ previousAssigned.asScala).asJava)
-      commitRefreshing.assignedPositions(assignedTps, consumer, positionTimeout)
-
-    case AssignWithOffset(assignedOffsets) =>
-      scheduleFirstPollTask()
-      checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
-      val previousAssigned = consumer.assignment()
-      consumer.assign((assignedOffsets.keys.toSeq ++ previousAssigned.asScala).asJava)
-      assignedOffsets.foreach {
-        case (tp, offset) =>
-          consumer.seek(tp, offset)
-      }
-      commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
-
-    case AssignOffsetsForTimes(timestampsToSearch) =>
-      scheduleFirstPollTask()
-      checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
-      val previousAssigned = consumer.assignment()
-      consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
-      val topicPartitionToOffsetAndTimestamp =
-        consumer.offsetsForTimes(timestampsToSearch.view.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
-      val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
-        case (tp, oat: OffsetAndTimestamp) =>
-          val offset = oat.offset()
-          val ts = oat.timestamp()
-          log.debug("Get offset {} from topic {} with timestamp {}", offset, tp, ts)
-          consumer.seek(tp, offset)
-          tp -> offset
-      }
-      commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
-
     case Commit(offsets) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = offsets :: commitMaps
@@ -297,12 +258,18 @@ import scala.util.control.NonFatal
       requestDelayedPoll()
 
     case s: SubscriptionRequest =>
-      subscriptions = subscriptions + s
       handleSubscription(s)
 
+    case RegisterSubStage =>
+      stageActors += sender()
+
     case Seek(offsets) =>
-      offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
-      sender() ! Done
+      try {
+        offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
+        sender() ! Done
+      } catch {
+        case NonFatal(e) => sendFailure(e, sender())
+      }
 
     case p: Poll[_, _] =>
       receivePoll(p)
@@ -311,8 +278,7 @@ import scala.util.control.NonFatal
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
       requests = requests.updated(sender(), req)
-      requestors += sender()
-      if (requestors.size == 1)
+      if (stageActors.size == 1)
         poll()
       else requestDelayedPoll()
 
@@ -332,33 +298,71 @@ import scala.util.control.NonFatal
       self ! Stop
 
     case RequestMetrics =>
-      val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
-      sender() ! ConsumerMetrics(unmodifiableYetMutableMetrics.asScala.toMap)
+      try {
+        val unmodifiableYetMutableMetrics: java.util.Map[MetricName, _ <: Metric] = consumer.metrics()
+        sender() ! ConsumerMetrics(unmodifiableYetMutableMetrics.asScala.toMap)
+      } catch {
+        case NonFatal(e) => sendFailure(e, sender())
+      }
 
     case Terminated(ref) =>
       requests -= ref
-      requestors -= ref
+      stageActors -= ref
 
     case req: Metadata.Request =>
-      sender ! handleMetadataRequest(req)
+      sender() ! handleMetadataRequest(req)
   }
 
   def handleSubscription(subscription: SubscriptionRequest): Unit =
     try {
       subscription match {
+        case Assign(assignedTps) =>
+          checkOverlappingRequests("Assign", sender(), assignedTps)
+          val previousAssigned = consumer.assignment()
+          consumer.assign((assignedTps.toSeq ++ previousAssigned.asScala).asJava)
+          commitRefreshing.assignedPositions(assignedTps, consumer, positionTimeout)
+
+        case AssignWithOffset(assignedOffsets) =>
+          checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
+          val previousAssigned = consumer.assignment()
+          consumer.assign((assignedOffsets.keys.toSeq ++ previousAssigned.asScala).asJava)
+          assignedOffsets.foreach {
+            case (tp, offset) =>
+              consumer.seek(tp, offset)
+          }
+          commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+
+        case AssignOffsetsForTimes(timestampsToSearch) =>
+          checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
+          val previousAssigned = consumer.assignment()
+          consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
+          val topicPartitionToOffsetAndTimestamp =
+            consumer.offsetsForTimes(timestampsToSearch.view.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
+          val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
+            case (tp, oat: OffsetAndTimestamp) =>
+              val offset = oat.offset()
+              val ts = oat.timestamp()
+              log.debug("Get offset {} from topic {} with timestamp {}", offset, tp, ts)
+              consumer.seek(tp, offset)
+              tp -> offset
+          }
+          commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+
         case Subscribe(topics, rebalanceHandler) =>
           val callback = new RebalanceListenerImpl(rebalanceHandler)
           partitionAssignmentHandler = callback
           consumer.subscribe(topics.toList.asJava, callback)
+
         case SubscribePattern(pattern, rebalanceHandler) =>
           val callback = new RebalanceListenerImpl(rebalanceHandler)
           partitionAssignmentHandler = callback
           consumer.subscribe(Pattern.compile(pattern), callback)
-      }
 
+      }
       scheduleFirstPollTask()
+      stageActors += sender()
     } catch {
-      case NonFatal(ex) => processErrors(ex)
+      case NonFatal(ex) => sendFailure(ex, sender())
     }
 
   def checkOverlappingRequests(updateType: String, fromStage: ActorRef, topics: Set[TopicPartition]): Unit =
@@ -377,7 +381,8 @@ import scala.util.control.NonFatal
     case p: Poll[_, _] =>
       receivePoll(p)
     case Stop =>
-    case _: Terminated =>
+    case Terminated(ref) =>
+      stageActors -= ref
     case _ @(_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
     case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
@@ -445,8 +450,8 @@ import scala.util.control.NonFatal
     }
 
   def poll(): Unit = {
-    val currentAssignmentsJava = consumer.assignment()
     try {
+      val currentAssignmentsJava = consumer.assignment()
       commitAggregatedOffsets()
       if (requests.isEmpty) {
         // no outstanding requests so we don't expect any messages back, but we should anyway
@@ -551,12 +556,17 @@ import scala.util.control.NonFatal
       }
     }
 
+  private def sendFailure(exception: Throwable, stageActorRef: ActorRef): Unit = {
+    stageActorRef ! Failure(exception)
+    requests -= stageActorRef
+    stageActors -= stageActorRef
+  }
+
   private def processErrors(exception: Throwable): Unit = {
-    val involvedStageActors = (requests.keys ++ owner).toSet
-    log.debug("sending failure to {}", involvedStageActors.mkString(","))
-    involvedStageActors.foreach { stageActorRef =>
-      stageActorRef ! Failure(exception)
-      requests -= stageActorRef
+    val sendTo = (stageActors ++ owner).toSet
+    log.debug(s"sending failure {} to {}", exception.getClass, sendTo.mkString(","))
+    stageActors.foreach { stageActorRef =>
+      sendFailure(exception, stageActorRef)
     }
   }
 
