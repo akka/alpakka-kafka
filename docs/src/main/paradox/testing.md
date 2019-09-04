@@ -1,3 +1,6 @@
+---
+project.description: Alpakka Kafka provides a Testkit with support for running local Kafka brokers for integration tests.
+---
 # Testing
 
 To simplify testing of streaming integrations with Alpakka Kafka, it provides the **Alpakka Kafka testkit**. It provides help for

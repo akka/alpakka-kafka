@@ -1,9 +1,16 @@
+---
+project.description: Handle errors from the Kafka API in Alpakka Kafka.
+---
 # Error handling
 
 ## Failing consumer
 
-When a consumer fails to read from Kafka due to connection problems, it throws a @javadoc[WakeupException](org.apache.kafka.common.errors.WakeupException) which is handled internally with retries. Refer to consumer configuration @ref[settings](consumer.md#settings) for details on `wakeup-timeout` and `max-wakeups` if you're interested in tweaking the retry handling parameters.
-When the currently configured number of `max-wakeups` is reached, the source stage will fail with an exception and stop.
+Errors from the Kafka consumer will be forwarded to the Alpakka sources that use it, the sources will fail their streams.
+
+### Lost connection to the Kafka broker
+
+To fail a Alpakka Kafka consumer in case the Kafka broker is not available, configure a **Connection Checker** via `ConsumerSettings`. If not **Connection Checker** is configured, Alpakka will continue to poll the broker indefinitely.
+
 
 ## Failing producer
 

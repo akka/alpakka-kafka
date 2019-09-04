@@ -1,3 +1,6 @@
+---
+project.description: Produce messages to Apache Kafka topics from Akka Streams with Alpakka Kafka.
+---
 # Producer
 
 A producer publishes messages to Kafka topics. The message itself contains information about what topic and partition to publish to so you can publish to different topics with the same producer.

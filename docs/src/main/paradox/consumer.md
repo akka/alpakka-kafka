@@ -1,3 +1,6 @@
+---
+project.description: Consume messages from Apache Kafka in Akka Streams sources and their commit offsets to Kafka.
+---
 # Consumer
 
 A consumer subscribes to Kafka topics and passes the messages into an Akka Stream.

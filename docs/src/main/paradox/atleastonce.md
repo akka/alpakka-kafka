@@ -1,3 +1,6 @@
+---
+project.description: Achieve at-least-once semantics with offset committing in Alpakka Kafka.
+---
 # At-Least-Once Delivery
 
 At-least-once delivery semantics, the requirement to process every message, is a basic requirement of most applications. 
