@@ -101,7 +101,10 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
     val control = fixture.source
       .map { msg =>
         meter.mark()
-        if (counter.decrementAndGet() == 0) promise.complete(Success(()))
+        if (msg.committableOffset.partitionOffset.offset >= fixture.msgCount / fixture.numberOfPartitions - 1) {
+          // count partition as completed
+          if (counter.decrementAndGet() == 0) promise.complete(Success(()))
+        }
         msg.committableOffset
       }
       .toMat(
