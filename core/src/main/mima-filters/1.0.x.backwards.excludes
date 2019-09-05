@@ -2,4 +2,6 @@
 ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
 
 # PR #883 committing without backpressure
+# https://github.com/akka/alpakka-kafka/pull/883
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommit")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings.this")
