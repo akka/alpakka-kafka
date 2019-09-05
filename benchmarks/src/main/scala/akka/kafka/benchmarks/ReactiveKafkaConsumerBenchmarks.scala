@@ -9,9 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
-import akka.kafka.CommitterSettings
+import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.scaladsl.Committer
+import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.metrics.Meter
@@ -84,6 +85,36 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
 
     Await.result(promise.future, streamingTimeout)
     control.shutdown()
+    logger.debug("Stream finished")
+  }
+
+  /**
+   * Reads elements from Kafka source and commits in batches with no backpressure on committing.
+   */
+  def consumerCommitAndForget(
+      commitBatchSize: Int
+  )(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem, mat: Materializer): Unit = {
+    logger.debug("Creating and starting a stream")
+    val committerDefaults = CommitterSettings(sys)
+    val promise = Promise[Unit]
+    val counter = new AtomicInteger(fixture.numberOfPartitions)
+    val control = fixture.source
+      .map { msg =>
+        meter.mark()
+        if (counter.decrementAndGet() == 0) promise.complete(Success(()))
+        msg.committableOffset
+      }
+      .toMat(
+        Committer
+          .sink(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize.toLong))
+      )(
+        Keep.both
+      )
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    Await.result(promise.future, streamingTimeout)
+    control.drainAndShutdown()(sys.dispatcher)
     logger.debug("Stream finished")
   }
 

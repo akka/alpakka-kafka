@@ -68,14 +68,17 @@ object KafkaConsumerBenchmarks extends LazyLogging {
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
     val consumer = fixture.consumer
 
-    var lastProcessedOffset = 0L
+    var lastProcessedOffset = Map.empty[Int, Long]
     var accumulatedMsgCount = 0L
     var commitInProgress = false
     val assignment = consumer.assignment()
 
     def doCommit(): Unit = {
       accumulatedMsgCount = 0
-      val offsetMap = Map(new TopicPartition(fixture.topic, 0) -> new OffsetAndMetadata(lastProcessedOffset))
+      val offsetMap = lastProcessedOffset.map {
+        case (partition, offset) =>
+          new TopicPartition(fixture.topic, partition) -> new OffsetAndMetadata(offset)
+      }
       logger.debug("Committing offset " + offsetMap.head._2.offset())
       consumer.commitAsync(
         offsetMap.asJava,
@@ -84,6 +87,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
             commitInProgress = false
         }
       )
+      lastProcessedOffset = Map.empty[Int, Long]
     }
 
     @tailrec
@@ -98,7 +102,7 @@ object KafkaConsumerBenchmarks extends LazyLogging {
         for (record <- records.iterator().asScala) {
           accumulatedMsgCount = accumulatedMsgCount + 1
           meter.mark()
-          lastProcessedOffset = record.offset()
+          lastProcessedOffset += record.partition() -> record.offset()
           if (accumulatedMsgCount >= batchSize) {
             if (!commitInProgress) {
               commitInProgress = true
@@ -107,6 +111,50 @@ object KafkaConsumerBenchmarks extends LazyLogging {
               consumer.pause(assignment)
           }
         }
+        val recordCount = records.count()
+        logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
+        pollInLoop(readLimit, readSoFar + recordCount)
+      }
+
+    pollInLoop(readLimit = fixture.msgCount)
+    fixture.close()
+  }
+
+  /**
+   * Reads messages from topic in a loop and commits all read offsets.
+   */
+  def consumerAtLeastOnceCommitEveryPoll()(fixture: KafkaConsumerTestFixture, meter: Meter): Unit = {
+    val consumer = fixture.consumer
+
+    var lastProcessedOffset = Map.empty[Int, Long]
+
+    def doCommit(): Unit = {
+      val offsetMap = lastProcessedOffset.map {
+        case (partition, offset) =>
+          new TopicPartition(fixture.topic, partition) -> new OffsetAndMetadata(offset)
+      }
+      logger.debug("Committing offset " + offsetMap.head._2.offset())
+      consumer.commitAsync(
+        offsetMap.asJava,
+        new OffsetCommitCallback {
+          override def onComplete(map: util.Map[TopicPartition, OffsetAndMetadata], e: Exception): Unit = ()
+        }
+      )
+      lastProcessedOffset = Map.empty[Int, Long]
+    }
+
+    @tailrec
+    def pollInLoop(readLimit: Int, readSoFar: Int = 0): Int =
+      if (readSoFar >= readLimit)
+        readSoFar
+      else {
+        logger.debug("Polling")
+        val records = consumer.poll(pollTimeoutMs)
+        for (record <- records.iterator().asScala) {
+          meter.mark()
+          lastProcessedOffset += record.partition() -> record.offset()
+        }
+        doCommit()
         val recordCount = records.count()
         logger.debug(s"${readSoFar + recordCount} records read. Limit = $readLimit")
         pollInLoop(readLimit, readSoFar + recordCount)

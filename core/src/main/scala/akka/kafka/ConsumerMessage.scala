@@ -200,6 +200,13 @@ object ConsumerMessage {
      */
     def getOffsets(): java.util.Map[GroupTopicPartition, Long]
 
+    /**
+     * Internal API.
+     *
+     * Sends this offset batch to the consumer actor without expecting an answer.
+     */
+    @InternalApi
+    private[kafka] def tellCommit(): CommittableOffsetBatch
   }
 
 }

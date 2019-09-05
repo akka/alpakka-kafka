@@ -246,9 +246,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val batch = probe
       .expectNextN(6)
       .map(_.committableOffset)
-      .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
-        b.updated(c)
-      }
+      .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
 
     val done = batch.commitScaladsl()
 
@@ -287,9 +285,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val batch = probe
       .expectNextN(6)
       .map(_.committableOffset)
-      .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
-        b.updated(c)
-      }
+      .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
 
     val done = batch.commitScaladsl()
 
@@ -384,16 +380,12 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val batch1 = probe1
       .expectNextN(6)
       .map(_.committableOffset)
-      .foldLeft(CommittableOffsetBatch.empty) { (b, c) =>
-        b.updated(c)
-      }
+      .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
 
     val batch2 = probe2
       .expectNextN(6)
       .map(_.committableOffset)
-      .foldLeft(batch1) { (b, c) =>
-        b.updated(c)
-      }
+      .foldLeft(batch1)(_.updated(_))
 
     val done2 = batch2.commitScaladsl()
 
@@ -421,6 +413,47 @@ class CommittingWithMockSpec(_system: ActorSystem)
     Await.result(done2, remainingOrDefault)
     Await.result(control1.shutdown(), remainingOrDefault)
     Await.result(control2.shutdown(), remainingOrDefault)
+  }
+
+  // Same logic as "support commit batching with metadata" above
+  "Tell committing" should "support commit batching with metadata" in assertAllStagesStopped {
+    val commitLog = new ConsumerMock.LogHandler()
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createSourceWithMetadata(mock.mock,
+                                                    (rec: ConsumerRecord[K, V]) => rec.offset.toString,
+                                                    topics = Set("topic1", "topic2"))
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
+    val msgsTopic2 = (11 to 13).map(createMessage(_, "topic2"))
+    mock.enqueue(msgsTopic1.map(toRecord))
+    mock.enqueue(msgsTopic2.map(toRecord))
+
+    probe.request(100)
+    val batch = probe
+      .expectNextN(6)
+      .map(_.committableOffset)
+      .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
+
+    batch.tellCommit()
+
+    awaitAssert {
+      commitLog.calls should have size (1)
+    }
+
+    val commitMap = commitLog.calls.head._1
+    commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
+    commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
+    commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
+    commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
+
+    //emulate commit
+    commitLog.calls.foreach {
+      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+    }
+
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   "Committer.flow" should "fail in case of an exception during commit" in assertAllStagesStopped {

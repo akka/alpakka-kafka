@@ -9,7 +9,7 @@ import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch, GroupTopicPartition}
 import akka.kafka._
-import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle}
+import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle, CommitWithoutReply}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.AskTimeoutException
 import akka.stream.SourceShape
@@ -121,6 +121,7 @@ private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings
  *
  * This should be case class to be comparable based on consumerActor and commitTimeout. This comparison is used in [[CommittableOffsetBatchImpl]].
  */
+@InternalApi
 private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
 ) {
@@ -144,6 +145,16 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
     case _ => failForUnexpectedImplementation(batch)
   }
 
+  def tellCommit(batch: CommittableOffsetBatch): Unit = batch match {
+    case b: CommittableOffsetBatchImpl =>
+      b.groupIdOffsetMaps.foreach {
+        case (groupId, offsets) =>
+          b.committerFor(groupId).tellCommit(CommitWithoutReply(offsets))
+      }
+
+    case _ => failForUnexpectedImplementation(batch)
+  }
+
   private def failForUnexpectedImplementation(batch: CommittableOffsetBatch) =
     throw new IllegalArgumentException(
       s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
@@ -161,4 +172,6 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
         case other => Future.failed(other)
       }(ec)
   }
+
+  private def tellCommit(msg: CommitWithoutReply): Unit = consumerActor ! msg
 }

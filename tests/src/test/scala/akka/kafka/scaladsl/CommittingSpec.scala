@@ -296,6 +296,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control.isShutdown.futureValue shouldBe Done
     }
 
+    // See equal test "Backpressure-free committing" must "allow commit batches"
     "work in batches" in assertAllStagesStopped {
       val topic = createTopic()
       val group = createGroupId()
@@ -323,13 +324,8 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe.cancel()
       control.isShutdown.futureValue shouldBe Done
 
-      // Resume consumption
-      val (_, probe2) = createProbe(consumerSettings, topic)
-
-      val element = probe2.request(1).expectNext(60.seconds)
-
-      Assertions.assert(element.toInt > 1, "Should start after first element")
-      probe2.cancel()
+      val element = consumeFirstElement(topic, consumerSettings)
+      assert(element.toInt > 1, "Should start after first element")
     }
 
     "work with a committer sink" in assertAllStagesStopped {
@@ -358,14 +354,54 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val failAt = 32
       consumeAndCommitUntil(topic, failAt.toString).failed.futureValue shouldBe an[Exception]
 
-      // Check offset
-      val (_, probe1) = createProbe(consumerSettings, topic)
-      val element1 = probe1.request(1).expectNext(60.seconds)
-
-      Assertions.assert(element1.toInt >= failAt - committerSettings.maxBatch,
-                        "Should re-process at most maxBatch elements")
-      probe1.cancel()
+      val element1 = consumeFirstElement(topic, consumerSettings)
+      assert(element1.toInt >= failAt - committerSettings.maxBatch, "Should re-process at most maxBatch elements")
     }
 
+  }
+
+  "Backpressure-free committing" must {
+    "allow commit batches" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+      val commitBatchSize = 10L
+
+      produce(topic, 1 to 100).futureValue shouldBe Done
+      val consumerSettings = consumerDefaults.withGroupId(group)
+
+      def consumeAndBatchCommit(topic: String) =
+        Consumer
+          .committableSource(
+            consumerSettings,
+            Subscriptions.topics(topic)
+          )
+          .map(_.committableOffset)
+          .via(
+            Committer
+              .batchFlow(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize))
+          )
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
+
+      val (control, probe) = consumeAndBatchCommit(topic)
+
+      // Request two commit batches
+      val committableOffsetBatches = probe.request(2).expectNextN(2)
+      committableOffsetBatches(0).batchSize shouldBe commitBatchSize
+      committableOffsetBatches(1).batchSize shouldBe commitBatchSize
+
+      probe.cancel()
+      control.isShutdown.futureValue shouldBe Done
+
+      val element = consumeFirstElement(topic, consumerSettings)
+      assert(element.toInt > (commitBatchSize * 2) - 1, "Should start after the already committed messages")
+    }
+  }
+
+  private def consumeFirstElement(topic: String, consumerSettings: ConsumerSettings[String, String]): String = {
+    val (_, probe2) = createProbe(consumerSettings, topic)
+    val element = probe2.request(1).expectNext(60.seconds)
+    probe2.cancel()
+    element
   }
 }
