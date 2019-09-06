@@ -1,21 +1,22 @@
 package akka.kafka.benchmarks
 
-import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
 import akka.kafka.benchmarks.Timed.runPerfTest
 import akka.kafka.benchmarks.app.RunTestCommand
+
+import BenchmarksBase._
 
 class RawKafkaCommitEveryPollConsumer extends BenchmarksBase() {
   private val prefix = "apache-kafka-batched-no-pausing-"
 
   it should "bench with small messages" in {
-    val cmd = RunTestCommand(prefix + "consumer", bootstrapServers, FilledTopic(1000 * factor, 100))
+    val cmd = RunTestCommand(prefix + "consumer", bootstrapServers, topic_1000_100)
     runPerfTest(cmd,
                 KafkaConsumerFixtures.filledTopics(cmd),
                 KafkaConsumerBenchmarks.consumerAtLeastOnceCommitEveryPoll())
   }
 
   it should "bench with normal messages" in {
-    val cmd = RunTestCommand(prefix + "consumer-normal-msg", bootstrapServers, FilledTopic(1000 * factor, 5 * 1000))
+    val cmd = RunTestCommand(prefix + "consumer-normal-msg", bootstrapServers, topic_1000_5000)
     runPerfTest(cmd,
                 KafkaConsumerFixtures.filledTopics(cmd),
                 KafkaConsumerBenchmarks.consumerAtLeastOnceCommitEveryPoll())
@@ -24,7 +25,7 @@ class RawKafkaCommitEveryPollConsumer extends BenchmarksBase() {
   it should "bench with normal messages and eight partitions" in {
     val cmd = RunTestCommand(prefix + "consumer-normal-msg-8-partitions",
                              bootstrapServers,
-                             FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8))
+                             topic_1000_5000_8)
     runPerfTest(cmd,
                 KafkaConsumerFixtures.filledTopics(cmd),
                 KafkaConsumerBenchmarks.consumerAtLeastOnceCommitEveryPoll())
@@ -35,14 +36,14 @@ class AlpakkaCommitAndForgetConsumer extends BenchmarksBase() {
   val prefix = "alpakka-kafka-commit-and-forget-"
 
   it should "bench with small messages" in {
-    val cmd = RunTestCommand(prefix + "consumer", bootstrapServers, FilledTopic(1000 * factor, 100))
+    val cmd = RunTestCommand(prefix + "consumer", bootstrapServers, topic_1000_100)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerCommitAndForget(commitBatchSize = 1000))
   }
 
   it should "bench with normal messages" in {
-    val cmd = RunTestCommand(prefix + "normal-msg", bootstrapServers, FilledTopic(1000 * factor, 5 * 1000))
+    val cmd = RunTestCommand(prefix + "normal-msg", bootstrapServers, topic_1000_5000)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerCommitAndForget(commitBatchSize = 1000))
@@ -51,7 +52,7 @@ class AlpakkaCommitAndForgetConsumer extends BenchmarksBase() {
   it should "bench with normal messages and eight partitions" in {
     val cmd = RunTestCommand(prefix + "normal-msg-8-partitions",
                              bootstrapServers,
-                             FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8))
+                             topic_1000_5000_8)
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumerCommitAndForget(commitBatchSize = 1000))
