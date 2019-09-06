@@ -27,8 +27,7 @@ object KafkaConsumerFixtures extends PerfFixtureHelpers {
   def filledTopics(c: RunTestCommand) = FixtureGen[KafkaConsumerTestFixture](
     c,
     msgCount => {
-      val topic = randomId()
-      fillTopic(topic, c)
+      fillTopic(c.filledTopic, c.kafkaHost)
       val consumerJavaProps = new java.util.Properties
       consumerJavaProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, c.kafkaHost)
       consumerJavaProps.put(ConsumerConfig.CLIENT_ID_CONFIG, randomId())
@@ -37,8 +36,8 @@ object KafkaConsumerFixtures extends PerfFixtureHelpers {
 
       val consumer =
         new KafkaConsumer[Array[Byte], String](consumerJavaProps, new ByteArrayDeserializer, new StringDeserializer)
-      consumer.subscribe(Set(topic).asJava)
-      KafkaConsumerTestFixture(topic, msgCount, consumer)
+      consumer.subscribe(Set(c.filledTopic.topic).asJava)
+      KafkaConsumerTestFixture(c.filledTopic.topic, msgCount, consumer)
     }
   )
 }
