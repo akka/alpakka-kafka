@@ -24,11 +24,11 @@ object PerfFixtureHelpers {
   def randomId(): String = UUID.randomUUID().toString
 
   case class FilledTopic(
-      topic: String = randomId(),
       msgCount: Int,
       msgSize: Int,
       numberOfPartitions: Int = 1
   ) {
+    val topic: String = randomId()
     def replicationFactor = BuildInfo.kafkaScale
   }
 }
@@ -62,6 +62,8 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     if (!existing.contains(ft.topic)) {
       val producer = createTopicAndFill(ft, props, admin)
       producer.close(5, TimeUnit.SECONDS)
+    } else {
+      logger.info(s"Reusing existing topic $ft")
     }
     admin.close(5, TimeUnit.SECONDS)
   }
