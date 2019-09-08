@@ -25,4 +25,5 @@ object KafkaPorts {
   val ProducerExamplesTest = 9112
   val KafkaConnectionCheckerTest = 9122
   val PartitionAssignmentHandlerSpec = 9132
+  val MetadataClientTest = 9142
 }
