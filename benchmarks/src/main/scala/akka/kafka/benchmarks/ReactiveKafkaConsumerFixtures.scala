@@ -33,11 +33,10 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     FixtureGen[ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]](
       c,
       msgCount => {
-        val topic = randomId()
-        fillTopic(topic, c)
+        fillTopic(c.filledTopic, c.kafkaHost)
         val settings = createConsumerSettings(c.kafkaHost)
-        val source = Consumer.plainSource(settings, Subscriptions.topics(topic))
-        ReactiveKafkaConsumerTestFixture(topic, msgCount, source, c.numberOfPartitions)
+        val source = Consumer.plainSource(settings, Subscriptions.topics(c.filledTopic.topic))
+        ReactiveKafkaConsumerTestFixture(c.filledTopic.topic, msgCount, source, c.numberOfPartitions)
       }
     )
 
@@ -45,11 +44,10 @@ object ReactiveKafkaConsumerFixtures extends PerfFixtureHelpers {
     FixtureGen[ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]](
       c,
       msgCount => {
-        val topic = randomId()
-        fillTopic(topic, c)
+        fillTopic(c.filledTopic, c.kafkaHost)
         val settings = createConsumerSettings(c.kafkaHost)
-        val source = Consumer.committableSource(settings, Subscriptions.topics(topic))
-        ReactiveKafkaConsumerTestFixture(topic, msgCount, source, c.numberOfPartitions)
+        val source = Consumer.committableSource(settings, Subscriptions.topics(c.filledTopic.topic))
+        ReactiveKafkaConsumerTestFixture(c.filledTopic.topic, msgCount, source, c.numberOfPartitions)
       }
     )
 

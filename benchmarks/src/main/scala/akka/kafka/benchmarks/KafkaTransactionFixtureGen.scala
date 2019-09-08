@@ -43,8 +43,7 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
     FixtureGen[KafkaTransactionTestFixture](
       c,
       msgCount => {
-        val sourceTopic = randomId()
-        fillTopic(sourceTopic, c)
+        fillTopic(c.filledTopic, c.kafkaHost)
         val groupId = randomId()
         val sinkTopic = randomId()
 
@@ -58,7 +57,7 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
         consumerJavaProps.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG,
                               IsolationLevel.READ_COMMITTED.toString.toLowerCase(Locale.ENGLISH))
         val consumer = new KafkaConsumer[Array[Byte], String](consumerJavaProps)
-        consumer.subscribe(Set(sourceTopic).asJava)
+        consumer.subscribe(Set(c.filledTopic.topic).asJava)
 
         val producerJavaProps = new java.util.Properties
         producerJavaProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[ByteArraySerializer])
@@ -68,7 +67,7 @@ object KafkaTransactionFixtures extends PerfFixtureHelpers {
         producerJavaProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, randomId())
         val producer = new KafkaProducer[Array[Byte], String](producerJavaProps)
 
-        KafkaTransactionTestFixture(sourceTopic, sinkTopic, msgCount, groupId, consumer, producer)
+        KafkaTransactionTestFixture(c.filledTopic.topic, sinkTopic, msgCount, groupId, consumer, producer)
       }
     )
 }

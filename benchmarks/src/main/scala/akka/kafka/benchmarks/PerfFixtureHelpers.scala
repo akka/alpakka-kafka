@@ -9,7 +9,6 @@ import java.util
 import java.util.concurrent.TimeUnit
 import java.util.{Arrays, Properties, UUID}
 
-import akka.kafka.benchmarks.app.RunTestCommand
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.producer._
@@ -21,6 +20,17 @@ import scala.language.postfixOps
 
 object PerfFixtureHelpers {
   def stringOfSize(size: Int) = new String(Array.fill(size)('0'))
+
+  def randomId(): String = UUID.randomUUID().toString
+
+  case class FilledTopic(
+      msgCount: Int,
+      msgSize: Int,
+      numberOfPartitions: Int = 1,
+      topic: String = randomId()
+  ) {
+    def replicationFactor = BuildInfo.kafkaScale
+  }
 }
 
 private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
@@ -29,33 +39,60 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
   val producerTimeout = 6 minutes
   val logPercentStep = 25
 
-  def randomId() = UUID.randomUUID().toString
+  def randomId(): String = PerfFixtureHelpers.randomId()
 
-  def fillTopic(topic: String, cmd: RunTestCommand): Unit = {
-    val producer = initTopicAndProducer(topic, cmd)
-    producer.close()
+  def fillTopic(ft: FilledTopic, kafkaHost: String): Unit =
+    initTopicAndProducer(ft, kafkaHost)
+
+  def createTopic(ft: FilledTopic, kafkaHost: String): KafkaProducer[Array[Byte], String] = {
+    val props = new Properties
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
+    val admin = AdminClient.create(props)
+    val producer = createTopicAndFill(ft, props, admin)
+    admin.close(5, TimeUnit.SECONDS)
+    producer
   }
 
-  def initTopicAndProducer(topic: String, cmd: RunTestCommand): KafkaProducer[Array[Byte], String] = {
+  private def initTopicAndProducer(ft: FilledTopic, kafkaHost: String): Unit = {
     val props = new Properties
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, cmd.kafkaHost)
-    createTopic(props, topic, cmd.numberOfPartitions, cmd.replicationFactor)
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
+    //
+    val admin = AdminClient.create(props)
+    val existing = admin.listTopics().names().get(10, TimeUnit.SECONDS)
+    if (existing.contains(ft.topic)) {
+      logger.info(s"Reusing existing topic $ft")
+    } else {
+      val producer = createTopicAndFill(ft, props, admin)
+      producer.close(5, TimeUnit.SECONDS)
+    }
+    admin.close(5, TimeUnit.SECONDS)
+  }
+
+  private def createTopicAndFill(ft: FilledTopic, props: Properties, admin: AdminClient) = {
+    val result = admin.createTopics(
+      Arrays.asList(
+        new NewTopic(ft.topic, ft.numberOfPartitions, ft.replicationFactor.toShort)
+          .configs(new util.HashMap[String, String]())
+      )
+    )
+    result.all().get(10, TimeUnit.SECONDS)
+    // fill topic with messages
     val producer =
       new KafkaProducer[Array[Byte], String](props, new ByteArraySerializer, new StringSerializer)
     val lastElementStoredPromise = Promise[Unit]
-    val loggedStep = if (cmd.msgCount > logPercentStep) cmd.msgCount / (100 / logPercentStep) else 1
-    val msg = stringOfSize(cmd.msgSize)
-    for (i <- 0L to cmd.msgCount.toLong) {
+    val loggedStep = if (ft.msgCount > logPercentStep) ft.msgCount / (100 / logPercentStep) else 1
+    val msg = stringOfSize(ft.msgSize)
+    for (i <- 0L to ft.msgCount.toLong) {
       if (!lastElementStoredPromise.isCompleted) {
-        val partition: Int = (i % cmd.numberOfPartitions).toInt
+        val partition: Int = (i % ft.numberOfPartitions).toInt
         producer.send(
-          new ProducerRecord[Array[Byte], String](topic, partition, null, msg),
+          new ProducerRecord[Array[Byte], String](ft.topic, partition, null, msg),
           new Callback {
             override def onCompletion(recordMetadata: RecordMetadata, e: Exception): Unit =
               if (e == null) {
                 if (i % loggedStep == 0)
-                  logger.info(s"Written $i elements to Kafka (${100 * i / cmd.msgCount}%)")
-                if (i >= cmd.msgCount - 1 && !lastElementStoredPromise.isCompleted)
+                  logger.info(s"Written $i elements to Kafka (${100 * i / ft.msgCount}%)")
+                if (i >= ft.msgCount - 1 && !lastElementStoredPromise.isCompleted)
                   lastElementStoredPromise.success(())
               } else {
                 if (!lastElementStoredPromise.isCompleted) {
@@ -70,16 +107,5 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     val lastElementStoredFuture = lastElementStoredPromise.future
     Await.result(lastElementStoredFuture, atMost = producerTimeout)
     producer
-  }
-
-  def createTopic(props: Properties, topicName: String, partitions: Int, replicationFactor: Int) = {
-    val admin = AdminClient.create(props)
-    val result = admin.createTopics(
-      Arrays.asList(
-        new NewTopic(topicName, partitions, replicationFactor.toShort).configs(new util.HashMap[String, String]())
-      )
-    )
-    result.all().get(10, TimeUnit.SECONDS)
-    admin.close()
   }
 }
