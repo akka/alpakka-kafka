@@ -1,0 +1,7 @@
+# configuration for https://github.com/probot/autolabeler
+
+benchmarks: ["/benchmarks"]
+core: ["/core"]
+documentation: ["/docs"]
+testkit: ["/testkit"]
+tests: ["/tests", "docker-compose.yml"]
