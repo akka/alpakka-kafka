@@ -5,6 +5,7 @@
 
 package akka.kafka.scaladsl
 
+import akka.kafka.KafkaConsumerActor
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.common.TopicPartition
@@ -21,9 +22,10 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val group1 = createGroupId(1)
       val partition0 = new TopicPartition(topic1, 0)
       val consumerSettings = consumerDefaults.withGroupId(group1)
+      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
 
       val beginningOffsetsFuture = MetadataClient
-        .getBeginningOffsets(consumerSettings, Set(partition0), 1 seconds)
+        .getBeginningOffsets(consumerActor, Set(partition0), 1 seconds)
       val beginningOffsets = Await.result(beginningOffsetsFuture, 1 seconds)
 
       beginningOffsets(partition0) shouldBe 0
@@ -34,9 +36,10 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val group1 = createGroupId(1)
       val partition0 = new TopicPartition(topic1, 0)
       val consumerSettings = consumerDefaults.withGroupId(group1)
+      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
 
       val beginningOffsetFuture = MetadataClient
-        .getBeginningOffsetForPartition(consumerSettings, partition0, 1 seconds)
+        .getBeginningOffsetForPartition(consumerActor, partition0, 1 seconds)
       val beginningOffset = Await.result(beginningOffsetFuture, 1 seconds)
 
       beginningOffset shouldBe 0

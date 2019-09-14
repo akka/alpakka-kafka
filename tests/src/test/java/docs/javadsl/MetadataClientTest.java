@@ -5,8 +5,10 @@
 
 package docs.javadsl;
 
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
+import akka.kafka.KafkaConsumerActor;
 import akka.kafka.KafkaPorts;
 import akka.kafka.javadsl.MetadataClient;
 import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
@@ -48,9 +50,10 @@ public class MetadataClientTest extends EmbeddedKafkaJunit4Test {
         consumerDefaults().withGroupId(group1);
     final Set<TopicPartition> partitions = Collections.singleton(partition0);
     final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
 
     final CompletionStage<Map<TopicPartition, Long>> response =
-        MetadataClient.getBeginningOffsets(consumerSettings, partitions, timeout, sys, ec);
+        MetadataClient.getBeginningOffsets(consumerActor, partitions, timeout, ec);
     final Map<TopicPartition, Long> beginningOffsets = response.toCompletableFuture().join();
 
     assertThat(beginningOffsets.get(partition0), is(0L));
@@ -64,10 +67,10 @@ public class MetadataClientTest extends EmbeddedKafkaJunit4Test {
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
     final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
 
     final CompletionStage<Long> response =
-        MetadataClient.getBeginningOffsetForPartition(
-            consumerSettings, partition0, timeout, sys, ec);
+        MetadataClient.getBeginningOffsetForPartition(consumerActor, partition0, timeout, ec);
     final Long beginningOffset = response.toCompletableFuture().join();
 
     assertThat(beginningOffset, is(0L));
