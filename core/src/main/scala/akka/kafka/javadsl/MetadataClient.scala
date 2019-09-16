@@ -40,5 +40,5 @@ object MetadataClient {
       executor: Executor
   ): CompletionStage[java.lang.Long] =
     getBeginningOffsets(consumerActor, Set(partition).asJava, timeout, executor)
-      .thenApply(_.get(partition))
+      .thenApply(beginningOffsets => beginningOffsets.get(partition))
 }
