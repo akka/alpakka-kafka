@@ -38,7 +38,11 @@ object MetadataClient {
       partition: TopicPartition,
       timeout: Timeout,
       executor: Executor
-  ): CompletionStage[java.lang.Long] =
-    getBeginningOffsets(consumerActor, Set(partition).asJava, timeout, executor)
-      .thenApply((beginningOffsets: java.util.Map[TopicPartition, java.lang.Long]) => beginningOffsets.get(partition))
+  ): CompletionStage[java.lang.Long] = {
+    val ec = ExecutionContext.fromExecutor(executor)
+    akka.kafka.scaladsl.MetadataClient
+      .getBeginningOffsetForPartition(consumerActor, partition, timeout)(ec)
+      .map(long2Long)(ec)
+      .toJava
+  }
 }
