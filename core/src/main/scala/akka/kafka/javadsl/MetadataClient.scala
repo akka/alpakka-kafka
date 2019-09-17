@@ -31,6 +31,7 @@ object MetadataClient {
         scalaMapWithJavaValues.asJava
       }(ec)
       .toJava
+      .asInstanceOf[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]]
   }
 
   def getBeginningOffsetForPartition(
