@@ -9,9 +9,8 @@ import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaConsumerActor;
-import akka.kafka.KafkaPorts;
 import akka.kafka.javadsl.MetadataClient;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
@@ -31,14 +30,14 @@ import java.util.concurrent.TimeUnit;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 
-public class MetadataClientTest extends EmbeddedKafkaJunit4Test {
+public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("MetadataClientTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public MetadataClientTest() {
-    super(sys, mat, KafkaPorts.MetadataClientTest());
+    super(sys, mat);
   }
 
   @Test
