@@ -69,7 +69,7 @@ Any state in the transformation logic is not part of a transaction.  It's left t
 
 Any side effects that occur in the transformation logic is not part of a transaction (i.e. writes to an database).  
 
-The exactly-once-semantics are guaranteed only between a pair of two topics. Consuming messages from a topic in a different flow after transactional processing has the usual at-least-once semantics.
+The exactly-once-semantics are guaranteed only when your flow consumes from and produces to the same Kafka cluster. Producing to partitions from a 3rd-party source or consuming partitions from one Kafka cluster and producing to another Kafka cluster are not supported.
 
 ## Further Reading
 
