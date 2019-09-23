@@ -29,6 +29,8 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val beginningOffsets = Await.result(beginningOffsetsFuture, 1 seconds)
 
       beginningOffsets(partition0) shouldBe 0
+
+      consumerActor ! KafkaConsumerActor.Stop
     }
 
     "fetch beginning offset for given partition" in assertAllStagesStopped {
@@ -43,6 +45,8 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val beginningOffset = Await.result(beginningOffsetFuture, 1 seconds)
 
       beginningOffset shouldBe 0
+
+      consumerActor ! KafkaConsumerActor.Stop
     }
   }
 }

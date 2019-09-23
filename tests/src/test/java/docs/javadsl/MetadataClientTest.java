@@ -56,6 +56,8 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final Map<TopicPartition, Long> beginningOffsets = response.toCompletableFuture().join();
 
     assertThat(beginningOffsets.get(partition0), is(0L));
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
   }
 
   @Test
@@ -73,6 +75,8 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final Long beginningOffset = response.toCompletableFuture().join();
 
     assertThat(beginningOffset, is(0L));
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
   }
 
   @AfterClass
