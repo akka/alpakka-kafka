@@ -325,6 +325,55 @@ object Consumer {
       .asJava
 
   /**
+   * The same as [[#plainPartitionedManualOffsetSource]] but with offset commit support.
+   */
+  def committablePartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[
+        java.util.Map[TopicPartition, Long]
+      ]]
+  ): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .committablePartitionedManualOffsetSource(
+        settings,
+        subscription,
+        (tps: Set[TopicPartition]) =>
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        _ => ()
+      )
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asJava
+
+  /**
+   * The same as [[#plainPartitionedManualOffsetSource]] but with offset commit support.
+   */
+  def committablePartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: java.util.function.Function[java.util.Set[TopicPartition], CompletionStage[
+        java.util.Map[TopicPartition, Long]
+      ]],
+      onRevoke: java.util.function.Consumer[java.util.Set[TopicPartition]]
+  ): Source[Pair[TopicPartition, Source[CommittableMessage[K, V], NotUsed]], Control] =
+    scaladsl.Consumer
+      .committablePartitionedManualOffsetSource(
+        settings,
+        subscription,
+        (tps: Set[TopicPartition]) =>
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+        (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
+      )
+      .map {
+        case (tp, source) => Pair(tp, source.asJava)
+      }
+      .mapMaterializedValue(ConsumerControlAsJava.apply)
+      .asJava
+
+  /**
    * The same as [[#plainPartitionedSource]] but with offset commit with metadata support.
    */
   def commitWithMetadataPartitionedSource[K, V](
