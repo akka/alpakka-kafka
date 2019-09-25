@@ -10,7 +10,6 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.Await
 import scala.language.postfixOps
 import scala.concurrent.duration._
 
@@ -24,11 +23,25 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val consumerSettings = consumerDefaults.withGroupId(group1)
       val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
 
-      val beginningOffsetsFuture = MetadataClient
+      val beginningOffsets = MetadataClient
         .getBeginningOffsets(consumerActor, Set(partition0), 1 seconds)
-      val beginningOffsets = Await.result(beginningOffsetsFuture, 1 seconds)
+        .futureValue
 
       beginningOffsets(partition0) shouldBe 0
+
+      consumerActor ! KafkaConsumerActor.Stop
+    }
+
+    "fail in case of an exception during fetch offsets for non-existing topics" in assertAllStagesStopped {
+      val group1 = createGroupId(1)
+      val nonExistingPartition = new TopicPartition("non-existing topic", 0)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
+      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+      val beginningOffsetsFuture = MetadataClient
+        .getBeginningOffsets(consumerActor, Set(nonExistingPartition), 1 seconds)
+
+      beginningOffsetsFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
       consumerActor ! KafkaConsumerActor.Stop
     }
@@ -40,11 +53,25 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val consumerSettings = consumerDefaults.withGroupId(group1)
       val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
 
-      val beginningOffsetFuture = MetadataClient
+      val beginningOffset = MetadataClient
         .getBeginningOffsetForPartition(consumerActor, partition0, 1 seconds)
-      val beginningOffset = Await.result(beginningOffsetFuture, 1 seconds)
+        .futureValue
 
       beginningOffset shouldBe 0
+
+      consumerActor ! KafkaConsumerActor.Stop
+    }
+
+    "fail in case of an exception during fetch offset for non-existing topic" in assertAllStagesStopped {
+      val group1 = createGroupId(1)
+      val nonExistingPartition = new TopicPartition("non-existing topic", 0)
+      val consumerSettings = consumerDefaults.withGroupId(group1)
+      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+      val beginningOffsetFuture = MetadataClient
+        .getBeginningOffsetForPartition(consumerActor, nonExistingPartition, 1 seconds)
+
+      beginningOffsetFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
       consumerActor ! KafkaConsumerActor.Stop
     }

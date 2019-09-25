@@ -16,12 +16,16 @@ import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
 import org.apache.kafka.common.TopicPartition;
+import org.hamcrest.core.IsInstanceOf;
 import org.junit.AfterClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -36,12 +40,14 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
+  @Rule public ExpectedException expectedException = ExpectedException.none();
+
   public MetadataClientTest() {
     super(sys, mat);
   }
 
   @Test
-  public void shouldFetchBeginningOffsetsForGivenPartitionsTest() {
+  public void shouldFetchBeginningOffsetsForGivenPartitions() {
     final String topic1 = createTopic();
     final String group1 = createGroupId();
     final TopicPartition partition0 = new TopicPartition(topic1, 0);
@@ -61,7 +67,29 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   }
 
   @Test
-  public void shouldFetchBeginningOffsetForGivenPartitionTest() {
+  public void shouldFailInCaseOfAnExceptionDuringFetchOffsetsForNonExistingTopics() {
+    expectedException.expect(CompletionException.class);
+    expectedException.expectCause(
+        IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
+
+    final String group1 = createGroupId();
+    final TopicPartition nonExistingPartition = new TopicPartition("non-existing topic", 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Set<TopicPartition> partitions = Collections.singleton(nonExistingPartition);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    final CompletionStage<Map<TopicPartition, Long>> response =
+        MetadataClient.getBeginningOffsets(consumerActor, partitions, timeout, ec);
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+
+    response.toCompletableFuture().join();
+  }
+
+  @Test
+  public void shouldFetchBeginningOffsetForGivenPartition() {
     final String topic1 = createTopic();
     final String group1 = createGroupId();
     final TopicPartition partition0 = new TopicPartition(topic1, 0);
@@ -77,6 +105,27 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     assertThat(beginningOffset, is(0L));
 
     consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+  }
+
+  @Test
+  public void shouldFailInCaseOfAnExceptionDuringFetchOffsetForNonExistingTopic() {
+    expectedException.expect(CompletionException.class);
+    expectedException.expectCause(
+        IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
+
+    final String group1 = createGroupId();
+    final TopicPartition nonExistingPartition = new TopicPartition("non-existing topic", 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    final CompletionStage<Long> response =
+        MetadataClient.getBeginningOffsetForPartition(consumerActor, nonExistingPartition, timeout, ec);
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+
+    response.toCompletableFuture().join();
   }
 
   @AfterClass
