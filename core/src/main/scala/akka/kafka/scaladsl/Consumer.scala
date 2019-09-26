@@ -258,6 +258,22 @@ object Consumer {
     Source.fromGraph(new PlainSubSource[K, V](settings, subscription, Some(getOffsetsOnAssign), onRevoke))
 
   /**
+   * The same as [[#plainPartitionedManualOffsetSource]] but with offset commit support.
+   */
+  def committablePartitionedManualOffsetSource[K, V](
+      settings: ConsumerSettings[K, V],
+      subscription: AutoSubscription,
+      getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]],
+      onRevoke: Set[TopicPartition] => Unit = _ => ()
+  ): Source[(TopicPartition, Source[CommittableMessage[K, V], NotUsed]), Control] =
+    Source.fromGraph(
+      new CommittableSubSource[K, V](settings,
+                                     subscription,
+                                     getOffsetsOnAssign = Some(getOffsetsOnAssign),
+                                     onRevoke = onRevoke)
+    )
+
+  /**
    * The same as [[#plainPartitionedSource]] but with offset commit support.
    */
   def committablePartitionedSource[K, V](

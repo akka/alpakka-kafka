@@ -134,7 +134,5 @@ class CommitterSettings private (
     s"maxBatch=$maxBatch," +
     s"maxInterval=${maxInterval.toCoarsest}," +
     s"parallelism=$parallelism," +
-    s"delivery=$delivery"
-  ")"
-
+    s"delivery=$delivery)"
 }

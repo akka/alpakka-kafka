@@ -16,19 +16,20 @@ Alpakka Kafka offers a large variety of consumers that connect to Kafka and stre
 
 These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)].
 
-| Offsets handling                    | Partition aware | Subscription        | Shared consumer | Factory method | Stream element type |
-|-------------------------------------|-----------------|---------------------|-----------------|----------------|---------------------|
-| No (auto commit can be enabled)     | No              | Topic or Partition  | No              | `plainSource` | `ConsumerRecord` |
-| No (auto commit can be enabled)     | No              | Partition           | Yes             | `plainExternalSource` | `ConsumerRecord` |
-| Explicit committing                 | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |
-| Explicit committing                 | No              | Partition           | Yes             | `committableExternalSource` | `CommittableMessage` |
-| Explicit committing with metadata   | No              | Topic or Partition  | No              | `commitWithMetadataSource` | `CommittableMessage` |
-| Explicit committing (with metadata) | No              | Topic or Partition  | No              | `sourceWithOffsetContext` | `ConsumerRecord` |
-| Offset committed per element        | No              | Topic or Partition  | No              | `atMostOnceSource` | `ConsumerRecord` |
-| No (auto commit can be enabled)     | Yes             | Topic or Partition  | No              | `plainPartitionedSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
-| External to Kafka                   | Yes             | Topic or Partition  | No              | `plainPartitionedManualOffsetSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
-| Explicit committing                 | Yes             | Topic or Partition  | No              | `committablePartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])`     |
-| Explicit committing with metadata   | Yes             | Topic or Partition  | No              | `commitWithMetadataPartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])`  |
+| Offsets handling                        | Partition aware | Subscription        | Shared consumer | Factory method | Stream element type |
+|-----------------------------------------|-----------------|---------------------|-----------------|----------------|---------------------|
+| No (auto commit can be enabled)         | No              | Topic or Partition  | No              | `plainSource` | `ConsumerRecord` |
+| No (auto commit can be enabled)         | No              | Partition           | Yes             | `plainExternalSource` | `ConsumerRecord` |
+| Explicit committing                     | No              | Topic or Partition  | No              | `committableSource` | `CommittableMessage` |
+| Explicit committing                     | No              | Partition           | Yes             | `committableExternalSource` | `CommittableMessage` |
+| Explicit committing with metadata       | No              | Topic or Partition  | No              | `commitWithMetadataSource` | `CommittableMessage` |
+| Explicit committing (with metadata)     | No              | Topic or Partition  | No              | `sourceWithOffsetContext` | `ConsumerRecord` |
+| Offset committed per element            | No              | Topic or Partition  | No              | `atMostOnceSource` | `ConsumerRecord` |
+| No (auto commit can be enabled)         | Yes             | Topic or Partition  | No              | `plainPartitionedSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
+| External to Kafka                       | Yes             | Topic or Partition  | No              | `plainPartitionedManualOffsetSource` | `(TopicPartition, Source[ConsumerRecord, ..])` |
+| Explicit committing                     | Yes             | Topic or Partition  | No              | `committablePartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])`     |
+| External to Kafka & Explicit Committing | Yes             | Topic or Partition  | No              | `committablePartitionedManualOffsetSource` | `(TopicPartition, Source[CommittableMessage, ..])` |
+| Explicit committing with metadata       | Yes             | Topic or Partition  | No              | `commitWithMetadataPartitionedSource` | `(TopicPartition, Source[CommittableMessage, ..])`  |
 
 ### Transactional consumers
 
@@ -196,6 +197,12 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #commitWithMetadata }
 
+## Offset Storage in Kafka & external
+
+In some cases you may wish to use external offset storage as your primary means to manage offsets, but also commit offsets to Kafka. 
+This gives you all the benefits of controlling offsets described in @ref:[Offset Storage external to Kafka](#offset-storage-external-to-kafka) and allows you to use tooling in the Kafka ecosystem to track consumer group lag. 
+You can use the `Consumer.committablePartitionedManualOffsetSource` (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]) source, which emits a `CommittableMessage`, to seek to appropriate offsets on startup, do your processing, commit to external storage, and then commit offsets back to Kafka. 
+This will only provide at-least-once guarantees for your consumer group lag monitoring because it's possible for a failure between storing your offsets externally and committing to Kafka, but it will give you a more accurate representation of consumer group lag then when turning on auto commits with the `enable.auto.commit` consumer property.
 
 ## Consume "at-most-once"
 

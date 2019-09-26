@@ -1,3 +1,5 @@
+import com.typesafe.tools.mima.core.{Problem, ProblemFilters}
+
 enablePlugins(AutomateHeaderPlugin)
 
 name := "akka-stream-kafka"
@@ -202,7 +204,8 @@ lazy val core = project
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
-      )
+      ),
+    mimaBinaryIssueFilters += ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
   )
 
 lazy val testkit = project
