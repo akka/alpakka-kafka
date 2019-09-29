@@ -11,8 +11,9 @@ import akka.actor.ActorRef
 import akka.util.Timeout
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.compat.java8.FutureConverters._
+import scala.collection.compat._
 import scala.collection.JavaConverters._
 
 object MetadataClient {
@@ -23,15 +24,13 @@ object MetadataClient {
       timeout: Timeout,
       executor: Executor
   ): CompletionStage[java.util.Map[TopicPartition, java.lang.Long]] = {
-    val ec = ExecutionContext.fromExecutor(executor)
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
     akka.kafka.scaladsl.MetadataClient
-      .getBeginningOffsets(consumerActor, partitions.asScala.toSet, timeout)(ec)
+      .getBeginningOffsets(consumerActor, partitions.asScala.toSet, timeout)
       .map { beginningOffsets =>
-        val scalaMapWithJavaValues = beginningOffsets.mapValues(long2Long)
-        scalaMapWithJavaValues.asJava
-      }(ec)
+        beginningOffsets.view.mapValues(Long.box).toMap.asJava
+      }
       .toJava
-      .asInstanceOf[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]]
   }
 
   def getBeginningOffsetForPartition(
@@ -40,10 +39,10 @@ object MetadataClient {
       timeout: Timeout,
       executor: Executor
   ): CompletionStage[java.lang.Long] = {
-    val ec = ExecutionContext.fromExecutor(executor)
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
     akka.kafka.scaladsl.MetadataClient
-      .getBeginningOffsetForPartition(consumerActor, partition, timeout)(ec)
-      .map(long2Long)(ec)
+      .getBeginningOffsetForPartition(consumerActor, partition, timeout)
+      .map(Long.box)
       .toJava
   }
 }
