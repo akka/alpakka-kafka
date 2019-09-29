@@ -87,4 +87,19 @@ object MetadataClient {
       }
       .toJava
   }
+
+  def getPartitionsFor(
+      consumerActor: ActorRef,
+      topic: java.lang.String,
+      timeout: Timeout,
+      executor: Executor
+  ): CompletionStage[java.util.List[PartitionInfo]] = {
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
+    akka.kafka.scaladsl.MetadataClient
+      .getPartitionsFor(consumerActor, topic, timeout)
+      .map { partitionsInfo =>
+        partitionsInfo.asJava
+      }
+      .toJava
+  }
 }
