@@ -66,20 +66,6 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       consumerActor ! KafkaConsumerActor.Stop
     }
 
-    "fail in case of an exception during fetch beginning offset for non-existing topic" in assertAllStagesStopped {
-      val group1 = createGroupId(1)
-      val nonExistingPartition = new TopicPartition("non-existing topic", 0)
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-      val beginningOffsetFuture = MetadataClient
-        .getBeginningOffsetForPartition(consumerActor, nonExistingPartition, 1 seconds)
-
-      beginningOffsetFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
-
-      consumerActor ! KafkaConsumerActor.Stop
-    }
-
     "fetch end offsets for given partitions" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroupId(1)
@@ -126,20 +112,6 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
         .futureValue
 
       endOffset shouldBe 10
-
-      consumerActor ! KafkaConsumerActor.Stop
-    }
-
-    "fail in case of an exception during fetch end offset for non-existing topic" in assertAllStagesStopped {
-      val group1 = createGroupId(1)
-      val nonExistingPartition = new TopicPartition("non-existing topic", 0)
-      val consumerSettings = consumerDefaults.withGroupId(group1)
-      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-      val endOffsetFuture = MetadataClient
-        .getEndOffsetForPartition(consumerActor, nonExistingPartition, 1 seconds)
-
-      endOffsetFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
       consumerActor ! KafkaConsumerActor.Stop
     }
