@@ -6,7 +6,16 @@
 package akka.kafka.scaladsl
 
 import akka.actor.ActorRef
-import akka.kafka.Metadata.{BeginningOffsets, EndOffsets, GetBeginningOffsets, GetEndOffsets, ListTopics, Topics}
+import akka.kafka.Metadata.{
+  BeginningOffsets,
+  EndOffsets,
+  GetBeginningOffsets,
+  GetEndOffsets,
+  GetPartitionsFor,
+  ListTopics,
+  PartitionsFor,
+  Topics
+}
 import akka.pattern.ask
 import akka.util.Timeout
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
@@ -55,5 +64,14 @@ object MetadataClient {
   )(implicit ec: ExecutionContext): Future[Map[String, List[PartitionInfo]]] =
     (consumerActor ? ListTopics)(timeout)
       .mapTo[Topics]
+      .map(_.response.get)
+
+  def getPartitionsFor(
+      consumerActor: ActorRef,
+      topic: String,
+      timeout: Timeout
+  )(implicit ec: ExecutionContext): Future[List[PartitionInfo]] =
+    (consumerActor ? GetPartitionsFor(topic))(timeout)
+      .mapTo[PartitionsFor]
       .map(_.response.get)
 }
