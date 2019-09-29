@@ -8,7 +8,7 @@ val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 
 val Scala211 = "2.11.12"
 val Scala213 = "2.13.0"
-val akkaVersion = if (Nightly) "2.6.0-M4" else "2.5.23"
+val akkaVersion = if (Nightly) "2.6.0-M8" else "2.5.23"
 val kafkaVersion = "2.1.1"
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.8"
