@@ -67,7 +67,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   }
 
   @Test
-  public void shouldFailInCaseOfAnExceptionDuringFetchOffsetsForNonExistingTopics() {
+  public void shouldFailInCaseOfAnExceptionDuringFetchBeginningOffsetsForNonExistingTopics() {
     expectedException.expect(CompletionException.class);
     expectedException.expectCause(
         IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
@@ -108,7 +108,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   }
 
   @Test
-  public void shouldFailInCaseOfAnExceptionDuringFetchOffsetForNonExistingTopic() {
+  public void shouldFailInCaseOfAnExceptionDuringFetchBeginningOffsetForNonExistingTopic() {
     expectedException.expect(CompletionException.class);
     expectedException.expectCause(
         IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
@@ -122,6 +122,92 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 
     final CompletionStage<Long> response =
         MetadataClient.getBeginningOffsetForPartition(consumerActor, nonExistingPartition, timeout, ec);
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+
+    response.toCompletableFuture().join();
+  }
+
+  @Test
+  public void shouldFetchEndOffsetsForGivenPartitions() {
+    final String topic1 = createTopic();
+    final String group1 = createGroupId();
+    final TopicPartition partition0 = new TopicPartition(topic1, 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Set<TopicPartition> partitions = Collections.singleton(partition0);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    produceString(topic1, 10, partition0.partition()).toCompletableFuture().join();
+
+    final CompletionStage<Map<TopicPartition, Long>> response =
+        MetadataClient.getEndOffsets(consumerActor, partitions, timeout, ec);
+    final Map<TopicPartition, Long> endOffsets = response.toCompletableFuture().join();
+
+    assertThat(endOffsets.get(partition0), is(10L));
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+  }
+
+  @Test
+  public void shouldFailInCaseOfAnExceptionDuringFetchEndOffsetsForNonExistingTopic() {
+    expectedException.expect(CompletionException.class);
+    expectedException.expectCause(
+        IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
+
+    final String group1 = createGroupId();
+    final TopicPartition nonExistingPartition = new TopicPartition("non-existing topic", 0);
+    final Set<TopicPartition> partitions = Collections.singleton(nonExistingPartition);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    final CompletionStage<Map<TopicPartition, Long>> response =
+        MetadataClient.getEndOffsets(consumerActor, partitions, timeout, ec);
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+
+    response.toCompletableFuture().join();
+  }
+
+  @Test
+  public void shouldFetchEndOffsetForGivenPartition() {
+    final String topic1 = createTopic();
+    final String group1 = createGroupId();
+    final TopicPartition partition0 = new TopicPartition(topic1, 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    produceString(topic1, 10, partition0.partition()).toCompletableFuture().join();
+
+    final CompletionStage<Long> response =
+        MetadataClient.getEndOffsetForPartition(consumerActor, partition0, timeout, ec);
+    final Long endOffset = response.toCompletableFuture().join();
+
+    assertThat(endOffset, is(10L));
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
+  }
+
+  @Test
+  public void shouldFailInCaseOfAnExceptionDuringFetchEndOffsetForNonExistingTopic() {
+    expectedException.expect(CompletionException.class);
+    expectedException.expectCause(
+        IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
+
+    final String group1 = createGroupId();
+    final TopicPartition nonExistingPartition = new TopicPartition("non-existing topic", 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    final CompletionStage<Long> response =
+        MetadataClient.getEndOffsetForPartition(consumerActor, nonExistingPartition, timeout, ec);
 
     consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
 

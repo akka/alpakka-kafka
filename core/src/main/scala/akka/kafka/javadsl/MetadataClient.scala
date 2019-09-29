@@ -45,4 +45,32 @@ object MetadataClient {
       .map(Long.box)
       .toJava
   }
+
+  def getEndOffsets(
+      consumerActor: ActorRef,
+      partitions: java.util.Set[TopicPartition],
+      timeout: Timeout,
+      executor: Executor
+  ): CompletionStage[java.util.Map[TopicPartition, java.lang.Long]] = {
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
+    akka.kafka.scaladsl.MetadataClient
+      .getEndOffsets(consumerActor, partitions.asScala.toSet, timeout)
+      .map { endOffsets =>
+        endOffsets.view.mapValues(Long.box).toMap.asJava
+      }
+      .toJava
+  }
+
+  def getEndOffsetForPartition(
+      consumerActor: ActorRef,
+      partition: TopicPartition,
+      timeout: Timeout,
+      executor: Executor
+  ): CompletionStage[java.lang.Long] = {
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
+    akka.kafka.scaladsl.MetadataClient
+      .getEndOffsetForPartition(consumerActor, partition, timeout)
+      .map(Long.box)
+      .toJava
+  }
 }
