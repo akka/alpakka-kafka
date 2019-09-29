@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
 import akka.util.Timeout
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.compat.java8.FutureConverters._
@@ -71,6 +71,20 @@ object MetadataClient {
     akka.kafka.scaladsl.MetadataClient
       .getEndOffsetForPartition(consumerActor, partition, timeout)
       .map(Long.box)
+      .toJava
+  }
+
+  def getListTopics(
+      consumerActor: ActorRef,
+      timeout: Timeout,
+      executor: Executor
+  ): CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]] = {
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
+    akka.kafka.scaladsl.MetadataClient
+      .getListTopics(consumerActor, timeout)
+      .map { topics =>
+        topics.view.mapValues(partitionsInfo => partitionsInfo.asJava).toMap.asJava
+      }
       .toJava
   }
 }

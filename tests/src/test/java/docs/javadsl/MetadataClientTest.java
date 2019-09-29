@@ -15,6 +15,7 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.AfterClass;
@@ -23,6 +24,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -31,7 +33,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.core.Is.is;
 
 public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
@@ -212,6 +216,35 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
 
     response.toCompletableFuture().join();
+  }
+
+  @Test
+  public void shouldFetchTopicList() {
+    final String group = createGroupId();
+    final String topic1 = createTopic(1, 2);
+    final String topic2 = createTopic(2, 1);
+    final ConsumerSettings<String, String> consumerSettings = consumerDefaults().withGroupId(group);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final ActorRef consumerActor = system().actorOf(KafkaConsumerActor.props(consumerSettings));
+
+    produceString(topic1, 10, 0).toCompletableFuture().join();
+    produceString(topic1, 10, 1).toCompletableFuture().join();
+    produceString(topic2, 10, 0).toCompletableFuture().join();
+
+    final CompletionStage<Map<String, List<PartitionInfo>>> response =
+        MetadataClient.getListTopics(consumerActor, timeout, ec);
+    final Map<String, List<PartitionInfo>> topics = response.toCompletableFuture().join();
+
+    final Set<Integer> partitionsForTopic1 =
+        topics.get(topic1).stream().map(PartitionInfo::partition).collect(toSet());
+
+    final Set<Integer> partitionsForTopic2 =
+        topics.get(topic2).stream().map(PartitionInfo::partition).collect(toSet());
+
+    assertThat(partitionsForTopic1, containsInAnyOrder(0, 1));
+    assertThat(partitionsForTopic2, containsInAnyOrder(0));
+
+    consumerActor.tell(KafkaConsumerActor.stop(), ActorRef.noSender());
   }
 
   @AfterClass
