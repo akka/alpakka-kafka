@@ -128,7 +128,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       awaitProduce(produce(topic2, 1 to 10, partition = 0))
 
       val topics = MetadataClient
-        .getListTopics(consumerActor, 1 second)
+        .listTopics(consumerActor, 1 second)
         .futureValue
 
       val expectedPartitionsForTopic1 = (topic1, 0) :: (topic1, 1) :: Nil

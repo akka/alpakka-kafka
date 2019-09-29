@@ -74,14 +74,14 @@ object MetadataClient {
       .toJava
   }
 
-  def getListTopics(
+  def listTopics(
       consumerActor: ActorRef,
       timeout: Timeout,
       executor: Executor
   ): CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]] = {
     implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
     akka.kafka.scaladsl.MetadataClient
-      .getListTopics(consumerActor, timeout)
+      .listTopics(consumerActor, timeout)
       .map { topics =>
         topics.view.mapValues(partitionsInfo => partitionsInfo.asJava).toMap.asJava
       }

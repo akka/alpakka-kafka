@@ -190,7 +190,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     produceString(topic2, 10, 0).toCompletableFuture().join();
 
     final CompletionStage<Map<String, List<PartitionInfo>>> response =
-        MetadataClient.getListTopics(consumerActor, timeout, ec);
+        MetadataClient.listTopics(consumerActor, timeout, ec);
     final Map<String, List<PartitionInfo>> topics = response.toCompletableFuture().join();
 
     final Set<Integer> partitionsForTopic1 =
