@@ -8,7 +8,7 @@ package akka.kafka.scaladsl
 import akka.kafka.KafkaConsumerActor
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.language.postfixOps
 import scala.concurrent.duration._
@@ -143,5 +143,30 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       consumerActor ! KafkaConsumerActor.Stop
     }
+
+    "fetch list of topics" in assertAllStagesStopped {
+      val group = createGroupId(1)
+      val topic1 = createTopic(suffix = 1, partitions = 2)
+      val topic2 = createTopic(suffix = 2, partitions = 1)
+      val consumerSettings = consumerDefaults.withGroupId(group)
+      val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+
+      awaitProduce(produce(topic1, 1 to 10, partition = 0))
+      awaitProduce(produce(topic1, 1 to 10, partition = 1))
+      awaitProduce(produce(topic2, 1 to 10, partition = 0))
+
+      val topics = MetadataClient
+        .getListTopics(consumerActor, 1 second)
+        .futureValue
+
+      val expectedPartitionsForTopic1 = (topic1, 0) :: (topic1, 1) :: Nil
+      val expectedPartitionsForTopic2 = (topic2, 0) :: Nil
+
+      topics(topic1).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic1
+      topics(topic2).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic2
+    }
   }
+
+  private val mapToTopicPartition = (p: PartitionInfo) => (p.topic(), p.partition())
+
 }

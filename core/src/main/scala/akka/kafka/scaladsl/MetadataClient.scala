@@ -6,10 +6,10 @@
 package akka.kafka.scaladsl
 
 import akka.actor.ActorRef
-import akka.kafka.Metadata.{BeginningOffsets, EndOffsets, GetBeginningOffsets, GetEndOffsets}
+import akka.kafka.Metadata.{GetBeginningOffsets, BeginningOffsets, GetEndOffsets, EndOffsets, ListTopics, Topics}
 import akka.pattern.ask
 import akka.util.Timeout
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -48,4 +48,12 @@ object MetadataClient {
   )(implicit ec: ExecutionContext): Future[Long] =
     getEndOffsets(consumerActor, Set(partition), timeout)
       .map(endOffsets => endOffsets(partition))
+
+  def getListTopics(
+      consumerActor: ActorRef,
+      timeout: Timeout
+  )(implicit ec: ExecutionContext): Future[Map[String, List[PartitionInfo]]] =
+    (consumerActor ? ListTopics)(timeout)
+      .mapTo[Topics]
+      .map(_.response.get)
 }
