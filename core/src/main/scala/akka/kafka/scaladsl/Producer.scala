@@ -8,7 +8,7 @@ package akka.kafka.scaladsl
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage.Committable
 import akka.kafka.ProducerMessage._
-import akka.kafka.internal.DefaultProducerStage
+import akka.kafka.internal.{CommittingProducerSinkStage, DefaultProducerStage}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerSettings}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
@@ -121,9 +121,7 @@ object Producer {
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flexiFlow[K, V, ConsumerMessage.Committable](producerSettings)
-      .map(_.passThrough)
-      .toMat(Committer.sink(committerSettings))(Keep.right)
+    Sink.fromGraph(new CommittingProducerSinkStage(producerSettings, committerSettings))
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]] passed as

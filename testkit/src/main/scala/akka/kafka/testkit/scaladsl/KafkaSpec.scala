@@ -201,7 +201,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
 
 }
 
-private class Slf4jToAkkaLoggingAdapter(logger: Logger) extends LoggingAdapter {
+private[kafka] class Slf4jToAkkaLoggingAdapter(logger: Logger) extends LoggingAdapter {
   override def isErrorEnabled: Boolean = logger.isErrorEnabled
   override def isWarningEnabled: Boolean = logger.isWarnEnabled
   override def isInfoEnabled: Boolean = logger.isInfoEnabled
