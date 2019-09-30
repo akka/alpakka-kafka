@@ -8,6 +8,7 @@ package akka.kafka
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.DiscoverySupport
 import akka.testkit.TestKit
+import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
@@ -204,6 +205,7 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
       val settings = ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
         .withEnrichAsync(DiscoverySupport.producerBootstrapServers(producerConfig))
 
+      @silent
       val exception = intercept[org.apache.kafka.common.KafkaException] {
         settings.createKafkaProducer()
       }

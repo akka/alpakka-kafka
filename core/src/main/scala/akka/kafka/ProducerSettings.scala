@@ -6,7 +6,7 @@
 package akka.kafka
 
 import java.util.Optional
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorSystem
 import akka.annotation.InternalApi
@@ -348,19 +348,33 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Create a `Producer` instance from these settings.
-   * Blocking might appear while `enriched` is called.
+   *
+   * WARNING: Blocking might appear while `enriched` is called - prefer [[asyncCreateKafkaProducer()]]
+   * or [[asyncCreateKafkaProducerCompletionStage()]].
    */
-  @deprecated("prefer `asyncCreateKafkaProducer`", "2.0.0")
   def createKafkaProducer(): Producer[K, V] = {
     val enrichedSettings = Await.result(enriched, 1.minute)
     producerFactory.apply(enrichedSettings)
   }
 
   /**
+   * Scala API.
+   *
    * Create a [[org.apache.kafka.clients.producer.Producer Kafka Producer]] instance from these settings
    * (without blocking for `enriched`).
    */
   def asyncCreateKafkaProducer()(implicit executionContext: ExecutionContext): Future[Producer[K, V]] =
     enriched.map(producerFactory)
+
+  /**
+   * Java API.
+   *
+   * Create a [[org.apache.kafka.clients.producer.Producer Kafka Producer]] instance from these settings
+   * (without blocking for `enriched`).
+   *
+   * @param executor Executor for asynchronous producer creation
+   */
+  def asyncCreateKafkaProducerCompletionStage(executor: Executor): CompletionStage[Producer[K, V]] =
+    enriched.map(producerFactory)(ExecutionContext.fromExecutor(executor)).toJava
 
 }

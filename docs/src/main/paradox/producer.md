@@ -172,7 +172,7 @@ Java
 
 The underlying `KafkaProducer` (@javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer)) is thread safe and sharing a single producer instance across streams will generally be faster than having multiple instances.
 
-To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contain a factory method `createKafkaProducer`.
+To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contains the factory methods @scala[`asyncCreateKafkaProducer`]@java[`asyncCreateKafkaProducerCompletionStage`] and `createKafkaProducer` (blocking for asynchronous enriching).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producer }

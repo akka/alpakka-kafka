@@ -47,7 +47,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   private static final Materializer materializer = ActorMaterializer.create(system);
   // #testkit
 
-  private final Executor executor = Executors.newSingleThreadExecutor();
+  private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
   // #testkit
@@ -59,11 +59,12 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   @AfterAll
   void shutdownActorSystem() {
     TestKit.shutdownActorSystem(system);
+    executor.shutdown();
   }
 
   // #testkit
   @Test
-  void createProducer() {
+  void createProducer() throws InterruptedException, ExecutionException, TimeoutException {
     // #producer
     // #settings
     final Config config = system.settings().config().getConfig("akka.kafka.producer");
@@ -71,10 +72,13 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
         ProducerSettings.create(config, new StringSerializer(), new StringSerializer())
             .withBootstrapServers("localhost:9092");
     // #settings
-    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createKafkaProducer();
+    final CompletionStage<org.apache.kafka.clients.producer.Producer<String, String>>
+        kafkaProducer = producerSettings.asyncCreateKafkaProducerCompletionStage(executor);
+
+    // using the kafka producer
+
+    kafkaProducer.thenAccept(p -> p.close());
     // #producer
-    kafkaProducer.close();
   }
 
   @Test
@@ -100,9 +104,10 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   @Test
   void plainSinkWithSharedProducer() throws Exception {
     String topic = createTopic();
-    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
+    final CompletionStage<org.apache.kafka.clients.producer.Producer<String, String>>
+        kafkaProducer = producerSettings.asyncCreateKafkaProducerCompletionStage(executor);
+
     CompletionStage<Done> done =
         Source.range(1, 100)
             .map(number -> number.toString())
@@ -118,19 +123,26 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
         control.drainAndShutdown(executor);
     assertEquals(100, resultOf(result).size());
 
-    kafkaProducer.close();
+    // #plainSinkWithProducer
+
+    // close the producer after use
+    system.registerOnTermination(() -> kafkaProducer.thenAccept(p -> p.close()));
+    // #plainSinkWithProducer
   }
 
   @Test
   void observeMetrics() throws Exception {
-    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
-        producerSettings.createKafkaProducer();
-    // #producerMetrics
-    Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric> metrics =
-        kafkaProducer.metrics(); // observe metrics
-    // #producerMetrics
-    assertFalse(metrics.isEmpty());
-    kafkaProducer.close();
+    producerSettings
+        .asyncCreateKafkaProducerCompletionStage(executor)
+        .thenAccept(
+            kafkaProducer -> {
+              // #producerMetrics
+              Map<org.apache.kafka.common.MetricName, ? extends org.apache.kafka.common.Metric>
+                  metrics = kafkaProducer.metrics(); // observe metrics
+              // #producerMetrics
+              assertFalse(metrics.isEmpty());
+              kafkaProducer.close();
+            });
   }
 
   <KeyType, ValueType, PassThroughType>

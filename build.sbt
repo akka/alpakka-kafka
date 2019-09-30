@@ -226,7 +226,7 @@ lazy val testkit = project
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
-      ) ++ {
+      ) ++ silencer ++ {
         if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
@@ -280,7 +280,7 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "2.24.5" % Test
-      ) ++ {
+      ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
             Seq()

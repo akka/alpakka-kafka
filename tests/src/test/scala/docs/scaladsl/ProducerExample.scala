@@ -25,13 +25,28 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
   override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)
 
-  "PlainSink" should "work" in assertAllStagesStopped {
+  "Creating a producer" should "work" in {
+    // #producer
     // #settings
     val config = system.settings.config.getConfig("akka.kafka.producer")
     val producerSettings =
       ProducerSettings(config, new StringSerializer, new StringSerializer)
         .withBootstrapServers(bootstrapServers)
     // #settings
+    val kafkaProducer: Future[org.apache.kafka.clients.producer.Producer[String, String]] =
+      producerSettings.asyncCreateKafkaProducer()
+
+    // using the kafka producer
+
+    kafkaProducer.foreach(p => p.close())
+    // #producer
+  }
+
+  "PlainSink" should "work" in assertAllStagesStopped {
+    val config = system.settings.config.getConfig("akka.kafka.producer")
+    val producerSettings =
+      ProducerSettings(config, new StringSerializer, new StringSerializer)
+        .withBootstrapServers(bootstrapServers)
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     // #plainSink
@@ -54,9 +69,10 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
   "PlainSink with shared producer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val producerSettings = producerDefaults
-    val kafkaProducer = producerSettings.createKafkaProducer()
     val topic = createTopic()
     // #plainSinkWithProducer
+    val kafkaProducer = producerSettings.asyncCreateKafkaProducer()
+
     val done = Source(1 to 100)
       .map(_.toString)
       .map(value => new ProducerRecord[String, String](topic, value))
@@ -70,28 +86,30 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     waitBeforeValidation()
     control2.shutdown().futureValue should be(Done)
     result.futureValue should have size (100)
-    kafkaProducer.close()
+    // #plainSinkWithProducer
+
+    // close the producer after use
+    system.registerOnTermination(kafkaProducer.foreach(p => p.close()))
+    // #plainSinkWithProducer
   }
 
   "Metrics" should "be observed" in assertAllStagesStopped {
-    // #producer
     val config = system.settings.config.getConfig("akka.kafka.producer")
     val producerSettings =
       ProducerSettings(config, new StringSerializer, new StringSerializer)
         .withBootstrapServers(bootstrapServers)
-    val kafkaProducer = producerSettings.createKafkaProducer()
-    // #producer
-    // #producerMetrics
-    val metrics: java.util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
-      kafkaProducer.metrics() // observe metrics
-    // #producerMetrics
-    metrics.isEmpty should be(false)
-    // #producer
-
-    // using the kafkaProducer
-
-    kafkaProducer.close()
-    // #producer
+    producerSettings
+      .asyncCreateKafkaProducer()
+      .map { kafkaProducer =>
+        // #producerMetrics
+        val metrics: java.util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
+          kafkaProducer.metrics() // observe metrics
+        // #producerMetrics
+        metrics.isEmpty should be(false)
+        kafkaProducer.close()
+        Done
+      }
+      .futureValue shouldBe Done
   }
 
   def createMessage[KeyType, ValueType, PassThroughType](

@@ -11,14 +11,13 @@ import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.Inside
+import org.scalatest.concurrent.IntegrationPatience
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
-
-  implicit val patience = PatienceConfig(5.second, 100.millis)
+class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside with IntegrationPatience {
 
   "Kafka connector" must {
     "begin consuming from the given timestamp of the topic" in {
@@ -30,7 +29,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         Await.result(produceTimestamped(topic, (1 to 100).zip(now to (now + 100))), remainingOrDefault)
 
         val consumerSettings = consumerDefaults.withGroupId(group)
-        val consumer = consumerSettings.createKafkaConsumer()
+        val consumer = consumerSettings.asyncCreateKafkaConsumer().futureValue
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }
@@ -57,7 +56,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         val now = System.currentTimeMillis()
 
         val consumerSettings = consumerDefaults.withGroupId(group)
-        val consumer = consumerSettings.createKafkaConsumer()
+        val consumer = consumerSettings.asyncCreateKafkaConsumer().futureValue
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }

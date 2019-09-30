@@ -91,6 +91,12 @@ Scala
 Java
 : @@ snip [read](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #config-inheritance } 
 
+
+### Akka Discovery support
+
+
+
+
 ## Offset Storage external to Kafka
 
 The Kafka read offset can either be stored in Kafka (see below), or at a data store of your choice.
