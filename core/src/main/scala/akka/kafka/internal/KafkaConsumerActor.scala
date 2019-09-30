@@ -231,9 +231,6 @@ import scala.util.control.NonFatal
   private var commitRefreshing: CommitRefreshing = _
   private var stopInProgress = false
 
-  if (settings.connectionCheckerSettings.enable)
-    context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
-
   /**
    * While `true`, committing is delayed.
    * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[RebalanceListenerImpl]].
@@ -326,9 +323,13 @@ import scala.util.control.NonFatal
       sender() ! handleMetadataRequest(req)
   }
 
-  def expectSettings: Receive = LoggingReceive {
+  def expectSettings: Receive = LoggingReceive.withLabel("expectSettings") {
     case s: ConsumerSettings[K, V] =>
       applySettings(s)
+
+    case Stop =>
+      log.debug("Received Stop from {}, stopping", sender())
+      context.stop(self)
 
     case _ =>
       stash()
@@ -398,7 +399,7 @@ import scala.util.control.NonFatal
         }
     }
 
-  def stopping: Receive = LoggingReceive {
+  def stopping: Receive = LoggingReceive.withLabel("stopping") {
     case p: Poll[_, _] =>
       receivePoll(p)
     case Stop =>
@@ -434,6 +435,8 @@ import scala.util.control.NonFatal
 
   private def applySettings(updatedSettings: ConsumerSettings[K, V]): Unit = {
     this.settings = updatedSettings
+    if (settings.connectionCheckerSettings.enable)
+      context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
     pollTimeout = settings.pollTimeout.asJava
     offsetForTimesTimeout = settings.getOffsetForTimesTimeout
     positionTimeout = settings.getPositionTimeout

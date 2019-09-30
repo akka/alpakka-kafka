@@ -29,17 +29,18 @@ class MisconfiguredProducerSpec
   implicit val patience = PatienceConfig(2.seconds, 20.millis)
 
   "Failing producer construction" must {
-    "fail during materialization" in assertAllStagesStopped {
+    "fail stream appropriately" in assertAllStagesStopped {
       val producerSettings =
         ProducerSettings(system, new StringSerializer, new StringSerializer)
           .withBootstrapServers("invalid-bootstrap-server")
 
-      val exception = intercept[org.apache.kafka.common.KafkaException] {
-        Source
-          .single(new ProducerRecord[String, String]("topic", "key", "value"))
-          .runWith(Producer.plainSink(producerSettings))
-      }
+      val completion = Source
+        .single(new ProducerRecord[String, String]("topic", "key", "value"))
+        .runWith(Producer.plainSink(producerSettings))
+
+      val exception = completion.failed.futureValue
       exception shouldBe a[org.apache.kafka.common.KafkaException]
+      exception.getMessage shouldBe "Failed to construct kafka producer"
     }
   }
 }

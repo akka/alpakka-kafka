@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerMessage._
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
 import akka.stream.ActorAttributes.SupervisionStrategy
@@ -73,18 +74,19 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     if (producerFuture.isCompleted) {
       producerFuture.value match {
         case Some(Success(p)) => assignProducer(p)
-        case Some(Failure(e)) => throw e
+        case Some(Failure(e)) => failStage(e)
         case None => throw new IllegalStateException("completed Future without a value")
       }
     } else
       producerFuture
-        .map(producerArrived.invoke)(materializer.executionContext)
-        .recover {
-          case e: Throwable =>
+        .transform(
+          producer => producerArrived.invoke(producer),
+          e => {
             log.error(e, "producer creation failed")
             failStageCb.invoke(e)
             e
-        }(materializer.executionContext)
+          }
+        )(ExecutionContexts.sameThreadExecutionContext)
   }
 
   def checkForCompletion(): Unit =

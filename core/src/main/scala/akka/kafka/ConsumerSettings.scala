@@ -513,11 +513,19 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withPartitionHandlerWarning(partitionHandlerWarning: java.time.Duration): ConsumerSettings[K, V] =
     copy(partitionHandlerWarning = partitionHandlerWarning.asScala)
 
-  /** Scala API: A hook to allow for resolving some settings asynchronously. */
+  /**
+   * Scala API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
   def withEnrichAsync(value: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]): ConsumerSettings[K, V] =
     copy(enrichAsync = value)
 
-  /** Java API: A hook to allow for resolving some settings asynchronously. */
+  /**
+   * Java API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
   def withEnrichCompletionStage(
       value: ConsumerSettings[K, V] => CompletionStage[ConsumerSettings[K, V]]
   ): ConsumerSettings[K, V] =
@@ -594,7 +602,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
    * Blocking might appear while `enriched` is called.
    */
-  @deprecated("prefer `asyncCreateKafkaConsumer`", "1.0.2")
+  @deprecated("prefer `asyncCreateKafkaConsumer`", "2.0.0")
   def createKafkaConsumer(): Consumer[K, V] = {
     val enrichedSettings = Await.result(enriched, 1.minute)
     consumerFactory.apply(enrichedSettings)

@@ -279,11 +279,19 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   def withEosCommitInterval(eosCommitInterval: java.time.Duration): ProducerSettings[K, V] =
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
-  /** Scala API: A hook to allow for resolving some settings asynchronously. */
+  /**
+   * Scala API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
   def withEnrichAsync(value: ProducerSettings[K, V] => Future[ProducerSettings[K, V]]): ProducerSettings[K, V] =
     copy(enrichAsync = value)
 
-  /** Java API: A hook to allow for resolving some settings asynchronously. */
+  /**
+   * Java API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
   def withEnrichCompletionStage(
       value: ProducerSettings[K, V] => CompletionStage[ProducerSettings[K, V]]
   ): ProducerSettings[K, V] =
@@ -342,6 +350,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * Create a `Producer` instance from these settings.
    * Blocking might appear while `enriched` is called.
    */
+  @deprecated("prefer `asyncCreateKafkaProducer`", "2.0.0")
   def createKafkaProducer(): Producer[K, V] = {
     val enrichedSettings = Await.result(enriched, 1.minute)
     producerFactory.apply(enrichedSettings)
