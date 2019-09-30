@@ -85,7 +85,7 @@ val commonSettings = Def.settings(
       if (scalaBinaryVersion.value == "2.13") Seq.empty
       else Seq("-Yno-adapted-args", "-Xfuture")
     } ++ {
-      if (insideCI.value) Seq("-Xfatal-warnings")
+      if (insideCI.value && !Nightly) Seq("-Xfatal-warnings")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
