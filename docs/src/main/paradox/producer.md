@@ -69,6 +69,11 @@ When creating `ProducerSettings` with the `ActorSystem` (@scaladoc[API](akka.act
 See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for more details regarding settings.
 
 
+### Akka Discovery support
+
+# TODO
+
+
 ## Producer as a Sink
 
 `Producer.plainSink` 
@@ -172,7 +177,7 @@ Java
 
 The underlying `KafkaProducer` (@javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer)) is thread safe and sharing a single producer instance across streams will generally be faster than having multiple instances.
 
-To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contains the factory methods @scala[`asyncCreateKafkaProducer`]@java[`asyncCreateKafkaProducerCompletionStage`] and `createKafkaProducer` (blocking for asynchronous enriching).
+To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contains the factory methods @scala[`createKafkaProducerAsync`]@java[`createKafkaProducerCompletionStage`] and `createKafkaProducer` (blocking for asynchronous enriching).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producer }
@@ -180,7 +185,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producer }
 
-The `KafkaProducer` instance is passed as a parameter to the `Producer` factory methods.
+The `KafkaProducer` instance (or @scala[Future]@java[CompletionStage]) is passed as a parameter to the `Producer` factory methods.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }

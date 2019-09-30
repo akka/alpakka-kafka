@@ -233,7 +233,7 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues 
       val settings = ConsumerSettings(consumerConfig, new StringDeserializer, new StringDeserializer)
         .withEnrichAsync(DiscoverySupport.consumerBootstrapServers(consumerConfig))
 
-      val exception = settings.asyncCreateKafkaConsumer().failed.futureValue
+      val exception = settings.createKafkaConsumerAsync().failed.futureValue
       exception shouldBe a[org.apache.kafka.common.KafkaException]
       exception.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
       exception.getCause.getMessage shouldBe "No resolvable bootstrap urls given in bootstrap.servers"

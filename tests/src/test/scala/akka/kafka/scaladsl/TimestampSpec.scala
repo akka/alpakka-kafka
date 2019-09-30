@@ -29,7 +29,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside wi
         Await.result(produceTimestamped(topic, (1 to 100).zip(now to (now + 100))), remainingOrDefault)
 
         val consumerSettings = consumerDefaults.withGroupId(group)
-        val consumer = consumerSettings.asyncCreateKafkaConsumer().futureValue
+        val consumer = consumerSettings.createKafkaConsumerAsync().futureValue
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }
@@ -56,7 +56,7 @@ class TimestampSpec extends SpecBase with TestcontainersKafkaLike with Inside wi
         val now = System.currentTimeMillis()
 
         val consumerSettings = consumerDefaults.withGroupId(group)
-        val consumer = consumerSettings.asyncCreateKafkaConsumer().futureValue
+        val consumer = consumerSettings.createKafkaConsumerAsync().futureValue
         val partitions = consumer.partitionsFor(topic).asScala.map { t =>
           new TopicPartition(t.topic(), t.partition())
         }

@@ -286,7 +286,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => settings.asyncCreateKafkaProducer()(ec)
+          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -317,7 +317,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => settings.asyncCreateKafkaProducer()(ec)
+          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)

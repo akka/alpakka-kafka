@@ -6,7 +6,7 @@
 package akka.kafka
 
 import java.util.Optional
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorSystem
 import akka.annotation.InternalApi
@@ -600,20 +600,31 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
 
   /**
    * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
-   * Blocking might appear while `enriched` is called.
+   *
+   * WARNING: Blocking might appear while `enriched` is called - prefer [[createKafkaConsumerAsync()]] or [[createKafkaConsumerCompletionStage()]].
    */
-  @deprecated("prefer `asyncCreateKafkaConsumer`", "2.0.0")
   def createKafkaConsumer(): Consumer[K, V] = {
     val enrichedSettings = Await.result(enriched, 1.minute)
     consumerFactory.apply(enrichedSettings)
   }
 
   /**
+   * Scala API.
+   *
    * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings
    * (without blocking for `enriched`).
    */
-  def asyncCreateKafkaConsumer()(implicit executionContext: ExecutionContext): Future[Consumer[K, V]] =
+  def createKafkaConsumerAsync()(implicit executionContext: ExecutionContext): Future[Consumer[K, V]] =
     enriched.map(consumerFactory)
+
+  /**
+   * Java API.
+   *
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings
+   * (without blocking for `enriched`).
+   */
+  def createKafkaConsumerCompletionStage(executor: Executor): CompletionStage[Consumer[K, V]] =
+    enriched.map(consumerFactory)(ExecutionContext.fromExecutor(executor)).toJava
 
   override def toString: String =
     s"akka.kafka.ConsumerSettings(" +

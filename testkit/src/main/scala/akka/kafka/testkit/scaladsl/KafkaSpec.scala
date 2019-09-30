@@ -51,7 +51,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   var testProducer: KProducer[String, String] = _
 
   def setUp(): Unit = {
-    testProducer = Await.result(producerDefaults.asyncCreateKafkaProducer(), 2.seconds)
+    testProducer = Await.result(producerDefaults.createKafkaProducerAsync(), 2.seconds)
     setUpAdminClient()
   }
 

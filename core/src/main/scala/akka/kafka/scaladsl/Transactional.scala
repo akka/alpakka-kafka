@@ -98,7 +98,7 @@ object Transactional {
         new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](
           txSettings.closeTimeout,
           closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => txSettings.asyncCreateKafkaProducer()(ec),
+          producerProvider = (ec: ExecutionContext) => txSettings.createKafkaProducerAsync()(ec),
           settings.eosCommitInterval
         )
       )

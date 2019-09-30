@@ -34,7 +34,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .withBootstrapServers(bootstrapServers)
     // #settings
     val kafkaProducer: Future[org.apache.kafka.clients.producer.Producer[String, String]] =
-      producerSettings.asyncCreateKafkaProducer()
+      producerSettings.createKafkaProducerAsync()
 
     // using the kafka producer
 
@@ -71,7 +71,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val producerSettings = producerDefaults
     val topic = createTopic()
     // #plainSinkWithProducer
-    val kafkaProducer = producerSettings.asyncCreateKafkaProducer()
+    val kafkaProducer = producerSettings.createKafkaProducerAsync()
 
     val done = Source(1 to 100)
       .map(_.toString)
@@ -99,7 +99,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
       ProducerSettings(config, new StringSerializer, new StringSerializer)
         .withBootstrapServers(bootstrapServers)
     producerSettings
-      .asyncCreateKafkaProducer()
+      .createKafkaProducerAsync()
       .map { kafkaProducer =>
         // #producerMetrics
         val metrics: java.util.Map[org.apache.kafka.common.MetricName, _ <: org.apache.kafka.common.Metric] =
