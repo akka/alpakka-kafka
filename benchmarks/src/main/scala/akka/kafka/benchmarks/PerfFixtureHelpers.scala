@@ -30,6 +30,7 @@ object PerfFixtureHelpers {
       topic: String = randomId()
   ) {
     def replicationFactor = BuildInfo.kafkaScale
+    def freshTopic: FilledTopic = copy(topic = randomId())
   }
 }
 
