@@ -118,13 +118,21 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
       createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
 
-      eventually {
-        receivedCounter.get() shouldBe totalMessages
-      }
+      if (receivedCounter.get() != totalMessages)
+        log.warn("All consumers together did receive {}, not the total of {} messages",
+                 receivedCounter.get(),
+                 totalMessages)
 
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
-      stream1messages + stream2messages shouldBe totalMessages
+      if (stream1messages + stream2messages != totalMessages)
+        log.warn(
+          "The consumers counted {} + {} = {} messages, not the total of {} messages",
+          stream1messages,
+          stream2messages,
+          stream1messages + stream2messages,
+          totalMessages
+        )
     }
 
     "connect consumer to producer and commit in batches" in {
