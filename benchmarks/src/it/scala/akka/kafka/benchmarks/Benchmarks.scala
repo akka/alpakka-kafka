@@ -12,8 +12,6 @@ import org.scalatest.FlatSpecLike
 
 import BenchmarksBase._
 
-import scala.concurrent.duration._
-
 object BenchmarksBase {
   // Message count multiplier to adapt for shorter local testing
   val factor = 1000
@@ -77,56 +75,6 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   }
 }
 
-class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
-  it should "bench with small messages" in {
-    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, topic_1000_100)
-    runPerfTest(cmd,
-                KafkaConsumerFixtures.filledTopics(cmd),
-                KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-
-  it should "bench with normal messages" in {
-    val cmd =
-      RunTestCommand("apache-kafka-batched-consumer-normal-msg", bootstrapServers, topic_1000_5000)
-    runPerfTest(cmd,
-                KafkaConsumerFixtures.filledTopics(cmd),
-                KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-
-  it should "bench with normal messages and eight partitions" in {
-    val cmd =
-      RunTestCommand("apache-kafka-batched-consumer-normal-msg-8-partitions", bootstrapServers, topic_1000_5000_8)
-    runPerfTest(cmd,
-                KafkaConsumerFixtures.filledTopics(cmd),
-                KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-}
-
-class AlpakkaKafkaBatchedConsumer extends BenchmarksBase() {
-
-  it should "bench with small messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer", bootstrapServers, topic_1000_100)
-    runPerfTest(cmd,
-                ReactiveKafkaConsumerFixtures.committableSources(cmd),
-                ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-
-  it should "bench with normal messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-batched-consumer-normal-msg", bootstrapServers, topic_1000_5000)
-    runPerfTest(cmd,
-                ReactiveKafkaConsumerFixtures.committableSources(cmd),
-                ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-
-  it should "bench with normal messages and eight partitions" in {
-    val cmd =
-      RunTestCommand("alpakka-kafka-batched-consumer-normal-msg-8-partitions", bootstrapServers, topic_1000_5000_8)
-    runPerfTest(cmd,
-                ReactiveKafkaConsumerFixtures.committableSources(cmd),
-                ReactiveKafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
-  }
-}
-
 class ApacheKafkaAtMostOnceConsumer extends BenchmarksBase() {
   it should "bench" in {
     val cmd = RunTestCommand("apache-kafka-at-most-once-consumer", bootstrapServers, topic_50_100)
@@ -140,41 +88,5 @@ class AlpakkaKafkaAtMostOnceConsumer extends BenchmarksBase() {
     runPerfTest(cmd,
                 ReactiveKafkaConsumerFixtures.committableSources(cmd),
                 ReactiveKafkaConsumerBenchmarks.consumeCommitAtMostOnce)
-  }
-}
-
-class ApacheKafkaTransactions extends BenchmarksBase() {
-  it should "bench with small messages" in {
-    val cmd = RunTestCommand("apache-kafka-transactions", bootstrapServers, topic_100_100)
-    runPerfTest(cmd,
-                KafkaTransactionFixtures.initialize(cmd),
-                KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
-  }
-
-  it should "bench with normal messages" in {
-    val cmd = RunTestCommand("apache-kafka-transactions-normal-msg", bootstrapServers, topic_100_5000)
-    runPerfTest(cmd,
-                KafkaTransactionFixtures.initialize(cmd),
-                KafkaTransactionBenchmarks.consumeTransformProduceTransaction(commitInterval = 100.milliseconds))
-  }
-}
-
-class AlpakkaKafkaTransactions extends BenchmarksBase() {
-  it should "bench with small messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-transactions", bootstrapServers, topic_100_100)
-    runPerfTest(
-      cmd,
-      ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),
-      ReactiveKafkaTransactionBenchmarks.consumeTransformProduceTransaction
-    )
-  }
-
-  it should "bench with normal messages" in {
-    val cmd = RunTestCommand("alpakka-kafka-transactions-normal-msg", bootstrapServers, topic_100_5000)
-    runPerfTest(
-      cmd,
-      ReactiveKafkaTransactionFixtures.transactionalSourceAndSink(cmd, commitInterval = 100.milliseconds),
-      ReactiveKafkaTransactionBenchmarks.consumeTransformProduceTransaction
-    )
   }
 }
