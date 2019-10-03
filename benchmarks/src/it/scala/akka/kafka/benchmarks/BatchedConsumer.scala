@@ -6,7 +6,7 @@ import akka.kafka.benchmarks.app.RunTestCommand
 
 class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
   it should "bench with small messages" in {
-    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, topic_1000_100)
+    val cmd = RunTestCommand("apache-kafka-batched-consumer", bootstrapServers, topic_1000_100.freshTopic)
     runPerfTest(cmd,
       KafkaConsumerFixtures.filledTopics(cmd),
       KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
@@ -22,7 +22,7 @@ class ApacheKafkaBatchedConsumer extends BenchmarksBase() {
 
   it should "bench with normal messages and eight partitions" in {
     val cmd =
-      RunTestCommand("apache-kafka-batched-consumer-normal-msg-8-partitions", bootstrapServers, topic_1000_5000_8)
+      RunTestCommand("apache-kafka-batched-consumer-normal-msg-8-partitions", bootstrapServers, topic_1000_5000_8.freshTopic)
     runPerfTest(cmd,
       KafkaConsumerFixtures.filledTopics(cmd),
       KafkaConsumerBenchmarks.consumerAtLeastOnceBatched(batchSize = 1000))
