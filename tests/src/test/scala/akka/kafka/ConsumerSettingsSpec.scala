@@ -6,7 +6,6 @@
 package akka.kafka
 
 import akka.actor.ActorSystem
-import akka.kafka.scaladsl.DiscoverySupport
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
@@ -197,30 +196,15 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues 
 
   "Discovery" should {
     val config = ConfigFactory
-      .parseString(s"""
-                      |my-consumer: $${akka.kafka.consumer} {
-                      |  service {
-                      |    name = "kafkaService1"
-                      |    lookup-timeout = 10 ms
-                      |  }
-                      |}
-                      |akka.discovery.method = config
-                      |akka.discovery.config.services = {
-                      |  kafkaService1 = {
-                      |    endpoints = [
-                      |      { host = "cat", port = 1233 }
-                      |      { host = "dog", port = 1234 }
-                      |    ]
-                      |  }
-                      |}
-                   """.stripMargin)
+      .parseString(ConsumerSettingsSpec.DiscoveryConfigSection)
       .withFallback(ConfigFactory.load())
       .resolve()
 
     "read bootstrap servers from config" in {
+      import akka.kafka.scaladsl.DiscoverySupport
       implicit val actorSystem = ActorSystem("test", config)
 
-      DiscoverySupport.bootstrapServers(config.getConfig("my-consumer")).futureValue shouldBe "cat:1233,dog:1234"
+      DiscoverySupport.bootstrapServers(config.getConfig("discovery-consumer")).futureValue shouldBe "cat:1233,dog:1234"
 
       TestKit.shutdownActorSystem(actorSystem)
     }
@@ -229,9 +213,13 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues 
       implicit val actorSystem = ActorSystem("test", config)
       implicit val executionContext: ExecutionContext = actorSystem.dispatcher
 
-      val consumerConfig = config.getConfig("my-consumer")
+      // #discovery-settings
+      import akka.kafka.scaladsl.DiscoverySupport
+
+      val consumerConfig = config.getConfig("discovery-consumer")
       val settings = ConsumerSettings(consumerConfig, new StringDeserializer, new StringDeserializer)
         .withEnrichAsync(DiscoverySupport.consumerBootstrapServers(consumerConfig))
+      // #discovery-settings
 
       val exception = settings.createKafkaConsumerAsync().failed.futureValue
       exception shouldBe a[org.apache.kafka.common.KafkaException]
@@ -243,4 +231,30 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues 
 
   }
 
+}
+
+object ConsumerSettingsSpec {
+
+  val DiscoveryConfigSection =
+    s"""
+       // #discovery-service
+      discovery-consumer: $${akka.kafka.consumer} {
+        service {
+          name = "kafkaService1"
+          lookup-timeout = 10 ms
+        }
+      }
+      // #discovery-service
+      // #discovery-with-config
+      akka.discovery.method = config
+      akka.discovery.config.services = {
+        kafkaService1 = {
+          endpoints = [
+            { host = "cat", port = 1233 }
+            { host = "dog", port = 1234 }
+          ]
+        }
+      }
+      // #discovery-with-config
+   """
 }

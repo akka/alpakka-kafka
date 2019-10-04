@@ -293,7 +293,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * @since 2.0.0
    */
   def withEnrichCompletionStage(
-      value: ProducerSettings[K, V] => CompletionStage[ProducerSettings[K, V]]
+      value: java.util.function.Function[ProducerSettings[K, V], CompletionStage[ProducerSettings[K, V]]]
   ): ProducerSettings[K, V] =
     copy(enrichAsync = (s: ProducerSettings[K, V]) => value.apply(s).toScala)
 

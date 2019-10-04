@@ -527,7 +527,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    * @since 2.0.0
    */
   def withEnrichCompletionStage(
-      value: ConsumerSettings[K, V] => CompletionStage[ConsumerSettings[K, V]]
+      value: java.util.function.Function[ConsumerSettings[K, V], CompletionStage[ConsumerSettings[K, V]]]
   ): ConsumerSettings[K, V] =
     copy(enrichAsync = (s: ConsumerSettings[K, V]) => value.apply(s).toScala)
 

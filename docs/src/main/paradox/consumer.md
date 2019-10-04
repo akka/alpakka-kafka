@@ -46,7 +46,7 @@ These factory methods are part of the @scala[@scaladoc[Transactional API](akka.k
 When creating a consumer source you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
 
 * de-serializers for the keys and values
-* bootstrap servers of the Kafka cluster
+* bootstrap servers of the Kafka cluster (see @ref:[Service discovery](discovery.md) to defer the server configuration)
 * group id for the consumer, note that offsets are always committed for a given consumer group
 * Kafka consumer tuning parameters
 
@@ -90,11 +90,6 @@ Scala
 
 Java
 : @@ snip [read](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #config-inheritance } 
-
-
-### Akka Discovery support
-
-# TODO
 
 
 ## Offset Storage external to Kafka

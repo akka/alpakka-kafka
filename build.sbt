@@ -365,6 +365,7 @@ lazy val docs = project
         "scalatest.version" -> scalatestVersion,
         "testcontainers.version" -> testcontainersVersion,
         "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
+        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",

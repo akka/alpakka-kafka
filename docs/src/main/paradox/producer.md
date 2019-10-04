@@ -48,7 +48,7 @@ These factory methods are part of the @scala[@scaladoc[Transactional API](akka.k
 
 When creating a producer stream you need to pass in `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) that define things like:
 
-* bootstrap servers of the Kafka cluster
+* bootstrap servers of the Kafka cluster (see @ref:[Service discovery](discovery.md) to defer the server configuration)
 * serializers for the keys and values
 * tuning parameters
 
@@ -67,11 +67,6 @@ When creating `ProducerSettings` with the `ActorSystem` (@scaladoc[API](akka.act
 `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) can also be created from any other `Config` section with the same layout as above.
 
 See @javadoc[KafkaProducer API](org.apache.kafka.clients.producer.KafkaProducer) and @javadoc[ProducerConfig API](org.apache.kafka.clients.producer.ProducerConfig) for more details regarding settings.
-
-
-### Akka Discovery support
-
-# TODO
 
 
 ## Producer as a Sink

@@ -5,7 +5,10 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.CompletionStage
+
 import akka.actor.ActorSystem
+import akka.annotation.InternalApi
 import akka.discovery.Discovery
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import com.typesafe.config.Config
@@ -13,6 +16,9 @@ import com.typesafe.config.Config
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import akka.util.JavaDurationConverters._
+
+import scala.compat.java8.FutureConverters
+import scala.compat.java8.FunctionConverters._
 
 /**
  * Scala API.
@@ -67,6 +73,15 @@ object DiscoverySupport {
         }
   }
 
+  @InternalApi
+  private[kafka] def consumerBootstrapServersCompletionStage[K, V](
+      config: Config,
+      system: ActorSystem
+  ): java.util.function.Function[ConsumerSettings[K, V], CompletionStage[ConsumerSettings[K, V]]] = {
+    val function: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = consumerBootstrapServers(config)(system)
+    function.andThen(FutureConverters.toJava).asJava
+  }
+
   /**
    * Expects a `service` section in the given Config and reads the given service name's address
    * to be used as `bootstrapServers`.
@@ -80,6 +95,15 @@ object DiscoverySupport {
         .map { bootstrapServers =>
           settings.withBootstrapServers(bootstrapServers)
         }
+  }
+
+  @InternalApi
+  private[kafka] def producerBootstrapServersCompletionStage[K, V](
+      config: Config,
+      system: ActorSystem
+  ): java.util.function.Function[ProducerSettings[K, V], CompletionStage[ProducerSettings[K, V]]] = {
+    val function: ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = producerBootstrapServers(config)(system)
+    function.andThen(FutureConverters.toJava).asJava
   }
 
 }

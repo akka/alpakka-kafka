@@ -6,7 +6,6 @@
 package akka.kafka
 
 import akka.actor.ActorSystem
-import akka.kafka.scaladsl.DiscoverySupport
 import akka.testkit.TestKit
 import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
@@ -178,32 +177,20 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
 
   "Discovery" should {
     val config = ConfigFactory
-      .parseString(s"""
-          |my-producer: $${akka.kafka.producer} {
-          |  service {
-          |    name = "kafkaService1"
-          |    lookup-timeout = 10 ms
-          |  }
-          |}
-          |akka.discovery.method = config
-          |akka.discovery.config.services = {
-          |  kafkaService1 = {
-          |    endpoints = [
-          |      { host = "cat", port = 1233 }
-          |      { host = "dog", port = 1234 }
-          |    ]
-          |  }
-          |}
-        """.stripMargin)
+      .parseString(ProducerSettingsSpec.DiscoveryConfigSection)
       .withFallback(ConfigFactory.load())
       .resolve()
 
     "use enriched settings for consumer creation" in {
       implicit val actorSystem = ActorSystem("test", config)
 
-      val producerConfig = config.getConfig("my-producer")
+      // #discovery-settings
+      import akka.kafka.scaladsl.DiscoverySupport
+
+      val producerConfig = config.getConfig("discovery-producer")
       val settings = ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
         .withEnrichAsync(DiscoverySupport.producerBootstrapServers(producerConfig))
+      // #discovery-settings
 
       @silent
       val exception = intercept[org.apache.kafka.common.KafkaException] {
@@ -216,4 +203,27 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
     }
   }
 
+}
+
+object ProducerSettingsSpec {
+  val DiscoveryConfigSection =
+    s"""
+        // #discovery-service
+        discovery-producer: $${akka.kafka.producer} {
+          service {
+            name = "kafkaService1"
+            lookup-timeout = 10 ms
+          }
+        }
+        // #discovery-service
+        akka.discovery.method = config
+        akka.discovery.config.services = {
+          kafkaService1 = {
+            endpoints = [
+              { host = "cat", port = 1233 }
+              { host = "dog", port = 1234 }
+            ]
+          }
+        }
+        """
 }
