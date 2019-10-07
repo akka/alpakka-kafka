@@ -5,20 +5,15 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.CompletionStage
-
 import akka.actor.ActorSystem
 import akka.annotation.InternalApi
 import akka.discovery.Discovery
 import akka.kafka.{ConsumerSettings, ProducerSettings}
+import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import akka.util.JavaDurationConverters._
-
-import scala.compat.java8.FutureConverters
-import scala.compat.java8.FunctionConverters._
 
 /**
  * Scala API.
