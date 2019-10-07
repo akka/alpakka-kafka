@@ -30,7 +30,7 @@ object DiscoverySupport {
   /**
    * Use Akka Discovery to read the addresses for `serviceName` within `lookupTimeout`.
    */
-  def bootstrapServers(
+  private def bootstrapServers(
       serviceName: String,
       lookupTimeout: FiniteDuration
   )(implicit system: ActorSystem): Future[String] = {
@@ -49,9 +49,12 @@ object DiscoverySupport {
   }
 
   /**
+   * Internal API.
+   *
    * Expect a `service` section in Config and use Akka Discovery to read the addresses for `name` within `lookup-timeout`.
    */
-  def bootstrapServers(config: Config)(implicit system: ActorSystem): Future[String] =
+  @InternalApi
+  private[kafka] def bootstrapServers(config: Config)(implicit system: ActorSystem): Future[String] =
     if (config.hasPath("service")) {
       val serviceName = config.getString("service.name")
       val lookupTimeout = config.getDuration("service.lookup-timeout").asScala
@@ -73,15 +76,6 @@ object DiscoverySupport {
         }
   }
 
-  @InternalApi
-  private[kafka] def consumerBootstrapServersCompletionStage[K, V](
-      config: Config,
-      system: ActorSystem
-  ): java.util.function.Function[ConsumerSettings[K, V], CompletionStage[ConsumerSettings[K, V]]] = {
-    val function: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = consumerBootstrapServers(config)(system)
-    function.andThen(FutureConverters.toJava).asJava
-  }
-
   /**
    * Expects a `service` section in the given Config and reads the given service name's address
    * to be used as `bootstrapServers`.
@@ -95,15 +89,6 @@ object DiscoverySupport {
         .map { bootstrapServers =>
           settings.withBootstrapServers(bootstrapServers)
         }
-  }
-
-  @InternalApi
-  private[kafka] def producerBootstrapServersCompletionStage[K, V](
-      config: Config,
-      system: ActorSystem
-  ): java.util.function.Function[ProducerSettings[K, V], CompletionStage[ProducerSettings[K, V]]] = {
-    val function: ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = producerBootstrapServers(config)(system)
-    function.andThen(FutureConverters.toJava).asJava
   }
 
 }
