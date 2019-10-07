@@ -5,73 +5,57 @@
 
 package akka.kafka.scaladsl
 
-import akka.actor.ActorRef
-import akka.kafka.Metadata.{
-  BeginningOffsets,
-  EndOffsets,
-  GetBeginningOffsets,
-  GetEndOffsets,
-  GetPartitionsFor,
-  ListTopics,
-  PartitionsFor,
-  Topics
-}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.dispatch.ExecutionContexts
+import akka.kafka.{ConsumerSettings, KafkaConsumerActor}
+import akka.kafka.Metadata.{BeginningOffsets, GetBeginningOffsets}
 import akka.pattern.ask
 import akka.util.Timeout
-import org.apache.kafka.common.{PartitionInfo, TopicPartition}
+import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success}
 
-object MetadataClient {
+class MetadataClient(actorSystem: ActorSystem, timeout: Timeout) {
 
-  def getBeginningOffsets(
-      consumerActor: ActorRef,
-      partitions: Set[TopicPartition],
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[Map[TopicPartition, Long]] =
+  private val consumerActors = scala.collection.mutable.Map[ConsumerSettings[Any, Any], ActorRef]()
+  private implicit val system: ActorSystem = actorSystem
+  private implicit val ec: ExecutionContextExecutor = actorSystem.dispatcher
+
+  def getBeginningOffsets[K, V](
+      consumerSettings: ConsumerSettings[K, V],
+      partitions: Set[TopicPartition]
+  ): Future[Map[TopicPartition, Long]] = {
+    val consumerActor: ActorRef = getConsumerActor(consumerSettings)
     (consumerActor ? GetBeginningOffsets(partitions))(timeout)
       .mapTo[BeginningOffsets]
-      .map(_.response.get)
+      .map(_.response)
+      .flatMap {
+        case Success(res) => Future.successful(res)
+        case Failure(e) => Future.failed(e)
+      }(ExecutionContexts.sameThreadExecutionContext)
+  }
 
-  def getBeginningOffsetForPartition(
-      consumerActor: ActorRef,
-      partition: TopicPartition,
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[Long] =
-    getBeginningOffsets(consumerActor, Set(partition), timeout)
+  def getBeginningOffsetForPartition[K, V](
+      consumerSettings: ConsumerSettings[K, V],
+      partition: TopicPartition
+  ): Future[Long] =
+    getBeginningOffsets(consumerSettings, Set(partition))
       .map(beginningOffsets => beginningOffsets(partition))
 
-  def getEndOffsets(
-      consumerActor: ActorRef,
-      partitions: Set[TopicPartition],
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[Map[TopicPartition, Long]] =
-    (consumerActor ? GetEndOffsets(partitions))(timeout)
-      .mapTo[EndOffsets]
-      .map(_.response.get)
+  def stopConsumerActor[K, V](consumerSettings: ConsumerSettings[K, V]): Unit = {
+    val consumerActor = getConsumerActor(consumerSettings)
+    consumerActor ! KafkaConsumerActor.Stop
+  }
 
-  def getEndOffsetForPartition(
-      consumerActor: ActorRef,
-      partition: TopicPartition,
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[Long] =
-    getEndOffsets(consumerActor, Set(partition), timeout)
-      .map(endOffsets => endOffsets(partition))
-
-  def listTopics(
-      consumerActor: ActorRef,
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[Map[String, List[PartitionInfo]]] =
-    (consumerActor ? ListTopics)(timeout)
-      .mapTo[Topics]
-      .map(_.response.get)
-
-  def getPartitionsFor(
-      consumerActor: ActorRef,
-      topic: String,
-      timeout: Timeout
-  )(implicit ec: ExecutionContext): Future[List[PartitionInfo]] =
-    (consumerActor ? GetPartitionsFor(topic))(timeout)
-      .mapTo[PartitionsFor]
-      .map(_.response.get)
+  private def getConsumerActor[K, V](consumerSettings: ConsumerSettings[K, V])(implicit system: ActorSystem) = {
+    val consumerActor = consumerActors.get(consumerSettings.asInstanceOf[ConsumerSettings[Any, Any]])
+    if (consumerActor.isEmpty) {
+      val newConsumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+      consumerActors.put(consumerSettings.asInstanceOf[ConsumerSettings[Any, Any]], newConsumerActor)
+      newConsumerActor
+    } else {
+      consumerActor.get
+    }
+  }
 }
