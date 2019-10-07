@@ -8,7 +8,7 @@ package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorSystem
-import akka.kafka.{ConsumerSettings, ProducerSettings, scaladsl}
+import akka.kafka.{scaladsl, ConsumerSettings, ProducerSettings}
 import com.typesafe.config.Config
 
 import scala.compat.java8.FunctionConverters._
