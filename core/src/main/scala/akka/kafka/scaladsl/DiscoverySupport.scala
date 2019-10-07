@@ -39,7 +39,6 @@ object DiscoverySupport {
     discovery.lookup(serviceName, lookupTimeout).map { resolved =>
       resolved.addresses
         .map { target =>
-          // TODO is it allowed to not specify a port?
           val port = target.port
             .getOrElse(throw new IllegalArgumentException(s"port missing for $serviceName ${target.host}"))
           s"${target.host}:$port"
