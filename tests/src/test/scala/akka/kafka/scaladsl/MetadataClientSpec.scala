@@ -21,17 +21,17 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val partition0 = new TopicPartition(topic1, 0)
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val metadataClient = new MetadataClient(system, 1 seconds)
+      val metadataClient = MetadataClient.create(consumerSettings, 1 second)
 
       awaitProduce(produce(topic1, 1 to 10))
 
       val beginningOffsets = metadataClient
-        .getBeginningOffsets(consumerSettings, Set(partition0))
+        .getBeginningOffsets(Set(partition0))
         .futureValue
 
       beginningOffsets(partition0) shouldBe 0
 
-      metadataClient.stopConsumerActor(consumerSettings)
+      metadataClient.stop()
     }
 
     "fail in case of an exception during fetch beginning offsets for non-existing topics" in assertAllStagesStopped {
@@ -39,14 +39,14 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val nonExistingPartition = new TopicPartition("non-existing topic", 0)
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val metadataClient = new MetadataClient(system, 1 second)
+      val metadataClient = MetadataClient.create(consumerSettings, 1 second)
 
       val beginningOffsetsFuture = metadataClient
-        .getBeginningOffsets(consumerSettings, Set(nonExistingPartition))
+        .getBeginningOffsets(Set(nonExistingPartition))
 
       beginningOffsetsFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
-      metadataClient.stopConsumerActor(consumerSettings)
+      metadataClient.stop()
     }
 
     "fetch beginning offset for given partition" in assertAllStagesStopped {
@@ -55,17 +55,17 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       val partition0 = new TopicPartition(topic1, 0)
       val consumerSettings = consumerDefaults.withGroupId(group1)
 
-      val metadataClient = new MetadataClient(system, 1 second)
+      val metadataClient = MetadataClient.create(consumerSettings, 1 second)
 
       awaitProduce(produce(topic1, 1 to 10))
 
       val beginningOffset = metadataClient
-        .getBeginningOffsetForPartition(consumerSettings, partition0)
+        .getBeginningOffsetForPartition(partition0)
         .futureValue
 
       beginningOffset shouldBe 0
 
-      metadataClient.stopConsumerActor(consumerSettings)
+      metadataClient.stop()
     }
   }
 }

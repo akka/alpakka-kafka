@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,6 +40,8 @@ import static org.hamcrest.core.Is.is;
 public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   private static final ActorSystem sys = ActorSystem.create("MetadataClientTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
+  private static final Executor executor = Executors.newSingleThreadExecutor();
+  private static final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
 
   @Rule public ExpectedException expectedException = ExpectedException.none();
 
@@ -53,14 +57,16 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
     final Set<TopicPartition> partitions = Collections.singleton(partition0);
-    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
-    final MetadataClient metadataClient = new MetadataClient(sys, timeout);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
 
     final CompletionStage<Map<TopicPartition, Long>> response =
-        metadataClient.getBeginningOffsets(consumerSettings, partitions);
+        metadataClient.getBeginningOffsets(partitions);
     final Map<TopicPartition, Long> beginningOffsets = response.toCompletableFuture().join();
 
     assertThat(beginningOffsets.get(partition0), is(0L));
+
+    metadataClient.stop();
   }
 
   @Test
@@ -74,13 +80,13 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
     final Set<TopicPartition> partitions = Collections.singleton(nonExistingPartition);
-    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
-    final MetadataClient metadataClient = new MetadataClient(sys, timeout);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
 
     final CompletionStage<Map<TopicPartition, Long>> response =
-        metadataClient.getBeginningOffsets(consumerSettings, partitions);
+        metadataClient.getBeginningOffsets(partitions);
 
-    metadataClient.stopConsumerActor(consumerSettings);
+    metadataClient.stop();
 
     response.toCompletableFuture().join();
   }
@@ -92,16 +98,16 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final TopicPartition partition0 = new TopicPartition(topic1, 0);
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
-    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
-    final MetadataClient metadataClient = new MetadataClient(sys, timeout);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
 
     final CompletionStage<Long> response =
-        metadataClient.getBeginningOffsetForPartition(consumerSettings, partition0);
+        metadataClient.getBeginningOffsetForPartition(partition0);
     final Long beginningOffset = response.toCompletableFuture().join();
 
     assertThat(beginningOffset, is(0L));
 
-    metadataClient.stopConsumerActor(consumerSettings);
+    metadataClient.stop();
   }
 
   @AfterClass
