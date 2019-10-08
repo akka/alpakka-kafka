@@ -53,7 +53,7 @@ TaskKey[Unit]("verifyCodeStyle") := {
   }
 }
 
-addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradox")
+addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
@@ -274,7 +274,11 @@ lazy val tests = project
             Seq()
           case "2.12" | "2.11" =>
             Seq(
-              "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
+              "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
+              // sbt 1.3.x reports: Conflicting cross-version suffixes in: org.apache.kafka:kafka, com.typesafe.scala-logging:scala-logging
+              "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test
+              excludeAll (ExclusionRule("log4j", "log4j"), ExclusionRule("org.slf4j", "slf4j-log4j12"),
+              ExclusionRule("com.typesafe.scala-logging"), ExclusionRule("org.apache.kafka"))
             )
         }
       },
