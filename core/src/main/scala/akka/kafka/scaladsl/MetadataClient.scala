@@ -37,8 +37,6 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout)(implici
 
 object MetadataClient {
 
-  private val consumerActors = scala.collection.mutable.Map[ConsumerSettings[Any, Any], ActorRef]()
-
   def create(consumerActor: ActorRef, timeout: Timeout)(implicit ec: ExecutionContext): MetadataClient =
     new MetadataClient(consumerActor, timeout)
 
@@ -46,18 +44,7 @@ object MetadataClient {
       consumerSettings: ConsumerSettings[K, V],
       timeout: Timeout
   )(implicit system: ActorSystem, ec: ExecutionContext): MetadataClient = {
-    val consumerActor = getConsumerActor(system, consumerSettings)
+    val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
     new MetadataClient(consumerActor, timeout)
-  }
-
-  private def getConsumerActor[K, V](system: ActorSystem, consumerSettings: ConsumerSettings[K, V]) = {
-    val consumerActor = consumerActors.get(consumerSettings.asInstanceOf[ConsumerSettings[Any, Any]])
-    if (consumerActor.isEmpty) {
-      val newConsumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-      consumerActors.put(consumerSettings.asInstanceOf[ConsumerSettings[Any, Any]], newConsumerActor)
-      newConsumerActor
-    } else {
-      consumerActor.get
-    }
   }
 }
