@@ -61,8 +61,6 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
-  private def producerArrived: AsyncCallback[Producer[K, V]] = getAsyncCallback(assignProducer)
-
   protected def assignProducer(p: Producer[K, V]): Unit = {
     producer = p
     resumeDemand()
@@ -71,22 +69,20 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   override def preStart(): Unit = {
     super.preStart()
     val producerFuture = producerFactory(materializer.executionContext)
-    if (producerFuture.isCompleted) {
-      producerFuture.value match {
-        case Some(Success(p)) => assignProducer(p)
-        case Some(Failure(e)) => failStage(e)
-        case None => throw new IllegalStateException("completed Future without a value")
-      }
-    } else
-      producerFuture
-        .transform(
-          producer => producerArrived.invoke(producer),
-          e => {
-            log.error(e, "producer creation failed")
-            failStageCb.invoke(e)
-            e
-          }
-        )(ExecutionContexts.sameThreadExecutionContext)
+    producerFuture.value match {
+      case Some(Success(p)) => assignProducer(p)
+      case Some(Failure(e)) => failStage(e)
+      case None =>
+        producerFuture
+          .transform(
+            producer => getAsyncCallback(assignProducer).invoke(producer),
+            e => {
+              log.error(e, "producer creation failed")
+              failStageCb.invoke(e)
+              e
+            }
+          )(ExecutionContexts.sameThreadExecutionContext)
+    }
   }
 
   def checkForCompletion(): Unit =

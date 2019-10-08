@@ -5,7 +5,7 @@
 
 package akka.kafka.scaladsl
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, ActorSystemImpl}
 import akka.annotation.InternalApi
 import akka.discovery.Discovery
 import akka.kafka.{ConsumerSettings, ProducerSettings}
@@ -14,6 +14,7 @@ import com.typesafe.config.Config
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Failure
 
 /**
  * Scala API.
@@ -48,12 +49,14 @@ object DiscoverySupport {
    * Expect a `service` section in Config and use Akka Discovery to read the addresses for `name` within `lookup-timeout`.
    */
   @InternalApi
-  private[kafka] def bootstrapServers(config: Config)(implicit system: ActorSystem): Future[String] =
+  private[kafka] def bootstrapServers(config: Config)(implicit system: ActorSystem): Future[String] = {
+    checkClassOrThrow(system.asInstanceOf[ActorSystemImpl])
     if (config.hasPath("service")) {
       val serviceName = config.getString("service.name")
       val lookupTimeout = config.getDuration("service.lookup-timeout").asScala
       bootstrapServers(serviceName, lookupTimeout)
     } else throw new IllegalArgumentException(s"config $config does not contain `service` section")
+  }
 
   /**
    * Expects a `service` section in the given Config and reads the given service name's address
@@ -84,5 +87,14 @@ object DiscoverySupport {
           settings.withBootstrapServers(bootstrapServers)
         }
   }
+
+  private def checkClassOrThrow(system: ActorSystemImpl): Unit =
+    system.dynamicAccess.getClassFor("akka.discovery.Discovery$") match {
+      case Failure(_: ClassNotFoundException | _: NoClassDefFoundError) =>
+        throw new IllegalStateException(
+          s"Akka Discovery is being used but the `akka-discovery` library is not on the classpath, it must be added explicitly. See https://doc.akka.io/docs/alpakka-kafka/current/discovery.html"
+        )
+      case _ =>
+    }
 
 }

@@ -327,6 +327,10 @@ import scala.util.control.NonFatal
     case s: ConsumerSettings[K, V] =>
       applySettings(s)
 
+    case scala.util.Failure(e) =>
+      owner.foreach(_ ! Failure(e))
+      throw e
+
     case Stop =>
       log.debug("Received Stop from {}, stopping", sender())
       context.stop(self)
@@ -414,22 +418,16 @@ import scala.util.control.NonFatal
   override def preStart(): Unit = {
     super.preStart()
     val updateSettings: Future[ConsumerSettings[K, V]] = _settings.enriched
-    if (updateSettings.isCompleted) {
-      updateSettings.value match {
-        case Some(Success(s)) => applySettings(s)
-        case Some(scala.util.Failure(e)) =>
-          owner.foreach(_ ! Failure(e))
-          throw e
-        case _ =>
-          val e = new IllegalStateException("completed future without a value?")
-          owner.foreach(_ ! Failure(e))
-          throw e
-      }
-    } else {
-      import akka.pattern.pipe
-      implicit val ec: ExecutionContext = context.dispatcher
-      context.become(expectSettings)
-      updateSettings.pipeTo(self)
+    updateSettings.value match {
+      case Some(Success(s)) => applySettings(s)
+      case Some(scala.util.Failure(e)) =>
+        owner.foreach(_ ! Failure(e))
+        throw e
+      case None =>
+        import akka.pattern.pipe
+        implicit val ec: ExecutionContext = context.dispatcher
+        context.become(expectSettings)
+        updateSettings.pipeTo(self)
     }
   }
 

@@ -1,5 +1,5 @@
 ---
-project.description: Akka Discovery can easily be used to achieve Kafka broker discovery from the operations environment.
+project.description: Akka Discovery can be used to achieve Kafka broker discovery from the operations environment.
 ---
 # Service discovery
 
