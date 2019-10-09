@@ -219,7 +219,6 @@ lazy val testkit = project
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
-        "org.apache.commons" % "commons-compress" % "1.19", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
@@ -228,6 +227,8 @@ lazy val testkit = project
         else
           Seq(
             "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
+            "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10", // Kafka pulls in jackson databind ApacheV2
+            "org.apache.commons" % "commons-compress" % "1.19", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
             "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
           )
       },
@@ -260,7 +261,6 @@ lazy val tests = project
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
-        "org.apache.commons" % "commons-compress" % "1.18", // embedded Kafka pulls in Avro, which pulls in commons-compress 1.8.1, see testing.md
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.5" % Test,
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0" % Test, // ApacheV2
@@ -279,12 +279,7 @@ lazy val tests = project
         scalaBinaryVersion.value match {
           case "2.13" =>
             Seq()
-          case "2.12" =>
-            Seq(
-              "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion % Test,
-              "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
-            )
-          case "2.11" =>
+          case "2.12" | "2.11" =>
             Seq(
               "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
             )
