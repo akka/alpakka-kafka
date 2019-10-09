@@ -94,7 +94,7 @@ object ConsumerSettings {
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
-      enrichAsync = (s: ConsumerSettings[K, V]) => Future.successful(s),
+      enrichAsync = None,
       ConsumerSettings.createKafkaConsumer,
       connectionCheckerSettings,
       partitionHandlerWarning
@@ -208,7 +208,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
-    val enrichAsync: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]],
+    val enrichAsync: Option[ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]],
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
     val connectionCheckerSettings: ConnectionCheckerSettings,
     val partitionHandlerWarning: FiniteDuration
@@ -246,7 +246,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     offsetForTimesTimeout = 5.seconds,
     metadataRequestTimeout = 5.seconds,
     drainingCheckInterval = 30.millis,
-    enrichAsync = (s: ConsumerSettings[K, V]) => Future.successful(s),
+    enrichAsync = None,
     consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
     connectionCheckerSettings = ConnectionCheckerSettings.Disabled,
     partitionHandlerWarning = 15.seconds
@@ -519,7 +519,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    * @since 2.0.0
    */
   def withEnrichAsync(value: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]): ConsumerSettings[K, V] =
-    copy(enrichAsync = value)
+    copy(enrichAsync = Some(value))
 
   /**
    * Java API.
@@ -529,7 +529,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withEnrichCompletionStage(
       value: java.util.function.Function[ConsumerSettings[K, V], CompletionStage[ConsumerSettings[K, V]]]
   ): ConsumerSettings[K, V] =
-    copy(enrichAsync = (s: ConsumerSettings[K, V]) => value.apply(s).toScala)
+    copy(enrichAsync = Some((s: ConsumerSettings[K, V]) => value.apply(s).toScala))
 
   /**
    * Replaces the default Kafka consumer creation logic.
@@ -565,7 +565,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
-      enrichAsync: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = enrichAsync,
+      enrichAsync: Option[ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]] = enrichAsync,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
       connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
       partitionHandlerWarning: FiniteDuration = partitionHandlerWarning
@@ -596,17 +596,24 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   /**
    * Applies `enrichAsync` to complement these settings from asynchronous sources.
    */
-  def enriched: Future[ConsumerSettings[K, V]] = enrichAsync(this)
+  def enriched: Future[ConsumerSettings[K, V]] =
+    enrichAsync.map(_.apply(this.copy(enrichAsync = None))).getOrElse(Future.successful(this))
 
   /**
    * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
    *
-   * WARNING: Blocking might appear while `enriched` is called - prefer [[createKafkaConsumerAsync()]] or [[createKafkaConsumerCompletionStage()]].
+   * This will fail with `IllegalStateException` if asynchronous enrichment is set up -- always prefer [[createKafkaConsumerAsync()]] or [[createKafkaConsumerCompletionStage()]].
+   *
+   * @throws IllegalStateException if asynchronous enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaConsumerAsync` or `createKafkaConsumerCompletionStage` to apply it
    */
-  def createKafkaConsumer(): Consumer[K, V] = {
-    val enrichedSettings = Await.result(enriched, 1.minute)
-    consumerFactory.apply(enrichedSettings)
-  }
+  def createKafkaConsumer(): Consumer[K, V] =
+    if (enrichAsync.isDefined) {
+      throw new IllegalStateException(
+        "Asynchronous settings enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaConsumerAsync` or `createKafkaConsumerCompletionStage` to apply it"
+      )
+    } else {
+      consumerFactory.apply(this)
+    }
 
   /**
    * Scala API.
@@ -644,5 +651,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
     s"connectionCheckerSettings=$connectionCheckerSettings," +
     s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}" +
+    s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
     ")"
 }

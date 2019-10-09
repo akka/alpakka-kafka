@@ -72,7 +72,7 @@ object ProducerSettings {
       parallelism,
       dispatcher,
       eosCommitInterval,
-      enrichAsync = (s: ProducerSettings[K, V]) => Future.successful(s),
+      enrichAsync = None,
       ProducerSettings.createKafkaProducer
     )
   }
@@ -175,7 +175,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val parallelism: Int,
     val dispatcher: String,
     val eosCommitInterval: FiniteDuration,
-    val enrichAsync: ProducerSettings[K, V] => Future[ProducerSettings[K, V]],
+    val enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]],
     val producerFactory: ProducerSettings[K, V] => Producer[K, V]
 ) {
 
@@ -197,7 +197,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       parallelism,
       dispatcher,
       eosCommitInterval,
-      enrichAsync = (s: ProducerSettings[K, V]) => Future.successful(s),
+      enrichAsync = None,
       ProducerSettings.createKafkaProducer
     )
 
@@ -285,7 +285,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * @since 2.0.0
    */
   def withEnrichAsync(value: ProducerSettings[K, V] => Future[ProducerSettings[K, V]]): ProducerSettings[K, V] =
-    copy(enrichAsync = value)
+    copy(enrichAsync = Some(value))
 
   /**
    * Java API.
@@ -295,7 +295,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   def withEnrichCompletionStage(
       value: java.util.function.Function[ProducerSettings[K, V], CompletionStage[ProducerSettings[K, V]]]
   ): ProducerSettings[K, V] =
-    copy(enrichAsync = (s: ProducerSettings[K, V]) => value.apply(s).toScala)
+    copy(enrichAsync = Some((s: ProducerSettings[K, V]) => value.apply(s).toScala))
 
   /**
    * Replaces the default Kafka producer creation logic.
@@ -317,7 +317,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       parallelism: Int = parallelism,
       dispatcher: String = dispatcher,
       eosCommitInterval: FiniteDuration = eosCommitInterval,
-      enrichAsync: ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = enrichAsync,
+      enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]] = enrichAsync,
       producerFactory: ProducerSettings[K, V] => Producer[K, V] = producerFactory
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
@@ -339,23 +339,30 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"parallelism=$parallelism," +
     s"dispatcher=$dispatcher," +
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}" +
+    s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
     ")"
 
   /**
    * Applies `enrichAsync` to complement these settings from asynchronous sources.
    */
-  def enriched: Future[ProducerSettings[K, V]] = enrichAsync(this)
+  def enriched: Future[ProducerSettings[K, V]] =
+    enrichAsync.map(_.apply(this.copy(enrichAsync = None))).getOrElse(Future.successful(this))
 
   /**
    * Create a `Producer` instance from these settings.
    *
-   * WARNING: Blocking might appear while `enriched` is called - prefer [[createKafkaProducerAsync()]]
-   * or [[createKafkaProducerCompletionStage()]].
+   * This will fail with `IllegalStateException` if asynchronous enrichment is set up -- always prefer [[createKafkaProducerAsync()]] or [[createKafkaProducerCompletionStage()]].
+   *
+   * @throws IllegalStateException if asynchronous enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaProducerAsync` / `createKafkaProducerCompletionStage` to apply it
    */
-  def createKafkaProducer(): Producer[K, V] = {
-    val enrichedSettings = Await.result(enriched, 1.minute)
-    producerFactory.apply(enrichedSettings)
-  }
+  def createKafkaProducer(): Producer[K, V] =
+    if (enrichAsync.isDefined) {
+      throw new IllegalStateException(
+        "Asynchronous settings enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaProducerAsync` or `createKafkaProducerCompletionStage` to apply it"
+      )
+    } else {
+      producerFactory.apply(this)
+    }
 
   /**
    * Scala API.
