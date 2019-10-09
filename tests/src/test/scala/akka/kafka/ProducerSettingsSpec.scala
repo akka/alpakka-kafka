@@ -210,10 +210,8 @@ object ProducerSettingsSpec {
     s"""
         // #discovery-service
         discovery-producer: $${akka.kafka.producer} {
-          service {
-            name = "kafkaService1"
-            lookup-timeout = 10 ms
-          }
+          service-name = "kafkaService1"
+          resolve-timeout = 10 ms
         }
         // #discovery-service
         akka.discovery.method = config

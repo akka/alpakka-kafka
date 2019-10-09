@@ -239,10 +239,8 @@ object ConsumerSettingsSpec {
     s"""
        // #discovery-service
       discovery-consumer: $${akka.kafka.consumer} {
-        service {
-          name = "kafkaService1"
-          lookup-timeout = 10 ms
-        }
+        service-name = "kafkaService1"
+        resolve-timeout = 10 ms
       }
       // #discovery-service
       // #discovery-with-config

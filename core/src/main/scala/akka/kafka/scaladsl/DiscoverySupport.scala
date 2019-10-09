@@ -51,11 +51,11 @@ object DiscoverySupport {
   @InternalApi
   private[kafka] def bootstrapServers(config: Config)(implicit system: ActorSystem): Future[String] = {
     checkClassOrThrow(system.asInstanceOf[ActorSystemImpl])
-    if (config.hasPath("service")) {
-      val serviceName = config.getString("service.name")
-      val lookupTimeout = config.getDuration("service.lookup-timeout").asScala
+    val serviceName = config.getString("service-name")
+    if (serviceName.nonEmpty) {
+      val lookupTimeout = config.getDuration("resolve-timeout").asScala
       bootstrapServers(serviceName, lookupTimeout)
-    } else throw new IllegalArgumentException(s"config $config does not contain `service` section")
+    } else throw new IllegalArgumentException(s"value for `service-name` in $config is empty")
   }
 
   /**

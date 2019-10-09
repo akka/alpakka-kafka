@@ -19,16 +19,15 @@ The Akka Discovery version must match the Akka version used in your build. To us
 
 ## Configure consumer settings
 
-To use Akka Discovery with Alpakka Kafka consumers, configure a section for your consumer settings which inherits the default settings (by using `${akka.kafka.consumer}`) and add a service name and a timeout for the service lookup. The service name must match the one configured with the discovery technology you use. The timeout depends on the discovery technology used and your environment.
+To use Akka Discovery with Alpakka Kafka consumers, configure a section for your consumer settings which inherits the default settings (by using `${akka.kafka.consumer}`) and add a service name and a timeout for the service lookup. Setting the `service-name` in the `akka.kafka.consumer` config will work, if all your consumers connect to the same Kafka broker.
 
-Note that consumers and producers may share a service.
+The service name must match the one configured with the discovery technology you use. Overwrite the `resolve-timeout` depending on the discovery technology used, and your environment.
+
+Note that consumers and producers may share a service (as shown in the examples on this page).
 
 ```hocon
 discovery-consumer: ${akka.kafka.consumer} {
-  service {
-    name = "kafkaService1"
-    lookup-timeout = 10 ms
-  }
+  service-name = "kafkaService1"
 }
 ```
 
@@ -41,16 +40,15 @@ Java
 
 ## Configure producer settings
 
-To use Akka Discovery with Alpakka Kafka producers, configure a section for your producer settings which inherits the default settings (by using `${akka.kafka.producer}`) and add a service name and a timeout for the service lookup. The service name must match the one configured with the discovery technology you use. The timeout depends on the discovery technology used and your environment.
+To use Akka Discovery with Alpakka Kafka producers, configure a section for your producer settings which inherits the default settings (by using `${akka.kafka.producer}`) and add a service name and a timeout for the service lookup. Setting the `service-name` in the `akka.kafka.producer` config will work, if all your producers connect to the same Kafka broker.
 
-Note that consumers and producers may share a service.
+The service name must match the one configured with the discovery technology you use. Overwrite the `resolve-timeout` depending on the discovery technology used, and your environment.
+
+Note that consumers and producers may share a service (as shown in the examples on this page).
 
 ```hocon
 discovery-producer: ${akka.kafka.producer} {
-  service {
-    name = "kafkaService1"
-    lookup-timeout = 10 ms
-  }
+  service-name = "kafkaService1"
 }
 ```
 
