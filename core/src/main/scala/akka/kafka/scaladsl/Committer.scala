@@ -52,8 +52,8 @@ object Committer {
   @ApiMayChange
   def flowWithOffsetContext[E](
       settings: CommitterSettings
-  ): FlowWithContext[E, CommittableOffset, NotUsed, CommittableOffsetBatch, NotUsed] = {
-    val value = Flow[(E, CommittableOffset)]
+  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value = Flow[(E, Committable)]
       .map(_._2)
       .via(batchFlow(settings))
       .map(b => (NotUsed, b))
@@ -73,8 +73,8 @@ object Committer {
    * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, CommittableOffset), Future[Done]] =
-    Flow[(E, CommittableOffset)]
+  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
+    Flow[(E, Committable)]
       .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
 

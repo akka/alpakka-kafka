@@ -36,7 +36,7 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithOffsetContext[E, C <: CommittableOffset](
+  def flowWithOffsetContext[E, C <: Committable](
       settings: CommitterSettings
   ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
     scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
@@ -53,7 +53,7 @@ object Committer {
    * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithOffsetContext[E, C <: CommittableOffset](
+  def sinkWithOffsetContext[E, C <: Committable](
       settings: CommitterSettings
   ): Sink[Pair[E, C], CompletionStage[Done]] =
     akka.stream.scaladsl
