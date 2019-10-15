@@ -19,7 +19,7 @@ Only use this source if you have the intention to connect it to `Transactional.f
 
 ## Transactional Sink and Flow
 
-The `Transactional.sink` is similar to the `Producer.committableSink` in that messages will be automatically committed as part of a transaction.  The `Transactional.sink` or `Transactional.flow` are required when connecting a consumer to a producer to achieve a transactional workflow.
+The `Transactional.sink` is similar to the `Producer.committingSink` in that messages will be automatically committed as part of a transaction.  The `Transactional.sink` or `Transactional.flow` are required when connecting a consumer to a producer to achieve a transactional workflow.
 
 They override producer properties `enable.idempotence` to `true` and `max.in.flight.requests.per.connection` to `1` as required by the Kafka producer to enable transactions.
 

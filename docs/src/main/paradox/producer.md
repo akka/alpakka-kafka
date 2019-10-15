@@ -27,7 +27,7 @@ These producers produce messages to Kafka and commit the offsets of incoming mes
 
 | Shared producer | Factory method          | Stream element type | Pass-through  | Context       |
 |-----------------|-------------------------|---------------------|---------------|---------------|
-| Available       | `committableSink`       | `Envelope`          | `Committable` | N/A           |
+| Available       | `committingSink`        | `Envelope`          | `Committable` | N/A           |
 | Available       | `sinkWithOffsetContext` | `Envelope`          | Any           | `Committable` |
 
 For details about the batched committing see @ref:[Consumer: Offset Storage in Kafka - committing](consumer.md#offset-storage-in-kafka-committing).

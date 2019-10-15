@@ -8,7 +8,6 @@ project.description: Consider these areas when using Alpakka Kafka in production
 
 1. Do not use `Consumer.atMostOnceSource` in production as it internally commits the offset after every element.
 1. If you create `Producer` sinks in "inner flows", be sure to @ref:[share the `Producer` instance](producer.md#sharing-the-kafkaproducer-instance). This avoids the expensive creation of `KafkaProducer` instances.
-1. To "produce and commit" which `Producer.committableSink` provides, consider to use `Producer.flexiFlow` together with a `Committer.sink` instead, as it batches commits better.
 
 @@@ note
 
