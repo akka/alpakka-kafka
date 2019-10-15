@@ -265,7 +265,9 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                     ProducerMessage.<String, String, ConsumerMessage.Committable>single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
-            .toMat(Producer.committableSink(producerSettings), Keep.both())
+            .via(Producer.flexiFlow(producerSettings))
+            .map(ProducerMessage.Results::passThrough)
+            .toMat(Committer.sink(committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink

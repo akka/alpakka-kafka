@@ -245,6 +245,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val topic2 = createTopic(2)
     val targetTopic = createTopic(3)
     val producerSettings = producerDefaults
+    val committerSettings = committerDefaults
     //format: off
     // #consumerToProducerSink
     val control =
@@ -256,7 +257,9 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
             msg.committableOffset
           )
         }
-        .toMat(Producer.committableSink(producerSettings))(Keep.both)
+        .via(Producer.flexiFlow(producerSettings))
+        .map(_.passThrough)
+        .toMat(Committer.sink(committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
