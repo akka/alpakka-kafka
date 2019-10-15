@@ -5,12 +5,12 @@
 
 package akka.kafka.scaladsl
 
-import akka.dispatch.ExecutionContexts
 import akka.annotation.ApiMayChange
-import akka.{Done, NotUsed}
+import akka.dispatch.ExecutionContexts
 import akka.kafka.CommitterSettings
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
+import akka.{Done, NotUsed}
 
 import scala.concurrent.Future
 

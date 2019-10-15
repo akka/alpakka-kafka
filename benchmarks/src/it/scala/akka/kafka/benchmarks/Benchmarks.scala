@@ -1,46 +1,46 @@
-/*
+  /*
  * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
  * Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.kafka.benchmarks
 
+import akka.kafka.benchmarks.BenchmarksBase._
 import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
 import akka.kafka.benchmarks.Timed.runPerfTest
 import akka.kafka.benchmarks.app.RunTestCommand
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
-import org.scalatest.FlatSpecLike
-
-import BenchmarksBase._
+import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 
 object BenchmarksBase {
   // Message count multiplier to adapt for shorter local testing
   val factor = 1000
 
-  val topic_50_100 = FilledTopic(50 * factor, 100)
+  // Default settings for Kafka testcontainers cluster
+  val settings = TestcontainersKafkaSettings()
 
-  val topic_100_100 = FilledTopic(100 * factor, 100)
-  val topic_100_5000 = FilledTopic(100 * factor, 5000)
+  import settings._
 
-  val topic_1000_100 = FilledTopic(1000 * factor, 100)
-  val topic_1000_5000 = FilledTopic(1000 * factor, 5 * 1000)
-  val topic_1000_5000_8 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8)
+  val topic_50_100 = FilledTopic(50 * factor, 100, replicationFactor = numBrokers)
 
-  val topic_2000_100 = FilledTopic(2000 * factor, 100)
-  val topic_2000_500 = FilledTopic(2000 * factor, 500)
-  val topic_2000_5000 = FilledTopic(2000 * factor, 5000)
-  val topic_2000_5000_8 = FilledTopic(2000 * factor, 5000, numberOfPartitions = 8)
+  val topic_100_100 = FilledTopic(100 * factor, 100, replicationFactor = numBrokers)
+  val topic_100_5000 = FilledTopic(100 * factor, 5000, replicationFactor = numBrokers)
 
+  val topic_1000_100 = FilledTopic(1000 * factor, 100, replicationFactor = numBrokers)
+  val topic_1000_5000 = FilledTopic(1000 * factor, 5 * 1000, replicationFactor = numBrokers)
+  val topic_1000_5000_8 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8, replicationFactor = numBrokers)
+
+  val topic_2000_100 = FilledTopic(2000 * factor, 100, replicationFactor = numBrokers)
+  val topic_2000_500 = FilledTopic(2000 * factor, 500, replicationFactor = numBrokers)
+  val topic_2000_5000 = FilledTopic(2000 * factor, 5000, replicationFactor = numBrokers)
+  val topic_2000_5000_8 = FilledTopic(2000 * factor, 5000, numberOfPartitions = 8, replicationFactor = numBrokers)
 }
 
-abstract class BenchmarksBase() extends ScalatestKafkaSpec(0) with FlatSpecLike {
-
-  override def bootstrapServers: String =
-    (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
+abstract class BenchmarksBase() extends SpecBase with TestcontainersKafkaLike {
 
   override def setUp(): Unit = {
     super.setUp()
     waitUntilCluster() {
-      _.nodes().get().size == BuildInfo.kafkaScale
+      _.nodes().get().size == BenchmarksBase.settings.numBrokers
     }
   }
 }

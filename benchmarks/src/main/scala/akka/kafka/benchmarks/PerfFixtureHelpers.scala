@@ -27,9 +27,9 @@ object PerfFixtureHelpers {
       msgCount: Int,
       msgSize: Int,
       numberOfPartitions: Int = 1,
+      replicationFactor: Int = 1,
       topic: String = randomId()
   ) {
-    def replicationFactor = BuildInfo.kafkaScale
     def freshTopic: FilledTopic = copy(topic = randomId())
   }
 }

@@ -1,42 +1,39 @@
 package akka.kafka
 
-import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
+import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
+import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import com.spotify.docker.client.DefaultDockerClient
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
+import org.testcontainers.containers.GenericContainer
 
 import scala.concurrent.duration._
 
-object PlainSourceFailoverSpec {
-  // the following system properties are provided by the sbt-docker-compose plugin
-  val KafkaBootstrapServers = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
-  val Kafka1Port = sys.props("kafka_1_9094_port").toInt
-  val Kafka2ContainerId = sys.props("kafka_2_9094_id")
-}
-
-class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
-  import PlainSourceFailoverSpec._
-
-  override def bootstrapServers = KafkaBootstrapServers
-
-  val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
-
+class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
   implicit val pc = PatienceConfig(30.seconds, 100.millis)
+
+  override def testcontainersSettings = TestcontainersKafkaSettings(
+    numBrokers = 3,
+    internalTopicsReplicationFactor = 2
+  )
 
   "plain source" should {
 
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
+      val broker2: GenericContainer[_] = brokerContainers(1)
+      val broker2ContainerId: String = broker2.getContainerId
 
       val totalMessages = 1000 * 10
       val partitions = 1
 
+      // TODO: This is probably not necessary anymore since the testcontainer setup blocks until all brokers are online.
+      // TODO: However it is nice reassurance to hear from Kafka itself that the cluster is formed.
       waitUntilCluster() {
-        _.nodes().get().size == BuildInfo.kafkaScale
+        _.nodes().get().size == testcontainersSettings.numBrokers
       }
 
       val topic = createTopic(suffix = 0, partitions, replication = 3)
@@ -65,12 +62,12 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
           i.toString
         }
         .map(number => new ProducerRecord(topic, partition0, DefaultKey, number))
-        .map { c =>
-          if (c.value().toInt == totalMessages / 2) {
-            log.info("Stopping one Kafka container")
-            docker.stopContainer(Kafka2ContainerId, 0)
+        .map { number =>
+          if (number.value().toInt == totalMessages / 2) {
+            log.warn(s"Stopping one Kafka container [$broker2ContainerId] after [$number] messages")
+            broker2.stop()
           }
-          c
+          number
         }
         .runWith(Producer.plainSink(producerDefaults))
 

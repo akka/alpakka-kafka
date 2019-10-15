@@ -5,30 +5,33 @@
 
 package akka.kafka.testkit.scaladsl
 
-import akka.kafka.testkit.internal.TestcontainersKafkaHelper
+import akka.kafka.testkit.internal.TestcontainersKafka
+import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import org.testcontainers.containers.GenericContainer
 
 /**
- * Uses [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka broker in a Docker container.
+ * Uses [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka cluster in a Docker container.
+ * This trait will start Kafka only once per test session.  To create a Kafka cluster per test class see
+ * [[TestcontainersKafkaPerClassLike]].
+ *
  * The Testcontainers dependency has to be added explicitly.
  */
-trait TestcontainersKafkaLike extends KafkaSpec {
-  import akka.kafka.testkit.internal.TestcontainersKafkaHelper._
-
-  /**
-   * Override this to select a different Kafka version be choosing the desired version of Confluent Platform:
-   * [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]],
-   * [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
-   */
-  def confluentPlatformVersion: String = ConfluentPlatformVersionDefault
-
-  override def kafkaPort: Int = TestcontainersKafkaHelper.kafkaPort
-
-  override def bootstrapServers: String = TestcontainersKafkaHelper.bootstrapServers
+trait TestcontainersKafkaLike extends TestcontainersKafka.Spec {
+  override def kafkaPort: Int = TestcontainersKafka.Singleton.kafkaPort
+  override def bootstrapServers: String = TestcontainersKafka.Singleton.bootstrapServers
+  override def brokerContainers: Vector[GenericContainer[_]] = TestcontainersKafka.Singleton.brokerContainers
+  override def zookeeperContainer: GenericContainer[_] = TestcontainersKafka.Singleton.zookeeperContainer
+  override def startKafka(settings: TestcontainersKafkaSettings): String =
+    TestcontainersKafka.Singleton.startKafka(settings)
+  override def stopKafka(): Unit = TestcontainersKafka.Singleton.stopKafka()
 
   override def setUp(): Unit = {
-    TestcontainersKafkaHelper.startKafka(confluentPlatformVersion)
+    startKafka(testcontainersSettings)
     super.setUp()
   }
 
-  def stopKafka(): Unit = TestcontainersKafkaHelper.stopKafka()
+  override def cleanUp(): Unit = {
+    // do nothing to keep everything running.  testcontainers runs as a daemon and will shut all containers down
+    // when the sbt session terminates.
+  }
 }

@@ -63,10 +63,14 @@ jobs:
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
       - CMD="++2.13.1 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
-
     - stage: integration
-      env: CMD="dockerComposeTestAll"
-    - env: CMD="benchmarks/It/compile"
+      env: CMD="tests/it:test"
+      name: "Run integration tests"
+
+    - env: CMD="benchmarks/it:test"
+      # TODO: Replace with compile CMD before merge
+      # - env: CMD="benchmarks/it:compile"
+      name: "Compile benchmark tests"
 
     - stage: whitesource
       env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"

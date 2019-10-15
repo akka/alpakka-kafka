@@ -6,7 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
-import akka.kafka.testkit.internal.TestcontainersKafkaHelper;
+import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
 
 /**
@@ -22,11 +22,19 @@ import akka.stream.Materializer;
  */
 public abstract class TestcontainersKafkaTest extends KafkaTest {
 
-  public static final String confluentPlatformVersionDefault =
-      TestcontainersKafkaHelper.ConfluentPlatformVersionDefault();
+  private static final TestcontainersKafka.TestcontainersKafkaSettings settings =
+      TestcontainersKafka.Singleton().testcontainersSettings();
 
   protected TestcontainersKafkaTest(ActorSystem system, Materializer materializer) {
-    super(system, materializer, startKafka(confluentPlatformVersionDefault));
+    super(system, materializer, startKafka(TestcontainersKafka.ConfluentPlatformVersion()));
+  }
+
+  @Deprecated
+  protected TestcontainersKafkaTest(
+      ActorSystem system,
+      Materializer materializer,
+      TestcontainersKafka.TestcontainersKafkaSettings settings) {
+    super(system, materializer, startKafka(settings));
   }
 
   protected TestcontainersKafkaTest(
@@ -34,11 +42,20 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
     super(system, materializer, startKafka(confluentPlatformVersion));
   }
 
+  @Deprecated
   protected static String startKafka(String confluentPlatformVersion) {
-    return TestcontainersKafkaHelper.startKafka(confluentPlatformVersion);
+    TestcontainersKafka.TestcontainersKafkaSettings settings =
+        TestcontainersKafka.Singleton()
+            .testcontainersSettings()
+            .withConfluentPlatformVersion(confluentPlatformVersion);
+    return TestcontainersKafka.Singleton().startKafka(settings);
+  }
+
+  protected static String startKafka(TestcontainersKafka.TestcontainersKafkaSettings settings) {
+    return TestcontainersKafka.Singleton().startKafka(settings);
   }
 
   protected static void stopKafka() {
-    TestcontainersKafkaHelper.stopKafka();
+    TestcontainersKafka.Singleton().stopKafka();
   }
 }

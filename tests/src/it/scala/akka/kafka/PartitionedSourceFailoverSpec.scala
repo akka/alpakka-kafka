@@ -2,33 +2,21 @@ package akka.kafka
 
 import akka.Done
 import akka.kafka.scaladsl.Consumer.DrainingControl
-import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
+import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
+import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import com.spotify.docker.client.DefaultDockerClient
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
+import org.testcontainers.containers.GenericContainer
 
 import scala.concurrent.duration._
 
-object PartitionedSourceFailoverSpec {
-  // the following system properties are provided by the sbt-docker-compose plugin
-  val KafkaBootstrapServers = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
-  val Kafka1Port = sys.props("kafka_1_9094_port").toInt
-  val Kafka2ContainerId = sys.props("kafka_2_9094_id")
-}
-
-class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSourceFailoverSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
-  import PartitionedSourceFailoverSpec._
-
-  override def bootstrapServers = KafkaBootstrapServers
-
-  val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
-
+class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
   implicit val pc = PatienceConfig(30.seconds, 1.second)
 
   final val logSentMessages: Long => Long = i => {
@@ -41,17 +29,24 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
     i
   }
 
-  "partitioned source" should {
+  override def testcontainersSettings = TestcontainersKafkaSettings(
+    numBrokers = 3,
+    internalTopicsReplicationFactor = 2
+  )
 
+  "partitioned source" should {
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
+      val broker2: GenericContainer[_] = brokerContainers(1)
+      val broker2ContainerId: String = broker2.getContainerId
 
       val totalMessages = 1000 * 10L
-
-      waitUntilCluster() {
-        _.nodes().get().size == BuildInfo.kafkaScale
-      }
-
       val partitions = 4
+
+      // TODO: This is probably not necessary anymore since the testcontainer setup blocks until all brokers are online.
+      // TODO: However it is nice reassurance to hear from Kafka itself that the cluster is formed.
+      waitUntilCluster() {
+        _.nodes().get().size == testcontainersSettings.numBrokers
+      }
 
       val topic = createTopic(0, partitions, replication = 3)
       val groupId = createGroupId(0)
@@ -87,8 +82,8 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
         .map(logSentMessages)
         .map { number =>
           if (number == totalMessages / 2) {
-            log.warn(s"Stopping one Kafka container [$Kafka2ContainerId] after [$number] messages")
-            docker.stopContainer(Kafka2ContainerId, 0)
+            log.warn(s"Stopping one Kafka container [$broker2ContainerId] after [$number] messages")
+            broker2.stop()
           }
           number
         }
@@ -96,8 +91,7 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
         .runWith(Producer.plainSink(producerDefaults))
 
       result.futureValue shouldBe Done
-      sleep(2.seconds)
       control.drainAndShutdown().futureValue shouldBe totalMessages
     }
-   }
+  }
 }
