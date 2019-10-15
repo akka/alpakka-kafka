@@ -26,6 +26,7 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
 
   val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
 
+  val gracefulShutdownTimeoutSeconds = 30
   implicit val pc = PatienceConfig(30.seconds, 100.millis)
 
   "plain source" should {
@@ -65,12 +66,15 @@ class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec
           i.toString
         }
         .map(number => new ProducerRecord(topic, partition0, DefaultKey, number))
-        .map { c =>
-          if (c.value().toInt == totalMessages / 2) {
-            log.info("Stopping one Kafka container")
-            docker.stopContainer(Kafka2ContainerId, 0)
+        .map { number =>
+          if (number.value().toInt == totalMessages / 2) {
+            // make sure to have enough brokers available to fulfill replication factor of internal kafka topics
+            // internal topic replication factor set in build.sbt `Setting`: `kafkaInternalTopicsRf`
+            log.warn(s"Stopping one Kafka container [$Kafka2ContainerId] after [$number] messages")
+            docker.stopContainer(Kafka2ContainerId, gracefulShutdownTimeoutSeconds)
+            docker.waitContainer(Kafka2ContainerId)
           }
-          c
+          number
         }
         .runWith(Producer.plainSink(producerDefaults))
 

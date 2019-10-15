@@ -25,57 +25,56 @@ script:
 
 jobs:
   include:
-    - stage: check
-      script: sbt verifyCodeStyle
-      name: "Code style check. Run locally with: sbt verifyCodeStyle"
-    - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
-      if: type != cron
-    - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
-    - env: CMD="verifyDocs"
-      name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
-    - env: CMD="mimaReportBinaryIssues"
-      name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
+#    - stage: check
+#      script: sbt verifyCodeStyle
+#      name: "Code style check. Run locally with: sbt verifyCodeStyle"
+#    - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
+#      name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
+#      if: type != cron
+#    - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
+#      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
+#    - env: CMD="verifyDocs"
+#      name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
+#    - env: CMD="mimaReportBinaryIssues"
+#      name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
-    - stage: test
-      env: CMD="++2.11.12 test"
-      name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
-      if: type != cron
-    - env: CMD="++2.12.10 test"
-      name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
-    - env: CMD="++2.13.1 test"
-      name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
-
-    - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.11.12 test"
-      name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
-      if: type != cron
-    - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.12.10 test"
-      name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
-    - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.13.1 test"
-      name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
-
+#    - stage: test
+#      env: CMD="++2.11.12 test"
+#      name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
+#      if: type != cron
+#    - env: CMD="++2.12.10 test"
+#      name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
+#    - env: CMD="++2.13.1 test"
+#      name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
+#
+#    - env:
+#      - JDK="adopt@~1.11.0-4"
+#      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+#      - CMD="++2.11.12 test"
+#      name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
+#      if: type != cron
+#    - env:
+#      - JDK="adopt@~1.11.0-4"
+#      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+#      - CMD="++2.12.10 test"
+#      name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
+#    - env:
+#      - JDK="adopt@~1.11.0-4"
+#      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+#      - CMD="++2.13.1 test"
+#      name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
     - stage: integration
       env: CMD="dockerComposeTestAll"
-    - env: CMD="benchmarks/It/compile"
+#    - env: CMD="benchmarks/It/compile"
 
-    - stage: whitesource
-      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
-
-    - stage: publish
-      env: CMD="+publish"
-      name: "Publish artifacts for all Scala versions"
-    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.1 docs/publishRsync'
-      name: "Publish API and reference documentation"
+#    - stage: whitesource
+#      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
+#
+#    - stage: publish
+#      env: CMD="+publish"
+#      name: "Publish artifacts for all Scala versions"
+#    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.1 docs/publishRsync'
+#      name: "Publish API and reference documentation"
 
 stages:
   # runs on master commits and PRs

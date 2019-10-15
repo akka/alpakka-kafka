@@ -33,6 +33,7 @@ val silencer = {
 val embeddedKafkaSchemaRegistry = "5.1.2"
 
 val kafkaScale = settingKey[Int]("Number of kafka docker containers")
+val kafkaInternalTopicsRf = settingKey[Int]("Replication factor of internal Kafka topics (must be <= kafkaScale)")
 
 resolvers in ThisBuild ++= Seq(
   // for Embedded Kafka
@@ -127,6 +128,8 @@ val commonSettings = Def.settings(
   // -q Suppress stdout for successful tests.
   // -s Try to decode Scala names in stack traces and test names.
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
+  kafkaScale := 1,
+  kafkaInternalTopicsRf := { if (kafkaScale.value - 1 == 0) 1 else kafkaScale.value - 1 },
   scalafmtOnCompile := true,
   headerLicense := Some(
       HeaderLicense.Custom(
@@ -330,6 +333,7 @@ lazy val tests = project
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
         .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
+        .withEnvVar("KAFKA_INTERNAL_TOPICS_RF", kafkaInternalTopicsRf.value.toString)
     }
   )
 
@@ -411,6 +415,7 @@ lazy val benchmarks = project
       import com.github.ehsanyou.sbt.docker.compose.commands.test._
       DockerComposeTestCmd(DockerComposeTest.ItTest)
         .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
+        .withEnvVar("KAFKA_INTERNAL_TOPICS_RF", kafkaInternalTopicsRf.value.toString)
     },
     dockerfile in docker := {
       val artifact: File = assembly.value

@@ -29,6 +29,7 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
 
   val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
 
+  val gracefulShutdownTimeoutSeconds = 30
   implicit val pc = PatienceConfig(30.seconds, 1.second)
 
   final val logSentMessages: Long => Long = i => {
@@ -87,8 +88,11 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
         .map(logSentMessages)
         .map { number =>
           if (number == totalMessages / 2) {
+            // make sure to have enough brokers available to fulfill replication factor of internal kafka topics
+            // internal topic replication factor set in build.sbt `Setting`: `kafkaInternalTopicsRf`
             log.warn(s"Stopping one Kafka container [$Kafka2ContainerId] after [$number] messages")
-            docker.stopContainer(Kafka2ContainerId, 0)
+            docker.stopContainer(Kafka2ContainerId, gracefulShutdownTimeoutSeconds)
+            docker.waitContainer(Kafka2ContainerId)
           }
           number
         }
@@ -99,5 +103,5 @@ class PartitionedSourceFailoverSpec extends ScalatestKafkaSpec(PartitionedSource
       sleep(2.seconds)
       control.drainAndShutdown().futureValue shouldBe totalMessages
     }
-   }
+  }
 }
