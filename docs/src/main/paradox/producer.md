@@ -15,12 +15,22 @@ Alpakka Kafka offers producer flows and sinks that connect to Kafka and write da
 
 These factory methods are part of the @scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer$)]@java[@scaladoc[Producer API](akka.kafka.javadsl.Producer$)].
 
-| Shared producer | Factory method    | Stream element type | Pass-through |
-|-----------------|-------------------|---------------------|--------------|
-| Available       | `plainSink`       | `ProducerRecord`    | N/A   |
-| Available       | `flexiFlow`       | `Envelope`          | Any   |
-| Available       | `flowWithContext` | `Envelope`          | No    |
+| Shared producer | Factory method    | Stream element type | Pass-through | Context |
+|-----------------|-------------------|---------------------|--------------|---------|
+| Available       | `plainSink`       | `ProducerRecord`    | N/A          | N/A     |
+| Available       | `flexiFlow`       | `Envelope`          | Any          | N/A     |
+| Available       | `flowWithContext` | `Envelope`          | No           | Any     |
 
+### Committing producer sinks
+
+These producers produce messages to Kafka and commit the offsets of incoming messages regularly.
+
+| Shared producer | Factory method          | Stream element type | Pass-through  | Context       |
+|-----------------|-------------------------|---------------------|---------------|---------------|
+| Available       | `committableSink`       | `Envelope`          | `Committable` | N/A           |
+| Available       | `sinkWithOffsetContext` | `Envelope`          | Any           | `Committable` |
+
+For details about the batched committing see @ref:[Consumer: Offset Storage in Kafka - committing](consumer.md#offset-storage-in-kafka-committing).
 
 ### Transactional producers
 
@@ -147,18 +157,15 @@ Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #flow }
 
 
+## Connecting a Producer to a Consumer
+
 The `passThrough` can for example hold a `ConsumerMessage.CommittableOffset` or `ConsumerMessage.CommittableOffsetBatch` that can be committed after publishing to Kafka. 
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
-
-
-## Connecting a Producer to a Consumer
-
-See the @ref[Consumer page](consumer.md#connecting-producer-and-consumer).
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerSink }
 
 
 ## Sharing the KafkaProducer instance

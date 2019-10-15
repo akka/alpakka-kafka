@@ -265,9 +265,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                     ProducerMessage.<String, String, ConsumerMessage.Committable>single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.committableOffset()))
-            .via(Producer.flexiFlow(producerSettings))
-            .map(ProducerMessage.Results::passThrough)
-            .toMat(Committer.sink(committerSettings), Keep.both())
+            .toMat(Producer.committableSink(producerSettings, committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
     // #consumerToProducerSink
@@ -281,33 +279,31 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
   }
 
   @Test
-  void consumerToProducerFlow() throws Exception {
+  void consumerToProducerWithContext() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(createGroupId());
     ProducerSettings<String, String> producerSettings = producerDefaults();
     CommitterSettings committerSettings = committerDefaults();
-    String topic = createTopic(1);
-    String targetTopic = createTopic(20);
-    // #consumerToProducerFlow
+    String topic1 = createTopic(1);
+    String topic2 = createTopic(2);
+    String targetTopic = createTopic(10);
+    // #consumerToProducerWithContext
     Consumer.DrainingControl<Done> control =
-        Consumer.committableSource(consumerSettings, Subscriptions.topics(topic))
+        Consumer.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1, topic2))
             .map(
-                msg ->
+                record ->
                     ProducerMessage.single(
-                        new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
-                        msg.committableOffset() // the passThrough
-                        ))
-            .via(Producer.flexiFlow(producerSettings))
-            .map(m -> m.passThrough())
-            .toMat(Committer.sink(committerSettings), Keep.both())
+                        new ProducerRecord<>(targetTopic, record.key(), record.value())))
+            .toMat(Producer.sinkWithOffsetContext(producerSettings, committerSettings), Keep.both())
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
-    // #consumerToProducerFlow
-    assertDone(produceString(topic, 10, partition0));
+    // #consumerToProducerWithContext
+    assertDone(produceString(topic1, 10, partition0));
+    assertDone(produceString(topic2, 10, partition0));
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consumeString(targetTopic, 10);
+        consumeString(targetTopic, 20);
     assertDone(consumer.isShutdown());
-    assertEquals(10, resultOf(consumer.drainAndShutdown(executor)).size());
+    assertEquals(20, resultOf(consumer.drainAndShutdown(executor)).size());
     assertDone(control.drainAndShutdown(executor));
   }
 

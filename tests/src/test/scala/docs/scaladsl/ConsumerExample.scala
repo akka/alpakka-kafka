@@ -257,9 +257,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
             msg.committableOffset
           )
         }
-        .via(Producer.flexiFlow(producerSettings))
-        .map(_.passThrough)
-        .toMat(Committer.sink(committerSettings))(Keep.both)
+        .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -274,40 +272,36 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       .run()
     waitBeforeValidation()
     Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (20)
-
   }
 
-  "Connect a Consumer to Producer" should "support flows" in assertAllStagesStopped {
+  it should "work with context" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(1)
-    val targetTopic = createTopic(2)
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val targetTopic = createTopic(3)
     val producerSettings = producerDefaults
     val committerSettings = committerDefaults
-    // #consumerToProducerFlow
-    val control = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics(topic))
-      .map { msg =>
-        ProducerMessage.single(
-          new ProducerRecord(targetTopic, msg.record.key, msg.record.value),
-          passThrough = msg.committableOffset
-        )
-      }
-      .via(Producer.flexiFlow(producerSettings))
-      .map(_.passThrough)
-      .toMat(Committer.sink(committerSettings))(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
-      .run()
-    // #consumerToProducerFlow
-    awaitProduce(produce(topic, 1 to 10))
+    // #consumerToProducerWithContext
+    val control =
+      Consumer
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1, topic2))
+        .map { record =>
+          ProducerMessage.single(new ProducerRecord(targetTopic, record.key, record.value))
+        }
+        .toMat(Producer.sinkWithOffsetContext(producerSettings, committerSettings))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+    // #consumerToProducerWithContext
+    awaitProduce(produce(topic1, 1 to 10), produce(topic2, 1 to 10))
     Await.result(control.drainAndShutdown(), 1.seconds)
-    val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer flow validation")
+    val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
       .toMat(Sink.seq)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
     waitBeforeValidation()
-    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (10)
+    Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (20)
   }
 
   "Backpressure per partition with batch commit" should "work" in assertAllStagesStopped {

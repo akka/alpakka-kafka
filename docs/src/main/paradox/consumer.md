@@ -240,16 +240,6 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 
 @@@
 
-
-As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits with `Committer.sink`.
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
-
-
 ## Source per partition
 
 `Consumer.plainPartitionedSource` 
