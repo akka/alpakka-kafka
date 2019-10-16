@@ -229,13 +229,15 @@ object Producer {
   def committableSinkWithOffsetContext[K, V, IN <: Envelope[K, V, _], C <: Committable](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
-  ): Sink[akka.japi.Pair[IN, C], CompletionStage[Done]] =
+  ): Sink[akka.japi.Pair[IN, C], CompletionStage[Done]] = {
+    val sink: Sink[Envelope[K, V, C], CompletionStage[Done]] = committableSink(producerSettings, committerSettings)
     Flow
       .create[akka.japi.Pair[IN, C]]
       .map(new akka.japi.function.Function[japi.Pair[IN, C], Envelope[K, V, C]] {
         override def apply(p: japi.Pair[IN, C]) = p.first.withPassThrough(p.second)
       })
-      .toMat(committableSink(producerSettings, committerSettings), Keep.right[NotUsed, CompletionStage[Done]])
+      .toMat(sink, Keep.right[NotUsed, CompletionStage[Done]])
+  }
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]] passed as
@@ -265,8 +267,7 @@ object Producer {
       .map(new akka.japi.function.Function[japi.Pair[IN, C], Envelope[K, V, C]] {
         override def apply(p: japi.Pair[IN, C]) = p.first.withPassThrough(p.second)
       })
-      .toMat(committableSink(producerSettings, committerSettings, producer),
-             Keep.right[NotUsed, CompletionStage[Done]])
+      .toMat(committableSink(producerSettings, committerSettings, producer), Keep.right[NotUsed, CompletionStage[Done]])
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
