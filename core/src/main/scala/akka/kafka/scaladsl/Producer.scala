@@ -52,8 +52,6 @@ object Producer {
       .toMat(Sink.ignore)(Keep.right)
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -69,6 +67,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
+  @deprecated("use sinkWithCommitting instead", "1.1.1")
   def committableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
@@ -98,8 +97,6 @@ object Producer {
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings)
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -118,6 +115,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated("use sinkWithCommitting instead", "1.1.1")
   def committableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]

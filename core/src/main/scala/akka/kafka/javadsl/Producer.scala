@@ -52,8 +52,6 @@ object Producer {
       .asJava
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -68,7 +66,10 @@ object Producer {
    *
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
+   *
+   * @deprecated use `sinkWithCommitting` instead, since 1.1.1
    */
+  @Deprecated
   def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
       settings: ProducerSettings[K, V]
   ): Sink[IN, CompletionStage[Done]] =
@@ -103,8 +104,6 @@ object Producer {
   ): Sink[IN, CompletionStage[Done]] = committableSink(settings)
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -122,7 +121,10 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    *
    * Supports sharing a Kafka Producer instance.
+   *
+   * @deprecated use `sinkWithCommitting` instead, since 1.1.1
    */
+  @Deprecated
   def committableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -278,8 +280,10 @@ object Producer {
    * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
+   *
+   * @deprecated use `flexiFlow` instead, since 0.21
    */
-  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
+  @Deprecated
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
@@ -344,8 +348,10 @@ object Producer {
    * be committed later in the flow.
    *
    * Supports sharing a Kafka Producer instance.
+   *
+   * @deprecated use `flexiFlow` instead, since 0.21
    */
-  @deprecated("prefer flexiFlow over this flow implementation", "0.21")
+  @Deprecated
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
