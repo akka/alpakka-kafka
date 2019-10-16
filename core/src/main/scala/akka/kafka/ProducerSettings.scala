@@ -20,7 +20,7 @@ import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
 import akka.util.JavaDurationConverters._
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.compat.java8.FutureConverters._
 
 object ProducerSettings {

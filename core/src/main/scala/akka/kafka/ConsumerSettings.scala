@@ -19,7 +19,7 @@ import org.apache.kafka.common.serialization.Deserializer
 import scala.jdk.CollectionConverters._
 import scala.compat.java8.OptionConverters._
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object ConsumerSettings {

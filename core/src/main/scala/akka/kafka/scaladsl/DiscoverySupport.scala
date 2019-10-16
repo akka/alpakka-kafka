@@ -7,7 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.actor.{ActorSystem, ActorSystemImpl}
 import akka.annotation.InternalApi
-import akka.discovery.Discovery
+import akka.discovery.{Discovery, ServiceDiscovery}
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
@@ -23,15 +23,25 @@ import scala.util.Failure
  */
 object DiscoverySupport {
 
+  // used for initial discovery of contact points
+  private def discovery(config: Config)(implicit system: ActorSystem): ServiceDiscovery =
+    config.getString("discovery-method") match {
+      case "akka.discovery" =>
+        Discovery(system).discovery
+
+      case otherDiscoveryMechanism =>
+        Discovery(system).loadServiceDiscovery(otherDiscoveryMechanism)
+    }
+
   /**
    * Use Akka Discovery to read the addresses for `serviceName` within `lookupTimeout`.
    */
   private def bootstrapServers(
+      discovery: ServiceDiscovery,
       serviceName: String,
       lookupTimeout: FiniteDuration
   )(implicit system: ActorSystem): Future[String] = {
     import system.dispatcher
-    val discovery = Discovery(system).discovery
     discovery.lookup(serviceName, lookupTimeout).map { resolved =>
       resolved.addresses
         .map { target =>
@@ -54,7 +64,7 @@ object DiscoverySupport {
     val serviceName = config.getString("service-name")
     if (serviceName.nonEmpty) {
       val lookupTimeout = config.getDuration("resolve-timeout").asScala
-      bootstrapServers(serviceName, lookupTimeout)
+      bootstrapServers(discovery(config), serviceName, lookupTimeout)
     } else throw new IllegalArgumentException(s"value for `service-name` in $config is empty")
   }
 
