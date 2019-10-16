@@ -257,7 +257,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
             msg.committableOffset
           )
         }
-        .toMat(Producer.sinkWithCommitting(producerSettings, committerSettings))(Keep.both)
+        .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
@@ -288,7 +288,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .map { record =>
           ProducerMessage.single(new ProducerRecord(targetTopic, record.key, record.value))
         }
-        .toMat(Producer.sinkWithCommittingOffsetContext(producerSettings, committerSettings))(Keep.both)
+        .toMat(Producer.committableSinkWithOffsetContext(producerSettings, committerSettings))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
     // #consumerToProducerWithContext

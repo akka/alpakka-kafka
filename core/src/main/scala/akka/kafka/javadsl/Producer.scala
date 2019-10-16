@@ -67,7 +67,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    *
-   * @deprecated use `sinkWithCommitting` instead, since 1.1.1
+   * @deprecated use `committableSink(ProducerSettings, CommitterSettings)` instead, since 1.1.1
    */
   @Deprecated
   def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
@@ -79,8 +79,6 @@ object Producer {
       .asJava
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -96,7 +94,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    *
-   * @deprecated use `sinkWithCommitting` instead, since 1.0-RC1
+   * @deprecated use `committableSink(ProducerSettings, CommitterSettings)` instead, since 1.0-RC1
    */
   @Deprecated
   def commitableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
@@ -122,7 +120,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    *
-   * @deprecated use `sinkWithCommitting` instead, since 1.1.1
+   * @deprecated use `committableSink(ProducerSettings, CommitterSettings)` instead, since 1.1.1
    */
   @Deprecated
   def committableSink[K, V](
@@ -135,8 +133,6 @@ object Producer {
       .asJava
 
   /**
-   * Note: Prefer the [[sinkWithCommitting]] as it batches the offsets for committing.
-   *
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
    * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
    * been published successfully to the topic.
@@ -155,7 +151,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    *
-   * @deprecated use `sinkWithCommitting` instead, since 1.0-RC1
+   * @deprecated use `committableSink(ProducerSettings, CommitterSettings)` instead, since 1.0-RC1
    */
   @Deprecated
   def commitableSink[K, V](
@@ -178,12 +174,12 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def sinkWithCommitting[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
+  def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[IN, CompletionStage[Done]] =
     scaladsl.Producer
-      .sinkWithCommitting(producerSettings, committerSettings)
+      .committableSink(producerSettings, committerSettings)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -204,13 +200,13 @@ object Producer {
    *
    * Uses a shared a Kafka Producer instance.
    */
-  def sinkWithCommitting[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
+  def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings,
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[IN, CompletionStage[Done]] =
     scaladsl.Producer
-      .sinkWithCommitting(producerSettings, committerSettings, producer)
+      .committableSink(producerSettings, committerSettings, producer)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -230,7 +226,7 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
-  def sinkWithCommittingOffsetContext[K, V, IN <: Envelope[K, V, _], C <: Committable](
+  def committableSinkWithOffsetContext[K, V, IN <: Envelope[K, V, _], C <: Committable](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[akka.japi.Pair[IN, C], CompletionStage[Done]] =
@@ -239,7 +235,7 @@ object Producer {
       .map(new akka.japi.function.Function[japi.Pair[IN, C], Envelope[K, V, C]] {
         override def apply(p: japi.Pair[IN, C]) = p.first.withPassThrough(p.second)
       })
-      .toMat(sinkWithCommitting(producerSettings, committerSettings), Keep.right[NotUsed, CompletionStage[Done]])
+      .toMat(committableSink(producerSettings, committerSettings), Keep.right[NotUsed, CompletionStage[Done]])
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]] passed as
@@ -259,7 +255,7 @@ object Producer {
    * Uses a shared a Kafka Producer instance.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
-  def sinkWithCommittingOffsetContext[K, V, IN <: Envelope[K, V, _], C <: Committable](
+  def committableSinkWithOffsetContext[K, V, IN <: Envelope[K, V, _], C <: Committable](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings,
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -269,7 +265,7 @@ object Producer {
       .map(new akka.japi.function.Function[japi.Pair[IN, C], Envelope[K, V, C]] {
         override def apply(p: japi.Pair[IN, C]) = p.first.withPassThrough(p.second)
       })
-      .toMat(sinkWithCommitting(producerSettings, committerSettings, producer),
+      .toMat(committableSink(producerSettings, committerSettings, producer),
              Keep.right[NotUsed, CompletionStage[Done]])
 
   /**

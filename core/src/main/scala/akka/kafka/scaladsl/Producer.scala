@@ -67,7 +67,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  @deprecated("use sinkWithCommitting instead", "1.1.1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.1.1")
   def committableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
@@ -91,7 +91,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  @deprecated("use sinkWithCommitting instead", "1.0-RC1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.0-RC1")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings)
@@ -115,7 +115,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  @deprecated("use sinkWithCommitting instead", "1.1.1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.1.1")
   def committableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -143,7 +143,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  @deprecated("use sinkWithCommitting instead", "1.0-RC1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.0-RC1")
   def commitableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -164,7 +164,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  def sinkWithCommitting[K, V](
+  def committableSink[K, V](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
@@ -189,7 +189,7 @@ object Producer {
    *
    * Uses a shared a Kafka Producer instance.
    */
-  def sinkWithCommitting[K, V](
+  def committableSink[K, V](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings,
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -214,7 +214,7 @@ object Producer {
    * committing, so it is "at-least once delivery" semantics.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
-  def sinkWithCommittingOffsetContext[K, V](
+  def committableSinkWithOffsetContext[K, V](
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[(Envelope[K, V, _], Committable), Future[Done]] =
@@ -223,7 +223,7 @@ object Producer {
         case (env, offset) =>
           env.withPassThrough(offset)
       }
-      .toMat(sinkWithCommitting(producerSettings, committerSettings))(Keep.right)
+      .toMat(committableSink(producerSettings, committerSettings))(Keep.right)
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]] passed as
@@ -243,7 +243,7 @@ object Producer {
    * Uses a shared a Kafka Producer instance.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
-  def sinkWithCommittingOffsetContext[K, V](
+  def committableSinkWithOffsetContext[K, V](
       settings: ProducerSettings[K, V],
       committerSettings: CommitterSettings,
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -253,7 +253,7 @@ object Producer {
         case (env, offset) =>
           env.withPassThrough(offset)
       }
-      .toMat(sinkWithCommitting(settings, committerSettings, producer))(Keep.right)
+      .toMat(committableSink(settings, committerSettings, producer))(Keep.right)
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.

@@ -25,10 +25,10 @@ These factory methods are part of the @scala[@scaladoc[Producer API](akka.kafka.
 
 These producers produce messages to Kafka and commit the offsets of incoming messages regularly.
 
-| Shared producer | Factory method                    | Stream element type | Pass-through  | Context       |
-|-----------------|-----------------------------------|---------------------|---------------|---------------|
-| Available       | `sinkWithCommitting`              | `Envelope`          | `Committable` | N/A           |
-| Available       | `sinkWithCommittingOffsetContext` | `Envelope`          | Any           | `Committable` |
+| Shared producer | Factory method                     | Stream element type | Pass-through  | Context       |
+|-----------------|------------------------------------|---------------------|---------------|---------------|
+| Available       | `committableSink`                  | `Envelope`          | `Committable` | N/A           |
+| Available       | `committableSinkWithOffsetContext` | `Envelope`          | Any           | `Committable` |
 
 For details about the batched committing see @ref:[Consumer: Offset Storage in Kafka - committing](consumer.md#offset-storage-in-kafka-committing).
 
