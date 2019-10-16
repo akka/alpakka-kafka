@@ -42,7 +42,7 @@ jobs:
       env: CMD="++2.11.12 test"
       name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
       if: type != cron
-    - env: CMD="++2.12.9 test"
+    - env: CMD="++2.12.10 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
     - env: CMD="++2.13.0 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
@@ -56,7 +56,7 @@ jobs:
     - env:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.12.9 test"
+      - CMD="++2.12.10 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
     - env:
       - JDK="adopt@~1.11.0-4"
