@@ -7,7 +7,7 @@ package docs.scaladsl
 
 // #oneToMany
 import akka.{Done, NotUsed}
-import akka.kafka.ConsumerMessage.CommittableOffset
+import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage.Envelope
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{ProducerMessage, Subscriptions}
@@ -164,5 +164,37 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
     Await.result(control.drainAndShutdown(), 5.seconds) should be(Done)
     Await.result(control2.shutdown(), 5.seconds) should be(Done)
     result.futureValue should have size (10)
+  }
+
+  it should "support batching of offsets `withOffsetContext`" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic1 = createTopic(1)
+    val topic2 = createTopic(2)
+    val control =
+      Consumer
+        .sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
+        .grouped(5)
+        .map { records =>
+          val key = records.head.key()
+          val value = records.map(_.value()).mkString(",")
+          ProducerMessage.single(
+            new ProducerRecord(topic2, key, value)
+          )
+        }
+        .mapContext(CommittableOffsetBatch(_))
+        .via(Producer.flowWithContext(producerDefaults))
+        .toMat(Committer.sinkWithOffsetContext(committerDefaults))(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+    val (control2, result) = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic2))
+      .toMat(Sink.seq)(Keep.both)
+      .run()
+
+    awaitProduce(produce(topic1, 1 to 10))
+    control.drainAndShutdown().futureValue shouldBe Done
+    control2.shutdown().futureValue shouldBe Done
+    result.futureValue should have size (2)
   }
 }
