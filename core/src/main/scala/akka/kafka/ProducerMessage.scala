@@ -18,7 +18,7 @@ import scala.jdk.CollectionConverters._
 object ProducerMessage {
 
   /**
-   * Type accepted by `Producer.committingSink` and `Producer.flexiFlow` with implementations
+   * Type accepted by `Producer.sinkWithCommitting` and `Producer.flexiFlow` with implementations
    *
    * - [[Message]] publishes a single message to its topic, and continues in the stream as [[Result]]
    *

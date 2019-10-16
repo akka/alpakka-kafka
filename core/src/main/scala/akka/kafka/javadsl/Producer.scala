@@ -275,7 +275,7 @@ object Producer {
    *
    * The records must be wrapped in a [[akka.kafka.ProducerMessage.Message Message]] and continue in the stream as [[akka.kafka.ProducerMessage.Result Result]].
    *
-   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset committable offset]]
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
    * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
    * be committed later in the flow.
    */

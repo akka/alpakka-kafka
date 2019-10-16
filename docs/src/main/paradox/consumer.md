@@ -222,9 +222,9 @@ How to achieve at-least-once delivery semantics is covered in @ref:[At-Least-Onc
 
 ## Connecting Producer and Consumer
 
-For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.committingSink`. The `committingSink` will commit the offset back to the consumer after successfully publishing messages.
+For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.sinkWithCommitting`. The `sinkWithCommitting` will commit the offset back to the consumer regularly.
 
-The `committingSink` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
+The `sinkWithCommitting` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -234,7 +234,7 @@ Java
 
 @@@note 
 
-There is a risk that something fails after publishing, but before committing, so `committingSink` has "at-least-once" delivery semantics.
+There is a risk that something fails after publishing, but before committing, so `sinkWithCommitting` has "at-least-once" delivery semantics.
 
 To get delivery guarantees, please read about @ref[transactions](transactions.md).
 
