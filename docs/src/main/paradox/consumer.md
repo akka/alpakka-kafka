@@ -222,7 +222,7 @@ How to achieve at-least-once delivery semantics is covered in @ref:[At-Least-Onc
 
 ## Connecting Producer and Consumer
 
-For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.committableSink`. The `committableSink` will commit the offset back to the consumer when it has successfully published the message.
+For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.committableSink`. The `committableSink` will commit the offset back to the consumer regularly.
 
 The `committableSink` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
 
@@ -239,16 +239,6 @@ There is a risk that something fails after publishing, but before committing, so
 To get delivery guarantees, please read about @ref[transactions](transactions.md).
 
 @@@
-
-
-As `Producer.committableSink`'s committing of messages one-by-one is rather slow, prefer a flow together with batching of commits with `Committer.sink`.
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerFlow }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerToProducerFlow }
-
 
 ## Source per partition
 
