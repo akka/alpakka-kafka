@@ -1,0 +1,4 @@
+ProblemFilters.exclude[IncompatibleSignatureProblem]("akka.kafka.javadsl.Committer.flowWithOffsetContext")
+ProblemFilters.exclude[IncompatibleSignatureProblem]("akka.kafka.javadsl.Committer.sinkWithOffsetContext")
+ProblemFilters.exclude[IncompatibleSignatureProblem]("akka.kafka.scaladsl.Committer.flowWithOffsetContext")
+ProblemFilters.exclude[IncompatibleSignatureProblem]("akka.kafka.scaladsl.Committer.sinkWithOffsetContext")

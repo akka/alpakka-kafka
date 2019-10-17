@@ -145,7 +145,7 @@ lazy val `alpakka-kafka` =
   project
     .in(file("."))
     .enablePlugins(ScalaUnidocPlugin)
-    .disablePlugins(SitePlugin)
+    .disablePlugins(SitePlugin, MimaPlugin)
     .settings(commonSettings)
     .settings(
       skip in publish := true,
