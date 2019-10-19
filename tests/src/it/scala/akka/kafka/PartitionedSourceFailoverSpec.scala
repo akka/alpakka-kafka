@@ -1,11 +1,10 @@
 package akka.kafka
 
 import akka.Done
-import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
-import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
@@ -31,10 +30,9 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
     i
   }
 
-  override def testcontainersSettings = TestcontainersKafkaSettings(
-    numBrokers = 3,
-    internalTopicsReplicationFactor = 2
-  )
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+    .withNumBrokers(3)
+    .withInternalTopicsReplicationFactor(2)
 
   "partitioned source" should {
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
@@ -60,7 +58,7 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val control: DrainingControl[Long] = Consumer.plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
+      val consumerMatValue: Future[Long] = Consumer.plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
         .groupBy(partitions, _._1)
         .mapAsync(8) { case (tp, source) =>
           log.info(s"Sub-source for ${tp}")
@@ -75,9 +73,8 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         }
         .mergeSubstreams
         .scan(0L)((c, subValue) => c + subValue)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
-        .run()
+        .takeWhile(count => count < totalMessages, inclusive = true)
+        .runWith(Sink.last)
 
       waitUntilConsumerGroup(groupId) {
         !_.members().isEmpty
@@ -101,9 +98,11 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         .runWith(Producer.plainSink(producerConfig))
 
       result.futureValue shouldBe Done
-      log.info("Actual messages received [{}], total messages sent [{}]", control.drainAndShutdown().futureValue, totalMessages)
+      // wait for consumer to consume all up until totalMessages, or timeout
+      val actualCount = consumerMatValue.futureValue
+      log.info("Actual messages received [{}], total messages sent [{}]", actualCount, totalMessages)
       // assert that we receive at least the number of messages we sent, there could be more due to retries
-      assert(control.drainAndShutdown().futureValue >= totalMessages)
+      assert(actualCount >= totalMessages)
     }
   }
 }

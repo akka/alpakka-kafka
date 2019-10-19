@@ -1,7 +1,7 @@
 package akka.kafka
 
 import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
-import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -12,15 +12,15 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import org.testcontainers.containers.GenericContainer
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
   implicit val pc = PatienceConfig(45.seconds, 100.millis)
 
-  override def testcontainersSettings = TestcontainersKafkaSettings(
-    numBrokers = 3,
-    internalTopicsReplicationFactor = 2
-  )
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+    .withNumBrokers(3)
+    .withInternalTopicsReplicationFactor(2)
 
   "plain source" should {
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
@@ -46,13 +46,13 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val consumer = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
-        .takeWhile(_.value().toInt < totalMessages, inclusive = true)
+      val consumerMatValue: Future[Int] = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
         .scan(0)((c, _) => c + 1)
         .map { i =>
           if (i % 1000 == 0) log.info(s"Received [$i] messages so far.")
           i
         }
+        .takeWhile(count => count < totalMessages, inclusive = true)
         .runWith(Sink.last)
 
       waitUntilConsumerSummary(groupId) {
@@ -80,9 +80,11 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
         .runWith(Producer.plainSink(producerConfig))
 
       result.futureValue
-      log.info("Actual messages received [{}], total messages sent [{}]", consumer.futureValue, totalMessages)
+      // wait for consumer to consume all up until totalMessages, or timeout
+      val actualCount = consumerMatValue.futureValue
+      log.info("Actual messages received [{}], total messages sent [{}]", actualCount, totalMessages)
       // assert that we receive at least the number of messages we sent, there could be more due to retries
-      assert(consumer.futureValue >= totalMessages)
+      assert(actualCount >= totalMessages)
     }
   }
 }
