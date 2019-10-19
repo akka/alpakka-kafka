@@ -146,15 +146,6 @@ trait KafkaTestKit {
     createTopic(suffix, partitions, replication, Map[String, String]())
 
   /**
-   * JAVA API
-   * Create a topic with given suffix, partition number, replication factor, and topic configuration.
-   *
-   * This method will block and return only when the topic has been successfully created.
-   */
-  def createTopic(suffix: Int, partitions: Int, replication: Int, config: java.util.Map[String, String]): String =
-    createTopic(suffix, partitions, replication, config.asScala)
-
-  /**
    * Create a topic with given suffix, partition number, replication factor, and topic configuration.
    *
    * This method will block and return only when the topic has been successfully created.
@@ -162,10 +153,20 @@ trait KafkaTestKit {
   def createTopic(suffix: Int,
                   partitions: Int,
                   replication: Int,
-                  config: scala.collection.Map[String, String]): String = {
+                  config: scala.collection.Map[String, String]): String =
+    createTopic(suffix, partitions, replication, config.asJava)
+
+  /**
+   * Java Api
+   *
+   * Create a topic with given suffix, partition number, replication factor, and topic configuration.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int, partitions: Int, replication: Int, config: java.util.Map[String, String]): String = {
     val topicName = createTopicName(suffix)
     val createResult = adminClient.createTopics(
-      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(config.asJava))
+      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(config))
     )
     createResult.all().get(10, TimeUnit.SECONDS)
     topicName

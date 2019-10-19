@@ -5,8 +5,8 @@
 
 package akka.kafka.testkit.scaladsl
 
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.internal.TestcontainersKafka
-import akka.kafka.testkit.internal.TestcontainersKafka.TestcontainersKafkaSettings
 import org.testcontainers.containers.GenericContainer
 
 /**
@@ -21,7 +21,7 @@ trait TestcontainersKafkaLike extends TestcontainersKafka.Spec {
   override def bootstrapServers: String = TestcontainersKafka.Singleton.bootstrapServers
   override def brokerContainers: Vector[GenericContainer[_]] = TestcontainersKafka.Singleton.brokerContainers
   override def zookeeperContainer: GenericContainer[_] = TestcontainersKafka.Singleton.zookeeperContainer
-  override def startKafka(settings: TestcontainersKafkaSettings): String =
+  override def startKafka(settings: KafkaTestkitTestcontainersSettings): String =
     TestcontainersKafka.Singleton.startKafka(settings)
   override def stopKafka(): Unit = TestcontainersKafka.Singleton.stopKafka()
 

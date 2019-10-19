@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
 
@@ -22,7 +23,7 @@ import akka.stream.Materializer;
  */
 public abstract class TestcontainersKafkaTest extends KafkaTest {
 
-  private static final TestcontainersKafka.TestcontainersKafkaSettings settings =
+  private static final KafkaTestkitTestcontainersSettings settings =
       TestcontainersKafka.Singleton().testcontainersSettings();
 
   protected TestcontainersKafkaTest(ActorSystem system, Materializer materializer) {
@@ -31,9 +32,7 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
 
   @Deprecated
   protected TestcontainersKafkaTest(
-      ActorSystem system,
-      Materializer materializer,
-      TestcontainersKafka.TestcontainersKafkaSettings settings) {
+      ActorSystem system, Materializer materializer, KafkaTestkitTestcontainersSettings settings) {
     super(system, materializer, startKafka(settings));
   }
 
@@ -44,14 +43,14 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
 
   @Deprecated
   protected static String startKafka(String confluentPlatformVersion) {
-    TestcontainersKafka.TestcontainersKafkaSettings settings =
+    KafkaTestkitTestcontainersSettings settings =
         TestcontainersKafka.Singleton()
             .testcontainersSettings()
             .withConfluentPlatformVersion(confluentPlatformVersion);
     return TestcontainersKafka.Singleton().startKafka(settings);
   }
 
-  protected static String startKafka(TestcontainersKafka.TestcontainersKafkaSettings settings) {
+  protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {
     return TestcontainersKafka.Singleton().startKafka(settings);
   }
 

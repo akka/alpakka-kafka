@@ -5,6 +5,7 @@
 
 package akka.kafka.testkit.internal
 
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.GenericContainer
 //import org.testcontainers.containers.output.Slf4jLogConsumer
@@ -13,34 +14,6 @@ import scala.collection.JavaConverters._
 
 object TestcontainersKafka {
   val ConfluentPlatformVersion: String = KafkaContainer.CONFLUENT_PLATFORM_VERSION
-
-  /**
-   * Settings for starting a Kafka testcontainers cluster.
-   *
-   * @param confluentPlatformVersion Define this to select a different Kafka version be choosing the desired version of
-   *                                 Confluent Platform:
-   *                                 [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]]
-   *                                 [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
-   * @param numBrokers Set this to start more than 1 Kafka broker.
-   * @param internalTopicsReplicationFactor Set this to use a replication factor greater than 1 for internal Kafka
-   *                                        topics such as Consumer Offsets and Transaction log. This replication factor
-   *                                        must be greater than [[numBrokers]].
-   * @param startPort Set this to use a start port other than `9093`.  When [[numBrokers]] greater than 1 than exposed
-   *                  ports will start at this port number and increment by one for each subsequent broker.
-   * @param configureKafka Define this to configure the Kafka containers before they are started.
-   * @param configureZooKeeper Define this to configure the Kafka containers before they are started.
-   */
-  final case class TestcontainersKafkaSettings(
-      confluentPlatformVersion: String = ConfluentPlatformVersion,
-      numBrokers: Int = 1,
-      internalTopicsReplicationFactor: Int = 1,
-      startPort: Int = 9093,
-      configureKafka: Vector[GenericContainer[_]] => Unit = _ => (),
-      configureZooKeeper: GenericContainer[_] => Unit = _ => ()
-  ) {
-    def withConfluentPlatformVersion(version: String): TestcontainersKafkaSettings =
-      copy(confluentPlatformVersion = version)
-  }
 
   trait Spec extends KafkaSpec {
     //private val logConsumer = new Slf4jLogConsumer(log)
@@ -62,7 +35,7 @@ object TestcontainersKafka {
     /**
      * Override this to change default settings for starting the Kafka testcontainers cluster.
      */
-    def testcontainersSettings: TestcontainersKafkaSettings = TestcontainersKafkaSettings()
+    val testcontainersSettings: KafkaTestkitTestcontainersSettings = KafkaTestkitTestcontainersSettings(system)
 
     override def kafkaPort: Int = {
       requireStarted()
@@ -79,7 +52,7 @@ object TestcontainersKafka {
 
     def zookeeperContainer: GenericContainer[_] = cluster.getZooKeeper
 
-    def startKafka(settings: TestcontainersKafkaSettings): String = {
+    def startKafka(settings: KafkaTestkitTestcontainersSettings): String = {
       val settings = testcontainersSettings
       import settings._
       // check if already initialized
@@ -90,7 +63,9 @@ object TestcontainersKafka {
                                             startPort)
         configureKafka(brokerContainers)
         configureZooKeeper(zookeeperContainer)
+        log.info("Starting Kafka cluster with settings: {}", settings)
         cluster.startAll()
+        // TODO: this form of logging doesn't seem to capture everything, do we need to initialize logging config in confluent containers?
         //logContainers()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers
         kafkaPortInternal =
