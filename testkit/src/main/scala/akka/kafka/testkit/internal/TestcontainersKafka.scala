@@ -7,6 +7,7 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.GenericContainer
+//import org.testcontainers.containers.output.Slf4jLogConsumer
 
 import scala.collection.JavaConverters._
 
@@ -42,6 +43,7 @@ object TestcontainersKafka {
   }
 
   trait Spec extends KafkaSpec {
+    //private val logConsumer = new Slf4jLogConsumer(log)
     private var cluster: KafkaContainerCluster = _
     private var kafkaBootstrapServersInternal: String = _
     private var kafkaPortInternal: Int = -1
@@ -89,6 +91,7 @@ object TestcontainersKafka {
         configureKafka(brokerContainers)
         configureZooKeeper(zookeeperContainer)
         cluster.startAll()
+        //logContainers()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers
         kafkaPortInternal =
           kafkaBootstrapServersInternal.substring(kafkaBootstrapServersInternal.lastIndexOf(":") + 1).toInt
@@ -102,6 +105,11 @@ object TestcontainersKafka {
         kafkaPortInternal = -1
         cluster = null
       }
+
+//    private def logContainers(): Unit = {
+//      brokerContainers.foreach(_.followOutput(logConsumer))
+//      zookeeperContainer.followOutput(logConsumer)
+//    }
   }
 
   private class SpecBase extends ScalatestKafkaSpec(-1) with Spec

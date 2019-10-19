@@ -8,16 +8,18 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import org.testcontainers.containers.GenericContainer
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
-  implicit val pc = PatienceConfig(30.seconds, 1.second)
+  implicit val pc = PatienceConfig(45.seconds, 1.second)
 
   final val logSentMessages: Long => Long = i => {
     if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
@@ -48,14 +50,17 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         _.nodes().get().size == testcontainersSettings.numBrokers
       }
 
-      val topic = createTopic(0, partitions, replication = 3)
+      val topic = createTopic(0, partitions, replication = 3, Map(
+        // require at least two replicas be in sync before acknowledging produced record
+        TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
+      ))
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val control = Consumer.plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
+      val control: DrainingControl[Long] = Consumer.plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
         .groupBy(partitions, _._1)
         .mapAsync(8) { case (tp, source) =>
           log.info(s"Sub-source for ${tp}")
@@ -78,7 +83,12 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         !_.members().isEmpty
       }
 
-      val result = Source(0L until totalMessages)
+      val producerConfig = producerDefaults.withProperties(
+        // require acknowledgement from at least min in sync replicas (2).  default is 1
+        ProducerConfig.ACKS_CONFIG -> "all"
+      )
+
+      val result: Future[Done] = Source(0L until totalMessages)
         .map(logSentMessages)
         .map { number =>
           if (number == totalMessages / 2) {
@@ -88,10 +98,12 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
           number
         }
         .map(number => new ProducerRecord(topic, (number % partitions).toInt, DefaultKey, number.toString))
-        .runWith(Producer.plainSink(producerDefaults))
+        .runWith(Producer.plainSink(producerConfig))
 
       result.futureValue shouldBe Done
-      control.drainAndShutdown().futureValue shouldBe totalMessages
+      log.info("Actual messages received [{}], total messages sent [{}]", control.drainAndShutdown().futureValue, totalMessages)
+      // assert that we receive at least the number of messages we sent, there could be more due to retries
+      assert(control.drainAndShutdown().futureValue >= totalMessages)
     }
   }
 }
