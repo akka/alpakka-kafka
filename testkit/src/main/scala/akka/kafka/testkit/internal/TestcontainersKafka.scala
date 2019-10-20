@@ -42,7 +42,7 @@ object TestcontainersKafka {
     override def kafkaPort: Int = {
       requireStarted()
       // it's possible there's more than 1 broker, provide the port of the first broker
-      testcontainersSettings.startPort
+      kafkaPortInternal
     }
 
     def bootstrapServers: String = {
@@ -59,14 +59,12 @@ object TestcontainersKafka {
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
-        cluster = new KafkaContainerCluster(settings.confluentPlatformVersion,
-                                            numBrokers,
-                                            internalTopicsReplicationFactor,
-                                            startPort)
+        cluster =
+          new KafkaContainerCluster(settings.confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
         configureKafka(brokerContainers)
         configureZooKeeper(zookeeperContainer)
         log.info("Starting Kafka cluster with settings: {}", settings)
-        cluster.startAll()
+        cluster.start()
         // TODO: this form of logging doesn't seem to capture everything, do we need to initialize logging config in confluent containers?
         //logContainers()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers
@@ -78,7 +76,7 @@ object TestcontainersKafka {
 
     def stopKafka(): Unit =
       if (kafkaPortInternal != -1) {
-        cluster.stopAll()
+        cluster.stop()
         kafkaPortInternal = -1
         cluster = null
       }

@@ -18,18 +18,15 @@ import java.util.concurrent.TimeUnit;
 /**
  * This container wraps Confluent Kafka and Zookeeper (optionally)
  *
- * <p>NOTE: This may be deleted when/if the upstream testcontainers-java PR is merged:
+ * <p>TODO: This may be deleted when/if the upstream testcontainers-java PR is merged:
  * https://github.com/testcontainers/testcontainers-java/pull/1984
  */
 public class KafkaContainer extends GenericContainer<KafkaContainer> {
-
-  public static final int DEFAULT_KAFKA_PORT = 9093;
-
-  public static final String DEFAULT_KAFKA_BROKER_ID = "1";
-
-  public static final int DEFAULT_INTERNAL_TOPIC_RF = 1;
+  public static final int KAFKA_PORT = 9093;
 
   public static final int ZOOKEEPER_PORT = 2181;
+
+  public static final String DEFAULT_INTERNAL_TOPIC_RF = "1";
 
   public static final String CONFLUENT_PLATFORM_VERSION = "5.2.1";
 
@@ -38,45 +35,32 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
   protected String externalZookeeperConnect = null;
 
   private int port = PORT_NOT_ASSIGNED;
-  private int exposedPort;
 
   public KafkaContainer() {
     this(CONFLUENT_PLATFORM_VERSION);
   }
 
   public KafkaContainer(String confluentPlatformVersion) {
-    this(
-        confluentPlatformVersion,
-        DEFAULT_KAFKA_PORT,
-        DEFAULT_KAFKA_BROKER_ID,
-        DEFAULT_INTERNAL_TOPIC_RF);
-  }
-
-  public KafkaContainer(
-      String confluentPlatformVersion, int exposedPort, String brokerId, int internalTopicRf) {
     super(
         TestcontainersConfiguration.getInstance().getKafkaImage() + ":" + confluentPlatformVersion);
 
-    this.exposedPort = exposedPort;
     // TODO Only for backward compatibility
     withNetwork(Network.newNetwork());
     withNetworkAliases("kafka-" + Base58.randomString(6));
-    withNetworkAliases("broker-" + brokerId);
-    withExposedPorts(exposedPort);
+    withExposedPorts(KAFKA_PORT);
 
     // Use two listeners with different names, it will force Kafka to communicate with itself via
     // internal
     // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will try to use the
     // advertised listener
-    withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:" + exposedPort + ",BROKER://0.0.0.0:9092");
+    withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:" + KAFKA_PORT + ",BROKER://0.0.0.0:9092");
     withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT");
     withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER");
 
-    withEnv("KAFKA_BROKER_ID", brokerId);
-    withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", internalTopicRf + "");
-    withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", internalTopicRf + "");
-    withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", internalTopicRf + "");
-    withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", internalTopicRf + "");
+    withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", DEFAULT_INTERNAL_TOPIC_RF);
+    withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", DEFAULT_INTERNAL_TOPIC_RF);
+    withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", DEFAULT_INTERNAL_TOPIC_RF);
+    withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", DEFAULT_INTERNAL_TOPIC_RF);
     withEnv("KAFKA_LOG_FLUSH_INTERVAL_MESSAGES", Long.MAX_VALUE + "");
     withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0");
   }
@@ -113,7 +97,7 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
   protected void containerIsStarting(InspectContainerResponse containerInfo) {
     super.containerIsStarting(containerInfo);
 
-    port = getMappedPort(this.exposedPort);
+    port = getMappedPort(KAFKA_PORT);
 
     final String zookeeperConnect;
     if (externalZookeeperConnect != null) {
@@ -147,8 +131,8 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
           .execStartCmd(execCreateCmdResponse.getId())
           .exec(new ExecStartResultCallback())
           .awaitStarted(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
     }
   }
 
@@ -171,8 +155,8 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
           .execStartCmd(execCreateCmdResponse.getId())
           .exec(new ExecStartResultCallback())
           .awaitStarted(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
     }
 
     return "localhost:" + ZOOKEEPER_PORT;

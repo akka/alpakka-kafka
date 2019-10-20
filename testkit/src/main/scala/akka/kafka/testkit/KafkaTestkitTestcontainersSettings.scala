@@ -12,7 +12,6 @@ import org.testcontainers.containers.GenericContainer
 class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: String,
                                                   val numBrokers: Int,
                                                   val internalTopicsReplicationFactor: Int,
-                                                  val startPort: Int,
                                                   val configureKafka: Vector[GenericContainer[_]] => Unit = _ => (),
                                                   val configureZooKeeper: GenericContainer[_] => Unit = _ => ()) {
 
@@ -30,11 +29,6 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
    * Java Api
    */
   def getInternalTopicsReplicationFactor(): Int = internalTopicsReplicationFactor
-
-  /**
-   * Java Api
-   */
-  def getStartPort(): Int = startPort
 
   /**
    * Replaces the default Confluent Platform Version
@@ -55,12 +49,6 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
     copy(internalTopicsReplicationFactor = internalTopicsReplicationFactor)
 
   /**
-   * Replaces the default start port
-   */
-  def withStartPort(startPort: Int): KafkaTestkitTestcontainersSettings =
-    copy(startPort = startPort)
-
-  /**
    * Replaces the default Kafka testcontainers configuration logic
    */
   def withConfigureKafka(configureKafka: Vector[GenericContainer[_]] => Unit): KafkaTestkitTestcontainersSettings =
@@ -76,14 +64,12 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
-      startPort: Int = startPort,
       configureKafka: Vector[GenericContainer[_]] => Unit = configureKafka,
       configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper
   ): KafkaTestkitTestcontainersSettings =
     new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
-                                           startPort,
                                            configureKafka,
                                            configureZooKeeper)
 
@@ -91,8 +77,7 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
     "KafkaTestkitTestcontainersSettings(" +
     s"confluentPlatformVersion=$confluentPlatformVersion," +
     s"numBrokers=$numBrokers," +
-    s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
-    s"startPort=$startPort)"
+    s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor)"
 }
 
 object KafkaTestkitTestcontainersSettings {
@@ -118,12 +103,8 @@ object KafkaTestkitTestcontainersSettings {
     val confluentPlatformVersion = config.getString("confluent-platform-version")
     val numBrokers = config.getInt("num-brokers")
     val internalTopicsReplicationFactor = config.getInt("internal-topics-replication-factor")
-    val startPort = config.getInt("start-port")
 
-    new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
-                                           numBrokers,
-                                           internalTopicsReplicationFactor,
-                                           startPort)
+    new KafkaTestkitTestcontainersSettings(confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
   }
 
   /**

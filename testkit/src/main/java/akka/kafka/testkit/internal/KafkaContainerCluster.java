@@ -7,6 +7,8 @@ package akka.kafka.testkit.internal;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.lifecycle.Startable;
+import org.testcontainers.lifecycle.Startables;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -14,26 +16,26 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static akka.kafka.testkit.internal.KafkaContainer.CONFLUENT_PLATFORM_VERSION;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Provides an easy way to launch a Kafka cluster with multiple brokers.
  *
- * <p>NOTE: This may be deleted when/if the upstream testcontainers-java PR is merged:
+ * <p>TODO: This may be deleted when/if the upstream testcontainers-java PR is merged:
  * https://github.com/testcontainers/testcontainers-java/pull/1984
  */
-public class KafkaContainerCluster implements AutoCloseable {
+public class KafkaContainerCluster implements Startable {
 
-  private final int startPort;
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<KafkaContainer> brokers;
 
-  public KafkaContainerCluster(int brokersNum, int internalTopicsRf, int startPort) {
-    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, startPort);
+  public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
+    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf);
   }
 
   public KafkaContainerCluster(
-      String confluentPlatformVersion, int brokersNum, int internalTopicsRf, int startPort) {
+      String confluentPlatformVersion, int brokersNum, int internalTopicsRf) {
     if (brokersNum < 0) {
       throw new IllegalArgumentException("brokersNum '" + brokersNum + "' must be greater than 0");
     }
@@ -43,8 +45,6 @@ public class KafkaContainerCluster implements AutoCloseable {
               + internalTopicsRf
               + "' must be less than brokersNum and greater than 0");
     }
-
-    this.startPort = startPort;
 
     this.network = Network.newNetwork();
 
@@ -58,13 +58,17 @@ public class KafkaContainerCluster implements AutoCloseable {
         IntStream.range(0, brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new KafkaContainer(
-                            confluentPlatformVersion,
-                            this.startPort + brokerNum,
-                            String.valueOf(brokerNum),
-                            internalTopicsRf)
+                    new KafkaContainer(confluentPlatformVersion)
                         .withNetwork(this.network)
-                        .withExternalZookeeper("zookeeper:" + KafkaContainer.ZOOKEEPER_PORT))
+                        .withNetworkAliases("broker-" + brokerNum)
+                        .dependsOn(this.zookeeper)
+                        .withExternalZookeeper("zookeeper:" + KafkaContainer.ZOOKEEPER_PORT)
+                        .withEnv("KAFKA_BROKER_ID", brokerNum + "")
+                        .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", internalTopicsRf + "")
+                        .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", internalTopicsRf + "")
+                        .withEnv(
+                            "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", internalTopicsRf + "")
+                        .withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", internalTopicsRf + ""))
             .collect(Collectors.toList());
   }
 
@@ -92,16 +96,23 @@ public class KafkaContainerCluster implements AutoCloseable {
     return Stream.concat(genericBrokers, zookeeper);
   }
 
-  public void startAll() {
-    allContainers().parallel().forEach(GenericContainer::start);
+  @Override
+  public void start() {
+    Stream<Startable> startables = this.brokers.stream().map(b -> (Startable) b);
+    try {
+      Startables.deepStart(startables).get(60, SECONDS);
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
-  public void stopAll() {
+  @Override
+  public void stop() {
     allContainers().parallel().forEach(GenericContainer::stop);
   }
 
   @Override
-  public void close() throws Exception {
-    this.stopAll();
+  public void close() {
+    this.stop();
   }
 }
