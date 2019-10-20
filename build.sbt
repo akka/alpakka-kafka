@@ -287,7 +287,7 @@ lazy val tests = project
         }
       } ++
       Seq( // integration test dependencies
-      ),
+      ) ++ silencer,
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -312,7 +312,8 @@ lazy val tests = project
         "SerializationTest.java" ||
         "TransactionsExampleTest.java"
       } else (Test / unmanagedSources / excludeFilter).value
-    }
+    },
+    IntegrationTest / compile / scalacOptions += "-P:silencer:globalFilters=scala.jdk.CollectionConverters"
   )
 
 lazy val docs = project

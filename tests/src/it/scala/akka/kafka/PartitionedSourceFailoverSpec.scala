@@ -8,11 +8,9 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
-import org.testcontainers.containers.GenericContainer
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -20,25 +18,12 @@ import scala.concurrent.duration._
 class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
   implicit val pc = PatienceConfig(45.seconds, 1.second)
 
-  final val logSentMessages: Long => Long = i => {
-    if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
-    i
-  }
-
-  final def logReceivedMessages(tp: TopicPartition): Long => Long = i => {
-    if (i % 1000 == 0) log.info(s"$tp: Received [$i] messages so far.")
-    i
-  }
-
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
     .withNumBrokers(3)
     .withInternalTopicsReplicationFactor(2)
 
   "partitioned source" should {
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
-      val broker2: GenericContainer[_] = brokerContainers(1)
-      val broker2ContainerId: String = broker2.getContainerId
-
       val totalMessages = 1000 * 10L
       val partitions = 4
 
@@ -64,14 +49,13 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
           log.info(s"Sub-source for ${tp}")
           source
             .scan(0L)((c, _) => c + 1)
-            .map(logReceivedMessages(tp))
+            .via(IntegrationTests.logReceivedMessages(tp)(log))
+            // shutdown substream after receiving at its share of the total messages
+            .takeWhile(count => count < (totalMessages / partitions), inclusive = true)
             .runWith(Sink.last)
-            .map { res =>
-              log.info(s"$tp: Received [$res] messages in total.")
-              res
-            }
         }
         .mergeSubstreams
+        // sum of sums. sum the last results of substreams.
         .scan(0L)((c, subValue) => c + subValue)
         .takeWhile(count => count < totalMessages, inclusive = true)
         .runWith(Sink.last)
@@ -85,12 +69,11 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         ProducerConfig.ACKS_CONFIG -> "all"
       )
 
-      val result: Future[Done] = Source(0L until totalMessages)
-        .map(logSentMessages)
+      val result: Future[Done] = Source(1L to totalMessages)
+        .via(IntegrationTests.logSentMessages()(log))
         .map { number =>
           if (number == totalMessages / 2) {
-            log.warn(s"Stopping one Kafka container [$broker2ContainerId] after [$number] messages")
-            broker2.stop()
+            IntegrationTests.stopRandomBroker(brokerContainers, number)(log)
           }
           number
         }

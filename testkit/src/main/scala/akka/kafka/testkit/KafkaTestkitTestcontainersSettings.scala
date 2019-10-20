@@ -88,10 +88,11 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
                                            configureZooKeeper)
 
   override def toString: String =
+    "KafkaTestkitTestcontainersSettings(" +
     s"confluentPlatformVersion=$confluentPlatformVersion," +
     s"numBrokers=$numBrokers," +
     s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
-    s"startPort=$startPort"
+    s"startPort=$startPort)"
 }
 
 object KafkaTestkitTestcontainersSettings {

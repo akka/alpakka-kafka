@@ -28,6 +28,8 @@ object TestcontainersKafka {
      * Override this to select a different Kafka version be choosing the desired version of Confluent Platform:
      * [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]],
      * [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
+     *
+     * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
      */
     @deprecated("Use testcontainersSettings instead.", "1.1.1")
     def confluentPlatformVersion: String = ConfluentPlatformVersion

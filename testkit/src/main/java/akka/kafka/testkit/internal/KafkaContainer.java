@@ -61,6 +61,7 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
     // TODO Only for backward compatibility
     withNetwork(Network.newNetwork());
     withNetworkAliases("kafka-" + Base58.randomString(6));
+    withNetworkAliases("broker-" + brokerId);
     withExposedPorts(exposedPort);
 
     // Use two listeners with different names, it will force Kafka to communicate with itself via

@@ -10,7 +10,6 @@ import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
-import org.testcontainers.containers.GenericContainer
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -24,10 +23,7 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
 
   "plain source" should {
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
-      val broker2: GenericContainer[_] = brokerContainers(1)
-      val broker2ContainerId: String = broker2.getContainerId
-
-      val totalMessages = 1000 * 10
+      val totalMessages = 1000 * 10L
       val partitions = 1
 
       // TODO: This is probably not necessary anymore since the testcontainer setup blocks until all brokers are online.
@@ -46,12 +42,9 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val consumerMatValue: Future[Int] = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
-        .scan(0)((c, _) => c + 1)
-        .map { i =>
-          if (i % 1000 == 0) log.info(s"Received [$i] messages so far.")
-          i
-        }
+      val consumerMatValue: Future[Long] = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
+        .scan(0L)((c, _) => c + 1)
+        .via(IntegrationTests.logReceivedMessages()(log))
         .takeWhile(count => count < totalMessages, inclusive = true)
         .runWith(Sink.last)
 
@@ -64,19 +57,15 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
         ProducerConfig.ACKS_CONFIG -> "all"
       )
 
-      val result = Source(1 to totalMessages)
-        .map { i =>
-          if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
-          i.toString
-        }
-        .map(number => new ProducerRecord(topic, partition0, DefaultKey, number))
+      val result = Source(0L to totalMessages)
+        .via(IntegrationTests.logReceivedMessages()(log))
         .map { number =>
-          if (number.value().toInt == totalMessages / 2) {
-            log.warn(s"Stopping one Kafka container [$broker2ContainerId] after [$number] messages")
-            broker2.stop()
+          if (number == totalMessages / 2) {
+            IntegrationTests.stopRandomBroker(brokerContainers, number)(log)
           }
           number
         }
+        .map(number => new ProducerRecord(topic, partition0, DefaultKey, number.toString))
         .runWith(Producer.plainSink(producerConfig))
 
       result.futureValue
