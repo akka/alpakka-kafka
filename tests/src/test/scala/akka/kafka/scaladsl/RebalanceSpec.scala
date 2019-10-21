@@ -62,8 +62,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe1.request(count * 2L)
 
       // Subscribe to the topic (without demand)
-      val prove2rebalanceActor = TestProbe()
-      val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(prove2rebalanceActor.ref)
+      val probe2rebalanceActor = TestProbe()
+      val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
         .plainSource(consumerSettings, probe2subscription)
         .toMat(TestSink.probe)(Keep.both)
@@ -74,13 +74,13 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsRevoked(probe1subscription,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      prove2rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
+      probe2rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
 
       // the rebalance finishes
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription, Set(new TopicPartition(topic1, partition0)))
       )
-      prove2rebalanceActor.expectMsg(
+      probe2rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe2subscription, Set(new TopicPartition(topic1, partition1)))
       )
 
