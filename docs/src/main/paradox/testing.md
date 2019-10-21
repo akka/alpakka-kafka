@@ -123,6 +123,30 @@ The Testcontainers support is new to Alpakka Kafka since 1.0.2 and may evolve a 
 
 @@@
 
+### Settings
+
+You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating `KafkaTestkitTestcontainersSettings` in code or configuration.
+
+To change defaults for all settings update the appropriate configuration in `akka.kafka.testkit.testcontainers`.
+
+@@ snip [snip](/testkit/src/main/resources/reference.conf) { #testkit-testcontainers-settings }
+
+You can override all these defaults in code and per test class. By applying settings in code you can also configure the Kafka and ZooKeeper containers themselves.
+
+For example, the following demonstrates creating a 3 Broker Kafka cluster.
+
+Scala
+: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers-settings }
+
+Java
+: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
+
+For more options see the  `KafkaTestkitTestcontainersSettings` (@scaladoc[API](akka.kafka.testkit.KafkaTestkitTestcontainersSettings)) settings object to configure settings such as:
+
+* The version of Confluent Platform docker images to use
+* The number of brokers
+* Overriding container settings and environment variables (i.e. to change default Broker config)
+
 ### Testing with Kafka in Docker from Java code
 
 The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
@@ -156,16 +180,20 @@ The Testcontainers dependency must be added to your project explicitly.
   scope=test
 }
 
-By mixing in `TestcontainersKafkaLike` the Kafka Docker container will be started before the first test and shut down after all tests are finished.
+To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+
+#### One cluster for all tests
+
+By mixing in `TestcontainersKafkaLike` the Kafka Docker cluster will be started before the first test and shut down after all tests are finished.
 
 Scala
 : @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers}
 
-
 With this `TestcontainersSampleSpec` class test classes can extend it to automatically start and stop a Kafka broker to test with.
 
-To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+#### One cluster per test class
 
+By mixing in `TestcontainersKafkaPerClassLike` the Kafka Docker cluster will be started for each test class.
 
 ## Alternative testing libraries
 

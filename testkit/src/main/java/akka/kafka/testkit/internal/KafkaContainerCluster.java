@@ -5,12 +5,18 @@
 
 package akka.kafka.testkit.internal;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
+import org.rnorth.ducttape.unreliables.Unreliables;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -26,9 +32,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class KafkaContainerCluster implements Startable {
 
+  private final int brokersNum;
   private final Network network;
   private final GenericContainer zookeeper;
-  private final Collection<KafkaContainer> brokers;
+  private final Collection<org.testcontainers.containers.KafkaContainer> brokers;
+  private final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
     this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf);
@@ -46,23 +54,28 @@ public class KafkaContainerCluster implements Startable {
               + "' must be less than brokersNum and greater than 0");
     }
 
+    this.brokersNum = brokersNum;
     this.network = Network.newNetwork();
 
     this.zookeeper =
         new GenericContainer("confluentinc/cp-zookeeper:" + confluentPlatformVersion)
             .withNetwork(network)
             .withNetworkAliases("zookeeper")
-            .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(KafkaContainer.ZOOKEEPER_PORT));
+            .withEnv(
+                "ZOOKEEPER_CLIENT_PORT",
+                String.valueOf(org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT));
 
     this.brokers =
-        IntStream.range(0, brokersNum)
+        IntStream.range(0, this.brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new KafkaContainer(confluentPlatformVersion)
+                    new org.testcontainers.containers.KafkaContainer(confluentPlatformVersion)
                         .withNetwork(this.network)
                         .withNetworkAliases("broker-" + brokerNum)
                         .dependsOn(this.zookeeper)
-                        .withExternalZookeeper("zookeeper:" + KafkaContainer.ZOOKEEPER_PORT)
+                        .withExternalZookeeper(
+                            "zookeeper:"
+                                + org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT)
                         .withEnv("KAFKA_BROKER_ID", brokerNum + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", internalTopicsRf + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", internalTopicsRf + "")
@@ -80,13 +93,13 @@ public class KafkaContainerCluster implements Startable {
     return this.zookeeper;
   }
 
-  public Collection<KafkaContainer> getBrokers() {
+  public Collection<org.testcontainers.containers.KafkaContainer> getBrokers() {
     return this.brokers;
   }
 
   public String getBootstrapServers() {
     return brokers.stream()
-        .map(KafkaContainer::getBootstrapServers)
+        .map(org.testcontainers.containers.KafkaContainer::getBootstrapServers)
         .collect(Collectors.joining(","));
   }
 
@@ -104,10 +117,46 @@ public class KafkaContainerCluster implements Startable {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+
+    Unreliables.retryUntilTrue(
+        30,
+        TimeUnit.SECONDS,
+        () ->
+            this.brokers.stream()
+                .findFirst()
+                .map(this::clusterBrokers)
+                .filter(brokers -> brokers.split(",").length == this.brokersNum)
+                .isPresent());
+  }
+
+  private String clusterBrokers(org.testcontainers.containers.KafkaContainer c) {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      dockerClient
+          .execStartCmd(
+              dockerClient
+                  .execCreateCmd(c.getContainerId())
+                  .withAttachStdout(true)
+                  .withCmd(
+                      "sh",
+                      "-c",
+                      "zookeeper-shell zookeeper:"
+                          + org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT
+                          + " ls /brokers/ids | tail -n 1")
+                  .exec()
+                  .getId())
+          .exec(new ExecStartResultCallback(outputStream, null))
+          .awaitCompletion();
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+    return outputStream.toString();
   }
 
   @Override
   public void stop() {
+    // TODO: is there an inverse of `deepStart` to stop all dependant containers?  stopping
+    // zookeeper didn't seem to stop brokers alone.
     allContainers().parallel().forEach(GenericContainer::stop);
   }
 

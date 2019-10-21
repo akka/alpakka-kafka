@@ -30,12 +30,12 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
     super(system, materializer, startKafka(TestcontainersKafka.ConfluentPlatformVersion()));
   }
 
-  @Deprecated
   protected TestcontainersKafkaTest(
       ActorSystem system, Materializer materializer, KafkaTestkitTestcontainersSettings settings) {
     super(system, materializer, startKafka(settings));
   }
 
+  @Deprecated
   protected TestcontainersKafkaTest(
       ActorSystem system, Materializer materializer, String confluentPlatformVersion) {
     super(system, materializer, startKafka(confluentPlatformVersion));

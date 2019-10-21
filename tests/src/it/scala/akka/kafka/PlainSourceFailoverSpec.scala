@@ -58,7 +58,7 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
       )
 
       val result = Source(0L to totalMessages)
-        .via(IntegrationTests.logReceivedMessages()(log))
+        .via(IntegrationTests.logSentMessages()(log))
         .map { number =>
           if (number == totalMessages / 2) {
             IntegrationTests.stopRandomBroker(brokerContainers, number)(log)

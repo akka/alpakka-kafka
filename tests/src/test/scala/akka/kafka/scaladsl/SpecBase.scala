@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 // #testkit
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
+import akka.kafka.testkit.scaladsl.{ScalatestKafkaSpec}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
 
@@ -29,3 +29,17 @@ class TestcontainersSampleSpec extends SpecBase with TestcontainersKafkaLike {
   // ...
 }
 // #testcontainers
+
+// #testcontainers-settings
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
+
+class TestcontainersNewSettingsSampleSpec extends SpecBase with TestcontainersKafkaPerClassLike {
+
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+    .withNumBrokers(3)
+    .withInternalTopicsReplicationFactor(2)
+
+  // ...
+}
+// #testcontainers-settings
