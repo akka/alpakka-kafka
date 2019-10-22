@@ -9,7 +9,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
-import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, Subscription}
+import akka.kafka._
 import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.common.TopicPartition
 
@@ -111,8 +111,21 @@ import scala.concurrent.{Future, Promise}
   }
 
   /**
-   * Opportunity for subclasses to add their logic to the partition assignment callbacks.
+   * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
+   * Used by the [[TransactionalSourceLogic]].
    */
-  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler =
-    handler
+  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler = {
+    val flushMessagesOfRevokedPartitions: PartitionAssignmentHandler = new PartitionAssignmentHandler {
+      private var lastRevoked = Set.empty[TopicPartition]
+
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        lastRevoked = revokedTps
+
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        filterRevokedPartitions(lastRevoked -- assignedTps)
+
+      override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+    }
+    new PartitionAssignmentHelpers.Chain(handler, flushMessagesOfRevokedPartitions)
+  }
 }
