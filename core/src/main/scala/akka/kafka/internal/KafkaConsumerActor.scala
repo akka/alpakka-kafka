@@ -17,6 +17,7 @@ import akka.actor.{
   ActorRef,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
+  Stash,
   Status,
   Terminated,
   Timers
@@ -32,8 +33,9 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Success, Try}
 import scala.util.control.NonFatal
 
 /**
@@ -200,22 +202,25 @@ import scala.util.control.NonFatal
  * The actor communicating through the Kafka consumer client.
  */
 @InternalApi final private[kafka] class KafkaConsumerActor[K, V](owner: Option[ActorRef],
-                                                                 settings: ConsumerSettings[K, V])
+                                                                 _settings: ConsumerSettings[K, V])
     extends Actor
     with ActorLogging
-    with Timers {
+    with Timers
+    with Stash {
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
   private val pollMsg = Poll(this, periodic = true)
   private val delayedPollMsg = Poll(this, periodic = false)
-  private val pollTimeout = settings.pollTimeout.asJava
+
+  private var settings: ConsumerSettings[K, V] = _
+  private var pollTimeout: java.time.Duration = _
 
   /** Limits the blocking on offsetForTimes */
-  private val offsetForTimesTimeout = settings.getOffsetForTimesTimeout
+  private var offsetForTimesTimeout: java.time.Duration = _
 
   /** Limits the blocking on position in [[RebalanceListenerImpl]] */
-  private val positionTimeout = settings.getPositionTimeout
+  private var positionTimeout: java.time.Duration = _
 
   private var requests = Map.empty[ActorRef, RequestMessages]
 
@@ -223,11 +228,8 @@ import scala.util.control.NonFatal
   private var stageActors = Set.empty[ActorRef]
   private var consumer: Consumer[K, V] = _
   private var commitsInProgress = 0
-  private val commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
+  private var commitRefreshing: CommitRefreshing = _
   private var stopInProgress = false
-
-  if (settings.connectionCheckerSettings.enable)
-    context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
 
   /**
    * While `true`, committing is delayed.
@@ -248,7 +250,9 @@ import scala.util.control.NonFatal
   private var delayedPollInFlight = false
   private var partitionAssignmentHandler: RebalanceListener = RebalanceListener.Empty
 
-  def receive: Receive = LoggingReceive {
+  override val receive: Receive = regularReceive
+
+  def regularReceive: Receive = LoggingReceive {
     case Commit(offsets) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = offsets :: commitMaps
@@ -319,6 +323,22 @@ import scala.util.control.NonFatal
       sender() ! handleMetadataRequest(req)
   }
 
+  def expectSettings: Receive = LoggingReceive.withLabel("expectSettings") {
+    case s: ConsumerSettings[K, V] =>
+      applySettings(s)
+
+    case scala.util.Failure(e) =>
+      owner.foreach(_ ! Failure(e))
+      throw e
+
+    case Stop =>
+      log.debug("Received Stop from {}, stopping", sender())
+      context.stop(self)
+
+    case _ =>
+      stash()
+  }
+
   def handleSubscription(subscription: SubscriptionRequest): Unit =
     try {
       subscription match {
@@ -383,7 +403,7 @@ import scala.util.control.NonFatal
         }
     }
 
-  def stopping: Receive = LoggingReceive {
+  def stopping: Receive = LoggingReceive.withLabel("stopping") {
     case p: Poll[_, _] =>
       receivePoll(p)
     case Stop =>
@@ -397,10 +417,34 @@ import scala.util.control.NonFatal
 
   override def preStart(): Unit = {
     super.preStart()
+    val updateSettings: Future[ConsumerSettings[K, V]] = _settings.enriched
+    updateSettings.value match {
+      case Some(Success(s)) => applySettings(s)
+      case Some(scala.util.Failure(e)) =>
+        owner.foreach(_ ! Failure(e))
+        throw e
+      case None =>
+        import akka.pattern.pipe
+        implicit val ec: ExecutionContext = context.dispatcher
+        context.become(expectSettings)
+        updateSettings.pipeTo(self)
+    }
+  }
+
+  private def applySettings(updatedSettings: ConsumerSettings[K, V]): Unit = {
+    this.settings = updatedSettings
+    if (settings.connectionCheckerSettings.enable)
+      context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
+    pollTimeout = settings.pollTimeout.asJava
+    offsetForTimesTimeout = settings.getOffsetForTimesTimeout
+    positionTimeout = settings.getPositionTimeout
+    commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
     try {
       if (log.isDebugEnabled)
         log.debug(s"Creating Kafka consumer with ${settings.toString}")
-      consumer = settings.createKafkaConsumer()
+      consumer = settings.consumerFactory.apply(settings)
+      context.become(regularReceive)
+      unstashAll()
     } catch {
       case e: Exception =>
         owner.foreach(_ ! Failure(e))

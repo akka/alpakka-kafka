@@ -5,11 +5,14 @@
 
 package akka.kafka
 
+import akka.actor.ActorSystem
+import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 
-class ProducerSettingsSpec extends WordSpecLike with Matchers {
+class ProducerSettingsSpec extends WordSpecLike with Matchers with ScalaFutures with IntegrationPatience {
 
   "ProducerSettings" must {
 
@@ -172,4 +175,66 @@ class ProducerSettingsSpec extends WordSpecLike with Matchers {
 
   }
 
+  "Discovery" should {
+    val config = ConfigFactory
+      .parseString(ProducerSettingsSpec.DiscoveryConfigSection)
+      .withFallback(ConfigFactory.load())
+      .resolve()
+
+    "use enriched settings for consumer creation" in {
+      implicit val actorSystem = ActorSystem("test", config)
+
+      // #discovery-settings
+      import akka.kafka.scaladsl.DiscoverySupport
+
+      val producerConfig = config.getConfig("discovery-producer")
+      val settings = ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
+        .withEnrichAsync(DiscoverySupport.producerBootstrapServers(producerConfig))
+      // #discovery-settings
+
+      val exception = settings.createKafkaProducerAsync()(actorSystem.dispatcher).failed.futureValue
+      exception shouldBe a[org.apache.kafka.common.KafkaException]
+      exception.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
+      exception.getCause.getMessage shouldBe "No resolvable bootstrap urls given in bootstrap.servers"
+      TestKit.shutdownActorSystem(actorSystem)
+    }
+
+    "fail if using non-async creation with enrichAsync" in {
+      implicit val actorSystem = ActorSystem("test", config)
+
+      import akka.kafka.scaladsl.DiscoverySupport
+
+      val producerConfig = config.getConfig("discovery-producer")
+      val settings = ProducerSettings(producerConfig, new StringSerializer, new StringSerializer)
+        .withEnrichAsync(DiscoverySupport.producerBootstrapServers(producerConfig))
+
+      val exception = intercept[IllegalStateException] {
+        settings.createKafkaProducer()
+      }
+      exception shouldBe a[IllegalStateException]
+      TestKit.shutdownActorSystem(actorSystem)
+    }
+  }
+
+}
+
+object ProducerSettingsSpec {
+  val DiscoveryConfigSection =
+    s"""
+        // #discovery-service
+        discovery-producer: $${akka.kafka.producer} {
+          service-name = "kafkaService1"
+          resolve-timeout = 10 ms
+        }
+        // #discovery-service
+        akka.discovery.method = config
+        akka.discovery.config.services = {
+          kafkaService1 = {
+            endpoints = [
+              { host = "cat", port = 1233 }
+              { host = "dog", port = 1234 }
+            ]
+          }
+        }
+        """
 }

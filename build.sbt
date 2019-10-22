@@ -200,6 +200,7 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.1"
       ) ++ silencer,
@@ -225,7 +226,7 @@ lazy val testkit = project
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
-      ) ++ {
+      ) ++ silencer ++ {
         if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
@@ -260,6 +261,7 @@ lazy val tests = project
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test,
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -278,7 +280,7 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "2.24.5" % Test
-      ) ++ {
+      ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
             Seq()
@@ -363,6 +365,7 @@ lazy val docs = project
         "scalatest.version" -> scalatestVersion,
         "testcontainers.version" -> testcontainersVersion,
         "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
+        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",

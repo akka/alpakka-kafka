@@ -15,7 +15,7 @@ import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.
@@ -45,6 +45,19 @@ object Producer {
   def plainSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
+  ): Sink[ProducerRecord[K, V], Future[Done]] = plainSink(settings, Future.successful(producer))
+
+  /**
+   * Create a sink for publishing records to Kafka topics.
+   *
+   * The [[org.apache.kafka.clients.producer.ProducerRecord Kafka ProducerRecord]] contains the topic name to which the record is being sent, an optional
+   * partition number, and an optional key and value.
+   *
+   * Supports sharing a Kafka Producer instance provided by a future.
+   */
+  def plainSink[K, V](
+      settings: ProducerSettings[K, V],
+      producer: Future[org.apache.kafka.clients.producer.Producer[K, V]]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]]
       .map(Message(_, NotUsed))
@@ -273,7 +286,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          () => settings.createKafkaProducer()
+          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -304,7 +317,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           settings.closeTimeout,
           closeProducerOnStop = true,
-          () => settings.createKafkaProducer()
+          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -359,7 +372,7 @@ object Producer {
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
-          producerProvider = () => producer
+          producerProvider = (_: ExecutionContext) => Future.successful(producer)
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -387,13 +400,36 @@ object Producer {
   def flexiFlow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    flexiFlow(settings, Future.successful(producer))
+
+  /**
+   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
+   *
+   * It publishes records to Kafka topics conditionally:
+   *
+   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
+   *
+   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
+   *
+   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
+   *
+   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
+   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
+   * be committed later in the flow.
+   *
+   * Supports sharing a Kafka Producer instance provided from a future.
+   */
+  def flexiFlow[K, V, PassThrough](
+      settings: ProducerSettings[K, V],
+      producer: Future[org.apache.kafka.clients.producer.Producer[K, V]]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
     val flow = Flow
       .fromGraph(
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
           closeTimeout = settings.closeTimeout,
           closeProducerOnStop = false,
-          producerProvider = () => producer
+          producerProvider = (_: ExecutionContext) => producer
         )
       )
       .mapAsync(settings.parallelism)(identity)

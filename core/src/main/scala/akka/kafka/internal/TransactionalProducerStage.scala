@@ -16,7 +16,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
@@ -28,13 +28,13 @@ import scala.jdk.CollectionConverters._
 private[kafka] final class TransactionalProducerStage[K, V, P](
     val closeTimeout: FiniteDuration,
     val closeProducerOnStop: Boolean,
-    val producerProvider: () => Producer[K, V],
+    val producerProvider: ExecutionContext => Future[Producer[K, V]],
     commitInterval: FiniteDuration
 ) extends GraphStage[FlowShape[Envelope[K, V, P], Future[Results[K, V, P]]]]
     with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new TransactionalProducerStageLogic(this, producerProvider(), inheritedAttributes, commitInterval)
+    new TransactionalProducerStageLogic(this, producerProvider, inheritedAttributes, commitInterval)
 }
 
 /** Internal API */
@@ -98,12 +98,13 @@ private object TransactionalProducerStage {
  *
  * Transaction (Exactly-Once) Producer State Logic
  */
-private final class TransactionalProducerStageLogic[K, V, P](stage: TransactionalProducerStage[K, V, P],
-                                                             producer: Producer[K, V],
-                                                             inheritedAttributes: Attributes,
-                                                             commitInterval: FiniteDuration)
-    extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage,
-                                                                                    producer,
+private final class TransactionalProducerStageLogic[K, V, P](
+    stage: TransactionalProducerStage[K, V, P],
+    producerFactory: ExecutionContext => Future[Producer[K, V]],
+    inheritedAttributes: Attributes,
+    commitInterval: FiniteDuration
+) extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage,
+                                                                                    producerFactory,
                                                                                     inheritedAttributes)
     with StageLogging
     with MessageCallback[K, V, P]
@@ -118,34 +119,28 @@ private final class TransactionalProducerStageLogic[K, V, P](stage: Transactiona
 
   private var demandSuspended = false
 
-  override def preStart(): Unit = {
+  override protected def logSource: Class[_] = classOf[TransactionalProducerStage[_, _, _]]
+
+  override def preStart(): Unit = super.preStart()
+
+  override protected def assignProducer(p: Producer[K, V]): Unit = {
+    producer = p
     initTransactions()
     beginTransaction()
-    resumeDemand(tryToPull = false)
+    resumeDemand()
     scheduleOnce(commitSchedulerKey, commitInterval)
   }
 
-  private def resumeDemand(tryToPull: Boolean = true): Unit = {
-    setHandler(stage.out, new OutHandler {
-      override def onPull(): Unit = tryPull(stage.in)
-    })
+  // suspend demand until a Producer has been created
+  suspendDemand()
+
+  override protected def resumeDemand(tryToPull: Boolean = true): Unit = {
+    super.resumeDemand(tryToPull)
     demandSuspended = false
-    // kick off demand for more messages if we're resuming demand
-    if (tryToPull && isAvailable(stage.out) && !hasBeenPulled(stage.in)) {
-      tryPull(stage.in)
-    }
   }
 
-  private def suspendDemand(): Unit = {
-    if (!demandSuspended) {
-      setHandler(
-        stage.out,
-        new OutHandler {
-          // suspend demand while a commit is in process so we can drain any outstanding message acknowledgements
-          override def onPull(): Unit = ()
-        }
-      )
-    }
+  override protected def suspendDemand(): Unit = {
+    if (!demandSuspended) super.suspendDemand()
     demandSuspended = true
   }
 
