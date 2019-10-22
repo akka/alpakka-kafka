@@ -193,7 +193,7 @@ With this `TestcontainersSampleSpec` class test classes can extend it to automat
 
 #### One cluster per test class
 
-By mixing in `TestcontainersKafkaPerClassLike` the Kafka Docker cluster will be started for each test class.
+By mixing in `TestcontainersKafkaPerClassLike` a specific Kafka Docker cluster will be started for that test class and stopped after its run finished.
 
 ## Alternative testing libraries
 
