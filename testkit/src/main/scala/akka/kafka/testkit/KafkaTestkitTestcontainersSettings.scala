@@ -31,7 +31,7 @@ class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: 
   def getInternalTopicsReplicationFactor(): Int = internalTopicsReplicationFactor
 
   /**
-   * Replaces the default Confluent Platform Version
+   * Sets the Confluent Platform Version
    */
   def withConfluentPlatformVersion(confluentPlatformVersion: String): KafkaTestkitTestcontainersSettings =
     copy(confluentPlatformVersion = confluentPlatformVersion)
