@@ -30,7 +30,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
     // The `max.poll.records` controls how many records Kafka fetches internally during a poll.
     "actually show even if partition is revoked" in assertAllStagesStopped {
-      val count = 20
+      val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
@@ -40,7 +40,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
         .withGroupId(group1)
 
-      awaitProduce(produce(topic1, 0 to count, partition1))
+      awaitProduce(produce(topic1, 0 to count.toInt, partition1))
 
       // Subscribe to the topic (without demand)
       val probe1rebalanceActor = TestProbe()
@@ -83,10 +83,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsAssigned(probe2subscription, Set(new TopicPartition(topic1, partition1)))
       )
 
-      probe1.request(count.toLong)
-      probe2.request(count.toLong)
+      probe1.request(count)
+      probe2.request(count)
 
-      val probe2messages = probe2.expectNextN(count.toLong)
+      val probe2messages = probe2.expectNextN(count)
 
       // no further messages enqueued on probe1 as partition 1 is balanced away
       probe1.expectNoMessage(500.millis)
