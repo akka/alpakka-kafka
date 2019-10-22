@@ -101,27 +101,6 @@ object Producer {
    *
    * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
    *
-   * Note that there is a risk that something fails after publishing but before
-   * committing, so it is "at-least once delivery" semantics.
-   */
-  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.0-RC1")
-  def commitableSink[K, V](
-      settings: ProducerSettings[K, V]
-  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings)
-
-  /**
-   * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
-   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
-   * been published successfully to the topic.
-   *
-   * It publishes records to Kafka topics conditionally:
-   *
-   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
-   *
    *
    * Note that there is always a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
@@ -136,31 +115,6 @@ object Producer {
     flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
       .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
       .toMat(Sink.ignore)(Keep.right)
-
-  /**
-   * Create a sink that is aware of the [[ConsumerMessage.CommittableOffset committable offset]]
-   * from a [[Consumer.committableSource]]. It will commit the consumer offset when the message has
-   * been published successfully to the topic.
-   *
-   * It publishes records to Kafka topics conditionally:
-   *
-   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
-   *
-   *
-   * Note that there is always a risk that something fails after publishing but before
-   * committing, so it is "at-least once delivery" semantics.
-   *
-   * Supports sharing a Kafka Producer instance.
-   */
-  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.0-RC1")
-  def commitableSink[K, V](
-      settings: ProducerSettings[K, V],
-      producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] = committableSink(settings, producer)
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]

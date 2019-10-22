@@ -179,28 +179,6 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val producerFactory: ProducerSettings[K, V] => Producer[K, V]
 ) {
 
-  @deprecated("use the factory methods `ProducerSettings.apply` and `create` instead", "1.0-M1")
-  def this(
-      properties: Map[String, String],
-      keySerializerOpt: Option[Serializer[K]],
-      valueSerializerOpt: Option[Serializer[V]],
-      closeTimeout: FiniteDuration,
-      parallelism: Int,
-      dispatcher: String,
-      eosCommitInterval: FiniteDuration
-  ) =
-    this(
-      properties,
-      keySerializerOpt,
-      valueSerializerOpt,
-      closeTimeout,
-      parallelism,
-      dispatcher,
-      eosCommitInterval,
-      enrichAsync = None,
-      ProducerSettings.createKafkaProducer
-    )
-
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    */

@@ -214,44 +214,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val partitionHandlerWarning: FiniteDuration
 ) {
 
-  @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
-  def this(properties: Map[String, String],
-           keyDeserializer: Option[Deserializer[K]],
-           valueDeserializer: Option[Deserializer[V]],
-           pollInterval: FiniteDuration,
-           pollTimeout: FiniteDuration,
-           stopTimeout: FiniteDuration,
-           closeTimeout: FiniteDuration,
-           commitTimeout: FiniteDuration,
-           wakeupTimeout: FiniteDuration,
-           maxWakeups: Int,
-           commitRefreshInterval: Duration,
-           dispatcher: String,
-           commitTimeWarning: FiniteDuration,
-           wakeupDebug: Boolean,
-           waitClosePartition: FiniteDuration) = this(
-    properties,
-    keyDeserializer,
-    valueDeserializer,
-    pollInterval,
-    pollTimeout,
-    stopTimeout,
-    closeTimeout,
-    commitTimeout,
-    commitRefreshInterval,
-    dispatcher,
-    commitTimeWarning,
-    waitClosePartition,
-    positionTimeout = 5.seconds,
-    offsetForTimesTimeout = 5.seconds,
-    metadataRequestTimeout = 5.seconds,
-    drainingCheckInterval = 30.millis,
-    enrichAsync = None,
-    consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
-    connectionCheckerSettings = ConnectionCheckerSettings.Disabled,
-    partitionHandlerWarning = 15.seconds
-  )
-
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    */
@@ -392,36 +354,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(commitTimeWarning = commitTimeWarning.asScala)
 
   /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] = this
-
-  /**
-   * Java API:
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupTimeout(wakeupTimeout: java.time.Duration): ConsumerSettings[K, V] = this
-
-  /**
    * Fully qualified config path which holds the dispatcher configuration
    * to be used by the [[akka.kafka.KafkaConsumerActor]]. Some blocking may occur.
    */
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
-
-  /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] = this
 
   /**
    * If set to a finite duration, the consumer will re-send the last committed offsets periodically
@@ -443,14 +380,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withCommitRefreshInterval(commitRefreshInterval: java.time.Duration): ConsumerSettings[K, V] =
     if (commitRefreshInterval.isZero) copy(commitRefreshInterval = Duration.Inf)
     else copy(commitRefreshInterval = commitRefreshInterval.asScala)
-
-  /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] = this
 
   /**
    * Time to wait for pending requests when a partition is closed.
