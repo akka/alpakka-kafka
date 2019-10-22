@@ -117,12 +117,6 @@ To ensure proper shutdown of all stages in every test, wrap your test code in [`
 
 The [Testcontainers](https://www.testcontainers.org/) project contains a nice API to start and stop Apache Kafka in Docker containers. This becomes very relevant when your application code uses a Scala version which Apache Kafka doesn't support so that *EmbeddedKafka* can't be used.
 
-@@@note
-
-The Testcontainers support is new to Alpakka Kafka since 1.0.2 and may evolve a bit more.
-
-@@@
-
 ### Settings
 
 You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating `KafkaTestkitTestcontainersSettings` in code or configuration.

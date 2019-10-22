@@ -23,11 +23,11 @@ import akka.stream.Materializer;
  */
 public abstract class TestcontainersKafkaTest extends KafkaTest {
 
-  private static final KafkaTestkitTestcontainersSettings settings =
+  public static final KafkaTestkitTestcontainersSettings settings =
       TestcontainersKafka.Singleton().testcontainersSettings();
 
   protected TestcontainersKafkaTest(ActorSystem system, Materializer materializer) {
-    super(system, materializer, startKafka(TestcontainersKafka.ConfluentPlatformVersion()));
+    super(system, materializer, startKafka(settings));
   }
 
   protected TestcontainersKafkaTest(

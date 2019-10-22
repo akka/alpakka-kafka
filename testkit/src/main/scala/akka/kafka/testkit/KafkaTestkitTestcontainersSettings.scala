@@ -9,11 +9,12 @@ import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import org.testcontainers.containers.GenericContainer
 
-class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: String,
-                                                  val numBrokers: Int,
-                                                  val internalTopicsReplicationFactor: Int,
-                                                  val configureKafka: Vector[GenericContainer[_]] => Unit = _ => (),
-                                                  val configureZooKeeper: GenericContainer[_] => Unit = _ => ()) {
+final class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: String,
+                                                        val numBrokers: Int,
+                                                        val internalTopicsReplicationFactor: Int,
+                                                        val configureKafka: Vector[GenericContainer[_]] => Unit = _ =>
+                                                          (),
+                                                        val configureZooKeeper: GenericContainer[_] => Unit = _ => ()) {
 
   /**
    * Java Api

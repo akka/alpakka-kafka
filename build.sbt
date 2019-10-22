@@ -285,9 +285,7 @@ lazy val tests = project
               "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
             )
         }
-      } ++
-      Seq( // integration test dependencies
-      ) ++ silencer,
+      } ++ silencer,
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
