@@ -7,16 +7,12 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
-import org.testcontainers.containers.GenericContainer
-//import org.testcontainers.containers.output.Slf4jLogConsumer
+import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 
 import scala.collection.JavaConverters._
 
 object TestcontainersKafka {
-  val ConfluentPlatformVersion: String = KafkaContainer.CONFLUENT_PLATFORM_VERSION
-
   trait Spec extends KafkaSpec {
-    //private val logConsumer = new Slf4jLogConsumer(log)
     private var cluster: KafkaContainerCluster = _
     private var kafkaBootstrapServersInternal: String = _
     private var kafkaPortInternal: Int = -1
@@ -32,7 +28,7 @@ object TestcontainersKafka {
      * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
      */
     @deprecated("Use testcontainersSettings instead.", "1.1.1")
-    def confluentPlatformVersion: String = ConfluentPlatformVersion
+    def confluentPlatformVersion: String = KafkaContainerCluster.CONFLUENT_PLATFORM_VERSION
 
     /**
      * Override this to change default settings for starting the Kafka testcontainers cluster.
@@ -50,7 +46,7 @@ object TestcontainersKafka {
       kafkaBootstrapServersInternal
     }
 
-    def brokerContainers: Vector[GenericContainer[_]] = cluster.getBrokers.asScala.toVector
+    def brokerContainers: Vector[KafkaContainer] = cluster.getBrokers.asScala.toVector
 
     def zookeeperContainer: GenericContainer[_] = cluster.getZooKeeper
 
@@ -62,11 +58,10 @@ object TestcontainersKafka {
         cluster =
           new KafkaContainerCluster(settings.confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
         configureKafka(brokerContainers)
+        configureKafkaJava.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
         log.info("Starting Kafka cluster with settings: {}", settings)
         cluster.start()
-        // TODO: this form of logging doesn't seem to capture everything, do we need to initialize logging config in confluent containers?
-        //logContainers()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers
         kafkaPortInternal =
           kafkaBootstrapServersInternal.substring(kafkaBootstrapServersInternal.lastIndexOf(":") + 1).toInt
@@ -80,11 +75,6 @@ object TestcontainersKafka {
         kafkaPortInternal = -1
         cluster = null
       }
-
-//    private def logContainers(): Unit = {
-//      brokerContainers.foreach(_.followOutput(logConsumer))
-//      zookeeperContainer.followOutput(logConsumer)
-//    }
   }
 
   private class SpecBase extends ScalatestKafkaSpec(-1) with Spec

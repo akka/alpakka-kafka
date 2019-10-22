@@ -7,14 +7,16 @@ package akka.kafka.testkit
 
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
-import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 
-final class KafkaTestkitTestcontainersSettings private (val confluentPlatformVersion: String,
-                                                        val numBrokers: Int,
-                                                        val internalTopicsReplicationFactor: Int,
-                                                        val configureKafka: Vector[GenericContainer[_]] => Unit = _ =>
-                                                          (),
-                                                        val configureZooKeeper: GenericContainer[_] => Unit = _ => ()) {
+final class KafkaTestkitTestcontainersSettings private (
+    val confluentPlatformVersion: String,
+    val numBrokers: Int,
+    val internalTopicsReplicationFactor: Int,
+    val configureKafka: Vector[KafkaContainer] => Unit = _ => (),
+    val configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = _ => (),
+    val configureZooKeeper: GenericContainer[_] => Unit = _ => ()
+) {
 
   /**
    * Java Api
@@ -50,9 +52,18 @@ final class KafkaTestkitTestcontainersSettings private (val confluentPlatformVer
     copy(internalTopicsReplicationFactor = internalTopicsReplicationFactor)
 
   /**
+   * Java Api
+   *
    * Replaces the default Kafka testcontainers configuration logic
    */
-  def withConfigureKafka(configureKafka: Vector[GenericContainer[_]] => Unit): KafkaTestkitTestcontainersSettings =
+  def withConfigureKafkaJava(
+      configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]]
+  ): KafkaTestkitTestcontainersSettings = copy(configureKafkaJava = configureKafkaJava)
+
+  /**
+   * Replaces the default Kafka testcontainers configuration logic
+   */
+  def withConfigureKafka(configureKafka: Vector[KafkaContainer] => Unit): KafkaTestkitTestcontainersSettings =
     copy(configureKafka = configureKafka)
 
   /**
@@ -65,13 +76,15 @@ final class KafkaTestkitTestcontainersSettings private (val confluentPlatformVer
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
-      configureKafka: Vector[GenericContainer[_]] => Unit = configureKafka,
+      configureKafka: Vector[KafkaContainer] => Unit = configureKafka,
+      configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = configureKafkaJava,
       configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper
   ): KafkaTestkitTestcontainersSettings =
     new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
                                            configureKafka,
+                                           configureKafkaJava,
                                            configureZooKeeper)
 
   override def toString: String =

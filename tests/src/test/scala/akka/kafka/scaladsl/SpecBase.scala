@@ -6,9 +6,10 @@
 package akka.kafka.scaladsl
 
 // #testkit
-import akka.kafka.testkit.scaladsl.{ScalatestKafkaSpec}
+import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
+import org.testcontainers.containers.GenericContainer
 
 abstract class SpecBase(kafkaPort: Int)
     extends ScalatestKafkaSpec(kafkaPort)
@@ -39,6 +40,9 @@ class TestcontainersNewSettingsSampleSpec extends SpecBase with TestcontainersKa
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
     .withNumBrokers(3)
     .withInternalTopicsReplicationFactor(2)
+    .withConfigureKafka { brokerContainers =>
+      brokerContainers.foreach(_.withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false"))
+    }
 
   // ...
 }

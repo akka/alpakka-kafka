@@ -5,9 +5,9 @@ project.description: Alpakka Kafka provides a Testkit with support for running l
 
 To simplify testing of streaming integrations with Alpakka Kafka, it provides the **Alpakka Kafka testkit**. It provides help for
 
-* @ref:[mocking the Alpakka Kafka Consumers and Producers](#mocking-the-consumer-or-producer)
-* @ref:[using an embedded Kafka broker](#testing-with-an-embedded-kafka-server)
-* @ref:[starting and stopping Kafka in Docker](#testing-with-kafka-in-docker)
+* @ref:[Using an embedded Kafka broker](#testing-with-an-embedded-kafka-server)
+* @ref:[Using Docker to launch a local Kafka cluster with testcontainers](testing-testcontainers.md)
+* @ref:[Mocking the Alpakka Kafka Consumers and Producers](#mocking-the-consumer-or-producer)
 
 @@project-info{ projectId="testkit" }
 
@@ -19,23 +19,29 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between patch releases.
 
-The table below shows Alpakka Kafka testkit's direct dependencies and the second tab shows all libraries it depends on transitively. We've overriden the `commons-compress` library to use a version with [fewer known security vulnerabilities](https://commons.apache.org/proper/commons-compress/security-reports.html).
+The table below shows Alpakka Kafka testkit's direct dependencies and the second tab shows all libraries it depends on transitively. 
+We've overriden the `commons-compress` library to use a version with [fewer known security vulnerabilities](https://commons.apache.org/proper/commons-compress/security-reports.html).
 
 @@dependencies { projectId="testkit" }
 
+## Testing with a real Kafka server
 
-## Mocking the Consumer or Producer
+The Testkit provides a variety of ways to test your application against a real Kafka broker or cluster. There are two main options:
 
-The testkit contains factories to create the messages emitted by Consumer sources in `akka.kafka.testkit.ConsumerResultFactory` and Producer flows in `akka.kafka.testkit.ProducerResultFactory`.
+1. [Embedded Kafka](#testing-with-an-embedded-kafka-server)
+2. @ref:[Testcontainers (Docker)](testing-testcontainers.md)
 
-To create the materialized value of Consumer sources, @scala[`akka.kafka.testkit.scaladsl.ConsumerControlFactory`]@java[`akka.kafka.testkit.javadsl.ConsumerControlFactory`] offers a wrapped `KillSwitch`.
+The table below helps guide you to the right Testkit implementation depending on your programming language, testing framework, and use (or not) of Docker containers.
 
-Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/TestkitSamplesSpec.scala) { #factories }
-
-Java
-: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitSamplesTest.java) { #factories }
-
+| Interface/Trait                                                                                                                                     | Test Framework | Runtime Mode    | Cluster | Schema Registry | Lang     | Lifetime             |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------|----------------|-----------------|---------|-----------------|----------|----------------------|
+| @ref[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)                                         | JUnit 5        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
+| @ref[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)                                   | JUnit 4        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
+| @ref[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)                                       | ScalaTest      | Embedded Kafka  | No      | Yes             | Scala    | Per class            |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)     | JUnit 5        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)           | JUnit 4        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)         | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | All tests            |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code) | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | Per class            |
 
 ## Testing with an embedded Kafka server
 
@@ -43,7 +49,7 @@ To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.
 
 @@@ note
 
-As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run [Kafka in a Docker container](#testing-with-kafka-in-docker).
+As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run [Kafka in a Docker container](#testing-with-a-docker-kafka-cluster).
 
 The helpers for running Embedded Kafka are available for **Scala 2.11 and 2.12**.
 
@@ -112,83 +118,19 @@ With this `EmbeddedKafkaSpecBase` class test classes can extend it to automatica
 
 To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
 
-
-## Testing with Kafka in Docker
-
-The [Testcontainers](https://www.testcontainers.org/) project contains a nice API to start and stop Apache Kafka in Docker containers. This becomes very relevant when your application code uses a Scala version which Apache Kafka doesn't support so that *EmbeddedKafka* can't be used.
-
-### Settings
-
-You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating `KafkaTestkitTestcontainersSettings` in code or configuration.
-
-To change defaults for all settings update the appropriate configuration in `akka.kafka.testkit.testcontainers`.
-
-@@ snip [snip](/testkit/src/main/resources/reference.conf) { #testkit-testcontainers-settings }
-
-You can override all these defaults in code and per test class. By applying settings in code you can also configure the Kafka and ZooKeeper containers themselves.
-
-For example, the following demonstrates creating a 3 Broker Kafka cluster.
-
-Scala
-: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers-settings }
-
-Java
-: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
-
-For more options see the  `KafkaTestkitTestcontainersSettings` (@scaladoc[API](akka.kafka.testkit.KafkaTestkitTestcontainersSettings)) settings object to configure settings such as:
-
-* The version of Confluent Platform docker images to use
-* The number of brokers
-* Overriding container settings and environment variables (i.e. to change default Broker config)
-
-### Testing with Kafka in Docker from Java code
-
-The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
-
-The Testcontainers dependency must be added to your project explicitly.
-
-@@dependency [Maven,sbt,Gradle] {
-  group=org.testcontainers
-  artifact=kafka
-  version=$testcontainers.version$
-  scope=test
-}
-
-The example below shows skeleton test classes for JUnit 4 and JUnit 5. The Kafka broker will start before the first test and be stopped after all test classes are finished.
-
-Java JUnit 4
-: @@snip [snip](/tests/src/test/java/docs/javadsl/AssignmentWithTestcontainersTest.java) { #testkit }
-
-Java JUnit 5
-: @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #testkit }
-
-
-### Testing with Kafka in Docker from Scala code
-
-The Testcontainers dependency must be added to your project explicitly.
-
-@@dependency [Maven,sbt,Gradle] {
-  group=org.testcontainers
-  artifact=kafka
-  version=$testcontainers.version$
-  scope=test
-}
-
-To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
-
-#### One cluster for all tests
-
-By mixing in `TestcontainersKafkaLike` the Kafka Docker cluster will be started before the first test and shut down after all tests are finished.
-
-Scala
-: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers}
-
-With this `TestcontainersSampleSpec` class test classes can extend it to automatically start and stop a Kafka broker to test with.
-
-#### One cluster per test class
-
-By mixing in `TestcontainersKafkaPerClassLike` a specific Kafka Docker cluster will be started for that test class and stopped after its run finished.
-
 ## Alternative testing libraries
 
 If using Maven and Java, an alternative library that provides running Kafka broker instance during testing is [kafka-unit by salesforce](https://github.com/salesforce/kafka-junit). It has support for Junit 4 and 5 and supports many different versions of Kafka.
+
+## Mocking the Consumer or Producer
+
+The testkit contains factories to create the messages emitted by Consumer sources in `akka.kafka.testkit.ConsumerResultFactory` and Producer flows in `akka.kafka.testkit.ProducerResultFactory`.
+
+To create the materialized value of Consumer sources, @scala[`akka.kafka.testkit.scaladsl.ConsumerControlFactory`]@java[`akka.kafka.testkit.javadsl.ConsumerControlFactory`] offers a wrapped `KillSwitch`.
+
+Scala
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/TestkitSamplesSpec.scala) { #factories }
+
+Java
+: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitSamplesTest.java) { #factories }
+

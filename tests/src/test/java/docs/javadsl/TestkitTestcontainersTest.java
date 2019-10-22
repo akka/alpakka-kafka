@@ -23,12 +23,18 @@ class TestkitTestcontainersTest extends TestcontainersKafkaTest {
   private static KafkaTestkitTestcontainersSettings testcontainersSettings =
       KafkaTestkitTestcontainersSettings.create(system)
           .withNumBrokers(3)
-          .withInternalTopicsReplicationFactor(2);
+          .withInternalTopicsReplicationFactor(2)
+          .withConfigureKafkaJava(
+              brokerContainers ->
+                  brokerContainers.forEach(
+                      b -> b.withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")));
 
   TestkitTestcontainersTest() {
     // this will only start a new cluster if it has not already been started.
-    // you must stop the cluster in the afterClass implementation if you want
-    // to create a cluster per test class (TestInstance.Lifecycle.PER_CLASS)
+    //
+    // you must stop the cluster in the afterClass implementation if you want to create a cluster
+    // per test class
+    // using (TestInstance.Lifecycle.PER_CLASS)
     super(system, materializer, testcontainersSettings);
   }
 

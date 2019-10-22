@@ -10,6 +10,7 @@ import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.rnorth.ducttape.unreliables.Unreliables;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
@@ -21,7 +22,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static akka.kafka.testkit.internal.KafkaContainer.CONFLUENT_PLATFORM_VERSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -32,10 +32,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class KafkaContainerCluster implements Startable {
 
+  public static final String CONFLUENT_PLATFORM_VERSION = "5.2.1";
+
   private final int brokersNum;
   private final Network network;
   private final GenericContainer zookeeper;
-  private final Collection<org.testcontainers.containers.KafkaContainer> brokers;
+  private final Collection<KafkaContainer> brokers;
   private final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
@@ -93,13 +95,13 @@ public class KafkaContainerCluster implements Startable {
     return this.zookeeper;
   }
 
-  public Collection<org.testcontainers.containers.KafkaContainer> getBrokers() {
+  public Collection<KafkaContainer> getBrokers() {
     return this.brokers;
   }
 
   public String getBootstrapServers() {
     return brokers.stream()
-        .map(org.testcontainers.containers.KafkaContainer::getBootstrapServers)
+        .map(KafkaContainer::getBootstrapServers)
         .collect(Collectors.joining(","));
   }
 
