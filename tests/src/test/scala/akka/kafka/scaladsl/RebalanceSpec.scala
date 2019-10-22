@@ -5,16 +5,14 @@
 
 package akka.kafka.scaladsl
 
-import akka.kafka.ProducerMessage.MultiMessage
+import akka.Done
 import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
-import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
@@ -32,16 +30,17 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
     // The `max.poll.records` controls how many records Kafka fetches internally during a poll.
     "actually show even if partition is revoked" in assertAllStagesStopped {
-      val count = 200
+      val count = 20
       // de-coupling consecutive test runs with crossScalaVersions on Travis
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
+      // This test FAILS with the default value as messages are enqueue in the stage
         .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
         .withGroupId(group1)
 
-      produceToTwoPartitions(topic1, count).futureValue shouldBe Done
+      awaitProduce(produce(topic1, 0 to count, partition1))
 
       // Subscribe to the topic (without demand)
       val probe1rebalanceActor = TestProbe()
@@ -58,8 +57,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
-      // request all messages
-      probe1.request(count * 2L)
+      // read one message from probe1 with partition 1
+      probe1.requestNext()
 
       // Subscribe to the topic (without demand)
       val probe2rebalanceActor = TestProbe()
@@ -84,26 +83,15 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsAssigned(probe2subscription, Set(new TopicPartition(topic1, partition1)))
       )
 
-      val probe1messages = probe1.expectNextN(count + 1L)
+      probe1.request(count.toLong)
       probe2.request(count.toLong)
+
       val probe2messages = probe2.expectNextN(count.toLong)
 
-      val probe1messages0 = probe1messages.filter(_.partition() == partition0)
-      val probe1messages1 = probe1messages.filter(_.partition() == partition1)
+      // no further messages enqueued on probe1 as partition 1 is balanced away
+      probe1.expectNoMessage(500.millis)
 
-      if (probe1messages0.size == 1) { // this depending on which partition gets issued "first" during poll
-        // this is the problematic message: even though partition 0 is balanced away the enqueued messages are issued
-        probe1messages0 should have size (1)
-        probe1messages1 should have size (count.toLong)
-
-        probe2messages should have size (count.toLong)
-      } else {
-        // this is the problematic message: even though partition 0 is balanced away the enqueued messages are issued
-        probe1messages0 should have size (count.toLong)
-        probe1messages1 should have size (1)
-
-        probe2messages should have size (count.toLong)
-      }
+      probe2messages should have size (count)
 
       probe1.cancel()
       probe2.cancel()
@@ -111,19 +99,5 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control1.isShutdown.futureValue shouldBe Done
       control2.isShutdown.futureValue shouldBe Done
     }
-  }
-
-  private def produceToTwoPartitions(topic1: String, count: Int) = {
-    val producing = Source(Numbers.take(count))
-      .map { n =>
-        MultiMessage(List(
-                       new ProducerRecord(topic1, partition0, DefaultKey, n + "-p0"),
-                       new ProducerRecord(topic1, partition1, DefaultKey, n + "-p1")
-                     ),
-                     NotUsed)
-      }
-      .via(Producer.flexiFlow(producerDefaults, testProducer))
-      .runWith(Sink.ignore)
-    producing
   }
 }
