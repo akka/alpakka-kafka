@@ -17,7 +17,7 @@ import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSeriali
 
 object ReactiveKafkaProducerFixtures extends PerfFixtureHelpers {
 
-  val Parallelism = 2000000
+  val Parallelism = 10000
 
   type K = Array[Byte]
   type V = String
