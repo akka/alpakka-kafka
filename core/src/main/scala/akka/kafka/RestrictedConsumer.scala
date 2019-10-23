@@ -53,4 +53,14 @@ final class RestrictedConsumer(consumer: Consumer[_, _], duration: java.time.Dur
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#seek(TopicPartition, Long)]]
    */
   def seek(tp: TopicPartition, offset: Long): Unit = consumer.seek(tp, offset)
+
+  /**
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#seekToBeginning(java.util.Collection[TopicPartition])]]
+   */
+  def seekToBeginning(tps: java.util.Collection[TopicPartition]): Unit = consumer.seekToBeginning(tps)
+
+  /**
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#seekToEnd(java.util.Collection[TopicPartition])]]
+   */
+  def seekToEnd(tps: java.util.Collection[TopicPartition]): Unit = consumer.seekToEnd(tps)
 }

@@ -393,6 +393,43 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     revokedPromise.future.futureValue should be(Done)
   }
 
+  "Partition Assignment Listener" should "get notified" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    val tpsSet = Set(new TopicPartition(topic, 0))
+    val assignedPromise = Promise[Set[TopicPartition]]
+    val revokedPromise = Promise[Set[TopicPartition]]
+    val stopPromise = Promise[Set[TopicPartition]]
+
+    val handler = new PartitionAssignmentHandler {
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        revokedPromise.success(revokedTps)
+
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        assignedPromise.success(assignedTps)
+
+      override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        stopPromise.success(currentTps)
+    }
+
+    val subscription = Subscriptions
+      .topics(topic)
+      .withPartitionAssignmentHandler(handler)
+
+    val (control, result) =
+      Consumer
+        .plainSource(consumerSettings, subscription)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    control.shutdown().futureValue shouldBe Done
+    result.futureValue should have size 10
+    // handler methods were called
+    revokedPromise.future.futureValue shouldBe Set.empty
+    assignedPromise.future.futureValue shouldBe tpsSet
+    stopPromise.future.futureValue shouldBe tpsSet
+  }
+
   "Shutdown via Consumer.Control" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()

@@ -39,11 +39,14 @@ import scala.concurrent.{Future, Promise}
 
       val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
 
-      new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB)
+      PartitionAssignmentHelpers.chain(
+        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB),
+        autoSubscription.partitionAssignmentHandler
+      )
     }
 
     subscription match {
-      case sub @ TopicSubscription(topics, _) =>
+      case sub @ TopicSubscription(topics, _, _) =>
         consumerActor.tell(
           KafkaConsumerActor.Internal.Subscribe(
             topics,
@@ -51,7 +54,7 @@ import scala.concurrent.{Future, Promise}
           ),
           sourceActor.ref
         )
-      case sub @ TopicSubscriptionPattern(topics, _) =>
+      case sub @ TopicSubscriptionPattern(topics, _, _) =>
         consumerActor.tell(
           KafkaConsumerActor.Internal.SubscribePattern(
             topics,
