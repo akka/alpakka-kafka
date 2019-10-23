@@ -9,7 +9,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
-import akka.kafka._
+import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, RestrictedConsumer, Subscription}
 import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.common.TopicPartition
 
