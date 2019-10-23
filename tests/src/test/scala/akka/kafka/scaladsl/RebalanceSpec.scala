@@ -29,6 +29,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
   "Fetched records" must {
 
     // The `max.poll.records` controls how many records Kafka fetches internally during a poll.
+    // documented in https://github.com/akka/alpakka-kafka/pull/865
     "actually show even if partition is revoked" in assertAllStagesStopped {
       val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
