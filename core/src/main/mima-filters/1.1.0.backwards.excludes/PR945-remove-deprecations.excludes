@@ -1,0 +1,6 @@
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.Metadata.createGetCommitedOffset")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.withWakeupTimeout")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.withMaxWakeups")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.withWakeupDebug")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.javadsl.Producer.commitableSink")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.scaladsl.Producer.commitableSink")
