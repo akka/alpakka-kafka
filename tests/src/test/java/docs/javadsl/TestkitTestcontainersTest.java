@@ -24,7 +24,7 @@ class TestkitTestcontainersTest extends TestcontainersKafkaTest {
       KafkaTestkitTestcontainersSettings.create(system)
           .withNumBrokers(3)
           .withInternalTopicsReplicationFactor(2)
-          .withConfigureKafkaJava(
+          .withConfigureKafkaConsumer(
               brokerContainers ->
                   brokerContainers.forEach(
                       b -> b.withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")));

@@ -231,7 +231,7 @@ lazy val testkit = project
             "org.apache.commons" % "commons-compress" % "1.19", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
             "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
           )
-      } ++ silencer,
+      },
     Compile / unmanagedSources / excludeFilter := {
       if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
@@ -240,7 +240,6 @@ lazy val testkit = project
         "EmbeddedKafkaJunit4Test.java"
       } else (Test / unmanagedSources / excludeFilter).value
     },
-    Compile / compile / scalacOptions += "-P:silencer:globalFilters=scala.jdk.CollectionConverters",
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -285,7 +284,7 @@ lazy val tests = project
               "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
             )
         }
-      } ++ silencer,
+      },
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -310,8 +309,7 @@ lazy val tests = project
         "SerializationTest.java" ||
         "TransactionsExampleTest.java"
       } else (Test / unmanagedSources / excludeFilter).value
-    },
-    IntegrationTest / compile / scalacOptions += "-P:silencer:globalFilters=scala.jdk.CollectionConverters"
+    }
   )
 
 lazy val docs = project

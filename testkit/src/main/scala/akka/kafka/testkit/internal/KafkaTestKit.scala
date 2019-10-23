@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings

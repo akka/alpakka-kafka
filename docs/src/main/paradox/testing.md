@@ -24,20 +24,22 @@ We've overriden the `commons-compress` library to use a version with [fewer know
 
 @@dependencies { projectId="testkit" }
 
-## Testing with a real Kafka server
+## Running Kafka with your tests
 
 The Testkit provides a variety of ways to test your application against a real Kafka broker or cluster. There are two main options:
 
-1. [Embedded Kafka](#testing-with-an-embedded-kafka-server)
+1. @ref:[Embedded Kafka](#testing-with-an-embedded-kafka-server)
 2. @ref:[Testcontainers (Docker)](testing-testcontainers.md)
 
 The table below helps guide you to the right Testkit implementation depending on your programming language, testing framework, and use (or not) of Docker containers.
+You must mix in or implement these types into your test classes to use them.
+See the documentation for each for more details.
 
-| Interface/Trait                                                                                                                                     | Test Framework | Runtime Mode    | Cluster | Schema Registry | Lang     | Lifetime             |
+| Type                                                                                                                                                | Test Framework | Runtime Mode    | Cluster | Schema Registry | Lang     | Lifetime             |
 |-----------------------------------------------------------------------------------------------------------------------------------------------------|----------------|-----------------|---------|-----------------|----------|----------------------|
-| @ref[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)                                         | JUnit 5        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
-| @ref[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)                                   | JUnit 4        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
-| @ref[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)                                       | ScalaTest      | Embedded Kafka  | No      | Yes             | Scala    | Per class            |
+| @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)                                        | JUnit 5        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)                                  | JUnit 4        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)                                      | ScalaTest      | Embedded Kafka  | No      | Yes             | Scala    | Per class            |
 | @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)     | JUnit 5        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
 | @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)           | JUnit 4        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
 | @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)         | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | All tests            |
@@ -49,7 +51,7 @@ To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.
 
 @@@ note
 
-As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run [Kafka in a Docker container](#testing-with-a-docker-kafka-cluster).
+As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run @ref:[Kafka in a Docker container](testing-testcontainers.md).
 
 The helpers for running Embedded Kafka are available for **Scala 2.11 and 2.12**.
 
@@ -134,3 +136,8 @@ Scala
 Java
 : @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitSamplesTest.java) { #factories }
 
+@@@ index
+
+* [testcontainers](testing-testcontainers.md)
+
+@@@

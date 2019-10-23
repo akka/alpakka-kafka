@@ -9,7 +9,7 @@ import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object TestcontainersKafka {
   trait Spec extends KafkaSpec {
@@ -58,8 +58,9 @@ object TestcontainersKafka {
         cluster =
           new KafkaContainerCluster(settings.confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
         configureKafka(brokerContainers)
-        configureKafkaJava.accept(brokerContainers.asJavaCollection)
+        configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
+        configureZooKeeperConsumer.accept(zookeeperContainer)
         log.info("Starting Kafka cluster with settings: {}", settings)
         cluster.start()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers

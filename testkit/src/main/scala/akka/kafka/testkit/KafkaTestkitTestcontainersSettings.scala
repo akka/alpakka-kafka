@@ -16,11 +16,15 @@ final class KafkaTestkitTestcontainersSettings private (
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
     val configureKafka: Vector[KafkaContainer] => Unit = _ => (),
-    val configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] =
+    val configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]] =
       new Consumer[java.util.Collection[KafkaContainer]]() {
         override def accept(arg: java.util.Collection[KafkaContainer]): Unit = ()
       },
-    val configureZooKeeper: GenericContainer[_] => Unit = _ => ()
+    val configureZooKeeper: GenericContainer[_] => Unit = _ => (),
+    val configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] =
+      new Consumer[GenericContainer[_]]() {
+        override def accept(arg: GenericContainer[_]): Unit = ()
+      }
 ) {
 
   /**
@@ -61,9 +65,9 @@ final class KafkaTestkitTestcontainersSettings private (
    *
    * Replaces the default Kafka testcontainers configuration logic
    */
-  def withConfigureKafkaJava(
-      configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]]
-  ): KafkaTestkitTestcontainersSettings = copy(configureKafkaJava = configureKafkaJava)
+  def withConfigureKafkaConsumer(
+      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]]
+  ): KafkaTestkitTestcontainersSettings = copy(configureKafkaConsumer = configureKafkaConsumer)
 
   /**
    * Replaces the default Kafka testcontainers configuration logic
@@ -77,20 +81,32 @@ final class KafkaTestkitTestcontainersSettings private (
   def withConfigureZooKeeper(configureZooKeeper: GenericContainer[_] => Unit): KafkaTestkitTestcontainersSettings =
     copy(configureZooKeeper = configureZooKeeper)
 
+  /**
+   * Java Api
+   *
+   * Replaces the default ZooKeeper testcontainers configuration logic
+   */
+  def withConfigureZooKeeperConsumer(
+      configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]]
+  ): KafkaTestkitTestcontainersSettings =
+    copy(configureZooKeeperConsumer = configureZooKeeperConsumer)
+
   private def copy(
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
       configureKafka: Vector[KafkaContainer] => Unit = configureKafka,
-      configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = configureKafkaJava,
-      configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper
+      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = configureKafkaConsumer,
+      configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper,
+      configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] = configureZooKeeperConsumer
   ): KafkaTestkitTestcontainersSettings =
     new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
                                            configureKafka,
-                                           configureKafkaJava,
-                                           configureZooKeeper)
+                                           configureKafkaConsumer,
+                                           configureZooKeeper,
+                                           configureZooKeeperConsumer)
 
   override def toString: String =
     "KafkaTestkitTestcontainersSettings(" +
