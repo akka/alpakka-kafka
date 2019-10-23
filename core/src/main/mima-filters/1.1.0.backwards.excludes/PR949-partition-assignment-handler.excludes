@@ -1,0 +1,8 @@
+# Internal API
+ProblemFilters.exclude[Problem]("akka.kafka.Subscriptions#TopicSubscription.*")
+ProblemFilters.exclude[Problem]("akka.kafka.Subscriptions#TopicSubscriptionPattern.*")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$TopicSubscription$")
+ProblemFilters.exclude[MissingTypesProblem]("akka.kafka.Subscriptions$TopicSubscriptionPattern$")
+# Sealed trait
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.AutoSubscription.partitionAssignmentHandler")
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.AutoSubscription.withPartitionAssignmentHandler")
