@@ -13,9 +13,6 @@ addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.5")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.6.0")
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.0")
 addSbtPlugin("com.eed3si9n" % "sbt-unidoc" % "0.4.2")
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
-// latest version with https://github.com/ehsanyou/sbt-docker-compose/pull/10
-addSbtPlugin("com.github.ehsanyou" % "sbt-docker-compose" % "67284e73-envvars-2m")
 // patched version of sbt-dependency-graph
 // depend directly on the patched version see https://github.com/akka/alpakka/issues/1388
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2+10-148ba0ff")
@@ -23,5 +20,3 @@ resolvers += Resolver.bintrayIvyRepo("2m", "sbt-plugins")
 
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.3")
 resolvers += Resolver.jcenterRepo
-
-libraryDependencies += "com.spotify" % "docker-client" % "8.16.0"

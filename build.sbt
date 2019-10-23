@@ -32,8 +32,6 @@ val silencer = {
 // that depends on the same Kafka version, as is defined above
 val embeddedKafkaSchemaRegistry = "5.1.2"
 
-val kafkaScale = settingKey[Int]("Number of kafka docker containers")
-
 resolvers in ThisBuild ++= Seq(
   // for Embedded Kafka
   Resolver.bintrayRepo("manub", "maven"),
@@ -149,7 +147,6 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
-      dockerComposeIgnore := true,
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
         """
@@ -182,10 +179,10 @@ lazy val `alpakka-kafka` =
             |  test
             |    runs all the tests
             |
-            |  tests/dockerComposeTest it:test
-            |    run integration test backed by Docker containers
+            |  tests/it:test
+            |    run integration tests backed by Docker containers
             |
-            |  benchmarks/dockerComposeTest it:testOnly *.AlpakkaKafkaPlainConsumer
+            |  benchmarks/it:testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
@@ -252,9 +249,9 @@ lazy val testkit = project
 
 lazy val tests = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
-  .configs(IntegrationTest)
+  .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
   .settings(Defaults.itSettings)
   .settings(automateHeaderSettings(IntegrationTest))
@@ -289,15 +286,7 @@ lazy val tests = project
               "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
             )
         }
-      } ++
-      Seq( // integration test dependencies
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest,
-        "com.spotify" % "docker-client" % "8.11.7" % IntegrationTest,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-        "ch.qos.logback" % "logback-classic" % "1.2.3" % IntegrationTest,
-        "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % IntegrationTest
-      ),
+      },
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -322,24 +311,8 @@ lazy val tests = project
         "SerializationTest.java" ||
         "TransactionsExampleTest.java"
       } else (Test / unmanagedSources / excludeFilter).value
-    },
-    kafkaScale := 3,
-    buildInfoPackage := "akka.kafka",
-    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
-    dockerComposeTestLogging := true,
-    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
-    dockerComposeTestCommandOptions := {
-      import com.github.ehsanyou.sbt.docker.compose.commands.test._
-      DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
     }
   )
-
-commands += Command.command("dockerComposeTestAll") { state ⇒
-  val extracted = Project.extract(state)
-  val (_, allTests) = extracted.runTask(tests / IntegrationTest / definedTestNames, state)
-  allTests.map(test => s"tests/dockerComposeTest it:testOnly $test").foldRight(state)(_ :: _)
-}
 
 lazy val docs = project
   .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin, PreprocessPlugin, PublishRsyncPlugin)
@@ -372,7 +345,8 @@ lazy val docs = project
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
         "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
-        "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
+        "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
+        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/"
       ),
     paradoxRoots := List("index.html",
                          "release-notes/1.0-M1.html",
@@ -385,7 +359,7 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerCompose, BuildInfoPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -401,20 +375,11 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
+        "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
       ),
-    kafkaScale := 1,
-    buildInfoPackage := "akka.kafka.benchmarks",
-    buildInfoKeys := Seq[BuildInfoKey](kafkaScale),
-    dockerComposeTestLogging := false,
-    dockerComposeFilePath := (baseDirectory.value / ".." / "docker-compose.yml").getAbsolutePath,
-    dockerComposeTestCommandOptions := {
-      import com.github.ehsanyou.sbt.docker.compose.commands.test._
-      DockerComposeTestCmd(DockerComposeTest.ItTest)
-        .withEnvVar("KAFKA_SCALE", kafkaScale.value.toString)
-    },
     dockerfile in docker := {
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"

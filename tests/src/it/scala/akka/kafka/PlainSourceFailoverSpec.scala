@@ -1,81 +1,79 @@
 package akka.kafka
 
-import akka.kafka.scaladsl.{Consumer, Producer}
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
+import akka.kafka.scaladsl.{Consumer, Producer, SpecBase}
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import com.spotify.docker.client.DefaultDockerClient
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
-object PlainSourceFailoverSpec {
-  // the following system properties are provided by the sbt-docker-compose plugin
-  val KafkaBootstrapServers = (1 to BuildInfo.kafkaScale).map(i => sys.props(s"kafka_${i}_9094")).mkString(",")
-  val Kafka1Port = sys.props("kafka_1_9094_port").toInt
-  val Kafka2ContainerId = sys.props("kafka_2_9094_id")
-}
+class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
+  implicit val pc = PatienceConfig(45.seconds, 100.millis)
 
-class PlainSourceFailoverSpec extends ScalatestKafkaSpec(PlainSourceFailoverSpec.Kafka1Port) with WordSpecLike with ScalaFutures with Matchers {
-  import PlainSourceFailoverSpec._
-
-  override def bootstrapServers = KafkaBootstrapServers
-
-  val docker = new DefaultDockerClient("unix:///var/run/docker.sock")
-
-  implicit val pc = PatienceConfig(30.seconds, 100.millis)
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+    .withNumBrokers(3)
+    .withInternalTopicsReplicationFactor(2)
 
   "plain source" should {
-
     "not lose any messages when a Kafka node dies" in assertAllStagesStopped {
-
-      val totalMessages = 1000 * 10
+      val totalMessages = 1000 * 10L
       val partitions = 1
 
+      // TODO: This is probably not necessary anymore since the testcontainer setup blocks until all brokers are online.
+      // TODO: However it is nice reassurance to hear from Kafka itself that the cluster is formed.
       waitUntilCluster() {
-        _.nodes().get().size == BuildInfo.kafkaScale
+        _.nodes().get().size == testcontainersSettings.numBrokers
       }
 
-      val topic = createTopic(suffix = 0, partitions, replication = 3)
+      val topic = createTopic(0, partitions, replication = 3, Map(
+        // require at least two replicas be in sync before acknowledging produced record
+        TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
+      ))
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val consumer = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
-        .takeWhile(_.value().toInt < totalMessages, inclusive = true)
-        .scan(0)((c, _) => c + 1)
-        .map { i =>
-          if (i % 1000 == 0) log.info(s"Received [$i] messages so far.")
-          i
-        }
+      val consumerMatValue: Future[Long] = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
+        .scan(0L)((c, _) => c + 1)
+        .via(IntegrationTests.logReceivedMessages()(log))
+        .takeWhile(count => count < totalMessages, inclusive = true)
         .runWith(Sink.last)
 
       waitUntilConsumerSummary(groupId) {
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
-      val result = Source(1 to totalMessages)
-        .map { i =>
-          if (i % 1000 == 0) log.info(s"Sent [$i] messages so far.")
-          i.toString
-        }
-        .map(number => new ProducerRecord(topic, partition0, DefaultKey, number))
-        .map { c =>
-          if (c.value().toInt == totalMessages / 2) {
-            log.info("Stopping one Kafka container")
-            docker.stopContainer(Kafka2ContainerId, 0)
+      val producerConfig = producerDefaults.withProperties(
+        // require acknowledgement from at least min in sync replicas (2).  default is 1
+        ProducerConfig.ACKS_CONFIG -> "all"
+      )
+
+      val result = Source(0L to totalMessages)
+        .via(IntegrationTests.logSentMessages()(log))
+        .map { number =>
+          if (number == totalMessages / 2) {
+            IntegrationTests.stopRandomBroker(brokerContainers, number)(log)
           }
-          c
+          number
         }
-        .runWith(Producer.plainSink(producerDefaults))
+        .map(number => new ProducerRecord(topic, partition0, DefaultKey, number.toString))
+        .runWith(Producer.plainSink(producerConfig))
 
       result.futureValue
-      consumer.futureValue shouldBe totalMessages
+      // wait for consumer to consume all up until totalMessages, or timeout
+      val actualCount = consumerMatValue.futureValue
+      log.info("Actual messages received [{}], total messages sent [{}]", actualCount, totalMessages)
+      // assert that we receive at least the number of messages we sent, there could be more due to retries
+      assert(actualCount >= totalMessages)
     }
   }
 }
