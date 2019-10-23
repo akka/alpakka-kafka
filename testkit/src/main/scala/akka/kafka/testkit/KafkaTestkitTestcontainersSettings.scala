@@ -5,6 +5,8 @@
 
 package akka.kafka.testkit
 
+import java.util.function.Consumer
+
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import org.testcontainers.containers.{GenericContainer, KafkaContainer}
@@ -14,7 +16,10 @@ final class KafkaTestkitTestcontainersSettings private (
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
     val configureKafka: Vector[KafkaContainer] => Unit = _ => (),
-    val configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = _ => (),
+    val configureKafkaJava: java.util.function.Consumer[java.util.Collection[KafkaContainer]] =
+      new Consumer[java.util.Collection[KafkaContainer]]() {
+        override def accept(arg: java.util.Collection[KafkaContainer]): Unit = ()
+      },
     val configureZooKeeper: GenericContainer[_] => Unit = _ => ()
 ) {
 
