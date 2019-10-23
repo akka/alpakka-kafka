@@ -6,7 +6,7 @@
 package akka.kafka
 
 import akka.annotation.ApiMayChange
-import org.apache.kafka.clients.consumer.{Consumer, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{Consumer, OffsetAndMetadata, OffsetAndTimestamp}
 import org.apache.kafka.common.TopicPartition
 
 /**
@@ -28,21 +28,29 @@ final class RestrictedConsumer(consumer: Consumer[_, _], duration: java.time.Dur
     consumer.beginningOffsets(tps, duration)
 
   /**
-   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#commitSync(Map, java.time.Duration)]]
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#commitSync(Map,java.time.Duration)]]
    */
   def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit =
     consumer.commitSync(offsets, duration)
 
   /**
-   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(TopicPartition, Duration)]]
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(TopicPartition,java.time.Duration)]]
    */
   def committed(tp: TopicPartition): OffsetAndMetadata = consumer.committed(tp, duration)
 
   /**
-   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#endOffsets(java.util.Collection[TopicPartition], java.time.Duration)]]
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#endOffsets(java.util.Collection[TopicPartition],java.time.Duration)]]
    */
   def endOffsets(tps: java.util.Collection[TopicPartition]): java.util.Map[TopicPartition, java.lang.Long] =
     consumer.endOffsets(tps, duration)
+
+  /**
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#offsetsForTimes(java.util.Map[TopicPartition,Long],java.time.Duration)]]
+   */
+  def offsetsForTimes(
+      timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]
+  ): java.util.Map[TopicPartition, OffsetAndTimestamp] =
+    consumer.offsetsForTimes(timestampsToSearch, duration)
 
   /**
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#position(TopicPartition, java.time.Duration)]]
