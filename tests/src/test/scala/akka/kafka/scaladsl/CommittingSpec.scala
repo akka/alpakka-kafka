@@ -8,6 +8,7 @@ package akka.kafka.scaladsl
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.IntUnaryOperator
 
+import akka.actor.ActorRef
 import akka.kafka.ConsumerMessage.{CommittableOffsetBatch, GroupTopicPartition}
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
@@ -333,7 +334,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val topic = createTopic()
       val group = createGroupId()
 
-      produce(topic, 1 to 100).futureValue shouldBe Done
+      awaitProduce(produce(topic, 1 to 100))
       val consumerSettings = consumerDefaults.withGroupId(group)
       val committerSettings = committerDefaults.withMaxBatch(5)
 
@@ -367,7 +368,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val group1 = createGroupId()
       val group2 = createGroupId()
 
-      produce(topic, 1 to 10).futureValue shouldBe Done
+      awaitProduce(produce(topic, 1 to 10))
       val subscription = Subscriptions.topics(topic)
       val result =
         Consumer
@@ -390,15 +391,89 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // make sure committing was done for both group IDs
       val res1 = Consumer
         .plainSource(consumerDefaults.withGroupId(group1), subscription)
-        .idleTimeout(1.second)
+        .idleTimeout(100.millis)
         .runWith(Sink.head)
       val res2 = Consumer
         .plainSource(consumerDefaults.withGroupId(group2), subscription)
-        .idleTimeout(1.second)
+        .idleTimeout(100.millis)
         .runWith(Sink.head)
 
       res1.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
       res2.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
+    }
+
+    "allow a shared consumer actor" in assertAllStagesStopped {
+      val topic = createTopic(0, partitions = 2)
+      val group = createGroupId()
+
+      awaitProduce(produceTwoPartitions(topic))
+
+      val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerDefaults))
+      val result =
+        Consumer
+          .committableExternalSource(consumer,
+                                     Subscriptions.assignment(new TopicPartition(topic, partition0)),
+                                     group,
+                                     consumerDefaults.commitTimeout)
+          .merge(
+            Consumer
+              .committableExternalSource(consumer,
+                                         Subscriptions.assignment(new TopicPartition(topic, partition1)),
+                                         group,
+                                         consumerDefaults.commitTimeout)
+          )
+          .map(_.committableOffset)
+          .groupedWithin(20, 10.seconds)
+          .map(CommittableOffsetBatch.apply)
+          .via(Committer.batchFlow(committerDefaults))
+          .take(1L)
+          .runWith(Sink.head)
+
+      val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
+      batch.batchSize shouldBe 20
+      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
+        GroupTopicPartition(group, topic, partition0) -> 10,
+        GroupTopicPartition(group, topic, partition1) -> 10
+      )
+
+      // make sure committing was done
+      val res = Consumer
+        .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
+        .idleTimeout(100.millis)
+        .runWith(Sink.seq)
+      res.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
+    }
+
+    // Illustration of https://github.com/akka/alpakka-kafka/issues/942
+    "allow a merge for multiple consumer with the same group ID" ignore assertAllStagesStopped {
+      val topic = createTopic(0, partitions = 2)
+      val group1 = createGroupId()
+
+      awaitProduce(produceTwoPartitions(topic))
+      val consumerSettings = consumerDefaults.withGroupId(group1)
+      val result =
+        Consumer
+          .committableSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition0)))
+          .take(5)
+          .concat(
+            Consumer.committableSource(consumerSettings,
+                                       Subscriptions.assignment(new TopicPartition(topic, partition1)))
+          )
+          .map(_.committableOffset)
+          .log("pre group")
+          .groupedWithin(20, 10.seconds)
+          .log("grouped")
+          .map(CommittableOffsetBatch.apply)
+          .via(Committer.batchFlow(committerDefaults))
+          .take(1L)
+          .runWith(Sink.head)
+
+      val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
+      batch.batchSize shouldBe 10
+      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
+        GroupTopicPartition(group1, topic, 0) -> 10,
+        GroupTopicPartition(group1, topic, 0) -> 10
+      )
     }
   }
 
@@ -446,4 +521,14 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     probe2.cancel()
     element
   }
+
+  private def produceTwoPartitions(topic: String) =
+    Source(1 to 10)
+      .map(_.toString)
+      .mapConcat(
+        n =>
+          immutable.Seq(new ProducerRecord(topic, partition0, DefaultKey, n),
+                        new ProducerRecord(topic, partition1, DefaultKey, n))
+      )
+      .runWith(Producer.plainSink(producerDefaults, testProducer))
 }

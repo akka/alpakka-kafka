@@ -117,14 +117,12 @@ private[kafka] final class CommittableSubSource[K, V](
 /**
  * Internal API.
  *
- * [[InternalCommitter]] implementation for committable sources.
- *
- * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit Commit]] messages to the consumer actor.
- *
- * This should be case class to be comparable based on consumerActor and commitTimeout. This comparison is used in [[CommittableOffsetBatchImpl]].
+ * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit]] and
+ * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitSingle]] messages to the consumer actor.
  */
 @InternalApi
-private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
+private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: ActorRef,
+                                                    private val commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
 ) {
 
@@ -176,4 +174,15 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
   }
 
   private def tellCommit(msg: CommitWithoutReply): Unit = consumerActor ! msg
+
+  /**
+   * This must be comparable based on `consumerActor`` and `commitTimeout`. The comparison is used in [[CommittableOffsetBatchImpl]].
+   * The comparison is mostly relevant when multiple sources share a consumer actor.
+   */
+  override def equals(obj: Any): Boolean =
+    obj match {
+      case that: KafkaAsyncConsumerCommitterRef =>
+        this.consumerActor == that.consumerActor && this.commitTimeout == that.commitTimeout
+      case _ => false
+    }
 }
