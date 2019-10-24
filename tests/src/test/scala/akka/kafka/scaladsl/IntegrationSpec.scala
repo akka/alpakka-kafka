@@ -85,7 +85,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       def createAndRunProducer(elements: immutable.Iterable[Long]) =
         Source(elements)
           .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-          .runWith(Producer.plainSink(producerDefaults, testProducer))
+          .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
       val control = createAndRunConsumer(subscription1)
 

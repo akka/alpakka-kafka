@@ -119,7 +119,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       val producer = Source(1L to totalMessages)
         .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults, testProducer))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
       producer.futureValue shouldBe Done
       sleep(2.seconds)
@@ -200,7 +200,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           number
         }
         .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults, testProducer))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
       producer.futureValue shouldBe Done
 
@@ -286,7 +286,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           number
         }
         .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults, testProducer))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
       producer.futureValue shouldBe Done
 
@@ -480,7 +480,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       awaitProduce(
         Source(1L to totalMessages)
           .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-          .runWith(Producer.plainSink(producerDefaults, testProducer))
+          .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
       )
       eventually {
         exceptionTriggered.get() shouldBe true

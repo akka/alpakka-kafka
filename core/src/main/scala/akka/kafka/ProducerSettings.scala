@@ -61,6 +61,7 @@ object ProducerSettings {
       "Value serializer should be defined or declared in configuration"
     )
     val closeTimeout = config.getDuration("close-timeout").asScala
+    val closeOnProducerStop = config.getBoolean("close-on-producer-stop")
     val parallelism = config.getInt("parallelism")
     val dispatcher = config.getString("use-dispatcher")
     val eosCommitInterval = config.getDuration("eos-commit-interval").asScala
@@ -69,11 +70,12 @@ object ProducerSettings {
       keySerializer,
       valueSerializer,
       closeTimeout,
+      closeOnProducerStop,
       parallelism,
       dispatcher,
       eosCommitInterval,
       enrichAsync = None,
-      ProducerSettings.createKafkaProducer
+      producerFactorySync = None
     )
   }
 
@@ -156,7 +158,6 @@ object ProducerSettings {
     new KafkaProducer[K, V](settings.getProperties,
                             settings.keySerializerOpt.orNull,
                             settings.valueSerializerOpt.orNull)
-
 }
 
 /**
@@ -172,12 +173,19 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val keySerializerOpt: Option[Serializer[K]],
     val valueSerializerOpt: Option[Serializer[V]],
     val closeTimeout: FiniteDuration,
+    val closeProducerOnStop: Boolean,
     val parallelism: Int,
     val dispatcher: String,
     val eosCommitInterval: FiniteDuration,
     val enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]],
-    val producerFactory: ProducerSettings[K, V] => Producer[K, V]
+    val producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]]
 ) {
+
+  @deprecated(
+    "Use createKafkaProducer(), createKafkaProducerAsync(), or createKafkaProducerCompletionStage() to get a new KafkaProducer",
+    "1.1.1"
+  )
+  def producerFactory: ProducerSettings[K, V] => Producer[K, V] = _ => createKafkaProducer()
 
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
@@ -217,17 +225,24 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(properties = properties.updated(key, value))
 
   /**
-   * Duration to wait for `KafkaConsumer.close` to finish.
+   * Duration to wait for `KafkaProducer.close` to finish.
    */
   def withCloseTimeout(closeTimeout: FiniteDuration): ProducerSettings[K, V] =
     copy(closeTimeout = closeTimeout)
 
   /**
    * Java API:
-   * Duration to wait for `KafkaConsumer.close` to finish.
+   * Duration to wait for `KafkaProducer.close` to finish.
    */
   def withCloseTimeout(closeTimeout: java.time.Duration): ProducerSettings[K, V] =
     copy(closeTimeout = closeTimeout.asScala)
+
+  /**
+   * Call `KafkaProducer.close` on the [[org.apache.kafka.clients.producer.KafkaProducer]] when the producer stage
+   * receives a shutdown signal.
+   */
+  def withCloseProducerOnStop(closeProducerOnStop: Boolean): ProducerSettings[K, V] =
+    copy(closeProducerOnStop = closeProducerOnStop)
 
   /**
    * Tuning parameter of how many sends that can run in parallel.
@@ -276,11 +291,19 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(enrichAsync = Some((s: ProducerSettings[K, V]) => value.apply(s).toScala))
 
   /**
+   * Replaces the default Kafka producer creation logic with an external producer. This will also set
+   * `closeProducerOnStop = false` by default.
+   */
+  def withProducer(
+      producer: Producer[K, V]
+  ): ProducerSettings[K, V] = copy(producerFactorySync = Some(_ => producer), closeProducerOnStop = false)
+
+  /**
    * Replaces the default Kafka producer creation logic.
    */
   def withProducerFactory(
       factory: ProducerSettings[K, V] => Producer[K, V]
-  ): ProducerSettings[K, V] = copy(producerFactory = factory)
+  ): ProducerSettings[K, V] = copy(producerFactorySync = Some(factory))
 
   /**
    * Get the Kafka producer settings as map.
@@ -292,21 +315,23 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       keySerializer: Option[Serializer[K]] = keySerializerOpt,
       valueSerializer: Option[Serializer[V]] = valueSerializerOpt,
       closeTimeout: FiniteDuration = closeTimeout,
+      closeProducerOnStop: Boolean = closeProducerOnStop,
       parallelism: Int = parallelism,
       dispatcher: String = dispatcher,
       eosCommitInterval: FiniteDuration = eosCommitInterval,
       enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]] = enrichAsync,
-      producerFactory: ProducerSettings[K, V] => Producer[K, V] = producerFactory
+      producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]] = producerFactorySync
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
                                keySerializer,
                                valueSerializer,
                                closeTimeout,
+                               closeProducerOnStop,
                                parallelism,
                                dispatcher,
                                eosCommitInterval,
                                enrichAsync,
-                               producerFactory)
+                               producerFactorySync)
 
   override def toString: String =
     "akka.kafka.ProducerSettings(" +
@@ -314,11 +339,12 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"keySerializer=$keySerializerOpt," +
     s"valueSerializer=$valueSerializerOpt," +
     s"closeTimeout=${closeTimeout.toCoarsest}," +
+    s"closeProducerOnStop=$closeProducerOnStop," +
     s"parallelism=$parallelism," +
     s"dispatcher=$dispatcher," +
-    s"eosCommitInterval=${eosCommitInterval.toCoarsest}" +
-    s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
-    ")"
+    s"eosCommitInterval=${eosCommitInterval.toCoarsest}," +
+    s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}," +
+    s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})"
 
   /**
    * Applies `enrichAsync` to complement these settings from asynchronous sources.
@@ -339,7 +365,10 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
         "Asynchronous settings enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaProducerAsync` or `createKafkaProducerCompletionStage` to apply it"
       )
     } else {
-      producerFactory.apply(this)
+      producerFactorySync match {
+        case Some(factory) => factory.apply(this)
+        case _ => ProducerSettings.createKafkaProducer(this)
+      }
     }
 
   /**
@@ -349,7 +378,10 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * (without blocking for `enriched`).
    */
   def createKafkaProducerAsync()(implicit executionContext: ExecutionContext): Future[Producer[K, V]] =
-    enriched.map(producerFactory)
+    producerFactorySync match {
+      case Some(factory) => enriched.map(factory)
+      case _ => enriched.map(ProducerSettings.createKafkaProducer)
+    }
 
   /**
    * Java API.
@@ -360,6 +392,5 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * @param executor Executor for asynchronous producer creation
    */
   def createKafkaProducerCompletionStage(executor: Executor): CompletionStage[Producer[K, V]] =
-    enriched.map(producerFactory)(ExecutionContext.fromExecutor(executor)).toJava
-
+    createKafkaProducerAsync()(ExecutionContext.fromExecutor(executor)).toJava
 }

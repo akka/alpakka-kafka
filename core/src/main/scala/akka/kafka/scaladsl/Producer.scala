@@ -15,7 +15,7 @@ import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
  * Akka Stream connector for publishing messages to Kafka topics.
@@ -42,22 +42,13 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated(
+    "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
+    "1.1.1"
+  )
   def plainSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Sink[ProducerRecord[K, V], Future[Done]] = plainSink(settings, Future.successful(producer))
-
-  /**
-   * Create a sink for publishing records to Kafka topics.
-   *
-   * The [[org.apache.kafka.clients.producer.ProducerRecord Kafka ProducerRecord]] contains the topic name to which the record is being sent, an optional
-   * partition number, and an optional key and value.
-   *
-   * Supports sharing a Kafka Producer instance provided by a future.
-   */
-  def plainSink[K, V](
-      settings: ProducerSettings[K, V],
-      producer: Future[org.apache.kafka.clients.producer.Producer[K, V]]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
     Flow[ProducerRecord[K, V]]
       .map(Message(_, NotUsed))
@@ -161,7 +152,7 @@ object Producer {
       committerSettings: CommitterSettings,
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flexiFlow[K, V, ConsumerMessage.Committable](producerSettings, producer)
+    flexiFlow[K, V, ConsumerMessage.Committable](producerSettings.withProducer(producer))
       .map(_.passThrough)
       .toMat(Committer.sink(committerSettings))(Keep.right)
 
@@ -238,9 +229,7 @@ object Producer {
     val flow = Flow
       .fromGraph(
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
-          settings.closeTimeout,
-          closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
+          settings
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -269,9 +258,7 @@ object Producer {
     val flow = Flow
       .fromGraph(
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
-          settings.closeTimeout,
-          closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => settings.createKafkaProducerAsync()(ec)
+          settings
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -321,12 +308,13 @@ object Producer {
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
+    val settingsWithProducer = settings
+      .withProducer(producer)
+      .withCloseProducerOnStop(false)
     val flow = Flow
       .fromGraph(
         new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
-          closeTimeout = settings.closeTimeout,
-          closeProducerOnStop = false,
-          producerProvider = (_: ExecutionContext) => Future.successful(producer)
+          settingsWithProducer
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -351,39 +339,21 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
+  @deprecated(
+    "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
+    "1.1.1"
+  )
   def flexiFlow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
-    flexiFlow(settings, Future.successful(producer))
-
-  /**
-   * Create a flow to conditionally publish records to Kafka topics and then pass it on.
-   *
-   * It publishes records to Kafka topics conditionally:
-   *
-   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and continues in the stream as [[akka.kafka.ProducerMessage.Result Result]]
-   *
-   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and continues in the stream as [[akka.kafka.ProducerMessage.MultiResult MultiResult]]
-   *
-   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, and continues in the stream as [[akka.kafka.ProducerMessage.PassThroughResult PassThroughResult]]
-   *
-   * The messages support the possibility to pass through arbitrary data, which can for example be a [[ConsumerMessage.CommittableOffset CommittableOffset]]
-   * or [[ConsumerMessage.CommittableOffsetBatch CommittableOffsetBatch]] that can
-   * be committed later in the flow.
-   *
-   * Supports sharing a Kafka Producer instance provided from a future.
-   */
-  def flexiFlow[K, V, PassThrough](
-      settings: ProducerSettings[K, V],
-      producer: Future[org.apache.kafka.clients.producer.Producer[K, V]]
   ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
+    val settingsWithProducer = settings
+      .withProducer(producer)
+      .withCloseProducerOnStop(false)
     val flow = Flow
       .fromGraph(
         new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
-          closeTimeout = settings.closeTimeout,
-          closeProducerOnStop = false,
-          producerProvider = (_: ExecutionContext) => producer
+          settingsWithProducer
         )
       )
       .mapAsync(settings.parallelism)(identity)
@@ -410,6 +380,10 @@ object Producer {
    *
    * @tparam C the flow context type
    */
+  @deprecated(
+    "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
+    "1.1.1"
+  )
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
   def flowWithContext[K, V, C](
       settings: ProducerSettings[K, V],

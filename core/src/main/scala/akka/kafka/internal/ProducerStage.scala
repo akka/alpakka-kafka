@@ -9,11 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.annotation.InternalApi
 import akka.kafka.ProducerMessage._
+import akka.kafka.ProducerSettings
 import akka.stream._
-import org.apache.kafka.clients.producer.Producer
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
+import scala.concurrent.Future
 
 /**
  * INTERNAL API
@@ -22,9 +21,7 @@ import scala.concurrent.duration._
  */
 @InternalApi
 private[internal] trait ProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]] {
-  val closeTimeout: FiniteDuration
-  val closeProducerOnStop: Boolean
-  val producerProvider: ExecutionContext => Future[Producer[K, V]]
+  val settings: ProducerSettings[K, V]
 
   val in: Inlet[IN] = Inlet[IN]("messages")
   val out: Outlet[Future[OUT]] = Outlet[Future[OUT]]("result")

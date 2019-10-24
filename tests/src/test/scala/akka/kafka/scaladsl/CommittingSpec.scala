@@ -113,7 +113,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
                        ),
                        NotUsed)
         }
-        .via(Producer.flexiFlow(producerDefaults, testProducer))
+        .via(Producer.flexiFlow(producerDefaults.withProducer(testProducer)))
         .runWith(Sink.ignore)
 
       // Subscribe to the topic (without demand)
@@ -197,7 +197,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
                        ),
                        NotUsed)
         }
-        .via(Producer.flexiFlow(producerDefaults, testProducer))
+        .via(Producer.flexiFlow(producerDefaults.withProducer(testProducer)))
         .runWith(Sink.ignore)
 
       // Subscribe to the topic (without demand)
@@ -571,5 +571,5 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           immutable.Seq(new ProducerRecord(topic, partition0, DefaultKey, n),
                         new ProducerRecord(topic, partition1, DefaultKey, n))
       )
-      .runWith(Producer.plainSink(producerDefaults, testProducer))
+      .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 }
