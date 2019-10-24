@@ -12,5 +12,6 @@ case class RunTestCommand(testName: String, kafkaHost: String, filledTopic: Fill
   val msgCount = filledTopic.msgCount
   val msgSize = filledTopic.msgSize
   val numberOfPartitions = filledTopic.numberOfPartitions
+  val replicationFactor = filledTopic.replicationFactor
 
 }

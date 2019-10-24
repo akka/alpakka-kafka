@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerMessage._
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
 import akka.stream.ActorAttributes.SupervisionStrategy
@@ -29,12 +30,12 @@ import scala.util.{Failure, Success, Try}
 private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
     val closeTimeout: FiniteDuration,
     val closeProducerOnStop: Boolean,
-    val producerProvider: () => Producer[K, V]
+    val producerProvider: ExecutionContext => Future[Producer[K, V]]
 ) extends GraphStage[FlowShape[IN, Future[OUT]]]
     with ProducerStage[K, V, P, IN, OUT] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new DefaultProducerStageLogic(this, producerProvider(), inheritedAttributes)
+    new DefaultProducerStageLogic(this, producerProvider, inheritedAttributes)
 }
 
 /**
@@ -44,7 +45,7 @@ private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT 
  */
 private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
     stage: ProducerStage[K, V, P, IN, OUT],
-    producer: Producer[K, V],
+    producerFactory: ExecutionContext => Future[Producer[K, V]],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageLogging
@@ -54,10 +55,35 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
   protected val awaitingConfirmation = new AtomicInteger(0)
+  protected var producer: Producer[K, V] = _
   private var inIsClosed = false
   private var completionState: Option[Try[Done]] = None
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
+
+  protected def assignProducer(p: Producer[K, V]): Unit = {
+    producer = p
+    resumeDemand()
+  }
+
+  override def preStart(): Unit = {
+    super.preStart()
+    val producerFuture = producerFactory(materializer.executionContext)
+    producerFuture.value match {
+      case Some(Success(p)) => assignProducer(p)
+      case Some(Failure(e)) => failStage(e)
+      case None =>
+        producerFuture
+          .transform(
+            producer => getAsyncCallback(assignProducer).invoke(producer),
+            e => {
+              log.error(e, "producer creation failed")
+              failStageCb.invoke(e)
+              e
+            }
+          )(ExecutionContexts.sameThreadExecutionContext)
+    }
+  }
 
   def checkForCompletion(): Unit =
     if (isClosed(stage.in) && awaitingConfirmation.get == 0) {
@@ -82,9 +108,26 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   def postSend(msg: Envelope[K, V, P]) = ()
 
-  setHandler(stage.out, new OutHandler {
-    override def onPull(): Unit = tryPull(stage.in)
-  })
+  protected def resumeDemand(tryToPull: Boolean = true): Unit = {
+    setHandler(stage.out, new OutHandler {
+      override def onPull(): Unit = tryPull(stage.in)
+    })
+    // kick off demand for more messages if we're resuming demand
+    if (tryToPull && isAvailable(stage.out) && !hasBeenPulled(stage.in)) {
+      tryPull(stage.in)
+    }
+  }
+
+  protected def suspendDemand(): Unit =
+    setHandler(
+      stage.out,
+      new OutHandler {
+        override def onPull(): Unit = ()
+      }
+    )
+
+  // suspend demand until a Producer has been created
+  suspendDemand()
 
   setHandler(
     stage.in,
@@ -162,7 +205,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   override def postStop(): Unit = {
     log.debug("Stage completed")
 
-    if (stage.closeProducerOnStop) {
+    if (stage.closeProducerOnStop && producer != null) {
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()

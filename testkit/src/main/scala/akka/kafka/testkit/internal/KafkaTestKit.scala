@@ -5,10 +5,11 @@
 
 package akka.kafka.testkit.internal
 
-import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
+
+import scala.jdk.CollectionConverters._
 
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings
@@ -115,36 +116,57 @@ trait KafkaTestKit {
     }
 
   /**
-   * Create a topic with a default suffix, single partition and a replication factor of one.
+   * Create a topic with a default suffix, single partition, a replication factor of one, and no topic configuration.
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(): String = createTopic(0, 1, 1)
+  def createTopic(): String = createTopic(0, 1, 1, Map[String, String]())
 
   /**
-   * Create a topic with a given suffix, single partitions and a replication factor of one.
+   * Create a topic with a given suffix, single partitions, a replication factor of one, and no topic configuration.
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(suffix: Int): String = createTopic(suffix, 1, 1)
+  def createTopic(suffix: Int): String = createTopic(suffix, 1, 1, Map[String, String]())
 
   /**
-   * Create a topic with a given suffix, partition number and a replication factor of one.
+   * Create a topic with a given suffix, partition number, a replication factor of one, and no topic configuration.
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(suffix: Int, partitions: Int): String = createTopic(suffix, partitions, 1)
+  def createTopic(suffix: Int, partitions: Int): String =
+    createTopic(suffix, partitions, 1, Map[String, String]())
 
   /**
-   * Create a topic with given suffix, partition number and replication factor.
+   * Create a topic with given suffix, partition number, replication factor, and no topic configuration.
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(suffix: Int, partitions: Int, replication: Int): String = {
+  def createTopic(suffix: Int, partitions: Int, replication: Int): String =
+    createTopic(suffix, partitions, replication, Map[String, String]())
+
+  /**
+   * Create a topic with given suffix, partition number, replication factor, and topic configuration.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int,
+                  partitions: Int,
+                  replication: Int,
+                  config: scala.collection.Map[String, String]): String =
+    createTopic(suffix, partitions, replication, config.asJava)
+
+  /**
+   * Java Api
+   *
+   * Create a topic with given suffix, partition number, replication factor, and topic configuration.
+   *
+   * This method will block and return only when the topic has been successfully created.
+   */
+  def createTopic(suffix: Int, partitions: Int, replication: Int, config: java.util.Map[String, String]): String = {
     val topicName = createTopicName(suffix)
-    val configs = new util.HashMap[String, String]()
     val createResult = adminClient.createTopics(
-      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(configs))
+      Arrays.asList(new NewTopic(topicName, partitions, replication.toShort).configs(config))
     )
     createResult.all().get(10, TimeUnit.SECONDS)
     topicName

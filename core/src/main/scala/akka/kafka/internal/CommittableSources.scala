@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch, GroupTopicPartition}
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch}
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle, CommitWithoutReply}
 import akka.kafka.scaladsl.Consumer.Control
@@ -91,17 +91,19 @@ private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
 
 /** Internal API */
 @InternalApi
-private[kafka] final class CommittableSubSource[K, V](settings: ConsumerSettings[K, V],
-                                                      subscription: AutoSubscription,
-                                                      _metadataFromRecord: ConsumerRecord[K, V] => String =
-                                                        CommittableMessageBuilder.NoMetadataFromRecord)
-    extends KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])](
+private[kafka] final class CommittableSubSource[K, V](
+    settings: ConsumerSettings[K, V],
+    subscription: AutoSubscription,
+    _metadataFromRecord: ConsumerRecord[K, V] => String = CommittableMessageBuilder.NoMetadataFromRecord,
+    getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
+    onRevoke: Set[TopicPartition] => Unit = _ => ()
+) extends KafkaSourceStage[K, V, (TopicPartition, Source[CommittableMessage[K, V], NotUsed])](
       s"CommittableSubSource ${subscription.renderStageAttribute}"
     ) {
   override protected def logic(
       shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]
   ): GraphStageLogic with Control =
-    new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
+    new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
     with CommittableMessageBuilder[K, V] with MetricsControl {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)

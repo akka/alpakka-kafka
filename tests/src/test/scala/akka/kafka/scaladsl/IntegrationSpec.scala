@@ -114,17 +114,26 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
 
-      sleep(2.seconds,
+      sleep(4.seconds,
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
       createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
 
-      eventually {
-        receivedCounter.get() shouldBe totalMessages
-      }
+      if (receivedCounter.get() != totalMessages)
+        log.warn("All consumers together did receive {}, not the total of {} messages",
+                 receivedCounter.get(),
+                 totalMessages)
 
       val stream1messages = control.drainAndShutdown().futureValue
       val stream2messages = control2.drainAndShutdown().futureValue
-      stream1messages + stream2messages shouldBe totalMessages
+      if (stream1messages + stream2messages != totalMessages)
+        log.warn(
+          "The consumers counted {} + {} = {} messages, not the total of {} messages",
+          // boxing for Scala 2.11
+          Long.box(stream1messages),
+          Long.box(stream2messages),
+          Long.box(stream1messages + stream2messages),
+          Long.box(totalMessages)
+        )
     }
 
     "connect consumer to producer and commit in batches" in {

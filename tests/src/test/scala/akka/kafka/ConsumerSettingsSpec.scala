@@ -5,11 +5,19 @@
 
 package akka.kafka
 
+import akka.actor.ActorSystem
+import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 import org.scalatest._
+import org.scalatest.concurrent.ScalaFutures
 
-class ConsumerSettingsSpec extends WordSpecLike with Matchers {
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
+class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues with ScalaFutures {
+
+  implicit val patience = PatienceConfig(5.seconds, 10.millis)
 
   "ConsumerSettings" must {
 
@@ -186,4 +194,65 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers {
 
   }
 
+  "Discovery" should {
+    val config = ConfigFactory
+      .parseString(ConsumerSettingsSpec.DiscoveryConfigSection)
+      .withFallback(ConfigFactory.load())
+      .resolve()
+
+    "read bootstrap servers from config" in {
+      import akka.kafka.scaladsl.DiscoverySupport
+      implicit val actorSystem = ActorSystem("test", config)
+
+      DiscoverySupport.bootstrapServers(config.getConfig("discovery-consumer")).futureValue shouldBe "cat:1233,dog:1234"
+
+      TestKit.shutdownActorSystem(actorSystem)
+    }
+
+    "use enriched settings for consumer creation" in {
+      implicit val actorSystem = ActorSystem("test", config)
+      implicit val executionContext: ExecutionContext = actorSystem.dispatcher
+
+      // #discovery-settings
+      import akka.kafka.scaladsl.DiscoverySupport
+
+      val consumerConfig = config.getConfig("discovery-consumer")
+      val settings = ConsumerSettings(consumerConfig, new StringDeserializer, new StringDeserializer)
+        .withEnrichAsync(DiscoverySupport.consumerBootstrapServers(consumerConfig))
+      // #discovery-settings
+
+      val exception = settings.createKafkaConsumerAsync().failed.futureValue
+      exception shouldBe a[org.apache.kafka.common.KafkaException]
+      exception.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
+      exception.getCause.getMessage shouldBe "No resolvable bootstrap urls given in bootstrap.servers"
+
+      TestKit.shutdownActorSystem(actorSystem)
+    }
+
+  }
+
+}
+
+object ConsumerSettingsSpec {
+
+  val DiscoveryConfigSection =
+    s"""
+       // #discovery-service
+      discovery-consumer: $${akka.kafka.consumer} {
+        service-name = "kafkaService1"
+        resolve-timeout = 10 ms
+      }
+      // #discovery-service
+      // #discovery-with-config
+      akka.discovery.method = config
+      akka.discovery.config.services = {
+        kafkaService1 = {
+          endpoints = [
+            { host = "cat", port = 1233 }
+            { host = "dog", port = 1234 }
+          ]
+        }
+      }
+      // #discovery-with-config
+   """
 }

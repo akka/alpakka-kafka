@@ -29,3 +29,20 @@ class TestcontainersSampleSpec extends SpecBase with TestcontainersKafkaLike {
   // ...
 }
 // #testcontainers
+
+// #testcontainers-settings
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
+
+class TestcontainersNewSettingsSampleSpec extends SpecBase with TestcontainersKafkaPerClassLike {
+
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+    .withNumBrokers(3)
+    .withInternalTopicsReplicationFactor(2)
+    .withConfigureKafka { brokerContainers =>
+      brokerContainers.foreach(_.withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false"))
+    }
+
+  // ...
+}
+// #testcontainers-settings

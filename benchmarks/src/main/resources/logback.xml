@@ -18,6 +18,9 @@
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
+    <logger name="com.github.dockerjava" level="INFO"/>
+    <logger name="org.testcontainers" level="INFO"/>
+
     <root level="DEBUG">
         <appender-ref ref="FILE" />
         <appender-ref ref="STDOUT" />

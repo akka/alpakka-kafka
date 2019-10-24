@@ -6,6 +6,7 @@
 package akka.kafka
 
 import java.util.Optional
+import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorSystem
 import akka.annotation.InternalApi
@@ -17,6 +18,8 @@ import org.apache.kafka.common.serialization.Deserializer
 
 import scala.jdk.CollectionConverters._
 import scala.compat.java8.OptionConverters._
+import scala.compat.java8.FutureConverters._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object ConsumerSettings {
@@ -91,6 +94,7 @@ object ConsumerSettings {
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
+      enrichAsync = None,
       ConsumerSettings.createKafkaConsumer,
       connectionCheckerSettings,
       partitionHandlerWarning
@@ -204,47 +208,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val offsetForTimesTimeout: FiniteDuration,
     val metadataRequestTimeout: FiniteDuration,
     val drainingCheckInterval: FiniteDuration,
+    val enrichAsync: Option[ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]],
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
     val connectionCheckerSettings: ConnectionCheckerSettings,
     val partitionHandlerWarning: FiniteDuration
 ) {
-
-  @deprecated("use the factory methods `ConsumerSettings.apply` and `create` instead", "1.0-M1")
-  def this(properties: Map[String, String],
-           keyDeserializer: Option[Deserializer[K]],
-           valueDeserializer: Option[Deserializer[V]],
-           pollInterval: FiniteDuration,
-           pollTimeout: FiniteDuration,
-           stopTimeout: FiniteDuration,
-           closeTimeout: FiniteDuration,
-           commitTimeout: FiniteDuration,
-           wakeupTimeout: FiniteDuration,
-           maxWakeups: Int,
-           commitRefreshInterval: Duration,
-           dispatcher: String,
-           commitTimeWarning: FiniteDuration,
-           wakeupDebug: Boolean,
-           waitClosePartition: FiniteDuration) = this(
-    properties,
-    keyDeserializer,
-    valueDeserializer,
-    pollInterval,
-    pollTimeout,
-    stopTimeout,
-    closeTimeout,
-    commitTimeout,
-    commitRefreshInterval,
-    dispatcher,
-    commitTimeWarning,
-    waitClosePartition,
-    positionTimeout = 5.seconds,
-    offsetForTimesTimeout = 5.seconds,
-    metadataRequestTimeout = 5.seconds,
-    drainingCheckInterval = 30.millis,
-    consumerFactory = ConsumerSettings.createKafkaConsumer[K, V],
-    connectionCheckerSettings = ConnectionCheckerSettings.Disabled,
-    partitionHandlerWarning = 15.seconds
-  )
 
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
@@ -386,36 +354,11 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(commitTimeWarning = commitTimeWarning.asScala)
 
   /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupTimeout(wakeupTimeout: FiniteDuration): ConsumerSettings[K, V] = this
-
-  /**
-   * Java API:
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupTimeout(wakeupTimeout: java.time.Duration): ConsumerSettings[K, V] = this
-
-  /**
    * Fully qualified config path which holds the dispatcher configuration
    * to be used by the [[akka.kafka.KafkaConsumerActor]]. Some blocking may occur.
    */
   def withDispatcher(dispatcher: String): ConsumerSettings[K, V] =
     copy(dispatcher = dispatcher)
-
-  /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withMaxWakeups(maxWakeups: Int): ConsumerSettings[K, V] = this
 
   /**
    * If set to a finite duration, the consumer will re-send the last committed offsets periodically
@@ -437,14 +380,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def withCommitRefreshInterval(commitRefreshInterval: java.time.Duration): ConsumerSettings[K, V] =
     if (commitRefreshInterval.isZero) copy(commitRefreshInterval = Duration.Inf)
     else copy(commitRefreshInterval = commitRefreshInterval.asScala)
-
-  /**
-   * Not used anymore
-   *
-   * @deprecated not used anymore, since 1.0-RC1
-   */
-  @deprecated("not used anymore", "1.0-RC1")
-  def withWakeupDebug(wakeupDebug: Boolean): ConsumerSettings[K, V] = this
 
   /**
    * Time to wait for pending requests when a partition is closed.
@@ -508,6 +443,24 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(partitionHandlerWarning = partitionHandlerWarning.asScala)
 
   /**
+   * Scala API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
+  def withEnrichAsync(value: ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]): ConsumerSettings[K, V] =
+    copy(enrichAsync = Some(value))
+
+  /**
+   * Java API.
+   * A hook to allow for resolving some settings asynchronously.
+   * @since 2.0.0
+   */
+  def withEnrichCompletionStage(
+      value: java.util.function.Function[ConsumerSettings[K, V], CompletionStage[ConsumerSettings[K, V]]]
+  ): ConsumerSettings[K, V] =
+    copy(enrichAsync = Some((s: ConsumerSettings[K, V]) => value.apply(s).toScala))
+
+  /**
    * Replaces the default Kafka consumer creation logic.
    */
   def withConsumerFactory(
@@ -541,6 +494,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout: FiniteDuration = offsetForTimesTimeout,
       metadataRequestTimeout: FiniteDuration = metadataRequestTimeout,
       drainingCheckInterval: FiniteDuration = drainingCheckInterval,
+      enrichAsync: Option[ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]] = enrichAsync,
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
       connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
       partitionHandlerWarning: FiniteDuration = partitionHandlerWarning
@@ -562,15 +516,51 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       offsetForTimesTimeout,
       metadataRequestTimeout,
       drainingCheckInterval,
+      enrichAsync,
       consumerFactory,
       connectionCheckerConfig,
       partitionHandlerWarning
     )
 
   /**
-   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
+   * Applies `enrichAsync` to complement these settings from asynchronous sources.
    */
-  def createKafkaConsumer(): Consumer[K, V] = consumerFactory.apply(this)
+  def enriched: Future[ConsumerSettings[K, V]] =
+    enrichAsync.map(_.apply(this.copy(enrichAsync = None))).getOrElse(Future.successful(this))
+
+  /**
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings.
+   *
+   * This will fail with `IllegalStateException` if asynchronous enrichment is set up -- always prefer [[createKafkaConsumerAsync()]] or [[createKafkaConsumerCompletionStage()]].
+   *
+   * @throws IllegalStateException if asynchronous enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaConsumerAsync` or `createKafkaConsumerCompletionStage` to apply it
+   */
+  def createKafkaConsumer(): Consumer[K, V] =
+    if (enrichAsync.isDefined) {
+      throw new IllegalStateException(
+        "Asynchronous settings enrichment is set via `withEnrichAsync` or `withEnrichCompletionStage`, you must use `createKafkaConsumerAsync` or `createKafkaConsumerCompletionStage` to apply it"
+      )
+    } else {
+      consumerFactory.apply(this)
+    }
+
+  /**
+   * Scala API.
+   *
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings
+   * (without blocking for `enriched`).
+   */
+  def createKafkaConsumerAsync()(implicit executionContext: ExecutionContext): Future[Consumer[K, V]] =
+    enriched.map(consumerFactory)
+
+  /**
+   * Java API.
+   *
+   * Create a [[org.apache.kafka.clients.consumer.Consumer Kafka Consumer]] instance from these settings
+   * (without blocking for `enriched`).
+   */
+  def createKafkaConsumerCompletionStage(executor: Executor): CompletionStage[Consumer[K, V]] =
+    enriched.map(consumerFactory)(ExecutionContext.fromExecutor(executor)).toJava
 
   override def toString: String =
     s"akka.kafka.ConsumerSettings(" +
@@ -590,5 +580,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
     s"connectionCheckerSettings=$connectionCheckerSettings," +
     s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}" +
+    s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
     ")"
 }

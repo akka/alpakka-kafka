@@ -236,7 +236,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     sink.cancel()
   }
 
-  "manual offset partitioned source" should "request offsets for partitions" in assertAllStagesStopped {
+  "plain manual offset partitioned source" should "request offsets for partitions" in assertAllStagesStopped {
     val dummy = new Dummy()
 
     var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
@@ -360,6 +360,155 @@ class PartitionedSourceSpec(_system: ActorSystem)
                                           onRevoke = { tp =>
                                             revoked = revoked ++ tp
                                           })
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+
+    dummy.assignWithCallback(tp0)
+    eventually {
+      revoked should contain theSameElementsInOrderAs Seq(tp1)
+    }
+
+    dummy.assignWithCallback()
+    eventually {
+      revoked should contain theSameElementsInOrderAs Seq(tp1, tp0)
+    }
+
+    sink.cancel()
+  }
+
+  "committable manual offset partitioned source" should "request offsets for partitions" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .committablePartitionedManualOffsetSource(consumerSettings(dummy),
+                                                Subscriptions.topics(topic),
+                                                getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicPartition, Source) tuples should be issued
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    sink.cancel()
+  }
+
+  it should "after revoke request offset for remaining partition" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .committablePartitionedManualOffsetSource(consumerSettings(dummy),
+                                                Subscriptions.topics(topic),
+                                                getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    // (TopicPartition, Source) tuples should be issued
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    // revoke tp1
+    assertGetOffsetsOnAssign = { tps =>
+      tps should contain only tp0
+    }
+    dummy.assignWithCallback(tp0)
+    subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
+
+    sink.cancel()
+  }
+
+  it should "seek to given offset" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    var assertGetOffsetsOnAssign: Set[TopicPartition] => Unit = { _ =>
+      ()
+    }
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      assertGetOffsetsOnAssign(tps)
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    val sink = Consumer
+      .committablePartitionedManualOffsetSource(consumerSettings(dummy),
+                                                Subscriptions.topics(topic),
+                                                getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    // assign 1
+    assertGetOffsetsOnAssign = { tps =>
+      // this fails as of #570
+      tps should contain allOf (tp0, tp1)
+    }
+    dummy.assignWithCallback(tp0, tp1)
+
+    eventually {
+      dummy.seeks should contain allOf (tp0 -> 300L, tp1 -> 300L)
+    }
+
+    val subSources1 = Map(sink.requestNext(), sink.requestNext())
+    subSources1.keys should contain allOf (tp0, tp1)
+
+    sink.cancel()
+  }
+
+  it should "call onRevoke callback" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      Future.successful(tps.map(tp => (tp, 300L)).toMap)
+    }
+
+    var revoked = Vector[TopicPartition]()
+
+    val sink = Consumer
+      .committablePartitionedManualOffsetSource(consumerSettings(dummy),
+                                                Subscriptions.topics(topic),
+                                                getOffsetsOnAssign,
+                                                onRevoke = { tp =>
+                                                  revoked = revoked ++ tp
+                                                })
       .runWith(TestSink.probe)
 
     dummy.started.futureValue should be(Done)
