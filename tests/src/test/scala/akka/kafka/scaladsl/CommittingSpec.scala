@@ -8,9 +8,10 @@ package akka.kafka.scaladsl
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.IntUnaryOperator
 
-import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ConsumerMessage.{CommittableOffsetBatch, GroupTopicPartition}
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
+import akka.kafka.internal.CommittableOffsetBatchImpl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -358,6 +359,47 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       assert(element1.toInt >= failAt - committerSettings.maxBatch, "Should re-process at most maxBatch elements")
     }
 
+  }
+
+  "Multiple consumers to one committer" must {
+    "allow a merge with different group IDs" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group1 = createGroupId()
+      val group2 = createGroupId()
+
+      produce(topic, 1 to 10).futureValue shouldBe Done
+      val subscription = Subscriptions.topics(topic)
+      val result =
+        Consumer
+          .committableSource(consumerDefaults.withGroupId(group1), subscription)
+          .merge(Consumer.committableSource(consumerDefaults.withGroupId(group2), subscription))
+          .map(_.committableOffset)
+          .groupedWithin(20, 10.seconds)
+          .map(CommittableOffsetBatch.apply)
+          .via(Committer.batchFlow(committerDefaults))
+          .take(1L)
+          .runWith(Sink.head)
+
+      val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
+      batch.batchSize shouldBe 20
+      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
+        GroupTopicPartition(group1, topic, 0) -> 10,
+        GroupTopicPartition(group2, topic, 0) -> 10
+      )
+
+      // make sure committing was done for both group IDs
+      val res1 = Consumer
+        .plainSource(consumerDefaults.withGroupId(group1), subscription)
+        .idleTimeout(1.second)
+        .runWith(Sink.head)
+      val res2 = Consumer
+        .plainSource(consumerDefaults.withGroupId(group2), subscription)
+        .idleTimeout(1.second)
+        .runWith(Sink.head)
+
+      res1.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
+      res2.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
+    }
   }
 
   "Backpressure-free committing" must {
