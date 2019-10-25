@@ -11,6 +11,7 @@ val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion = if (Nightly) "2.6.0-RC1" else "2.5.23"
 val kafkaVersion = "2.1.1"
+val embeddedKafkaVersion = kafkaVersion
 val kafkaVersionForDocs = "21"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.2"
@@ -170,9 +171,6 @@ lazy val `alpakka-kafka` =
             |  verifyCodeStyle
             |    checks if all of the code is formatted according to the configuration
             |
-            |  verifyCompilation
-            |    compiles all the code and checks for compilation warnings
-            |
             |  verifyDocs
             |    builds all of the docs
             |
@@ -227,10 +225,10 @@ lazy val testkit = project
         if (scalaBinaryVersion.value == "2.13") Seq()
         else
           Seq(
-            "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
-            "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10", // Kafka pulls in jackson databind ApacheV2
-            "org.apache.commons" % "commons-compress" % "1.19", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-            "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
+            "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
+            "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10" % Provided, // Kafka pulls in jackson databind ApacheV2
+            "org.apache.commons" % "commons-compress" % "1.19" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+            "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion % Provided exclude ("log4j", "log4j")
           )
       },
     Compile / unmanagedSources / excludeFilter := {
@@ -334,6 +332,7 @@ lazy val docs = project
     paradoxProperties ++= Map(
         "akka.version" -> akkaVersion,
         "kafka.version" -> kafkaVersion,
+        "embeddedKafka.version" -> embeddedKafkaVersion,
         "confluent.version" -> confluentAvroSerializerVersion,
         "scalatest.version" -> scalatestVersion,
         "testcontainers.version" -> testcontainersVersion,
