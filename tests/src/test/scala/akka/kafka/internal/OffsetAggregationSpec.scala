@@ -17,32 +17,32 @@ class OffsetAggregationSpec extends WordSpecLike with Matchers {
 
   "aggregateOffsets" should {
     "give all offsets for one element" in {
-      val in = Map(new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA))
-      KafkaConsumerActor.aggregateOffsets(List(in)) shouldBe in
+      val in = new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA)
+      KafkaConsumerActor.aggregateOffsets(List(in)) shouldBe Map(in)
     }
 
     "give the highest offsets" in {
-      val in1 = Map(new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA))
-      val in2 = Map(new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA))
-      KafkaConsumerActor.aggregateOffsets(List(in1, in2)) shouldBe in1
+      val in1 = new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA)
+      val in2 = new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA)
+      KafkaConsumerActor.aggregateOffsets(List(in1, in2)) shouldBe Map(in1)
     }
 
     "give the highest offsets (other order)" in {
-      val in1 = Map(new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA))
-      val in2 = Map(new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA))
-      KafkaConsumerActor.aggregateOffsets(List(in2, in1)) shouldBe in1
+      val in1 = new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA)
+      val in2 = new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA)
+      KafkaConsumerActor.aggregateOffsets(List(in2, in1)) shouldBe Map(in1)
     }
 
     "give the highest offsets (when mixed)" in {
-      val in1 = Map(
+      val in1 = List(
         new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA),
         new TopicPartition(topicB, 1) -> new OffsetAndMetadata(11, OffsetFetchResponse.NO_METADATA)
       )
-      val in2 = Map(
+      val in2 = List(
         new TopicPartition(topicA, 1) -> new OffsetAndMetadata(12, OffsetFetchResponse.NO_METADATA),
         new TopicPartition(topicB, 1) -> new OffsetAndMetadata(43, OffsetFetchResponse.NO_METADATA)
       )
-      KafkaConsumerActor.aggregateOffsets(List(in1, in2)) shouldBe Map(
+      KafkaConsumerActor.aggregateOffsets(in1 ++ in2) shouldBe Map(
         new TopicPartition(topicA, 1) -> new OffsetAndMetadata(42, OffsetFetchResponse.NO_METADATA),
         new TopicPartition(topicB, 1) -> new OffsetAndMetadata(43, OffsetFetchResponse.NO_METADATA)
       )

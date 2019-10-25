@@ -63,8 +63,9 @@ import scala.util.control.NonFatal
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
-    final case class Commit(offsets: Map[TopicPartition, OffsetAndMetadata]) extends NoSerializationVerificationNeeded
-    final case class CommitWithoutReply(offsets: Map[TopicPartition, OffsetAndMetadata])
+    final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
+        extends NoSerializationVerificationNeeded
+    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
@@ -187,12 +188,12 @@ import scala.util.control.NonFatal
   /**
    * Create map with just the highest received offsets.
    */
-  private[internal] def aggregateOffsets(cm: List[Map[TopicPartition, OffsetAndMetadata]]) =
+  private[internal] def aggregateOffsets(cm: List[(TopicPartition, OffsetAndMetadata)]) =
     cm.foldLeft(Map.empty[TopicPartition, OffsetAndMetadata]) { (aggregate, add) =>
-      val higherThanExisting = add.filterNot {
-        case (tp, toBeAdded) => aggregate.get(tp).exists(_.offset() > toBeAdded.offset())
-      }
-      aggregate ++ higherThanExisting
+      val (tp, toBeAdded) = add
+      if (aggregate.get(tp).exists(_.offset > toBeAdded.offset))
+        aggregate
+      else aggregate + add
     }
 }
 
@@ -240,7 +241,7 @@ import scala.util.control.NonFatal
   /**
    * Collect commit offset maps until the next poll.
    */
-  private var commitMaps = List.empty[Map[TopicPartition, OffsetAndMetadata]]
+  private var commitMaps = List.empty[(TopicPartition, OffsetAndMetadata)]
 
   /**
    * Keeps commit senders that need a reply once stashed commits are made.
@@ -253,17 +254,17 @@ import scala.util.control.NonFatal
   override val receive: Receive = regularReceive
 
   def regularReceive: Receive = LoggingReceive {
-    case Commit(offsets) =>
+    case Commit(tp, offset) =>
       // prepending, as later received offsets most likely are higher
-      commitMaps = offsets :: commitMaps
+      commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
 
-    case CommitWithoutReply(offsets) =>
+    case CommitWithoutReply(tp, offset) =>
       // prepending, as later received offsets most likely are higher
-      commitMaps = offsets :: commitMaps
+      commitMaps = tp -> offset :: commitMaps
 
     case CommitSingle(tp, offset) =>
-      commitMaps = Map(tp -> offset) :: commitMaps
+      commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
       requestDelayedPoll()
 

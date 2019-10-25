@@ -139,7 +139,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
       val futures = b.offsetsAndMetadata.map {
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
-          b.committerFor(groupTopicPartition).sendCommit(Commit(Map(groupTopicPartition.topicPartition -> offset)))
+          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset))
       }
       Future.sequence(futures).map(_ => Done)
 
@@ -152,7 +152,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
           b.committerFor(groupTopicPartition)
-            .tellCommit(CommitWithoutReply(Map(groupTopicPartition.topicPartition -> offset)))
+            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset))
       }
 
     case _ => failForUnexpectedImplementation(batch)
