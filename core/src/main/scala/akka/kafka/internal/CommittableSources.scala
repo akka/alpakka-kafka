@@ -176,7 +176,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
   private def tellCommit(msg: CommitWithoutReply): Unit = consumerActor ! msg
 
   /**
-   * This must be comparable based on `consumerActor`` and `commitTimeout`. The comparison is used in [[CommittableOffsetBatchImpl]].
+   * This must be comparable based on `consumerActor` and `commitTimeout`. The comparison is used in [[CommittableOffsetBatchImpl]].
    * The comparison is mostly relevant when multiple sources share a consumer actor.
    */
   override def equals(obj: Any): Boolean =

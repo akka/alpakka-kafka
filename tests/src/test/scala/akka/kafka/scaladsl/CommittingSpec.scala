@@ -14,7 +14,7 @@ import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
 import akka.kafka.internal.CommittableOffsetBatchImpl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
@@ -363,7 +363,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
   }
 
   "Multiple consumers to one committer" must {
-    "allow a merge with different group IDs" in assertAllStagesStopped {
+    "merge commits with different group IDs" in assertAllStagesStopped {
       val topic = createTopic()
       val group1 = createGroupId()
       val group2 = createGroupId()
@@ -383,20 +383,14 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
       batch.batchSize shouldBe 20
-      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
-        GroupTopicPartition(group1, topic, 0) -> 10,
-        GroupTopicPartition(group2, topic, 0) -> 10
+      batch.offsets should contain allElementsOf Map(
+        GroupTopicPartition(group1, topic, 0) -> 9,
+        GroupTopicPartition(group2, topic, 0) -> 9
       )
 
       // make sure committing was done for both group IDs
-      val res1 = Consumer
-        .plainSource(consumerDefaults.withGroupId(group1), subscription)
-        .idleTimeout(100.millis)
-        .runWith(Sink.head)
-      val res2 = Consumer
-        .plainSource(consumerDefaults.withGroupId(group2), subscription)
-        .idleTimeout(100.millis)
-        .runWith(Sink.head)
+      val res1 = expectNoElements(group1, topic)
+      val res2 = expectNoElements(group2, topic)
 
       res1.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
       res2.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
@@ -431,49 +425,90 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
       batch.batchSize shouldBe 20
-      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
-        GroupTopicPartition(group, topic, partition0) -> 10,
-        GroupTopicPartition(group, topic, partition1) -> 10
+      batch.offsets should contain allElementsOf Map(
+        GroupTopicPartition(group, topic, partition0) -> 9,
+        GroupTopicPartition(group, topic, partition1) -> 9
       )
 
       // make sure committing was done
-      val res = Consumer
-        .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
-        .idleTimeout(100.millis)
-        .runWith(Sink.seq)
+      val res = expectNoElements(group, topic)
       res.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
     }
 
     // Illustration of https://github.com/akka/alpakka-kafka/issues/942
-    "allow a merge for multiple consumer with the same group ID" ignore assertAllStagesStopped {
+    "merge multiple consumers` offsets for different partitions (#942)" in assertAllStagesStopped {
       val topic = createTopic(0, partitions = 2)
-      val group1 = createGroupId()
+      val group = createGroupId()
 
       awaitProduce(produceTwoPartitions(topic))
-      val consumerSettings = consumerDefaults.withGroupId(group1)
+      val consumerSettings = consumerDefaults.withGroupId(group)
       val result =
         Consumer
           .committableSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition0)))
-          .take(5)
+          .take(10)
           .concat(
-            Consumer.committableSource(consumerSettings,
-                                       Subscriptions.assignment(new TopicPartition(topic, partition1)))
+            Consumer
+              .committableSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition1)))
           )
           .map(_.committableOffset)
-          .log("pre group")
           .groupedWithin(20, 10.seconds)
-          .log("grouped")
           .map(CommittableOffsetBatch.apply)
-          .via(Committer.batchFlow(committerDefaults))
-          .take(1L)
+          .via(Committer.batchFlow(committerDefaults.withMaxBatch(1L)))
           .runWith(Sink.head)
 
       val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
-      batch.batchSize shouldBe 10
-      batch.offsetsAndMetadata.mapValues(_.offset) should contain allElementsOf Map(
-        GroupTopicPartition(group1, topic, 0) -> 10,
-        GroupTopicPartition(group1, topic, 0) -> 10
+      batch.batchSize shouldBe 20
+      batch.offsets should contain allElementsOf Map(
+        GroupTopicPartition(group, topic, partition0) -> 9,
+        GroupTopicPartition(group, topic, partition1) -> 9
       )
+
+      // make sure committing was done
+      val res = expectNoElements(group, topic)
+      res.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
+    }
+
+    // Illustration of https://github.com/akka/alpakka-kafka/issues/942
+    "merge multiple consumer` with identical group-topic-subscription (#942)" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+
+      val messages = 20
+      val messagesInFirstIncarnation = 11
+      awaitProduce(produce(topic, 1 to messages))
+      val consumerSettings =
+        consumerDefaults.withGroupId(group).withCommitWarning(1.second).withCommitTimeout(5.seconds)
+      val subscription = Subscriptions.topics(topic)
+
+      val incarnation = new AtomicInteger()
+      val result =
+        RestartSource
+          .withBackoff(0.millis, 5.millis, 0d) { () =>
+            if (incarnation.incrementAndGet() == 1)
+              Consumer
+                .committableSource(consumerSettings, subscription)
+                .log("incarnation 1")
+                .take(messagesInFirstIncarnation.toLong)
+            else
+              Consumer
+                .committableSource(consumerSettings, subscription)
+                .log("incarnation 2")
+          }
+          .map(_.committableOffset)
+          .groupedWithin(messagesInFirstIncarnation + messages, 10.seconds)
+          .map(CommittableOffsetBatch.apply)
+          .via(Committer.batchFlow(committerDefaults.withMaxBatch(1L)))
+          .runWith(Sink.head)
+
+      val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
+      batch.batchSize shouldBe messagesInFirstIncarnation + messages
+      batch.offsets should contain allElementsOf Map(
+        GroupTopicPartition(group, topic, partition0) -> 19
+      )
+
+      // make sure committing was done
+      val res = expectNoElements(group, topic)
+      res.failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
     }
   }
 
@@ -521,6 +556,12 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     probe2.cancel()
     element
   }
+
+  private def expectNoElements(groupId: String, topic: String) =
+    Consumer
+      .plainSource(consumerDefaults.withGroupId(groupId), Subscriptions.topics(topic))
+      .idleTimeout(500.millis)
+      .runWith(Sink.head)
 
   private def produceTwoPartitions(topic: String) =
     Source(1 to 10)
