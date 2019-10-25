@@ -20,10 +20,10 @@ import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 /** Internal API */
 @InternalApi
@@ -157,8 +157,8 @@ private[kafka] trait CommittedMarker {
 /** Internal API */
 @InternalApi
 private[kafka] final class CommittableOffsetBatchImpl(
-    val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
-    val committers: Map[String, KafkaAsyncConsumerCommitterRef],
+    private[kafka] val offsetsAndMetadata: Map[GroupTopicPartition, OffsetAndMetadata],
+    private val committers: Map[GroupTopicPartition, KafkaAsyncConsumerCommitterRef],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
   def offsets: Map[GroupTopicPartition, Long] = offsetsAndMetadata.view.mapValues(_.offset() - 1L).toMap
@@ -168,24 +168,16 @@ private[kafka] final class CommittableOffsetBatchImpl(
     case batch: CommittableOffsetBatch => updatedWithBatch(batch)
   }
 
-  private[internal] def committerFor(groupId: String) = committers.getOrElse(
-    groupId,
-    throw new IllegalStateException(s"Unknown committer, got [$groupId]")
-  )
+  private[internal] def committerFor(groupTopicPartition: GroupTopicPartition) =
+    committers.getOrElse(
+      groupTopicPartition,
+      throw new IllegalStateException(s"Unknown committer, got [$groupTopicPartition] (${committers.keys})")
+    )
 
-  private[internal] def groupIdOffsetMaps: Map[String, Map[TopicPartition, OffsetAndMetadata]] =
-    offsetsAndMetadata.groupBy(_._1.groupId).map {
-      case (groupId, offsetsMap) =>
-        val offsets: Map[TopicPartition, OffsetAndMetadata] = offsetsMap.map {
-          case (gtp, offset) => gtp.topicPartition -> offset
-        }
-        (groupId, offsets)
-    }
-
-  private def updatedWithOffset(committableOffset: CommittableOffset): CommittableOffsetBatch = {
-    val partitionOffset = committableOffset.partitionOffset
+  private def updatedWithOffset(newOffset: CommittableOffset): CommittableOffsetBatch = {
+    val partitionOffset = newOffset.partitionOffset
     val key = partitionOffset.key
-    val metadata = committableOffset match {
+    val metadata = newOffset match {
       case offset: CommittableOffsetMetadata =>
         offset.metadata
       case _ =>
@@ -193,53 +185,29 @@ private[kafka] final class CommittableOffsetBatchImpl(
     }
 
     val newOffsets =
-      offsetsAndMetadata.updated(key, new OffsetAndMetadata(committableOffset.partitionOffset.offset + 1L, metadata))
+      offsetsAndMetadata.updated(key, new OffsetAndMetadata(newOffset.partitionOffset.offset + 1L, metadata))
 
-    val committer = committableOffset match {
+    val newCommitter = newOffset match {
       case c: CommittableOffsetImpl => c.committer
       case _ =>
         throw new IllegalArgumentException(
-          s"Unknown CommittableOffset, got [${committableOffset.getClass.getName}], " +
+          s"Unknown CommittableOffset, got [${newOffset.getClass.getName}], " +
           s"expected [${classOf[CommittableOffsetImpl].getName}]"
         )
     }
 
-    val newCommitters = committers.get(key.groupId) match {
-      case Some(s) =>
-        require(
-          s == committer,
-          s"CommittableOffset [$committableOffset] committer for groupId [${key.groupId}] " +
-          s"must be same as the other with this groupId. Expected [$s], got [$committer]"
-        )
-        committers
-      case None =>
-        committers.updated(key.groupId, committer)
-    }
-
+    // the last `KafkaAsyncConsumerCommitterRef` wins (see https://github.com/akka/alpakka-kafka/issues/942)
+    val newCommitters = committers.updated(key, newCommitter)
     new CommittableOffsetBatchImpl(newOffsets, newCommitters, batchSize + 1)
   }
 
   private def updatedWithBatch(committableOffsetBatch: CommittableOffsetBatch): CommittableOffsetBatch =
     committableOffsetBatch match {
-      case c: CommittableOffsetBatchImpl =>
-        val newOffsetsAndMetadata = offsetsAndMetadata ++ c.offsetsAndMetadata
-        val newCommitters = c.committers.foldLeft(committers) {
-          case (acc, (groupId, committer)) =>
-            acc.get(groupId) match {
-              case Some(s) =>
-                require(
-                  s == committer,
-                  s"CommittableOffsetBatch [$committableOffsetBatch] committer for groupId [$groupId] " +
-                  s"must be same as the other with this groupId. Expected [$s], got [$committer]"
-                )
-                acc
-              case None =>
-                acc.updated(groupId, committer)
-            }
-        }
-        new CommittableOffsetBatchImpl(newOffsetsAndMetadata,
-                                       newCommitters,
-                                       batchSize + committableOffsetBatch.batchSize)
+      case newBatch: CommittableOffsetBatchImpl =>
+        val newOffsetsAndMetadata = offsetsAndMetadata ++ newBatch.offsetsAndMetadata
+        // the last `KafkaAsyncConsumerCommitterRef` wins (see https://github.com/akka/alpakka-kafka/issues/942)
+        val newCommitters = committers ++ newBatch.committers
+        new CommittableOffsetBatchImpl(newOffsetsAndMetadata, newCommitters, batchSize + newBatch.batchSize)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown CommittableOffsetBatch, got [${committableOffsetBatch.getClass.getName}], " +
