@@ -117,8 +117,9 @@ private[kafka] final class CommittableSubSource[K, V](
 /**
  * Internal API.
  *
- * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit]] and
- * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitSingle]] messages to the consumer actor.
+ * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit]],
+ * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitSingle]] and
+ * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitWithoutReply]] messages to the consumer actor.
  */
 @InternalApi
 private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: ActorRef,
