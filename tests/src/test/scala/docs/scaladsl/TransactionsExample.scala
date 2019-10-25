@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.Done
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
-import akka.kafka.{KafkaPorts, ProducerMessage, Subscriptions}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -19,7 +19,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TransactionsExample extends DocsSpecBase(KafkaPorts.ScalaTransactionsExamples) with EmbeddedKafkaLike {
+class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 

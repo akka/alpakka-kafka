@@ -11,7 +11,7 @@ import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.{ProducerMessage, _}
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import akka.kafka.testkit.scaladsl.{TestcontainersKafkaLike}
 import akka.stream.{Attributes, DelayOverflowStrategy, KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.TestSubscriber
@@ -25,7 +25,7 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-class TransactionsSpec extends SpecBase(KafkaPorts.TransactionsSpec) with EmbeddedKafkaLike {
+class TransactionsSpec extends SpecBase with TestcontainersKafkaLike {
 
   "A consume-transform-produce cycle" must {
 
