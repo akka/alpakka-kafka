@@ -41,6 +41,22 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .map(Long.box)(ExecutionContexts.sameThreadExecutionContext)
       .toJava
 
+  def getEndOffsets(
+      partitions: java.util.Set[TopicPartition]
+  ): CompletionStage[java.util.Map[TopicPartition, java.lang.Long]] =
+    metadataClient
+      .getEndOffsets(partitions.asScala.toSet)
+      .map { endOffsets =>
+        endOffsets.view.mapValues(Long.box).toMap.asJava
+      }(ExecutionContexts.sameThreadExecutionContext)
+      .toJava
+
+  def getEndOffsetForPartition(partition: TopicPartition): CompletionStage[java.lang.Long] =
+    metadataClient
+      .getEndOffsetForPartition(partition)
+      .map(Long.box)(ExecutionContexts.sameThreadExecutionContext)
+      .toJava
+
   def stop(): Unit =
     metadataClient.stop()
 }

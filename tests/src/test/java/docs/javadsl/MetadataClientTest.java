@@ -53,10 +53,10 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   public void shouldFetchBeginningOffsetsForGivenPartitions() {
     final String topic1 = createTopic();
     final String group1 = createGroupId();
-    final TopicPartition partition0 = new TopicPartition(topic1, 0);
+    final TopicPartition partition = new TopicPartition(topic1, 0);
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
-    final Set<TopicPartition> partitions = Collections.singleton(partition0);
+    final Set<TopicPartition> partitions = Collections.singleton(partition);
     final MetadataClient metadataClient =
         MetadataClient.create(consumerSettings, timeout, sys, executor);
 
@@ -64,7 +64,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
         metadataClient.getBeginningOffsets(partitions);
     final Map<TopicPartition, Long> beginningOffsets = response.toCompletableFuture().join();
 
-    assertThat(beginningOffsets.get(partition0), is(0L));
+    assertThat(beginningOffsets.get(partition), is(0L));
 
     metadataClient.stop();
   }
@@ -95,18 +95,80 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   public void shouldFetchBeginningOffsetForGivenPartition() {
     final String topic1 = createTopic();
     final String group1 = createGroupId();
-    final TopicPartition partition0 = new TopicPartition(topic1, 0);
+    final TopicPartition partition = new TopicPartition(topic1, 0);
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
     final MetadataClient metadataClient =
         MetadataClient.create(consumerSettings, timeout, sys, executor);
 
-    final CompletionStage<Long> response =
-        metadataClient.getBeginningOffsetForPartition(partition0);
+    final CompletionStage<Long> response = metadataClient.getBeginningOffsetForPartition(partition);
     final Long beginningOffset = response.toCompletableFuture().join();
 
     assertThat(beginningOffset, is(0L));
 
+    metadataClient.stop();
+  }
+
+  @Test
+  public void shouldFetchEndOffsetsForGivenPartitions() {
+    final String topic1 = createTopic();
+    final String group1 = createGroupId();
+    final TopicPartition partition = new TopicPartition(topic1, 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
+
+    produceString(topic1, 10, partition.partition()).toCompletableFuture().join();
+
+    final CompletionStage<Map<TopicPartition, Long>> response =
+        metadataClient.getEndOffsets(Collections.singleton(partition));
+    final Map<TopicPartition, Long> endOffsets = response.toCompletableFuture().join();
+
+    assertThat(endOffsets.get(partition), is(10L));
+
+    metadataClient.stop();
+  }
+
+  @Test
+  public void shouldFailInCaseOfAnExceptionDuringFetchEndOffsetsForNonExistingTopic() {
+    expectedException.expect(CompletionException.class);
+    expectedException.expectCause(
+        IsInstanceOf.instanceOf(org.apache.kafka.common.errors.InvalidTopicException.class));
+
+    final String group1 = createGroupId();
+    final TopicPartition nonExistingPartition = new TopicPartition("non-existing topic", 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
+
+    final CompletionStage<Map<TopicPartition, Long>> response =
+        metadataClient.getEndOffsets(Collections.singleton(nonExistingPartition));
+
+    metadataClient.stop();
+    response.toCompletableFuture().join();
+  }
+
+  @Test
+  public void shouldFetchEndOffsetForGivenPartition() {
+    final String topic1 = createTopic();
+    final String group1 = createGroupId();
+    final TopicPartition partition = new TopicPartition(topic1, 0);
+    final ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(group1);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
+
+    produceString(topic1, 10, partition.partition()).toCompletableFuture().join();
+
+    final CompletionStage<Long> response = metadataClient.getEndOffsetForPartition(partition);
+    final Long endOffset = response.toCompletableFuture().join();
+
+    assertThat(endOffset, is(10L));
     metadataClient.stop();
   }
 
