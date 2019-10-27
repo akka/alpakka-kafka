@@ -16,7 +16,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerSettings
 import akka.util.Timeout
-import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.compat.java8.FutureConverters._
 import scala.collection.compat._
@@ -55,6 +55,14 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
     metadataClient
       .getEndOffsetForPartition(partition)
       .map(Long.box)(ExecutionContexts.sameThreadExecutionContext)
+      .toJava
+
+  def listTopics(): CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]] =
+    metadataClient
+      .listTopics()
+      .map { topics =>
+        topics.view.mapValues(partitionsInfo => partitionsInfo.asJava).toMap.asJava
+      }(ExecutionContexts.sameThreadExecutionContext)
       .toJava
 
   def stop(): Unit =
