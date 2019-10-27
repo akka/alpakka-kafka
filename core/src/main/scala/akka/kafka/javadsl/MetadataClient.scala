@@ -65,6 +65,14 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       }(ExecutionContexts.sameThreadExecutionContext)
       .toJava
 
+  def getPartitionsFor(topic: java.lang.String): CompletionStage[java.util.List[PartitionInfo]] =
+    metadataClient
+      .getPartitionsFor(topic)
+      .map { partitionsInfo =>
+        partitionsInfo.asJava
+      }(ExecutionContexts.sameThreadExecutionContext)
+      .toJava
+
   def stop(): Unit =
     metadataClient.stop()
 }

@@ -204,6 +204,29 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     metadataClient.stop();
   }
 
+  @Test
+  public void shouldFetchPartitionsInfoForGivenTopic() {
+    final String group = createGroupId();
+    final String topic = createTopic(1, 2);
+    final ConsumerSettings<String, String> consumerSettings = consumerDefaults().withGroupId(group);
+    final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
+    final MetadataClient metadataClient =
+        MetadataClient.create(consumerSettings, timeout, sys, executor);
+
+    produceString(topic, 10, 0).toCompletableFuture().join();
+    produceString(topic, 10, 1).toCompletableFuture().join();
+
+    final CompletionStage<List<PartitionInfo>> response = metadataClient.getPartitionsFor(topic);
+
+    final List<PartitionInfo> partitionInfos = response.toCompletableFuture().join();
+    final Set<Integer> partitions =
+        partitionInfos.stream().map(PartitionInfo::partition).collect(toSet());
+
+    assertThat(partitions, containsInAnyOrder(0, 1));
+
+    metadataClient.stop();
+  }
+
   @AfterClass
   public static void afterClass() {
     TestKit.shutdownActorSystem(sys);

@@ -130,6 +130,24 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       topics(topic1).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic1
       topics(topic2).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic2
+
+      metadataClient.stop()
+    }
+
+    "fetch partitions of given topic" in assertAllStagesStopped {
+      val group = createGroupId(1)
+      val topic = createTopic(suffix = 1, partitions = 2)
+      val consumerSettings = consumerDefaults.withGroupId(group)
+      val metadataClient = MetadataClient.create(consumerSettings, 1 second)
+
+      awaitProduce(produce(topic, 1 to 10, partition = 0))
+      awaitProduce(produce(topic, 1 to 10, partition = 1))
+
+      val partitionsInfo = metadataClient.getPartitionsFor(topic).futureValue
+
+      partitionsInfo.leftSideValue.map(_.partition()) shouldBe List(0, 1)
+
+      metadataClient.stop()
     }
   }
 
