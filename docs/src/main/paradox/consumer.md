@@ -349,6 +349,7 @@ Java
 @@@ index
 
 * [subscription](subscription.md)
+* [rebalance](consumer-rebalance.md)
 * [metadata](consumer-metadata.md)
 
 @@@

@@ -31,7 +31,6 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -497,21 +496,31 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     AtomicReference<Set<TopicPartition>> assigned = new AtomicReference<>();
     AtomicReference<Set<TopicPartition>> stopped = new AtomicReference<>();
 
-    PartitionAssignmentHandler handler =
+    // #partitionAssignmentHandler
+    PartitionAssignmentHandler assignmentHandler =
         new PartitionAssignmentHandler() {
           public void onRevoke(Set<TopicPartition> revokedTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
             revoked.set(revokedTps);
+            // #partitionAssignmentHandler
           }
 
           public void onAssign(Set<TopicPartition> assignedTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
             assigned.set(assignedTps);
+            // #partitionAssignmentHandler
           }
 
           public void onStop(Set<TopicPartition> currentTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
             stopped.set(currentTps);
+            // #partitionAssignmentHandler
           }
         };
-    Subscription subscription = Subscriptions.topics(topic).withPartitionAssignmentHandler(handler);
+
+    Subscription subscription =
+        Subscriptions.topics(topic).withPartitionAssignmentHandler(assignmentHandler);
+    // #partitionAssignmentHandler
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
         Consumer.plainSource(consumerSettings, subscription)

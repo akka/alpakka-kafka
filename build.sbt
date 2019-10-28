@@ -374,6 +374,7 @@ lazy val docs = project
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/"
       ),
+    apidocRootPackage := "akka",
     paradoxRoots := List("index.html",
                          "release-notes/1.0-M1.html",
                          "release-notes/1.0-RC1.html",

@@ -401,20 +401,29 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val revokedPromise = Promise[Set[TopicPartition]]
     val stopPromise = Promise[Set[TopicPartition]]
 
-    val handler = new PartitionAssignmentHandler {
-      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+    // #partitionAssignmentHandler
+    val assignmentHandler = new PartitionAssignmentHandler {
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
         revokedPromise.success(revokedTps)
 
-      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      // #partitionAssignmentHandler
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
         assignedPromise.success(assignedTps)
 
-      override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      // #partitionAssignmentHandler
+      override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
         stopPromise.success(currentTps)
+      // #partitionAssignmentHandler
     }
 
     val subscription = Subscriptions
       .topics(topic)
-      .withPartitionAssignmentHandler(handler)
+      .withPartitionAssignmentHandler(assignmentHandler)
+
+    // #partitionAssignmentHandler
 
     val (control, result) =
       Consumer
