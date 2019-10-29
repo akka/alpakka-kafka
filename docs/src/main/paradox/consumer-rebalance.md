@@ -1,7 +1,14 @@
 ---
 project.description: React on Kafka rebalancing the partitions assigned to an Alpakka Kafka consumer.
 ---
-# React on Partition Assigment 
+# React on Partition Assignment
+
+Alpakka Kafka allows to react to the Kafka broker's balancing of partitions within a consumer group in two ways:
+
+1. callbacks to the `PartitionAssignmentHandler`
+1. messages to a @ref[rebalance listener actor](#listening-for-rebalance-events)
+
+## Partition Assignment Handler
 
 Kafka balances partitions between all consumers within a consumer group. When new consumers join or leave the group partitions are revoked from and assigned to those consumers.
 
@@ -30,3 +37,18 @@ Scala
 
 Java
 : @@snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #partitionAssignmentHandler }
+
+
+## Listening for rebalance events
+
+You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
+from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor 
+
+* `akka.kafka.TopicPartitionsAssigned` and
+* `akka.kafka.TopicPartitionsRevoked`, like this:
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #withRebalanceListenerActor }
