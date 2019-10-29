@@ -105,14 +105,17 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   void plainSinkWithSharedProducer() throws Exception {
     String topic = createTopic();
     // #plainSinkWithProducer
-    final CompletionStage<org.apache.kafka.clients.producer.Producer<String, String>>
-        kafkaProducer = producerSettings.createKafkaProducerCompletionStage(executor);
+    // create a producer
+    final org.apache.kafka.clients.producer.Producer<String, String>
+        kafkaProducer = producerSettings.createKafkaProducer();
+    final ProducerSettings<String, String> settingsWithProducer =
+        producerSettings.withProducer(kafkaProducer);
 
     CompletionStage<Done> done =
         Source.range(1, 100)
             .map(number -> number.toString())
             .map(value -> new ProducerRecord<String, String>(topic, value))
-            .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
+            .runWith(Producer.plainSink(settingsWithProducer), materializer);
     // #plainSinkWithProducer
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
@@ -126,7 +129,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
     // #plainSinkWithProducer
 
     // close the producer after use
-    system.registerOnTermination(() -> kafkaProducer.thenAccept(p -> p.close()));
+    kafkaProducer.close();
     // #plainSinkWithProducer
   }
 

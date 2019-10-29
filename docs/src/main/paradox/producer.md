@@ -15,33 +15,34 @@ Alpakka Kafka offers producer flows and sinks that connect to Kafka and write da
 
 These factory methods are part of the @scala[@scaladoc[Producer API](akka.kafka.scaladsl.Producer$)]@java[@scaladoc[Producer API](akka.kafka.javadsl.Producer$)].
 
-| Shared producer | Factory method    | Stream element type | Pass-through | Context |
-|-----------------|-------------------|---------------------|--------------|---------|
-| Available       | `plainSink`       | `ProducerRecord`    | N/A          | N/A     |
-| Available       | `flexiFlow`       | `Envelope`          | Any          | N/A     |
-| Available       | `flowWithContext` | `Envelope`          | No           | Any     |
+| Factory method    | May use shared producer | Stream element type | Pass-through | Context |
+|-------------------|-------------------------|---------------------|--------------|---------|
+| `plainSink`       | Yes                     | `ProducerRecord`    | N/A          | N/A     |
+| `flexiFlow`       | Yes                     | `Envelope`          | Any          | N/A     |
+| `flowWithContext` | Yes                     | `Envelope`          | No           | Any     |
 
 ### Committing producer sinks
 
 These producers produce messages to Kafka and commit the offsets of incoming messages regularly.
 
-| Shared producer | Factory method                     | Stream element type | Pass-through  | Context       |
-|-----------------|------------------------------------|---------------------|---------------|---------------|
-| Available       | `committableSink`                  | `Envelope`          | `Committable` | N/A           |
-| Available       | `committableSinkWithOffsetContext` | `Envelope`          | Any           | `Committable` |
+| Factory method                     | May use shared producer | Stream element type | Pass-through  | Context       |
+|------------------------------------|-------------------------|---------------------|---------------|---------------|
+| `committableSink`                  | Yes                     | `Envelope`          | `Committable` | N/A           |
+| `committableSinkWithOffsetContext` | Yes                     | `Envelope`          | Any           | `Committable` |
 
 For details about the batched committing see @ref:[Consumer: Offset Storage in Kafka - committing](consumer.md#offset-storage-in-kafka-committing).
 
 ### Transactional producers
 
 These factory methods are part of the @scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]. For details see @ref[Transactions](transactions.md).
+Alpakka Kafka must manage the producer when using transactions.
 
-| Shared producer | Factory method          | Stream element type | Pass-through |
-|-----------------|-------------------------|---------------------|--------------|
-| No              | `sink`                  | `Envelope`          | N/A  |
-| No              | `flow`                  | `Envelope`          | No   |
-| No              | `sinkWithOffsetContext` | `Envelope`          | N/A  |
-| No              | `flowWithOffsetContext` | `Envelope`          | No   |
+| Factory method          | May use shared producer | Stream element type | Pass-through |
+|-------------------------|-------------------------|---------------------|--------------|
+| `sink`                  | No                      | `Envelope`          | N/A          |
+| `flow`                  | No                      | `Envelope`          | No           |
+| `sinkWithOffsetContext` | No                      | `Envelope`          | N/A          |
+| `flowWithOffsetContext` | No                      | `Envelope`          | No           |
 
 
 ## Settings
@@ -171,6 +172,7 @@ Java
 ## Sharing the KafkaProducer instance
 
 The underlying `KafkaProducer` (@javadoc[Kafka API](org.apache.kafka.clients.producer.KafkaProducer)) is thread safe and sharing a single producer instance across streams will generally be faster than having multiple instances.
+You cannot share `KafkaProducer` with the Transactional flows and sinks.
 
 To create a `KafkaProducer` from the Kafka connector settings described [above](#settings), the `ProducerSettings` contains the factory methods @scala[`createKafkaProducerAsync`]@java[`createKafkaProducerCompletionStage`] and `createKafkaProducer` (blocking for asynchronous enriching).
 
@@ -180,7 +182,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producer }
 
-The `KafkaProducer` instance (or @scala[Future]@java[CompletionStage]) is passed as a parameter to the `Producer` factory methods.
+The `KafkaProducer` instance (or @scala[Future]@java[CompletionStage]) is passed as a parameter to `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) using the methods `withProducer` and `withProducerFactory`.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
