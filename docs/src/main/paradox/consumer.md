@@ -298,21 +298,6 @@ Java
 Accessing of Kafka consumer metadata is possible as described in @ref[Consumer Metadata](consumer-metadata.md).
 
 
-## Listening for rebalance events
-
-You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
-from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor 
-
-* `akka.kafka.TopicPartitionsAssigned` and 
-* `akka.kafka.TopicPartitionsRevoked`, like this:
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #withRebalanceListenerActor }
-
-
 ## Controlled shutdown
 The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) 
 instance. This can be used to stop the stream in a controlled manner.
@@ -349,6 +334,7 @@ Java
 @@@ index
 
 * [subscription](subscription.md)
+* [rebalance](consumer-rebalance.md)
 * [metadata](consumer-metadata.md)
 
 @@@

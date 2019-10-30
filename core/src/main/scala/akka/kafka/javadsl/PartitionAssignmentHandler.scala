@@ -3,10 +3,10 @@
  * Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka.javadsl
 
-import akka.annotation.ApiMayChange
 import akka.kafka.RestrictedConsumer
+import akka.annotation.ApiMayChange
 import org.apache.kafka.common.TopicPartition
 
 /**
@@ -31,7 +31,7 @@ trait PartitionAssignmentHandler {
    * @param revokedTps The list of partitions that were revoked from the consumer
    * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
    */
-  def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit
+  def onRevoke(revokedTps: java.util.Set[TopicPartition], consumer: RestrictedConsumer): Unit
 
   /**
    * See [[org.apache.kafka.clients.consumer.ConsumerRebalanceListener#onPartitionsAssigned]]
@@ -39,7 +39,7 @@ trait PartitionAssignmentHandler {
    * @param assignedTps The list of partitions that are now assigned to the consumer (may include partitions previously assigned to the consumer)
    * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
    */
-  def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit
+  def onAssign(assignedTps: java.util.Set[TopicPartition], consumer: RestrictedConsumer): Unit
 
   /**
    * Called before a consumer is closed.
@@ -48,5 +48,6 @@ trait PartitionAssignmentHandler {
    * @param currentTps The list of partitions that are currently assigned to the consumer
    * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
    */
-  def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit
+  def onStop(currentTps: java.util.Set[TopicPartition], consumer: RestrictedConsumer): Unit
+
 }

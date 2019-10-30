@@ -16,6 +16,7 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.javadsl.PartitionAssignmentHandler;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
@@ -35,8 +36,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
@@ -45,6 +48,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
+
+import static org.hamcrest.CoreMatchers.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ConsumerExampleTest extends TestcontainersKafkaTest {
@@ -477,6 +483,58 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
     assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
+  }
+
+  @Test
+  void withPartitionAssignmentHandler() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
+    TopicPartition tp = new TopicPartition(topic, 0);
+    int messageCount = 10;
+    AtomicReference<Set<TopicPartition>> revoked = new AtomicReference<>();
+    AtomicReference<Set<TopicPartition>> assigned = new AtomicReference<>();
+    AtomicReference<Set<TopicPartition>> stopped = new AtomicReference<>();
+
+    // #partitionAssignmentHandler
+    PartitionAssignmentHandler assignmentHandler =
+        new PartitionAssignmentHandler() {
+          public void onRevoke(Set<TopicPartition> revokedTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
+            revoked.set(revokedTps);
+            // #partitionAssignmentHandler
+          }
+
+          public void onAssign(Set<TopicPartition> assignedTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
+            assigned.set(assignedTps);
+            // #partitionAssignmentHandler
+          }
+
+          public void onStop(Set<TopicPartition> currentTps, RestrictedConsumer consumer) {
+            // #partitionAssignmentHandler
+            stopped.set(currentTps);
+            // #partitionAssignmentHandler
+          }
+        };
+
+    Subscription subscription =
+        Subscriptions.topics(topic).withPartitionAssignmentHandler(assignmentHandler);
+    // #partitionAssignmentHandler
+
+    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
+        Consumer.plainSource(consumerSettings, subscription)
+            .take(messageCount)
+            .toMat(Sink.seq(), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
+    assertDone(produceString(topic, messageCount, partition0));
+    assertDone(control.isShutdown());
+    assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
+
+    assertThat(revoked.get(), is(Collections.emptySet()));
+    assertThat(assigned.get(), hasItem(tp));
+    assertThat(stopped.get(), hasItem(tp));
   }
 
   @Test

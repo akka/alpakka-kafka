@@ -266,8 +266,8 @@ lazy val tests = project
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
-        "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
-        "org.hamcrest" % "hamcrest" % "2.1" % Test,
+        "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
+        "org.hamcrest" % "hamcrest" % "2.2" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
         "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
@@ -347,6 +347,7 @@ lazy val docs = project
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
         "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/"
       ),
+    apidocRootPackage := "akka",
     paradoxRoots := List("index.html",
                          "release-notes/1.0-M1.html",
                          "release-notes/1.0-RC1.html",
