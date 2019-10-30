@@ -15,6 +15,7 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
   group=com.typesafe.akka
   artifact=akka-stream-kafka-testkit_$scala.binary.version$
   version=$project.version$
+  scope=test
 }
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between patch releases.
@@ -48,6 +49,15 @@ See the documentation for each for more details.
 ## Testing with an embedded Kafka server
 
 To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.com/embeddedkafka/embedded-kafka) is an important tool as it helps to easily start and stop Kafka brokers from test cases.
+
+Add the Embedded Kafka to your test dependencies:
+
+@@dependency [Maven,sbt,Gradle] {
+  group=io.github.embeddedkafka
+  artifact=embedded-kafka_2.12
+  version=$embeddedKafka.version$
+  scope=test
+}
 
 @@@ note
 
