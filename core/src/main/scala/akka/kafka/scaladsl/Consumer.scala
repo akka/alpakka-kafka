@@ -26,20 +26,31 @@ object Consumer {
 
   /**
    * Materialized value of the consumer `Source`.
+   *
+   * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
    */
   trait Control {
 
     /**
-     * Stop producing messages from the `Source`. This does not stop the underlying kafka consumer
-     * and does not unsubscribe from any topics/partitions.
+     * Stop producing messages from the `Source` and complete the stream.
+     * The underlying Kafka consumer stays alive so that it can handle commits for the
+     * already enqueued messages. It does not unsubscribe from any topics/partitions
+     * as that could trigger a consumer group rebalance.
+     *
+     * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
      *
      * Call [[#shutdown]] to close consumer.
      */
     def stop(): Future[Done]
 
     /**
-     * Shutdown the consumer `Source`. It will wait for outstanding offset
-     * commit requests to finish before shutting down.
+     * Shut down the consumer `Source`.
+     *
+     * The actor backing the source will stay alive for `akka.kafka.consumer.stop-timeout` so that more commits
+     * from enqueued messages can be handled.
+     * The actor will wait for acknowledgements of the already sent offset commits from the Kafka broker before shutting down.
+     *
+     * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
      */
     def shutdown(): Future[Done]
 
@@ -82,12 +93,19 @@ object Consumer {
    * Combine control and a stream completion signal materialized values into
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
+   *
+   * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
    */
   final class DrainingControl[T] private (control: Control, val streamCompletion: Future[T]) extends Control {
 
     override def stop(): Future[Done] = control.stop()
 
-    override def shutdown(): Future[Done] = control.shutdown()
+    @deprecated("Use `drainAndShutdown` for proper shutdown of the stream.", "1.1.1")
+    override def shutdown(): Future[Done] =
+      control
+        .shutdown()
+        .flatMap(_ => streamCompletion)(ExecutionContexts.sameThreadExecutionContext)
+        .map(_ => Done)(ExecutionContexts.sameThreadExecutionContext)
 
     override def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
       control.drainAndShutdown(streamCompletion)
@@ -99,7 +117,10 @@ object Consumer {
      */
     def drainAndShutdown()(implicit ec: ExecutionContext): Future[T] = control.drainAndShutdown(streamCompletion)(ec)
 
-    override def isShutdown: Future[Done] = control.isShutdown
+    override def isShutdown: Future[Done] =
+      control.isShutdown
+        .flatMap(_ => streamCompletion)(ExecutionContexts.sameThreadExecutionContext)
+        .map(_ => Done)(ExecutionContexts.sameThreadExecutionContext)
 
     override def metrics: Future[Map[MetricName, Metric]] = control.metrics
   }
