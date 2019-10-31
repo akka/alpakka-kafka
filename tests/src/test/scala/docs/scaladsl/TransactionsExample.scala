@@ -50,7 +50,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
       .run()
 
     awaitProduce(produce(sourceTopic, 1 to 10))
-    control.shutdown().futureValue should be(Done)
+    control.drainAndShutdown().futureValue should be(Done)
     control2.shutdown().futureValue should be(Done)
     // #transactionalSink
     control.drainAndShutdown()
@@ -79,9 +79,8 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
       .run()
 
     awaitProduce(produce(sourceTopic, 1 to 10))
-    control.shutdown().futureValue shouldBe Done
-    control2.shutdown().futureValue shouldBe Done
     control.drainAndShutdown().futureValue shouldBe Done
+    control2.shutdown().futureValue shouldBe Done
     result.futureValue should have size 10
   }
 

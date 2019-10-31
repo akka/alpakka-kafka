@@ -106,8 +106,8 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
     String topic = createTopic();
     // #plainSinkWithProducer
     // create a producer
-    final org.apache.kafka.clients.producer.Producer<String, String>
-        kafkaProducer = producerSettings.createKafkaProducer();
+    final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
+        producerSettings.createKafkaProducer();
     final ProducerSettings<String, String> settingsWithProducer =
         producerSettings.withProducer(kafkaProducer);
 

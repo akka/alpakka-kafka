@@ -214,7 +214,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .mapMaterializedValue(DrainingControl.apply)
           .run()
 
-      control.isShutdown.futureValue
+      control.isShutdown.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]
       control.drainAndShutdown().failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]
     }
 
