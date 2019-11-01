@@ -5,11 +5,6 @@ services:
   - docker
 
 before_install:
-  # upgrade to a later docker-compose which supports services.kafka.scale
-  - sudo rm /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-`uname -s`-`uname -m` > docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
@@ -25,6 +20,12 @@ script:
 
 jobs:
   include:
+    - stage: debug
+      name: "debug test: must support copy stream with merging and multi message"
+      script: sbt "tests/testOnly *.TransactionsSpec -- -z \"must support copy stream with merging and multi message\" -DtimesToRepeat=50"
+    - name: "debug test: must provide consistency when multiple transactional streams are being restarted"
+      script: sbt "tests/testOnly *.TransactionsSpec -- -z \"must provide consistency when multiple transactional streams are being restarted\" -DtimesToRepeat=10"
+
     - stage: check
       script: sbt verifyCodeStyle
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
@@ -48,20 +49,20 @@ jobs:
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
 
     - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.11.12 test"
+        - JDK="adopt@~1.11.0-4"
+        - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+        - CMD="++2.11.12 test"
       name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
       if: type != cron
     - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.12.10 test"
+        - JDK="adopt@~1.11.0-4"
+        - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+        - CMD="++2.12.10 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
     - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.13.1 test"
+        - JDK="adopt@~1.11.0-4"
+        - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+        - CMD="++2.13.1 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
 
     - stage: integration
@@ -80,6 +81,10 @@ jobs:
       name: "Publish API and reference documentation"
 
 stages:
+  # runs on master commits and PRs
+  - name: debug
+    if: NOT tag =~ ^v
+
   # runs on master commits and PRs
   - name: check
     if: NOT tag =~ ^v

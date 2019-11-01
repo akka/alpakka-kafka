@@ -25,7 +25,7 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-class TransactionsSpec extends SpecBase with TestcontainersKafkaLike {
+class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Repeated {
 
   "A consume-transform-produce cycle" must {
 
@@ -295,65 +295,75 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike {
         Thread.sleep(2000)
       }
 
-      val consumer = offsetValueSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
-        .take(elements.toLong)
-        .idleTimeout(30.seconds)
-        .alsoTo(
-          Flow[(Long, String)]
-            .scan(0) { case (count, _) => count + 1 }
-            .filter(_ % 10000 == 0)
-            .log("received")
-            .to(Sink.ignore)
-        )
-        .recover {
-          case t => (0, "no-more-elements")
+      retry(3) { n =>
+        val consumer = offsetValueSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
+          .take(elements.toLong)
+          .idleTimeout(30.seconds)
+          .alsoTo(
+            Flow[(Long, String)]
+              .scan(0) { case (count, _) => count + 1 }
+              .filter(_ % 10000 == 0)
+              .log("received")
+              .to(Sink.ignore)
+          )
+          .recover {
+            case t => (0, "no-more-elements")
+          }
+          .filter(_._2 != "no-more-elements")
+          .runWith(Sink.seq)
+        val values = Await.result(consumer, 10.minutes)
+
+        val expected = (1 to elements).map(_.toString)
+        withClue("Checking for duplicates: ") {
+          val duplicates = values.map(_._2) diff expected
+          if (duplicates.nonEmpty) {
+            val duplicatesWithDifferentOffsets = values
+              .filter {
+                case (_, value) => duplicates.contains(value)
+              }
+              .groupBy(_._2) // message
+              .mapValues(_.map(_._1)) // keep offset
+              .filter {
+                case (_, offsets) => offsets.distinct.size > 1
+              }
+
+            if (duplicatesWithDifferentOffsets.nonEmpty) {
+              fail(s"Got ${duplicates.size} duplicates. Messages and their offsets: $duplicatesWithDifferentOffsets")
+            } else {
+              println("Got duplicates, but all of them were due to rebalance replay when counting")
+            }
+          }
         }
-        .filter(_._2 != "no-more-elements")
-        .runWith(Sink.seq)
-      val values = Await.result(consumer, 10.minutes)
-
-      val expected = (1 to elements).map(_.toString)
-      withClue("Checking for duplicates: ") {
-        val duplicates = values.map(_._2) diff expected
-        if (duplicates.nonEmpty) {
-          val duplicatesWithDifferentOffsets = values
-            .filter {
-              case (_, value) => duplicates.contains(value)
-            }
-            .groupBy(_._2) // message
-            .mapValues(_.map(_._1)) // keep offset
-            .filter {
-              case (_, offsets) => offsets.distinct.size > 1
-            }
-
-          if (duplicatesWithDifferentOffsets.nonEmpty) {
-            fail(s"Got ${duplicates.size} duplicates. Messages and their offsets: $duplicatesWithDifferentOffsets")
-          } else {
-            println("Got duplicates, but all of them were due to rebalance replay when counting")
+        withClue("Checking for missing: ") {
+          val missing = expected diff values.map(_._2)
+          if (missing.nonEmpty) {
+            val continuousBlocks = missing
+              .scanLeft(("-1", 0)) {
+                case ((last, block), curr) => if (last.toInt + 1 == curr.toInt) (curr, block) else (curr, block + 1)
+              }
+              .tail
+              .groupBy(_._2)
+            val blockDescription = continuousBlocks
+              .map { block =>
+                val msgs = block._2.map(_._1)
+                s"Missing ${msgs.size} in continuous block, first ten: ${msgs.take(10)}"
+              }
+              .mkString(" ")
+            fail(s"Did not get ${missing.size} expected messages. $blockDescription")
           }
         }
       }
-      withClue("Checking for missing: ") {
-        val missing = expected diff values.map(_._2)
-        if (missing.nonEmpty) {
-          val continuousBlocks = missing
-            .scanLeft(("-1", 0)) {
-              case ((last, block), curr) => if (last.toInt + 1 == curr.toInt) (curr, block) else (curr, block + 1)
-            }
-            .tail
-            .groupBy(_._2)
-          val blockDescription = continuousBlocks
-            .map { block =>
-              val msgs = block._2.map(_._1)
-              s"Missing ${msgs.size} in continuous block, first ten: ${msgs.take(10)}"
-            }
-            .mkString(" ")
-          fail(s"Did not get ${missing.size} expected messages. $blockDescription")
-        }
-      }
-
       controls.map(_.shutdown())
     }
+
+    // Returning T, throwing the exception on failure
+    @annotation.tailrec
+    def retry[T](n: Int)(fn: Int => T): T =
+      util.Try { fn(n + 1) } match {
+        case util.Success(x) => x
+        case _ if n > 1 => retry(n - 1)(fn)
+        case util.Failure(e) => throw e
+      }
 
     "drain stream on partitions rebalancing" in assertAllStagesStopped {
       // Runs a copying transactional flows that delay writing to the output partition using a `delay` stage.
