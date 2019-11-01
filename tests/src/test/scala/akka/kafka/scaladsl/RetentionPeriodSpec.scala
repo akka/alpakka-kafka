@@ -45,7 +45,7 @@ class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPerio
       val (control, probe1) = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .mapAsync(10) { elem =>
-          elem.committableOffset.commitScaladsl().map { _ =>
+          elem.committableOffset.commitInternal().map { _ =>
             committedElements.add(elem.record.value.toInt)
             Done
           }

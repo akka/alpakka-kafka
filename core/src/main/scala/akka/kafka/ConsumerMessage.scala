@@ -42,15 +42,25 @@ object ConsumerMessage {
   )
 
   /**
-   * Commit an offset that is included in a [[CommittableMessage]].
-   * If you need to store offsets in anything other than Kafka, this API
-   * should not be used.
+   * Carries offsets from Kafka for aggregation and committing by the [[scaladsl.Committer]]
+   * or [[javadsl.Committer]].
    *
-   * This interface might move into `akka.stream`
+   * `Committable` may be a single offset in [[CommittableOffset]] or [[CommittableOffsetMetadata]],
+   * or a number of offsets aggregated as [[CommittableOffsetBatch]].
    */
   @DoNotInherit trait Committable {
+    @deprecated("use `Committer.flow` or `Committer.sink` instead of direct usage", "2.0.0")
     def commitScaladsl(): Future[Done]
+
+    /**
+     * @deprecated use `Committer.flow` or `Committer.sink` instead of direct usage, since 1.1.1
+     */
+    @java.lang.Deprecated
+    @deprecated("use `Committer.flow` or `Committer.sink` instead of direct usage", "2.0.0")
     def commitJavadsl(): CompletionStage[Done]
+
+    @InternalApi
+    private[kafka] def commitInternal(): Future[Done]
 
     /**
      * Get a number of processed messages this committable contains
@@ -69,7 +79,7 @@ object ConsumerMessage {
    * should be the next message your application will consume,
    * i.e. lastProcessedMessageOffset + 1.
    */
-  @DoNotInherit trait CommittableOffset extends Committable {
+  @DoNotInherit sealed trait CommittableOffset extends Committable {
     def partitionOffset: PartitionOffset
   }
 
@@ -80,7 +90,7 @@ object ConsumerMessage {
   /**
    * Offset position for a groupId, topic, partition.
    */
-  class PartitionOffset(val key: GroupTopicPartition, val offset: Long)
+  sealed class PartitionOffset(val key: GroupTopicPartition, val offset: Long)
       extends Product2[GroupTopicPartition, Long]
       with Serializable {
     def withMetadata(metadata: String) =
@@ -89,7 +99,7 @@ object ConsumerMessage {
     @InternalApi private[kafka] def withCommittedMarker(committedMarker: CommittedMarker) =
       PartitionOffsetCommittedMarker(key, offset, committedMarker)
 
-    override def toString() = s"PartitionOffset(key=$key,offset=$offset)"
+    override def toString = s"PartitionOffset(key=$key,offset=$offset)"
 
     override def equals(other: Any): Boolean = other match {
       case that: PartitionOffset =>
@@ -193,12 +203,12 @@ object ConsumerMessage {
     /**
      * Scala API: Get current offset positions
      */
-    def offsets(): Map[GroupTopicPartition, Long]
+    def offsets: Map[GroupTopicPartition, Long]
 
     /**
      * Java API: Get current offset positions
      */
-    def getOffsets(): java.util.Map[GroupTopicPartition, Long]
+    def getOffsets: java.util.Map[GroupTopicPartition, Long]
 
     /**
      * Internal API.

@@ -454,7 +454,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                 }
               }
               .log(s"subsource $tp pre commit")
-              .mapAsync(1)(_.committableOffset.commitScaladsl().andThen {
+              .mapAsync(1)(_.committableOffset.commitInternal().andThen {
                 case Failure(e) =>
                   log.error("commit failure", e)
                   commitFailures ::= tp -> e

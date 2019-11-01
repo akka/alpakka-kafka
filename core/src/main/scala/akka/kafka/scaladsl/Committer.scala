@@ -35,7 +35,7 @@ object Committer {
       case WaitForAck =>
         offsetBatches
           .mapAsyncUnordered(settings.parallelism) { b =>
-            b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
+            b.commitInternal().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
           }
       case SendAndForget =>
         offsetBatches

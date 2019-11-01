@@ -263,12 +263,6 @@ Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #committablePartitionedSource-stream-per-partition }
 
 
-Join flows based on automatically assigned partitions:
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committablePartitionedSource3 }
-
-
 ## Sharing the KafkaConsumer instance
 
 If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor$)). You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
