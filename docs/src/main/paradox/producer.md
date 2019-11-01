@@ -57,7 +57,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #settings }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #settings }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #settings }
 
 In addition to programmatic construction of the `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) it can also be created from configuration (`application.conf`). 
 
@@ -86,7 +86,7 @@ Scala
   The materialized value of the sink is a `Future[Done]` which is completed with `Done` when the stream completes, or with with an exception in case an error occurs.
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #plainSink }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #plainSink }
   The materialized value of the sink is a `CompletionStage<Done>` which is completed with `Done` when the stream completes, or with an exception in case an error occurs.
 
 
@@ -103,7 +103,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #singleMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #singleMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #singleMessage }
 
 
 For flows the `ProducerMessage.Message`s continue as `ProducerMessage.Result` elements containing: 
@@ -121,7 +121,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #multiMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #multiMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #multiMessage }
 
 For flows the `ProducerMessage.MultiMessage`s continue as `ProducerMessage.MultiResult` elements containing: 
  
@@ -140,7 +140,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #passThroughMessage }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #passThroughMessage }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #passThroughMessage }
 
 
 For flows the `ProducerMessage.PassThroughMessage`s continue as `ProducerMessage.PassThroughResult` elements containing the `passThrough` data.  
@@ -155,7 +155,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #flow }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #flow }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #flow }
 
 
 ## Connecting a Producer to a Consumer
@@ -180,7 +180,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #producer }
 
 The `KafkaProducer` instance (or @scala[Future]@java[CompletionStage]) is passed as a parameter to `ProducerSettings` (@scaladoc[API](akka.kafka.ProducerSettings)) using the methods `withProducer` and `withProducerFactory`.
 
@@ -188,7 +188,7 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #plainSinkWithProducer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #plainSinkWithProducer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #plainSinkWithProducer }
 
 
 ## Accessing KafkaProducer metrics
@@ -199,4 +199,4 @@ Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ProducerExample.scala) { #producerMetrics }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #producerMetrics }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #producerMetrics }
