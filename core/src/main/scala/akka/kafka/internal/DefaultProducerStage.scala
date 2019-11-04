@@ -58,21 +58,26 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
+  override def preStart(): Unit = {
+    super.preStart()
+    resolveProducer()
+  }
+
   protected def assignProducer(p: Producer[K, V]): Unit = {
     producer = p
     resumeDemand()
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
+  private def resolveProducer(): Unit = {
     val producerFuture = stage.settings.createKafkaProducerAsync()(materializer.executionContext)
     producerFuture.value match {
       case Some(Success(p)) => assignProducer(p)
       case Some(Failure(e)) => failStage(e)
       case None =>
+        val assign = getAsyncCallback(assignProducer)
         producerFuture
           .transform(
-            producer => getAsyncCallback(assignProducer).invoke(producer),
+            producer => assign.invoke(producer),
             e => {
               log.error(e, "producer creation failed")
               failStageCb.invoke(e)
@@ -100,6 +105,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   val failStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
+    // the producer will be closed in `postStop`
     failStage(ex)
   }
 
@@ -186,13 +192,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       if (exception == null) onSuccess(metadata)
       else
         decider(exception) match {
-          case Supervision.Stop =>
-            if (stage.settings.closeProducerOnStop) {
-              producer.close(0, TimeUnit.MILLISECONDS)
-            }
-            failStageCb.invoke(exception)
-          case _ =>
-            promise.failure(exception)
+          case Supervision.Stop => failStageCb.invoke(exception)
+          case _ => promise.failure(exception)
         }
       if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
         checkForCompletionCB.invoke(())
@@ -200,8 +201,12 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   override def postStop(): Unit = {
-    log.debug("Stage completed")
+    log.debug("ProducerStage completed")
+    closeProducer()
+    super.postStop()
+  }
 
+  private def closeProducer(): Unit =
     if (stage.settings.closeProducerOnStop && producer != null) {
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
@@ -213,6 +218,4 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       }
     }
 
-    super.postStop()
-  }
 }
