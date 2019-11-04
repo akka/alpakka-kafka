@@ -53,7 +53,7 @@ object ConsumerMessage {
     def commitScaladsl(): Future[Done]
 
     /**
-     * @deprecated use `Committer.flow` or `Committer.sink` instead of direct usage, since 1.1.1
+     * @deprecated use `Committer.flow` or `Committer.sink` instead of direct usage, since 2.0.0
      */
     @java.lang.Deprecated
     @deprecated("use `Committer.flow` or `Committer.sink` instead of direct usage", "2.0.0")
