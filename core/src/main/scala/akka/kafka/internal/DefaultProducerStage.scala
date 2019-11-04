@@ -105,7 +105,9 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   val failStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
-    // the producer will be closed in `postStop`
+    // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
+    // https://github.com/akka/alpakka-kafka/pull/318
+    producer.close(0L, TimeUnit.MILLISECONDS)
     failStage(ex)
   }
 
