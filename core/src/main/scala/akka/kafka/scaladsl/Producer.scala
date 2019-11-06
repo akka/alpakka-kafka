@@ -76,7 +76,7 @@ object Producer {
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flexiFlow[K, V, ConsumerMessage.Committable](settings)
-      .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
+      .mapAsync(settings.parallelism)(_.passThrough.commitInternal())
       .toMat(Sink.ignore)(Keep.right)
 
   /**
@@ -104,7 +104,7 @@ object Producer {
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
-      .mapAsync(settings.parallelism)(_.passThrough.commitScaladsl())
+      .mapAsync(settings.parallelism)(_.passThrough.commitInternal())
       .toMat(Sink.ignore)(Keep.right)
 
   /**

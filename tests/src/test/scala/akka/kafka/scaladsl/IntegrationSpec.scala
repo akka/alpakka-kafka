@@ -156,7 +156,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .via(Producer.flexiFlow(producerDefaults))
           .map(_.passThrough)
           .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
-          .mapAsync(producerDefaults.parallelism)(_.commitScaladsl())
+          .mapAsync(producerDefaults.parallelism)(_.commitInternal())
 
         val probe = source.runWith(TestSink.probe)
 
@@ -195,7 +195,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val (control, res) =
         Consumer
           .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
-          .mapAsync(1)(msg => msg.committableOffset.commitScaladsl().map(_ => msg.record.value))
+          .mapAsync(1)(msg => msg.committableOffset.commitInternal().map(_ => msg.record.value))
           .take(5)
           .toMat(Sink.seq)(Keep.both)
           .run()

@@ -103,11 +103,13 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
+    ProducerSettings<String, String> settingsWithProducer = producerSettings.withProducer(kafkaProducer);
+
     CompletionStage<Done> done =
         Source.range(1, 100)
             .map(number -> number.toString())
             .map(value -> new ProducerRecord<String, String>(topic, value))
-            .runWith(Producer.plainSink(producerSettings, kafkaProducer), materializer);
+            .runWith(Producer.plainSink(settingsWithProducer), materializer);
     // #plainSinkWithProducer
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
