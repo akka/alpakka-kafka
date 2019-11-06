@@ -16,6 +16,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerSettings
 import akka.util.Timeout
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.compat.java8.FutureConverters._
@@ -71,6 +72,11 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .map { partitionsInfo =>
         partitionsInfo.asJava
       }(ExecutionContexts.sameThreadExecutionContext)
+      .toJava
+
+  def getCommittedOffset(partition: TopicPartition): CompletionStage[OffsetAndMetadata] =
+    metadataClient
+      .getCommittedOffset(partition)
       .toJava
 
   def stop(): Unit =
