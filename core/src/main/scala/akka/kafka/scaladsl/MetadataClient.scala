@@ -28,7 +28,9 @@ import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class MetadataClient private (consumerActor: ActorRef, timeout: Timeout)(implicit ec: ExecutionContext) {
+class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managedActor: Boolean)(
+    implicit ec: ExecutionContext
+) {
 
   def getBeginningOffsets(partitions: Set[TopicPartition]): Future[Map[TopicPartition, Long]] =
     (consumerActor ? GetBeginningOffsets(partitions))(timeout)
@@ -84,19 +86,21 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout)(implici
       }(ExecutionContexts.sameThreadExecutionContext)
 
   def stop(): Unit =
-    consumerActor ! KafkaConsumerActor.Stop
+    if (managedActor) {
+      consumerActor ! KafkaConsumerActor.Stop
+    }
 }
 
 object MetadataClient {
 
   def create(consumerActor: ActorRef, timeout: Timeout)(implicit ec: ExecutionContext): MetadataClient =
-    new MetadataClient(consumerActor, timeout)
+    new MetadataClient(consumerActor, timeout, false)
 
   def create[K, V](
       consumerSettings: ConsumerSettings[K, V],
       timeout: Timeout
   )(implicit system: ActorSystem, ec: ExecutionContext): MetadataClient = {
     val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-    new MetadataClient(consumerActor, timeout)
+    new MetadataClient(consumerActor, timeout, true)
   }
 }
