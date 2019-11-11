@@ -103,7 +103,8 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
     final org.apache.kafka.clients.producer.Producer<String, String> kafkaProducer =
         producerSettings.createKafkaProducer();
     // #plainSinkWithProducer
-    ProducerSettings<String, String> settingsWithProducer = producerSettings.withProducer(kafkaProducer);
+    ProducerSettings<String, String> settingsWithProducer =
+        producerSettings.withProducer(kafkaProducer);
 
     CompletionStage<Done> done =
         Source.range(1, 100)
