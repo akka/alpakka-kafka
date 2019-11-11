@@ -391,7 +391,6 @@ class PartitionedSourceSpec(_system: ActorSystem)
       assertGetOffsetsOnAssign(tps)
       Future.successful(tps.map(tp => (tp, 300L)).toMap)
     }
-
     val sink = Consumer
       .committablePartitionedManualOffsetSource(consumerSettings(dummy),
                                                 Subscriptions.topics(topic),

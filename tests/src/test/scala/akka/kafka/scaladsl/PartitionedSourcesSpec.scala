@@ -391,6 +391,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .toMat(Sink.fold(0)((c, _) => c + 1))(Keep.both)
         .run
 
+
+
       val (killSwitch, consumerCompletion) = Consumer
         .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
         .log(topic)
