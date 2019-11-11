@@ -50,10 +50,7 @@ object Producer {
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[ProducerRecord[K, V], Future[Done]] =
-    Flow[ProducerRecord[K, V]]
-      .map(Message(_, NotUsed))
-      .via(flexiFlow(settings, producer))
-      .toMat(Sink.ignore)(Keep.right)
+    plainSink(settings.withProducer(producer))
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
@@ -103,9 +100,7 @@ object Producer {
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flexiFlow[K, V, ConsumerMessage.Committable](settings, producer)
-      .mapAsync(settings.parallelism)(_.passThrough.commitInternal())
-      .toMat(Sink.ignore)(Keep.right)
+    committableSink(settings.withProducer(producer))
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
@@ -127,32 +122,6 @@ object Producer {
       committerSettings: CommitterSettings
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flexiFlow[K, V, ConsumerMessage.Committable](producerSettings)
-      .map(_.passThrough)
-      .toMat(Committer.sink(committerSettings))(Keep.right)
-
-  /**
-   * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
-   * from a [[Consumer.committableSource]]. The offsets are batched and committed regularly.
-   *
-   * It publishes records to Kafka topics conditionally:
-   *
-   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
-   *
-   * Note that there is a risk that something fails after publishing but before
-   * committing, so it is "at-least once delivery" semantics.
-   *
-   * Uses a shared a Kafka Producer instance.
-   */
-  def committableSink[K, V](
-      producerSettings: ProducerSettings[K, V],
-      committerSettings: CommitterSettings,
-      producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
-    flexiFlow[K, V, ConsumerMessage.Committable](producerSettings.withProducer(producer))
       .map(_.passThrough)
       .toMat(Committer.sink(committerSettings))(Keep.right)
 
@@ -182,36 +151,6 @@ object Producer {
           env.withPassThrough(offset)
       }
       .toMat(committableSink(producerSettings, committerSettings))(Keep.right)
-
-  /**
-   * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]] passed as
-   * context from a [[Consumer.sourceWithOffsetContext]]. The offsets are batched and committed regularly.
-   *
-   * It publishes records to Kafka topics conditionally:
-   *
-   * - [[akka.kafka.ProducerMessage.Message Message]] publishes a single message to its topic, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.MultiMessage MultiMessage]] publishes all messages in its `records` field, and commits the offset
-   *
-   * - [[akka.kafka.ProducerMessage.PassThroughMessage PassThroughMessage]] does not publish anything, but commits the offset
-   *
-   * Note that there is a risk that something fails after publishing but before
-   * committing, so it is "at-least once delivery" semantics.
-   *
-   * Uses a shared a Kafka Producer instance.
-   */
-  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
-  def committableSinkWithOffsetContext[K, V](
-      settings: ProducerSettings[K, V],
-      committerSettings: CommitterSettings,
-      producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Sink[(Envelope[K, V, _], Committable), Future[Done]] =
-    Flow[(Envelope[K, V, _], Committable)]
-      .map {
-        case (env, offset) =>
-          env.withPassThrough(offset)
-      }
-      .toMat(committableSink(settings, committerSettings, producer))(Keep.right)
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
@@ -307,20 +246,8 @@ object Producer {
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    val settingsWithProducer = settings
-      .withProducer(producer)
-      .withCloseProducerOnStop(false)
-    val flow = Flow
-      .fromGraph(
-        new DefaultProducerStage[K, V, PassThrough, Message[K, V, PassThrough], Result[K, V, PassThrough]](
-          settingsWithProducer
-        )
-      )
-      .mapAsync(settings.parallelism)(identity)
-
-    flowWithDispatcher(settings, flow)
-  }
+  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
+    flow(settings.withProducer(producer))
 
   /**
    * Create a flow to conditionally publish records to Kafka topics and then pass it on.
@@ -346,20 +273,8 @@ object Producer {
   def flexiFlow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
-  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] = {
-    val settingsWithProducer = settings
-      .withProducer(producer)
-      .withCloseProducerOnStop(false)
-    val flow = Flow
-      .fromGraph(
-        new DefaultProducerStage[K, V, PassThrough, Envelope[K, V, PassThrough], Results[K, V, PassThrough]](
-          settingsWithProducer
-        )
-      )
-      .mapAsync(settings.parallelism)(identity)
-
-    flowWithDispatcherEnvelope(settings, flow)
-  }
+  ): Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed] =
+    flexiFlow(settings.withProducer(producer))
 
   /**
    * API MAY CHANGE
@@ -389,10 +304,7 @@ object Producer {
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
   ): FlowWithContext[Envelope[K, V, NotUsed], C, Results[K, V, C], C, NotUsed] =
-    flexiFlow[K, V, C](settings, producer)
-      .asFlowWithContext[Envelope[K, V, NotUsed], C, C]({
-        case (env, c) => env.withPassThrough(c)
-      })(res => res.passThrough)
+    flowWithContext(settings.withProducer(producer))
 
   private def flowWithDispatcher[PassThrough, V, K](
       settings: ProducerSettings[K, V],
