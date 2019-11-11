@@ -145,12 +145,11 @@ object Producer {
       producerSettings: ProducerSettings[K, V],
       committerSettings: CommitterSettings
   ): Sink[(Envelope[K, V, _], Committable), Future[Done]] =
-    Flow[(Envelope[K, V, _], Committable)]
-      .map {
+    committableSink(producerSettings, committerSettings)
+      .contramap {
         case (env, offset) =>
           env.withPassThrough(offset)
       }
-      .toMat(committableSink(producerSettings, committerSettings))(Keep.right)
 
   /**
    * Create a flow to publish records to Kafka topics and then pass it on.
