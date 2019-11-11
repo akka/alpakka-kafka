@@ -69,12 +69,11 @@ object Transactional {
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), Future[Done]] =
-    Flow[(Envelope[K, V, NotUsed], PartitionOffset)]
-      .map {
+    sink(settings, transactionalId)
+      .contramap {
         case (env, offset) =>
           env.withPassThrough(offset)
       }
-      .toMat(sink(settings, transactionalId))(Keep.right)
 
   /**
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
