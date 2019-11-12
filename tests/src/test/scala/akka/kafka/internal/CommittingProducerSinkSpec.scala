@@ -16,7 +16,8 @@ import akka.kafka.scaladsl.Producer
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings}
-import akka.stream.ActorMaterializer
+import akka.stream.ActorAttributes.SupervisionStrategy
+import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.testkit.{TestKit, TestProbe}
@@ -253,6 +254,95 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     control.drainAndShutdown().failed.futureValue shouldBe a[java.util.concurrent.TimeoutException]
   }
 
+  it should "time out for missing producer reply" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(1L)
+
+    val control = Source(elements)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    while (!producer.completeNext()) {}
+
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 1)
+    consumer.actor.reply(Done)
+
+    // TODO how should not getting a produce callback be handled?
+    while (!producer.completeNext()) {}
+
+    eventually {
+      producer.history.asScala should have size (2)
+    }
+    control.drainAndShutdown().failed.futureValue shouldBe an[akka.kafka.CommitTimeoutException]
+  }
+
+  it should "choose to ignore producer errors" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(1L)
+
+    val control = Source(elements)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(
+        Producer
+          .committableSink(producerSettings, committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+      )(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    // fail the first message
+    while (!producer.errorNext(new RuntimeException("let producing fail"))) {}
+    consumer.actor.expectNoMessage(100.millis)
+
+    // second message succeeds and its offset gets committed
+    while (!producer.completeNext()) {}
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (2)
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
   it should "fail for commit timeout" in assertAllStagesStopped {
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
 
@@ -287,6 +377,48 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       producer.history.asScala should have size (2)
     }
     control.drainAndShutdown().failed.futureValue shouldBe an[akka.kafka.CommitTimeoutException]
+  }
+
+  it should "ignore commit timeout" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(2L)
+
+    val control = Source(elements)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(
+        Producer
+          .committableSink(producerSettings, committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+      )(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
+
+    eventually {
+      producer.history.asScala should have size (2)
+    }
+
+    // commit failure is ignored
+    control.drainAndShutdown().futureValue shouldBe Done
   }
 
   it should "shut down without elements" in assertAllStagesStopped {

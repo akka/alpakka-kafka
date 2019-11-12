@@ -13,7 +13,7 @@ import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
-import akka.kafka.{CommitterSettings, ProducerSettings}
+import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.stage._
@@ -34,6 +34,8 @@ private[kafka] final class CommittingProducerSinkStage[K, V, IN <: Envelope[K, V
     val producerSettings: ProducerSettings[K, V],
     val committerSettings: CommitterSettings
 ) extends GraphStageWithMaterializedValue[SinkShape[IN], Future[Done]] {
+
+  require(committerSettings.delivery == CommitDelivery.WaitForAck, "only CommitDelivery.WaitForAck may be used")
 
   val in = Inlet[IN]("messages")
   val shape: SinkShape[IN] = SinkShape(in)
@@ -61,13 +63,16 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   override protected def logSource: Class[_] = classOf[CommittingProducerSinkStage[_, _, _]]
 
-  private val failStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
+  private val closeAndFailStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable](closeAndFailStage)
+
+  private def closeAndFailStage(ex: Throwable): Unit = {
     if (producer != null) {
       // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
       // https://github.com/akka/alpakka-kafka/pull/318
       producer.close(0L, TimeUnit.MILLISECONDS)
     }
     failStage(ex)
+    streamCompletion.failure(ex)
   }
 
   // ---- initialization
@@ -96,7 +101,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
             producer => assign.invoke(producer),
             e => {
               log.error(e, "producer creation failed")
-              failStageCb.invoke(e)
+              closeAndFailStageCb.invoke(e)
               e
             }
           )(ExecutionContexts.sameThreadExecutionContext)
@@ -130,19 +135,19 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         collectOffset(0, msg.passThrough)
     }
 
-  /** Safe to be called async */
-  private def decide(exception: Throwable): Unit =
+  private val sendFailureCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { exception =>
     decider(exception) match {
-      case Supervision.Stop => failStageCb.invoke(exception)
-      case _ => log.warning("ignoring {}", exception)
+      case Supervision.Stop => closeAndFailStage(exception)
+      case _ => collectOffsetIgnore(exception)
     }
+  }
 
   /** send-callback for a single message. */
   private final class SendCallback(offset: Committable) extends Callback {
 
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
-      if (exception == null) collectOffsetCB.invoke(offset)
-      else decide(exception) // TODO if we ignore it, should we commit it?
+      if (exception == null) collectOffsetCb.invoke(offset)
+      else sendFailureCb.invoke(exception)
   }
 
   /** send-callback for a multi-message. */
@@ -151,21 +156,26 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
       if (exception == null) {
-        if (counter.decrementAndGet() == 0) collectOffsetMultiCB.invoke(count -> offset)
-      } else decide(exception) // TODO if we ignore it, should we commit it?
+        if (counter.decrementAndGet() == 0) collectOffsetMultiCb.invoke(count -> offset)
+      } else sendFailureCb.invoke(exception)
   }
 
   // ---- Committing
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
-  private val collectOffsetCB: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
+  private val collectOffsetCb: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
     collectOffset(1, offset)
   }
 
-  private val collectOffsetMultiCB: AsyncCallback[(Int, Committable)] = getAsyncCallback[(Int, Committable)] {
+  private val collectOffsetMultiCb: AsyncCallback[(Int, Committable)] = getAsyncCallback[(Int, Committable)] {
     case (count, offset) =>
       collectOffset(count, offset)
+  }
+
+  private def collectOffsetIgnore(exception: Throwable): Unit = {
+    log.warning("ignoring send failure {}", exception)
+    awaitingCommitResult -= 1
   }
 
   private def scheduleCommit(): Unit =
@@ -183,8 +193,11 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   }
 
   private def commit(triggeredBy: String): Unit = {
-    log.debug("commit triggered by {}", triggeredBy)
     if (offsetBatch.batchSize != 0) {
+      log.debug("commit triggered by {} (awaitingProduceResult={} awaitingCommitResult={})",
+                triggeredBy,
+                awaitingProduceResult,
+                awaitingCommitResult)
       val batchSize = offsetBatch.batchSize
       offsetBatch
         .commitScaladsl()
@@ -202,9 +215,10 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       awaitingCommitResult -= batchSize
       decider(exception) match {
         case Supervision.Stop =>
-          streamCompletion.failure(exception)
-          failStageCb.invoke(exception)
-        case _ => log.warning("ignoring {}", exception)
+          log.error("committing failed with {}", exception)
+          closeAndFailStage(exception)
+        case _ =>
+          log.warning("ignored commit failure {}", exception)
       }
       checkForCompletion()
   }
@@ -233,8 +247,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
       override def onUpstreamFailure(ex: Throwable): Unit =
         if (awaitingCommitResult == 0) {
-          failStage(ex)
-          streamCompletion.failure(ex)
+          closeAndFailStage(ex)
         } else {
           commit("upstream failure")
           setKeepGoing(true)
@@ -244,20 +257,21 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   )
 
   private def checkForCompletion(): Unit =
-    if (isClosed(stage.in) && awaitingCommitResult == 0) {
-      upstreamCompletionState match {
-        case Some(Success(_)) =>
-          completeStage()
-          streamCompletion.success(Done)
-        case Some(Failure(ex)) =>
-          failStage(ex)
-          streamCompletion.failure(ex)
-        case None =>
-          val illegal = new IllegalStateException("Stage completed, but there is no info about status")
-          failStage(illegal)
-          streamCompletion.failure(illegal)
-      }
-    }
+    if (isClosed(stage.in))
+      if (awaitingCommitResult == 0) {
+        upstreamCompletionState match {
+          case Some(Success(_)) =>
+            completeStage()
+            streamCompletion.success(Done)
+          case Some(Failure(ex)) =>
+            closeAndFailStage(ex)
+          case None =>
+            closeAndFailStage(new IllegalStateException("Stage completed, but there is no info about status"))
+        }
+      } else
+        log.debug("checkForCompletion awaitingProduceResult={} awaitingCommitResult={}",
+                  awaitingProduceResult,
+                  awaitingCommitResult)
 
   override def postStop(): Unit = {
     log.debug("CommittingProducerSink stopped")
