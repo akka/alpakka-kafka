@@ -16,7 +16,6 @@ import akka.kafka.scaladsl.Producer
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings}
-import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
