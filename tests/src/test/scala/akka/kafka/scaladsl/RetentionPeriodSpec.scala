@@ -64,8 +64,8 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
         .expectNextN(25)
         .toSet should be(Set(Done))
 
-      val longerThanRetentionPeriod = 70000L
-      Thread.sleep(longerThanRetentionPeriod)
+      val longerThanRetentionPeriod = 70.seconds
+      sleep(longerThanRetentionPeriod, "Waiting for retention to expire for probe1")
 
       probe1.cancel()
       Await.result(control.isShutdown, remainingOrDefault)
@@ -86,7 +86,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
         .request(100)
         .expectNextN(expectedElements)
 
-      Thread.sleep(longerThanRetentionPeriod)
+      sleep(longerThanRetentionPeriod, "Waiting for retention to expire for probe2")
 
       probe2.cancel()
 

@@ -125,7 +125,6 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .run()
 
       // Await initial partition assignment
-      rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
       rebalanceActor1.expectMsg(
         TopicPartitionsAssigned(subscription1,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
@@ -144,12 +143,15 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      // Await a revoke to both consumers
+      // Await an assignment to the new rebalance listener
+      rebalanceActor2.expectMsg(
+        TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1)))
+      )
+      // Await revoke of all partitions in old rebalance listener
       rebalanceActor1.expectMsg(
         TopicPartitionsRevoked(subscription1,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
 
       // commit BEFORE the reassign finishes with an assignment
       val consumer1Read = Future.sequence(
@@ -163,7 +165,6 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // the rebalance finishes
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
-      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
 
       // before the fix // ... but committing failed
       // val commitFailed = consumer1Read.failed.futureValue
@@ -209,7 +210,6 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .run()
 
       // Await initial partition assignment
-      rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
       rebalanceActor1.expectMsg(
         TopicPartitionsAssigned(subscription1,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
@@ -233,7 +233,6 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsRevoked(subscription1,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(new TopicPartition(topic1, partition0))))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
 
@@ -402,7 +401,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       awaitProduce(produceTwoPartitions(topic))
 
-      val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerDefaults))
+      val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerDefaults.withGroupId(group)))
       val result =
         Consumer
           .committableExternalSource(consumer,

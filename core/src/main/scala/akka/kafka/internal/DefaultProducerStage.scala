@@ -4,7 +4,7 @@
  */
 
 package akka.kafka.internal
-import java.util.concurrent.TimeUnit
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
@@ -15,8 +15,8 @@ import akka.kafka.ProducerSettings
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
-import akka.stream.{Attributes, FlowShape, Supervision}
 import akka.stream.stage._
+import akka.stream.{Attributes, FlowShape, Supervision}
 import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -108,7 +108,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     if (producer != null) {
       // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
       // https://github.com/akka/alpakka-kafka/pull/318
-      producer.close(0L, TimeUnit.MILLISECONDS)
+      producer.close(Duration.ofSeconds(0))
     }
     failStage(ex)
   }
@@ -215,7 +215,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()
-        producer.close(stage.settings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+        producer.close(Duration.ofMillis(stage.settings.closeTimeout.toMillis))
         log.debug("Producer closed")
       } catch {
         case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")

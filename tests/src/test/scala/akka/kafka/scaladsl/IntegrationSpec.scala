@@ -94,7 +94,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
-      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       createAndRunProducer(0L until totalMessages / 2).futureValue
@@ -111,7 +110,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
-      rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
 
       sleep(4.seconds,

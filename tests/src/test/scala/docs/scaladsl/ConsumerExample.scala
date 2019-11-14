@@ -427,9 +427,9 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     control.shutdown().futureValue shouldBe Done
     result.futureValue should have size 10
     // handler methods were called
-    revokedPromise.future.futureValue shouldBe Set.empty
     assignedPromise.future.futureValue shouldBe tpsSet
     stopPromise.future.futureValue shouldBe tpsSet
+    revokedPromise.future.futureValue shouldBe tpsSet // revoke of partitions occurs after stop
   }
 
   "Shutdown via Consumer.Control" should "work" in assertAllStagesStopped {

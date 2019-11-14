@@ -11,9 +11,13 @@ val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion = if (Nightly) "2.6.0" else "2.5.23"
 val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
-val kafkaVersion = "2.1.1"
+val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
-val kafkaVersionForDocs = "21"
+val embeddedKafka = "io.github.seglo" %% "embedded-kafka" % embeddedKafkaVersion // "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
+// this depends on Kafka, and should be upgraded to such latest version
+// that depends on the same Kafka version, as is defined above
+val embeddedKafkaSchemaRegistry = "5.1.1"
+val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.2"
 val slf4jVersion = "1.7.26"
@@ -30,15 +34,13 @@ val silencer = {
   )
 }
 
-// this depends on Kafka, and should be upgraded to such latest version
-// that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.1.2"
-
 resolvers in ThisBuild ++= Seq(
-  // for Embedded Kafka
-  Resolver.bintrayRepo("manub", "maven"),
+  // for Embedded Kafka 2.4.0
+  Resolver.bintrayRepo("seglo", "maven"),
   // for Jupiter interface (JUnit 5)
-  Resolver.jcenterRepo
+  Resolver.jcenterRepo,
+  // for release candidate builds of Apache Kafka
+  "Apache Staging" at "https://repository.apache.org/content/groups/staging/"
 )
 
 TaskKey[Unit]("verifyCodeStyle") := {
@@ -221,25 +223,11 @@ lazy val testkit = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
-        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
-      ) ++ silencer ++ {
-        if (scalaBinaryVersion.value == "2.13") Seq()
-        else
-          Seq(
-            "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
-            "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10" % Provided, // Kafka pulls in jackson databind ApacheV2
-            "org.apache.commons" % "commons-compress" % "1.19" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-            "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion % Provided exclude ("log4j", "log4j")
-          )
-      },
-    Compile / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == "2.13") {
-        HiddenFileFilter ||
-        "EmbeddedKafkaLike.scala" ||
-        "EmbeddedKafkaTest.java" ||
-        "EmbeddedKafkaJunit4Test.java"
-      } else (Test / unmanagedSources / excludeFilter).value
-    },
+        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
+        "org.apache.kafka" %% "kafka" % embeddedKafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
+        "org.apache.commons" % "commons-compress" % "1.19" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+        embeddedKafka % Provided exclude ("log4j", "log4j")
+      ) ++ silencer,
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -275,7 +263,8 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "2.24.5" % Test
+        "org.mockito" % "mockito-core" % "2.24.5" % Test,
+        embeddedKafka % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
@@ -293,20 +282,12 @@ lazy val tests = project
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == "2.13") {
-        HiddenFileFilter ||
-        "MultiConsumerSpec.scala" ||
-        "ReconnectSpec.scala" ||
-        "EmbeddedKafkaSampleSpec.scala" ||
-        "TransactionsSpec.scala" ||
-        "SerializationSpec.scala" ||
-        "PartitionExamples.scala" ||
-        "ConnectionCheckerSpec.scala" ||
-        "EmbeddedKafkaWithSchemaRegistryTest.java" ||
-        "AssignmentTest.java" ||
-        "ProducerExampleTest.java" ||
-        "SerializationTest.java"
-      } else (Test / unmanagedSources / excludeFilter).value
+      HiddenFileFilter ||
+      // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is
+      // available for Kafka 2.4.0
+      "SerializationTest.java" ||
+      "SerializationSpec.scala" ||
+      "EmbeddedKafkaWithSchemaRegistryTest.java"
     }
   )
 

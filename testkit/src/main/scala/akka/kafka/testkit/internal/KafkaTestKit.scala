@@ -5,12 +5,12 @@
 
 package akka.kafka.testkit.internal
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
 
 import scala.jdk.CollectionConverters._
-
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
@@ -111,7 +111,7 @@ trait KafkaTestKit {
    */
   def cleanUpAdminClient(): Unit =
     if (adminClientVar != null) {
-      adminClientVar.close(60, TimeUnit.SECONDS)
+      adminClientVar.close(Duration.ofSeconds(60))
       adminClientVar = null
     }
 

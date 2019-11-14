@@ -532,9 +532,9 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     assertDone(control.isShutdown());
     assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
 
-    assertThat(revoked.get(), is(Collections.emptySet()));
     assertThat(assigned.get(), hasItem(tp));
     assertThat(stopped.get(), hasItem(tp));
+    assertThat(revoked.get(), hasItem(tp)); // revoke of partitions occurs after stop
   }
 
   @Test
