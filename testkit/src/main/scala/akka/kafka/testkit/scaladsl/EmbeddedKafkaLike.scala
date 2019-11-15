@@ -22,7 +22,7 @@ trait EmbeddedKafkaLike extends KafkaSpec {
   }
 
   override def cleanUp(): Unit = {
-    EmbeddedKafka.stop()
     super.cleanUp()
+    EmbeddedKafka.stop()
   }
 }
