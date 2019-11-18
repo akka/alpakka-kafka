@@ -38,7 +38,7 @@ private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerS
 
   override protected def logic(shape: SourceShape[TransactionalMessage[K, V]]): GraphStageLogic with Control =
     new TransactionalSourceLogic(shape, TransactionalSource.txConsumerSettings(consumerSettings), subscription)
-    with TransactionalMessageBuilder[K, V]
+      with TransactionalMessageBuilder[K, V]
 
 }
 
@@ -74,7 +74,7 @@ private[kafka] final class TransactionalSourceWithOffsetContext[K, V](consumerSe
       shape: SourceShape[(ConsumerRecord[K, V], PartitionOffset)]
   ): GraphStageLogic with Control =
     new TransactionalSourceLogic(shape, TransactionalSource.txConsumerSettings(consumerSettings), subscription)
-    with TransactionalOffsetContextBuilder[K, V]
+      with TransactionalOffsetContextBuilder[K, V]
 
 }
 

@@ -35,7 +35,7 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
     ) {
   override protected def logic(shape: SourceShape[CommittableMessage[K, V]]): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-    with CommittableMessageBuilder[K, V] {
+      with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -58,7 +58,7 @@ private[kafka] final class SourceWithOffsetContext[K, V](
       shape: SourceShape[(ConsumerRecord[K, V], CommittableOffset)]
   ): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, (ConsumerRecord[K, V], CommittableOffset)](shape, settings, subscription)
-    with OffsetContextBuilder[K, V] {
+      with OffsetContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -79,7 +79,7 @@ private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
     ) {
   override protected def logic(shape: SourceShape[CommittableMessage[K, V]]): GraphStageLogic with Control =
     new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
-    with CommittableMessageBuilder[K, V] {
+      with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
       override def groupId: String = _groupId
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -104,7 +104,8 @@ private[kafka] final class CommittableSubSource[K, V](
       shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]
   ): GraphStageLogic with Control =
     new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
-    with CommittableMessageBuilder[K, V] with MetricsControl {
+      with CommittableMessageBuilder[K, V]
+      with MetricsControl {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
