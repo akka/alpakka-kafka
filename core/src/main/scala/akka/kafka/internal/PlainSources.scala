@@ -33,7 +33,8 @@ private[kafka] final class ExternalPlainSource[K, V](consumer: ActorRef, subscri
     ) {
   override protected def logic(shape: SourceShape[ConsumerRecord[K, V]]): GraphStageLogic with Control =
     new ExternalSingleSourceLogic[K, V, ConsumerRecord[K, V]](shape, consumer, subscription)
-    with PlainMessageBuilder[K, V] with MetricsControl
+      with PlainMessageBuilder[K, V]
+      with MetricsControl
 }
 
 /**
@@ -52,5 +53,6 @@ private[kafka] final class PlainSubSource[K, V](
       shape: SourceShape[(TopicPartition, Source[ConsumerRecord[K, V], NotUsed])]
   ): GraphStageLogic with Control =
     new SubSourceLogic[K, V, ConsumerRecord[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
-    with PlainMessageBuilder[K, V] with MetricsControl
+      with PlainMessageBuilder[K, V]
+      with MetricsControl
 }
