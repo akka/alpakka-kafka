@@ -94,6 +94,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
+      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       createAndRunProducer(0L until totalMessages / 2).futureValue
@@ -109,8 +110,22 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       }
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
-      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
-      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
+      rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
+
+      // The assignment may swap which consumer gets which partitions
+      val assigned1 = rebalanceActor1.expectMsgClass(classOf[TopicPartitionsAssigned])
+      val assigned2 = rebalanceActor2.expectMsgClass(classOf[TopicPartitionsAssigned])
+
+      val PartitionsAssignedMsg1 = TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1)))
+      val PartitionsAssignedMsg2 = TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3)))
+      (assigned1, assigned2) match {
+        case (PartitionsAssignedMsg1, PartitionsAssignedMsg2) =>
+        case (PartitionsAssignedMsg2, PartitionsAssignedMsg1) =>
+        case (receive1, receive2) =>
+          fail(
+            s"The `TopicPartitionsAssigned` messages came differently than expected:\nrebalanceActor1: $receive1\nrebalanceActor2: $receive2"
+          )
+      }
 
       sleep(4.seconds,
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
