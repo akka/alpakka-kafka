@@ -189,19 +189,17 @@ class ProducerSpec(_system: ActorSystem)
     val (source, sink) = TestSource
       .probe[Msg]
       .via(testProducerFlow(client))
-      .toMat(Sink.lastOption)(Keep.both)
+      .toMat(TestSink.probe)(Keep.both)
       .run()
 
     input.map(toMessage).foreach(source.sendNext)
-    source.sendError(new Exception())
+    sink.requestNext()
+    val sourceError = new Exception()
+    source.sendError(sourceError)
 
     // Here we can not be sure that all messages from source delivered to producer
     // because of buffers in akka-stream and faster error pushing that ignores buffers
-
-    Await.ready(sink, remainingOrDefault)
-    sink.value should matchPattern {
-      case Some(Failure(_)) =>
-    }
+    sink.expectError(sourceError)
 
     client.verifyClosed()
     client.verifySend(atLeastOnce())
