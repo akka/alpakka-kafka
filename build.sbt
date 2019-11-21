@@ -294,20 +294,17 @@ lazy val tests = project
     Test / unmanagedSources / excludeFilter := {
       if (scalaBinaryVersion.value == "2.13") {
         HiddenFileFilter ||
-        "RetentionPeriodSpec.scala" ||
         "MultiConsumerSpec.scala" ||
         "ReconnectSpec.scala" ||
         "EmbeddedKafkaSampleSpec.scala" ||
         "TransactionsSpec.scala" ||
         "SerializationSpec.scala" ||
         "PartitionExamples.scala" ||
-        "TransactionsExample.scala" ||
         "ConnectionCheckerSpec.scala" ||
         "EmbeddedKafkaWithSchemaRegistryTest.java" ||
         "AssignmentTest.java" ||
         "ProducerExampleTest.java" ||
-        "SerializationTest.java" ||
-        "TransactionsExampleTest.java"
+        "SerializationTest.java"
       } else (Test / unmanagedSources / excludeFilter).value
     }
   )
