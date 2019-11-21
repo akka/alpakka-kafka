@@ -550,7 +550,9 @@ import scala.util.control.NonFatal
 
   private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
     val replyTo = commitSenders
-    commit(aggregateOffsets(commitMaps), msg => replyTo.foreach(_ ! msg))
+    val aggregatedOffsets = aggregateOffsets(commitMaps)
+    commitRefreshing.add(aggregatedOffsets)
+    commit(aggregatedOffsets, msg => replyTo.foreach(_ ! msg))
     commitMaps = List.empty
     commitSenders = Vector.empty
   }
