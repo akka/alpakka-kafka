@@ -9,26 +9,32 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 
-class RetentionPeriodSpec extends SpecBase(kafkaPort = KafkaPorts.RetentionPeriodSpec) with EmbeddedKafkaLike {
+class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
-  override def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "offsets.topic.replication.factor" -> "1",
-                          "offsets.retention.minutes" -> "1",
-                          "offsets.retention.check.interval.ms" -> "100"
-                        ))
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
+  // The bug commit refreshing circumvents was fixed in Kafka 2.1.0
+  // https://issues.apache.org/jira/browse/KAFKA-4682
+  // Confluent Platform 5.0.0 bundles Kafka 2.0.0
+  // https://docs.confluent.io/current/installation/versions-interoperability.html
+    .withConfluentPlatformVersion("5.0.0")
+    .withInternalTopicsReplicationFactor(1)
+    .withConfigureKafka { brokerContainers =>
+      brokerContainers.foreach {
+        _.withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")
+          .withEnv("KAFKA_OFFSETS_RETENTION_MINUTES", "1")
+          .withEnv("KAFKA_OFFSETS_RETENTION_CHECK_INTERVAL_MS", "100")
+      }
+    }
 
   "After retention period (1 min) consumer" must {
 
