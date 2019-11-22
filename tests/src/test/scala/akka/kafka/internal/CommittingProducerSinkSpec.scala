@@ -109,7 +109,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
-    val committerSettings = CommitterSettings(system).withMaxBatch(2L)
+    val committerSettings = CommitterSettings(system).withMaxBatch(2L).withMaxInterval(10.seconds)
 
     val control = Source(elements)
       .concat(Source.maybe) // keep the source alive
@@ -146,8 +146,9 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
-    val commitInterval = 5.seconds
-    val committerSettings = CommitterSettings(system).withMaxInterval(commitInterval)
+    // choose a large commit interval so that completion happens before
+    val largeCommitInterval = 30.seconds
+    val committerSettings = CommitterSettings(system).withMaxInterval(largeCommitInterval)
 
     val control = Source(elements)
       .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
@@ -161,6 +162,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
 
+    // expect the commit to reach the actor within 1 second
     val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.Commit])
     commitMsg.tp shouldBe new TopicPartition(topic, partition)
     commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
@@ -261,6 +263,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
+    // this producer does not auto complete messages
     val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)

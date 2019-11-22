@@ -5,12 +5,10 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -18,10 +16,9 @@ import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, SinkShape, Supervision}
-import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
 
 import scala.concurrent.{Future, Promise}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -50,7 +47,10 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     stage: CommittingProducerSinkStage[K, V, IN],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
-    with StageLogging {
+    with StageLogging
+    with DeferredProducer[K, V] {
+
+  import CommittingProducerSinkStage._
 
   /** The promise behind the materialized future. */
   final val streamCompletion = Promise[Done]
@@ -58,19 +58,14 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
 
-  /** The Kafka producer may be created lazily, assigned via `preStart` in `assignProducer`. */
-  private var producer: Producer[K, V] = _
-
   override protected def logSource: Class[_] = classOf[CommittingProducerSinkStage[_, _, _]]
 
-  private val closeAndFailStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable](closeAndFailStage)
+  override protected val producerSettings: ProducerSettings[K, V] = stage.producerSettings
+
+  override protected val closeAndFailStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable](closeAndFailStage)
 
   private def closeAndFailStage(ex: Throwable): Unit = {
-    if (producer != null) {
-      // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
-      // https://github.com/akka/alpakka-kafka/pull/318
-      producer.close(0L, TimeUnit.MILLISECONDS)
-    }
+    closeProducerImmediately()
     failStage(ex)
     streamCompletion.failure(ex)
   }
@@ -82,30 +77,10 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   }
 
   /** When the producer is set up, the sink pulls and schedules the first commit. */
-  private def assignProducer(p: Producer[K, V]): Unit = {
-    producer = p
+  override protected def producerAssigned(): Unit = {
     tryPull(stage.in)
     scheduleCommit()
     log.debug("CommittingProducerSink initialized")
-  }
-
-  private def resolveProducer(): Unit = {
-    val producerFuture = stage.producerSettings.createKafkaProducerAsync()(materializer.executionContext)
-    producerFuture.value match {
-      case Some(Success(p)) => assignProducer(p)
-      case Some(Failure(e)) => failStage(e)
-      case None =>
-        val assign = getAsyncCallback(assignProducer)
-        producerFuture
-          .transform(
-            producer => assign.invoke(producer),
-            e => {
-              log.error(e, "producer creation failed")
-              closeAndFailStageCb.invoke(e)
-              e
-            }
-          )(ExecutionContexts.sameThreadExecutionContext)
-    }
   }
 
   // ---- Producing
@@ -182,17 +157,17 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     scheduleOnce(CommittingProducerSinkStage.CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommittingProducerSinkStage.CommitNow => commit("interval")
+    case CommittingProducerSinkStage.CommitNow => commit(Interval)
   }
 
   private def collectOffset(count: Int, offset: Committable): Unit = {
     awaitingProduceResult -= count
     offsetBatch = offsetBatch.updated(offset)
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit("batch size")
-    else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit("upstream closed")
+    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize)
+    else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed)
   }
 
-  private def commit(triggeredBy: String): Unit = {
+  private def commit(triggeredBy: TriggerdBy): Unit = {
     if (offsetBatch.batchSize != 0) {
       log.debug("commit triggered by {} (awaitingProduceResult={} awaitingCommitResult={})",
                 triggeredBy,
@@ -200,7 +175,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
                 awaitingCommitResult)
       val batchSize = offsetBatch.batchSize
       offsetBatch
-        .commitScaladsl()
+        .commitInternal()
         .onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
       offsetBatch = CommittableOffsetBatch.empty
     }
@@ -240,7 +215,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
           completeStage()
           streamCompletion.success(Done)
         } else {
-          commit("upstream finish")
+          commit(UpstreamFinish)
           setKeepGoing(true)
           upstreamCompletionState = Some(Success(Done))
         }
@@ -249,7 +224,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         if (awaitingCommitResult == 0) {
           closeAndFailStage(ex)
         } else {
-          commit("upstream failure")
+          commit(UpstreamFailure)
           setKeepGoing(true)
           upstreamCompletionState = Some(Failure(ex))
         }
@@ -279,18 +254,25 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     super.postStop()
   }
 
-  private def closeProducer(): Unit =
-    if (producer != null && stage.producerSettings.closeProducerOnStop) {
-      try {
-        // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
-        producer.flush()
-        producer.close(stage.producerSettings.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
-      } catch {
-        case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
-      }
-    }
 }
 
 private object CommittingProducerSinkStage {
   val CommitNow = "commit"
+
+  sealed trait TriggerdBy
+  case object BatchSize extends TriggerdBy {
+    override def toString: String = "batch size"
+  }
+  case object Interval extends TriggerdBy {
+    override def toString: String = "interval"
+  }
+  case object UpstreamClosed extends TriggerdBy {
+    override def toString: String = "upstream closed"
+  }
+  case object UpstreamFinish extends TriggerdBy {
+    override def toString: String = "upstream finish"
+  }
+  case object UpstreamFailure extends TriggerdBy {
+    override def toString: String = "upstream failure"
+  }
 }
