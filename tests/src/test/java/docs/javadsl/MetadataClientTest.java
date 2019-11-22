@@ -10,6 +10,7 @@
 //
 package docs.javadsl;
 
+// #metadata-client
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.javadsl.MetadataClient;
@@ -18,6 +19,7 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
+// #metadata-client
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.hamcrest.core.IsInstanceOf;
@@ -57,6 +59,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   public void shouldFetchBeginningOffsetsForGivenPartitions() {
     final String topic1 = createTopic();
     final String group1 = createGroupId();
+    // #metadata-client
     final TopicPartition partition = new TopicPartition(topic1, 0);
     final ConsumerSettings<String, String> consumerSettings =
         consumerDefaults().withGroupId(group1);
@@ -67,10 +70,13 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final CompletionStage<Map<TopicPartition, Long>> response =
         metadataClient.getBeginningOffsets(partitions);
     final Map<TopicPartition, Long> beginningOffsets = response.toCompletableFuture().join();
+    // #metadata-client
 
     assertThat(beginningOffsets.get(partition), is(0L));
 
+    // #metadata-client
     metadataClient.stop();
+    // #metadata-client
   }
 
   @Test
