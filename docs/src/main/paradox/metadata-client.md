@@ -36,7 +36,7 @@ Please consider to use a dedicated `KafkaConsumerActor` to create metadata clien
 ## Example
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadata-client }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/FetchMetadata.scala) { #metadataClient }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/FetchMetadataTest.java) { #metadata-client }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/MetadataClientTest.java) { #metadataClient }

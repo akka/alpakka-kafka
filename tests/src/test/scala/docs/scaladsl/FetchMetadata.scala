@@ -11,7 +11,7 @@ import org.scalatest.TryValues
 import org.scalatest.time.{Seconds, Span}
 
 // #metadata
-// #metadata-client
+// #metadataClient
 import akka.actor.ActorRef
 import akka.kafka.{KafkaConsumerActor, Metadata}
 import akka.pattern.ask
@@ -22,7 +22,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 // #metadata
-// #metadata-client
+// #metadataClient
 
 class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryValues {
 
@@ -63,19 +63,19 @@ class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryVa
 
     awaitProduce(produce(topic1, 1 to 10))
 
-    // #metadata-client
+    // #metadataClient
     val metadataClient = MetadataClient.create(consumerSettings, 1.second)
 
     val beginningOffsets = metadataClient
       .getBeginningOffsets(Set(partition0))
       .futureValue
-    // #metadata-client
+    // #metadataClient
 
     beginningOffsets(partition0) shouldBe 0
 
-    // #metadata-client
+    // #metadataClient
     metadataClient.stop()
-    // #metadata-client
+    // #metadataClient
   }
 
   "Get offsets" should "timeout fast" in {
