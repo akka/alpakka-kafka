@@ -43,7 +43,7 @@ These factory methods are part of the @scala[@scaladoc[Transactional API](akka.k
 
 ## Settings
 
-When creating a consumer source you need to pass in `ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) that define things like:
+When creating a consumer source you need to pass in @apidoc[ConsumerSettings] that define things like:
 
 * de-serializers for the keys and values
 * bootstrap servers of the Kafka cluster (see @ref:[Service discovery](discovery.md) to defer the server configuration)
@@ -55,14 +55,14 @@ Alpakka Kafka's defaults for all settings are defined in `reference.conf` which 
 Important consumer settings
 : | Setting   | Description                                  |
 |-------------|----------------------------------------------|
-| stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using `DrainingControl`. |
-| kafka-clients | Section for properties passed unchanged to the Kafka client (see @link:[Kafka's Consumer Configs](http://kafka.apache.org/documentation/#consumerconfigs) { open=new } ) |
+| stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using @scala[@scaladoc[DrainingControl](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[DrainingControl](akka.kafka.javadsl.Consumer$$DrainingControl)] |
+| kafka-clients | Section for properties passed unchanged to the Kafka client (see @extref:[Kafka's Consumer Configs](kafka:#consumerconfigs)) |
 | connection-checker | Configuration to let the stream fail if the connection to the Kafka broker fails. |
 
 reference.conf (HOCON)
 : @@ snip [snip](/core/src/main/resources/reference.conf) { #consumer-settings }
 
-The Kafka documentation [Consumer Configs](http://kafka.apache.org/documentation/#consumerconfigs) lists the settings, their defaults and importance. More detailed explanations are given in the @javadoc[KafkaConsumer API](org.apache.kafka.clients.consumer.KafkaConsumer) and constants are defined in @javadoc[ConsumerConfig API](org.apache.kafka.clients.consumer.ConsumerConfig).
+The Kafka documentation @extref:[Consumer Configs](kafka:#consumerconfigs) lists the settings, their defaults and importance. More detailed explanations are given in the @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) API and constants are defined in @javadoc[ConsumerConfig](org.apache.kafka.clients.consumer.ConsumerConfig) API.
 
 
 ### Programmatic construction
@@ -78,7 +78,7 @@ Java
 
 ### Config inheritance
 
-`ConsumerSettings` (@scaladoc[API](akka.kafka.ConsumerSettings)) are created from configuration in `application.conf` (with defaults in `reference.conf`). The format of these settings files are described in the [HOCON Config Documentation](https://github.com/lightbend/config#using-hocon-the-json-superset). A recommended setup is to rely on config inheritance as below:
+@apidoc[ConsumerSettings$] are created from configuration in `application.conf` (with defaults in `reference.conf`). The format of these settings files are described in the [HOCON Config Documentation](https://github.com/lightbend/config#using-hocon-the-json-superset). A recommended setup is to rely on config inheritance as below:
 
 application.conf (HOCON)
 : @@ snip [app.conf](/tests/src/test/resources/application.conf) { #consumer-config-inheritance }
@@ -96,10 +96,11 @@ Java
 
 The Kafka read offset can either be stored in Kafka (see below), or at a data store of your choice.
 
-`Consumer.plainSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]) 
-and `Consumer.plainPartitionedManualOffsetSource` can be used to emit `ConsumerRecord` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.ConsumerRecord)) elements
-as received from the underlying `KafkaConsumer`. They do not have support for committing offsets to Kafka. When using
+@apidoc[Consumer.plainSource](Consumer$) { java="#plainSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.javadsl.Source[org.apache.kafka.clients.consumer.ConsumerRecord[K,V],akka.kafka.javadsl.Consumer.Control]" scala="#plainSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.scaladsl.Source[org.apache.kafka.clients.consumer.ConsumerRecord[K,V],akka.kafka.scaladsl.Consumer.Control]" } 
+and 
+@apidoc[Consumer.plainPartitionedManualOffsetSource](Consumer$) { java="#plainPartitionedManualOffsetSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.AutoSubscription,getOffsetsOnAssign:java.util.function.Function[java.util.Set[org.apache.kafka.common.TopicPartition],java.util.concurrent.CompletionStage[java.util.Map[org.apache.kafka.common.TopicPartition,Long]]]):akka.stream.javadsl.Source[akka.japi.Pair[org.apache.kafka.common.TopicPartition,akka.stream.javadsl.Source[org.apache.kafka.clients.consumer.ConsumerRecord[K,V],akka.NotUsed]],akka.kafka.javadsl.Consumer.Control]" scala="#breaks-paradox" }
+can be used to emit @javadoc[ConsumerRecord](org.apache.kafka.clients.consumer.ConsumerRecord) elements
+as received from the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer). They do not have support for committing offsets to Kafka. When using
 these Sources, either store an offset externally, or use auto-commit (note that auto-commit is disabled by default).
 
 Scala
@@ -120,20 +121,22 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #plainSource }
 
-For `Consumer.plainSource` the `Subscriptions.assignmentWithOffset` specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the `ConsumerSettings`.
+For 
+@apidoc[Consumer.plainSource](Consumer$) { java="#plainSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.javadsl.Source[org.apache.kafka.clients.consumer.ConsumerRecord[K,V],akka.kafka.javadsl.Consumer.Control]" scala="#plainSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.scaladsl.Source[org.apache.kafka.clients.consumer.ConsumerRecord[K,V],akka.kafka.scaladsl.Consumer.Control]" } 
+the @apidoc[Subscriptions.assignmentWithOffset](Subscriptions$) specifies the starting point (offset) for a given consumer group id, topic and partition. The group id is defined in the @apidoc[ConsumerSettings$].
 
-Alternatively, with `Consumer.plainPartitionedManualOffsetSource` (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]), only the consumer group id and the topic are required on creation.
+Alternatively, with @apidoc[Consumer.plainPartitionedManualOffsetSource](Consumer$), only the consumer group id and the topic are required on creation.
 The starting point is fetched by calling the `getOffsetsOnAssign` function passed in by the user. This function should return
-a `Map` of `TopicPartition` (@javadoc[API](org.apache.kafka.common.TopicPartition)) to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
+a `Map` of @javadoc[TopicPartition](org.apache.kafka.common.TopicPartition) to `Long`, with the `Long` representing the starting point. If a consumer is assigned a partition
 that is not included in the `Map` that results from `getOffsetsOnAssign`, the default starting position will be used,
-according to the consumer configuration value `auto.offset.reset`. Also note that `Consumer.plainPartitionedManualOffsetSource`
+according to the consumer configuration value `auto.offset.reset`. Also note that @apidoc[Consumer.plainPartitionedManualOffsetSource](Consumer$)
 emits tuples of assigned topic-partition and a corresponding source, as in [Source per partition](#source-per-partition).
 
 
 ## Offset Storage in Kafka - committing
 
-The `Consumer.committableSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
+The 
+@apidoc[Consumer.committableSource](Consumer$) { java="#committableSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.javadsl.Source[akka.kafka.ConsumerMessage.CommittableMessage[K,V],akka.kafka.javadsl.Consumer.Control]" scala="#committableSource[K,V](settings:akka.kafka.ConsumerSettings[K,V],subscription:akka.kafka.Subscription):akka.stream.scaladsl.Source[akka.kafka.ConsumerMessage.CommittableMessage[K,V],akka.kafka.scaladsl.Consumer.Control]" } 
 makes it possible to commit offset positions to Kafka. Compared to auto-commit this gives exact control of when a message is considered consumed.
 
 This is useful when "at-least-once" delivery is desired, as each message will likely be delivered one time, but in failure cases could be received more than once.
@@ -149,7 +152,7 @@ Committing the offset for each message (`withMaxBatch(1)`) as illustrated above 
 
 ### Committer sink
 
-You can use a pre-defined `Committer.sink` to perform commits in batches:
+You can use a pre-defined @apidoc[Committer.sink](Committer$) to perform commits in batches:
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #committerSink }
@@ -157,7 +160,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #committerSink }
  
-When creating a `Committer.sink` you need to pass in `CommitterSettings` (@scaladoc[API](akka.kafka.CommitterSettings)). These may be created by passing the actor system to read the defaults from the config section `akka.kafka.committer`, or by passing a `Config` (@scaladoc[API](com.typesafe.config.Config)) instance with the same structure.
+When creating a @apidoc[Committer.sink](Committer$) you need to pass in @apidoc[CommitterSettings$]. These may be created by passing the actor system to read the defaults from the config section `akka.kafka.committer`, or by passing a @scaladoc[Config](com.typesafe.config.Config) instance with the same structure.
 
 Table
 : | Setting   | Description                                  | Default Value |
@@ -175,7 +178,7 @@ If you use Kafka older than version 2.1.0 and consume from a topic with low acti
 
 #### Committer variants
 
-These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka.scaladsl.Committer$)]@java[@scaladoc[Committer API](akka.kafka.javadsl.Committer$)].
+These factory methods are part of the @apidoc[Committer$].
 
 | Factory method          | Stream element type                  | Emits |
 |-------------------------|--------------------------------------|--------------|
@@ -188,7 +191,7 @@ These factory methods are part of the @scala[@scaladoc[Committer API](akka.kafka
 
 ### Commit with meta-data
 
-The `Consumer.commitWithMetadataSource` allows you to add metadata to the committed offset based on the last consumed record.
+The @apidoc[Consumer.commitWithMetadataSource](Consumer$) allows you to add metadata to the committed offset based on the last consumed record.
 
 Note that the first offset provided to the consumer during a partition assignment will not contain metadata. This offset can get committed due to a periodic commit refresh (`akka.kafka.consumer.commit-refresh-interval` configuration parameters) and the commit will not contain metadata.
 
@@ -202,12 +205,12 @@ Java
 
 In some cases you may wish to use external offset storage as your primary means to manage offsets, but also commit offsets to Kafka. 
 This gives you all the benefits of controlling offsets described in @ref:[Offset Storage external to Kafka](#offset-storage-external-to-kafka) and allows you to use tooling in the Kafka ecosystem to track consumer group lag. 
-You can use the `Consumer.committablePartitionedManualOffsetSource` (@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)]) source, which emits a `CommittableMessage`, to seek to appropriate offsets on startup, do your processing, commit to external storage, and then commit offsets back to Kafka. 
+You can use the @apidoc[Consumer.committablePartitionedManualOffsetSource](Consumer$) source, which emits a @scaladoc[CommittableMessage](akka.kafka.ConsumerMessage$$CommittableMessage), to seek to appropriate offsets on startup, do your processing, commit to external storage, and then commit offsets back to Kafka. 
 This will only provide at-least-once guarantees for your consumer group lag monitoring because it's possible for a failure between storing your offsets externally and committing to Kafka, but it will give you a more accurate representation of consumer group lag then when turning on auto commits with the `enable.auto.commit` consumer property.
 
 ## Consume "at-most-once"
 
-If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by `Consumer.atMostOnceSource`. However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended. If your "at-most-once" requirements are more relaxed, consider a `Consumer.plainSource` and enable Kafka's auto committing with `enable.auto.commit = true`.
+If you commit the offset before processing the message you get "at-most-once" delivery semantics, this is provided by @apidoc[Consumer.atMostOnceSource](Consumer$). However, `atMostOnceSource` **commits the offset for each message and that is rather slow**, batching of commits is recommended. If your "at-most-once" requirements are more relaxed, consider a @apidoc[Consumer.plainSource](Consumer$) and enable Kafka's auto committing with `enable.auto.commit = true`.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #atMostOnce }
@@ -223,9 +226,9 @@ How to achieve at-least-once delivery semantics is covered in @ref:[At-Least-Onc
 
 ## Connecting Producer and Consumer
 
-For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use `Consumer.committableSource` and connect it to a `Producer.committableSink`. The `committableSink` will commit the offset back to the consumer regularly.
+For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use @apidoc[Consumer.committableSource](Consumer$) and connect it to a @apidoc[Producer.committableSink](Producer$). The `committableSink` will commit the offset back to the consumer regularly.
 
-The `committableSink` accepts implementations `ProducerMessage.Envelope` (@scaladoc[API](akka.kafka.ProducerMessage$$Envelope)) that contain the offset to commit the consumption of the originating message (of type `ConsumerMessage.Committable` (@scaladoc[API](akka.kafka.ConsumerMessage$$Committable))). See @ref[Producing messages](producer.md#producing-messages) about different implementations of `Envelope` supported.
+The `committableSink` accepts implementations @scaladoc[ProducerMessage.Envelope](akka.kafka.ProducerMessage$$Envelope) that contain the offset to commit the consumption of the originating message (of type  (@scaladoc[ConsumerMessage.Committable](akka.kafka.ConsumerMessage$$Committable)). See @ref[Producing messages](producer.md#producing-messages) about different implementations of @scaladoc[Envelope](akka.kafka.ProducerMessage$$Envelope).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -243,9 +246,8 @@ To get delivery guarantees, please read about @ref[transactions](transactions.md
 
 ## Source per partition
 
-`Consumer.plainPartitionedSource` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
-, `Consumer.committablePartitionedSource`, and `Consumer.commitWithMetadataPartitionedSource` support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
+@apidoc[Consumer.plainPartitionedSource](Consumer$)
+, @apidoc[Consumer.committablePartitionedSource](Consumer$), and @apidoc[Consumer.commitWithMetadataPartitionedSource](Consumer$) support tracking the automatic partition assignment from Kafka. When a topic-partition is assigned to a consumer, this source will emit a tuple with the assigned topic-partition and a corresponding source. When a topic-partition is revoked, the corresponding source completes.
 
 
 Scala
@@ -265,8 +267,7 @@ Java
 
 ## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying `KafkaConsumer` (@javadoc[Kafka API](org.apache.kafka.clients.consumer.KafkaConsumer)) instance. It is shared by creating a `KafkaConsumerActor` (@scaladoc[API](akka.kafka.KafkaConsumerActor$)). You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the `ActorRef` as a parameter to the `Consumer` 
-(@scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)])
+If you have many streams it can be more efficient to share the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) instance. It is shared by creating a @apidoc[akka.kafka.KafkaConsumerActor$]. You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the @apidoc[ActorRef] as a parameter to the @apidoc[Consumer](Consumer$)
  factory methods.
 
 Scala
@@ -293,7 +294,7 @@ Accessing of Kafka consumer metadata is possible as described in @ref[Consumer M
 
 
 ## Controlled shutdown
-The `Source` created with `Consumer.plainSource` and similar  methods materializes to a `Consumer.Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) 
+The @apidoc[Source] created with @apidoc[Consumer.plainSource](Consumer$) and similar methods materializes to a @scala[@scaladoc[Consumer.Control](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[Consumer.Control](akka.kafka.javadsl.Consumer$$Control)] 
 instance. This can be used to stop the stream in a controlled manner.
 
 When using external offset storage, a call to `Consumer.Control.shutdown()` suffices to complete the `Source`, which starts the completion of the stream.
@@ -312,11 +313,11 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 
 ### Draining control
 
-To manage this shutdown process, use the `Consumer.DrainingControl` 
-(@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$DrainingControl)])
+To manage this shutdown process, use the 
+@scala[@scaladoc[Consumer.DrainingControl](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[Consumer.DrainingControl](akka.kafka.javadsl.Consumer$$DrainingControl)]
 by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue`. That control offers the method `drainAndShutdown` which implements the process descibed above.
 
-Note: The `ConsumerSettings` `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
+Note: The @apidoc[ConsumerSettings] `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #shutdownCommittableSource }

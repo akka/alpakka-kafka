@@ -10,6 +10,7 @@ val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion = if (Nightly) "2.6.0" else "2.5.23"
+val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
 val kafkaVersion = "2.1.1"
 val embeddedKafkaVersion = kafkaVersion
 val kafkaVersionForDocs = "21"
@@ -327,22 +328,34 @@ lazy val docs = project
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
-        "akka.version" -> akkaVersion,
-        "kafka.version" -> kafkaVersion,
         "embeddedKafka.version" -> embeddedKafkaVersion,
         "confluent.version" -> confluentAvroSerializerVersion,
         "scalatest.version" -> scalatestVersion,
-        "testcontainers.version" -> testcontainersVersion,
-        "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
-        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
-        "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
-        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
-        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
-        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
         "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
-        "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+        "javadoc.akka.kafka.base_url" -> "",
+        // Akka
+        "akka.version" -> akkaVersion,
+        "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
+        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
+        "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
+        "javadoc.akka.link_style" -> "frames",
+        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        // Kafka
+        "kafka.version" -> kafkaVersion,
+        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
-        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/"
+        "javadoc.org.apache.kafka.link_style" -> "frames",
+        // Java
+        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
+        "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
+        "javadoc.link_style" -> "direct",
+        // Scala
+        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
+        "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+        // Testcontainers
+        "testcontainers.version" -> testcontainersVersion,
+        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/",
+        "javadoc.org.testcontainers.link_style" -> "frames"
       ),
     apidocRootPackage := "akka",
     paradoxRoots := List("index.html",

@@ -17,7 +17,7 @@ The Kafka client library used by the Alpakka Kafka connector uses SLF4J, as well
   version2=1.2.3
 }
 
-To enable Akka SLF4J logging, configure Akka in `application.conf` as below. Refer to the @extref[Akka documentation](akka-docs:logging.html#slf4j) for details.
+To enable Akka SLF4J logging, configure Akka in `application.conf` as below. Refer to the @extref[Akka documentation](akka:logging.html#slf4j) for details.
 
 ```hocon
 akka {

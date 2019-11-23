@@ -77,7 +77,7 @@ If you need to run tests using [Confluent's Schema Registry](https://docs.conflu
 
 ### Testing with Avro and Schema Registry from Java code
 
-Test classes may extend `akka.kafka.testkit.javadsl.EmbeddedKafkaTest` (JUnit 5) or `akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test` (JUnit 4) to automatically start and stop an embedded Kafka broker.
+Test classes may extend @scaladoc[EmbeddedKafkaTest](akka.kafka.testkit.javadsl.EmbeddedKafkaTest) (JUnit 5) or @scaladoc[EmbeddedKafkaJunit4Test](akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test) (JUnit 4) to automatically start and stop an embedded Kafka broker.
 
 Furthermore it provides
 
@@ -94,12 +94,12 @@ Java JUnit 4
 Java JUnit 5
 : @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerExampleTest.java) { #testkit }
 
-The JUnit test base classes run the [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/javadsl/StreamTestKit$.html#assertAllStagesStopped) check from Akka Stream testkit to ensure all stages are shut down properly within each test. This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+The JUnit test base classes run the @javadoc[assertAllStagesStopped](akka.stream.testkit.javadsl.StreamTestKit#assertAllStagesStopped(akka.stream.Materializer)) check from Akka Stream testkit to ensure all stages are shut down properly within each test. This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
 
 
 ### Testing with Avro and Schema Registry from Scala code
 
-The `KafkaSpec` class offers access to 
+The @scaladoc[KafkaSpec](akka.kafka.testkit.scaladsl.KafkaSpec) class offers access to 
 
 * preconfigured consumer settings (`consumerDefaults: ConsumerSettings[String, String]`),
 * preconfigured producer settings (`producerDefaults: ProducerSettings[String, String]`),
@@ -107,7 +107,7 @@ The `KafkaSpec` class offers access to
 * an implicit `LoggingAdapter` for use with the `log()` operator, and
 * other goodies.
 
-`EmbeddedKafkaLike` extends `KafkaSpec` to add automatic starting and stopping of the embedded Kafka broker.
+@scaladoc[EmbeddedKafkaLike](akka.kafka.testkit.scaladsl.EmbeddedKafkaLike) extends @scaladoc[KafkaSpec](akka.kafka.testkit.scaladsl.KafkaSpec) to add automatic starting and stopping of the embedded Kafka broker.
 
 Some Alpakka Kafka tests implemented in Scala use [Scalatest](http://www.scalatest.org/) with the mix-ins shown below. You need to add Scalatest explicitly in your test dependencies (this release of Alpakka Kafka uses Scalatest $scalatest.version$.)
 
@@ -121,14 +121,14 @@ Some Alpakka Kafka tests implemented in Scala use [Scalatest](http://www.scalate
 Scala
 : @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit }
 
-By mixing in `EmbeddedKafkaLike` an embedded Kafka instance will be started before the tests in this test class execute shut down after all tests in this test class are finished.
+By mixing in @scaladoc[EmbeddedKafkaLike](akka.kafka.testkit.scaladsl.EmbeddedKafkaLike) an embedded Kafka instance will be started before the tests in this test class execute shut down after all tests in this test class are finished.
 
 Scala
 : @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/EmbeddedKafkaSampleSpec.scala) { #embeddedkafka }
 
 With this `EmbeddedKafkaSpecBase` class test classes can extend it to automatically start and stop a Kafka broker to test with. To configure the Kafka broker non-default, override the `createKafkaConfig` as shown above.
 
-To ensure proper shutdown of all stages in every test, wrap your test code in [`assertAllStagesStopped`](https://doc.akka.io/api/akka/current/akka/stream/testkit/scaladsl/StreamTestKit$.html#assertAllStagesStopped). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
+To ensure proper shutdown of all stages in every test, wrap your test code in @scaladoc[assertAllStagesStopped](akka.stream.testkit.scaladsl.StreamTestKit$). This may interfere with the `stop-timeout` which delays shutdown for Alpakka Kafka consumers. You might need to configure a shorter timeout in your `application.conf` for tests.
 
 ## Alternative testing libraries
 
@@ -138,7 +138,7 @@ If using Maven and Java, an alternative library that provides running Kafka brok
 
 The testkit contains factories to create the messages emitted by Consumer sources in `akka.kafka.testkit.ConsumerResultFactory` and Producer flows in `akka.kafka.testkit.ProducerResultFactory`.
 
-To create the materialized value of Consumer sources, @scala[`akka.kafka.testkit.scaladsl.ConsumerControlFactory`]@java[`akka.kafka.testkit.javadsl.ConsumerControlFactory`] offers a wrapped `KillSwitch`.
+To create the materialized value of Consumer sources, @apidoc[ConsumerControlFactory$] offers a wrapped @apidoc[KillSwitch].
 
 Scala
 : @@snip [snip](/tests/src/test/scala/docs/scaladsl/TestkitSamplesSpec.scala) { #factories }
