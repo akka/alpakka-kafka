@@ -56,13 +56,13 @@ Important consumer settings
 : | Setting   | Description                                  |
 |-------------|----------------------------------------------|
 | stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using @scala[@scaladoc[DrainingControl](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[DrainingControl](akka.kafka.javadsl.Consumer$$DrainingControl)] |
-| kafka-clients | Section for properties passed unchanged to the Kafka client (see @extref:[Kafka's Consumer Configs](kafka:#consumerconfigs)) |
+| kafka-clients | Section for properties passed unchanged to the Kafka client (see @extref:[Kafka's Consumer Configs](kafka:/documentation.html#consumerconfigs)) |
 | connection-checker | Configuration to let the stream fail if the connection to the Kafka broker fails. |
 
 reference.conf (HOCON)
 : @@ snip [snip](/core/src/main/resources/reference.conf) { #consumer-settings }
 
-The Kafka documentation @extref:[Consumer Configs](kafka:#consumerconfigs) lists the settings, their defaults and importance. More detailed explanations are given in the @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) API and constants are defined in @javadoc[ConsumerConfig](org.apache.kafka.clients.consumer.ConsumerConfig) API.
+The Kafka documentation @extref:[Consumer Configs](kafka:/documentation.html#consumerconfigs) lists the settings, their defaults and importance. More detailed explanations are given in the @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) API and constants are defined in @javadoc[ConsumerConfig](org.apache.kafka.clients.consumer.ConsumerConfig) API.
 
 
 ### Programmatic construction

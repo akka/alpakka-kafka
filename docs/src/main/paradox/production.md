@@ -23,12 +23,12 @@ For performance monitoring consider [Lightbend Telemetry](https://developer.ligh
 
 ## Security setup
 
-The different security setups offered by Kafka brokers are described in the @extref[Apache Kafka documentation](kafka:/documentation/#security).
+The different security setups offered by Kafka brokers are described in the @extref[Apache Kafka documentation](kafka:/documentation.html#security).
 
 
 ### SSL
 
-The properties described in Kafka's @extref[Configuring Kafka Clients for SSL](kafka:/documentation/#security_configclients) go in the
+The properties described in Kafka's @extref[Configuring Kafka Clients for SSL](kafka:/documentation.html#security_configclients) go in the
 `akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration, or can be added programmatically via
 `ProducerSettings.withProperties` and `ConsumerSettings.withProperties`.
 
@@ -52,7 +52,7 @@ You have the option to pass the passwords as command line parameters or environm
 
 ### Kerberos
 
-The properties described in Kafka's @extref[Configuring Kafka Clients for Kerberos](kafka:/documentation/#security_sasl_kerberos_clientconfig) go in the
+The properties described in Kafka's @extref[Configuring Kafka Clients for Kerberos](kafka:/documentation.html#security_sasl_kerberos_clientconfig) go in the
 `akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration, or can be added programmatically via
 `ProducerSettings.withProperties` and `ConsumerSettings.withProperties`.
 

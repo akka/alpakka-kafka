@@ -65,7 +65,7 @@ This is a significant challenge. Below we suggest a few strategies to deal with 
  
 ### Publishing to Message-Dependent Topics
 
-Since @javadoc[ProducerRecord](org.apache.clients.producer.ProducerRecord) contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
+Since @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord) contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
 
 In case a committable message should lead to the production of multiple messages, the @scaladoc[ProducerMessage.MultiMessage](akka.kafka.ProducerMessage$$MultiMessage) is available. If no messages should be produced, the @scaladoc[ProducerMessage.PassThroughMessage](akka.kafka.ProducerMessage$$PassThroughMessage) can be used.
 

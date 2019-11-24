@@ -342,7 +342,7 @@ lazy val docs = project
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
-        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
+        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "frames",
         // Java

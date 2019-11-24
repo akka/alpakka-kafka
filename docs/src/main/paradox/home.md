@@ -1,6 +1,6 @@
 # Overview
 
-The [Alpakka project](https://developer.lightbend.com/docs/alpakka/current/) is an open source initiative to implement stream-aware and reactive integration pipelines for Java and Scala. It is built on top of @extref[Akka Streams](akka:stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](https://www.reactive-streams.org/) and JDK 9+ @extref[java.util.concurrent.Flow](java-docs:docs/api/java.base/java/util/concurrent/Flow.html)-compliant implementation and therefore @extref[fully interoperable](akka:general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
+The [Alpakka project](https://doc.akka.io/docs/alpakka/current/) is an open source initiative to implement stream-aware and reactive integration pipelines for Java and Scala. It is built on top of @extref[Akka Streams](akka:stream/index.html), and has been designed from the ground up to understand streaming natively and provide a DSL for reactive and stream-oriented programming, with built-in support for backpressure. Akka Streams is a [Reactive Streams](https://www.reactive-streams.org/) and JDK 9+ @extref[java.util.concurrent.Flow](java-docs:docs/api/java.base/java/util/concurrent/Flow.html)-compliant implementation and therefore @extref[fully interoperable](akka:general/stream/stream-design.html#interoperation-with-other-reactive-streams-implementations) with other implementations.
 
 This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.apache.org/) to Akka Streams. It was formerly known as **Akka Streams Kafka** and even **Reactive Kafka**.
 
@@ -16,9 +16,9 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 |[2.1.1](https://dist.apache.org/repos/dist/release/kafka/2.1.1/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x        | @ref:[release 1.0.1](release-notes/1.0.x.md#1-0-1)
 |[2.1.0](https://archive.apache.org/dist/kafka/2.1.0/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x        | @ref:[release 1.0](release-notes/1.0.x.md#1-0)
 |2.0.x        | 2.12, 2.11 | 2.5.x        | @ref:[release 1.0-M1](release-notes/1.0-M1.md)
-|1.1.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
-|1.0.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/reactive-kafka/releases)
-|0.11.x       | 2.12, 2.11 | 2.5.x        | [release 0.19](https://github.com/akka/reactive-kafka/milestone/19?closed=1)
+|1.1.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
+|1.0.x        | 2.12, 2.11 | 2.5.x        | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
+|0.11.x       | 2.12, 2.11 | 2.5.x        | [release 0.19](https://github.com/akka/alpakka-kafka/milestone/19?closed=1)
 
 @@@ note
 
@@ -45,7 +45,7 @@ The table below shows Alpakka Kafka's direct dependencies and the second tab sho
 @@dependencies { projectId="core" }
 
 * Akka Streams $akka.version$ @extref[documentation](akka:stream/index.html) and [sources](https://github.com/akka/akka)
-* Apache Kafka client $kafka.version$ @extref[documentation](kafka:index.html) and [sources](https://github.com/apache/kafka)
+* Apache Kafka client $kafka.version$ @extref[documentation](kafka:/documentation#index) and [sources](https://github.com/apache/kafka)
 
 
 ## Scala and Java APIs
@@ -65,7 +65,7 @@ To read and see how others use Alpakka see the [Alpakka documentation's Webinars
 
 ## Contributing
 
-Please feel free to contribute to Alpakka and the Alpakka Kafka connector by reporting issues you identify, or by suggesting changes to the code. Please refer to our [contributing instructions](https://github.com/akka/reactive-kafka/blob/master/CONTRIBUTING.md) to learn how it can be done.
+Please feel free to contribute to Alpakka and the Alpakka Kafka connector by reporting issues you identify, or by suggesting changes to the code. Please refer to our [contributing instructions](https://github.com/akka/alpakka-kafka/blob/master/CONTRIBUTING.md) to learn how it can be done.
 
 We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://www.lightbend.com/conduct).
 
