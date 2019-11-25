@@ -7,7 +7,7 @@ project.description: Access Kafka consumer metadata by calling MetadataClient.
 
 To access the Kafka consumer metadata you need to create the `KafkaConsumerActor` as described in the @ref[Consumer documentation](consumer.md#sharing-the-kafkaconsumer-instance) pass it to `MetadataClient`'s factory method `create`.
 
-Another approach to create metadata client is passing the `ConsumerSettings` and `ActorSystem` objects to factory method. Then the metadata client manages the internal actor and stops it when the `close` method is called.  
+Another approach to create metadata client is passing the `ConsumerSettings` and `ActorSystem` objects to the factory method. Then the metadata client manages the internal actor and stops it when the `close` method is called.
 
 The metadata the `MetadataClient` provides is documented in the @javadoc[Kafka Consumer API](org.apache.kafka.clients.consumer.KafkaConsumer).
 

@@ -70,7 +70,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     assertThat(beginningOffsets.get(partition), is(0L));
 
     // #metadataClient
-    metadataClient.stop();
+    metadataClient.close();
     // #metadataClient
   }
 
@@ -91,7 +91,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final CompletionStage<Map<TopicPartition, Long>> response =
         metadataClient.getBeginningOffsets(partitions);
 
-    metadataClient.stop();
+    metadataClient.close();
 
     response.toCompletableFuture().join();
   }
@@ -111,7 +111,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 
     assertThat(beginningOffset, is(0L));
 
-    metadataClient.stop();
+    metadataClient.close();
   }
 
   @Test
@@ -133,7 +133,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 
     assertThat(endOffsets.get(partition), is(10L));
 
-    metadataClient.stop();
+    metadataClient.close();
   }
 
   @Test
@@ -153,7 +153,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final CompletionStage<Map<TopicPartition, Long>> response =
         metadataClient.getEndOffsets(Collections.singleton(nonExistingPartition));
 
-    metadataClient.stop();
+    metadataClient.close();
     response.toCompletableFuture().join();
   }
 
@@ -174,7 +174,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     final Long endOffset = response.toCompletableFuture().join();
 
     assertThat(endOffset, is(10L));
-    metadataClient.stop();
+    metadataClient.close();
   }
 
   @Test
@@ -202,7 +202,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
     assertThat(partitionsForTopic1, containsInAnyOrder(0, 1));
     assertThat(partitionsForTopic2, containsInAnyOrder(0));
 
-    metadataClient.stop();
+    metadataClient.close();
   }
 
   @Test
@@ -225,7 +225,7 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 
     assertThat(partitions, containsInAnyOrder(0, 1));
 
-    metadataClient.stop();
+    metadataClient.close();
   }
 
   @AfterClass

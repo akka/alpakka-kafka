@@ -74,8 +74,8 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getCommittedOffset(partition)
       .toJava
 
-  def stop(): Unit =
-    metadataClient.stop()
+  def close(): Unit =
+    metadataClient.close()
 }
 
 object MetadataClient {

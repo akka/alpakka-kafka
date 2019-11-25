@@ -74,7 +74,7 @@ class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryVa
     beginningOffsets(partition0) shouldBe 0
 
     // #metadataClient
-    metadataClient.stop()
+    metadataClient.close()
     // #metadataClient
   }
 

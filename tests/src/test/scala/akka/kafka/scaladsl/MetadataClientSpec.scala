@@ -31,7 +31,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       beginningOffsets(partition0) shouldBe 0
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fail in case of an exception during fetch beginning offsets for non-existing topics" in assertAllStagesStopped {
@@ -46,7 +46,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       beginningOffsetsFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fetch beginning offset for given partition" in assertAllStagesStopped {
@@ -65,7 +65,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       beginningOffset shouldBe 0
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fetch end offsets for given partitions" in assertAllStagesStopped {
@@ -81,7 +81,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       endOffsets(partition0) shouldBe 10
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fail in case of an exception during fetch end offsets for non-existing topics" in assertAllStagesStopped {
@@ -94,7 +94,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       endOffsetsFuture.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fetch end offset for given partition" in assertAllStagesStopped {
@@ -110,7 +110,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       endOffset shouldBe 10
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fetch list of topics" in assertAllStagesStopped {
@@ -131,7 +131,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       topics(topic1).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic1
       topics(topic2).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic2
 
-      metadataClient.stop()
+      metadataClient.close()
     }
 
     "fetch partitions of given topic" in assertAllStagesStopped {
@@ -147,7 +147,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       partitionsInfo.leftSideValue.map(_.partition()) shouldBe List(0, 1)
 
-      metadataClient.stop()
+      metadataClient.close()
     }
   }
 

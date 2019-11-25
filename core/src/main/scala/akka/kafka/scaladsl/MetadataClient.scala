@@ -85,7 +85,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
         case Failure(e) => Future.failed(e)
       }(ExecutionContexts.sameThreadExecutionContext)
 
-  def stop(): Unit =
+  def close(): Unit =
     if (managedActor) {
       consumerActor ! KafkaConsumerActor.Stop
     }
