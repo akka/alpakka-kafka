@@ -16,7 +16,7 @@ the flow in a particular state, and that state could be unlikely to occur.
 
 When connecting a committable source to a producer flow, some applications may require each consumed message to produce more than one message. In that case, in order to preserve at-least-once semantics, the message offset should only be committed after all associated messages have been produced.
 
-To achieve this, use the `ProducerMessage.MultiMessage` implementation of `Envelope`:
+To achieve this, use the @scaladoc[ProducerMessage.MultiMessage](akka.kafka.ProducerMessage$$MultiMessage) implementation of @scaladoc[ProducerMessage.Envelope](akka.kafka.ProducerMessage$$Envelope):
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToMany }  
@@ -27,15 +27,15 @@ Java
 
 ### Batches
 
-If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting `CommittableOffsetBatch` only after all messages in the batch are fully processed.
+If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting @scaladoc[CommittableOffsetBatch](akka.kafka.ConsumerMessage$$CommittableOffsetBatch) only after all messages in the batch are fully processed.
 
-Should the batch need to be split up again, using mapConcat, care should be taken to associate the `CommittableOffsetBatch` only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
+Should the batch need to be split up again, using mapConcat, care should be taken to associate the @scaladoc[CommittableOffsetBatch](akka.kafka.ConsumerMessage$$CommittableOffsetBatch) only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
 
 ### Multiple Destinations
 
 In the Conditional Message Processing section below we discuss how to handle producing to multiple Kafka topics, but here we consider writing to other types of persistent storage, or performing other side-effects, perhaps in addition to producing to Kafka topics.
 
-To commit an offset or an offset batch only after the multiple effects have been performed, we will usually want to asssemble our side-effecting flows in series, one after the other. This still allows the side effects to be performed concurrently on distinct messages, using `mapAsync` for example.
+To commit an offset or an offset batch only after the multiple effects have been performed, we will usually want to assemble our side-effecting flows in series, one after the other. This still allows the side effects to be performed concurrently on distinct messages, using `mapAsync` for example.
 
 Alternatively, we could split-off the flow using `alsoTo` to perform the effects in distinct parallel flows. We would then use `zip` to bring the two flows back together and re-associate the matching committable offsets. This step is important to ensure that we only commit an offset once the effects from both flows are complete. This constrains the two flows to output the exact same sequence of committable offsets. So this approach may not be significantly more flexible then a serial arrangement.
 
@@ -45,7 +45,7 @@ Messages from committable sources should be processed in order, otherwise a larg
 
 Reordering would be acceptable if the original order was reconstituted before committing the offsets, but that is a fairly complex and possibly brittle process that we will not consider here.
 
-Using `mapAsync` is safe since it preserves the order of messages. That is in constrast to `mapAsyncUnordered` which would not be safe to use here. As indicated in the @extref[Akka Streams documentation](akka-docs:/scala/stream/stream-flows-and-basics.html#Stream_ordering) almost all stages will preserve input ordering.
+Using `mapAsync` is safe since it preserves the order of messages. That is in contrast to `mapAsyncUnordered` which would not be safe to use here. As indicated in the @extref[Akka Streams documentation](akka:/stream/stream-flows-and-basics.html#stream-ordering) almost all stages will preserve input ordering.
 
 ### Using groupBy
 
@@ -65,9 +65,9 @@ This is a significant challenge. Below we suggest a few strategies to deal with 
  
 ### Publishing to Message-Dependent Topics
 
-Since `ProducerRecord` contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
+Since @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord) contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
 
-In case a committable message should lead to the production of multiple messages, the `ProducerMessage.MultiMessage` is available. If no messages should be produced, the `ProducerMessage.PassThroughMessage` can be used.
+In case a committable message should lead to the production of multiple messages, the @scaladoc[ProducerMessage.MultiMessage](akka.kafka.ProducerMessage$$MultiMessage) is available. If no messages should be produced, the @scaladoc[ProducerMessage.PassThroughMessage](akka.kafka.ProducerMessage$$PassThroughMessage) can be used.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToConditional }  
@@ -82,4 +82,4 @@ Failure to deserialize a message is a particular case of conditional message pro
 
 Why can't we commit the offsets of bad messages as soon as we encounter them, instead of passing them downstream? Because the previous offsets, for messages that have deserialized successfully, may not have been committed yet. That's possible if the downstream flow includes a buffer, an asynchronous boundary or performs batching. It is then likely that some previous messages would concurrently be making their way downstream to a final committing stage.
 
-Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the committable source. We can instead create a `ConsumerSettings` parametrized by byte arrays. A subsequent `map` can deserialize and use `ProducerMessage.PassThroughMessage` to skip bad messages.
+Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the committable source. We can instead create a @apidoc[ConsumerSettings$] parametrized by byte arrays. A subsequent `map` can deserialize and use @scaladoc[ProducerMessage.PassThroughMessage](akka.kafka.ProducerMessage$$PassThroughMessage) to skip bad messages.

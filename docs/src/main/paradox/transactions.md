@@ -9,17 +9,17 @@ For full details on how transactions are achieved in Kafka you may wish to revie
 
 ## Transactional Source
 
-The `Transactional.source` emits a `ConsumerMessage.TransactionalMessage` (@scaladoc[API](akka.kafka.ConsumerMessage$$TransactionalMessage)) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with `ConsumerMessage.CommittableMessage`, the user is not responsible for committing transactions, this is handled by `Transactional.flow` or `Transactional.sink`.
+The @apidoc[Transactional.source](Transactional$) emits a @scaladoc[ConsumerMessage.TransactionalMessage](akka.kafka.ConsumerMessage$$TransactionalMessage) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with @scaladoc[ConsumerMessage.CommittableMessage](akka.kafka.ConsumerMessage$$CommittableMessage), the user is not responsible for committing transactions, this is handled by a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
 
 This source overrides the Kafka consumer property `isolation.level` to `read_committed`, so that only committed messages can be consumed.
 
 A consumer group ID must be provided.
 
-Only use this source if you have the intention to connect it to `Transactional.flow` or `Transactional.sink`.
+Only use this source if you have the intention to connect it to a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
 
 ## Transactional Sink and Flow
 
-The `Transactional.sink` is similar to the `Producer.committableSink` in that messages will be automatically committed as part of a transaction.  The `Transactional.sink` or `Transactional.flow` are required when connecting a consumer to a producer to achieve a transactional workflow.
+The @apidoc[Transactional.sink](Transactional$) is similar to the @apidoc[Producer.committableSink](Producer$) in that messages will be automatically committed as part of a transaction.  The @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$) are required when connecting a consumer to a producer to achieve a transactional workflow.
 
 They override producer properties `enable.idempotence` to `true` and `max.in.flight.requests.per.connection` to `1` as required by the Kafka producer to enable transactions.
 
@@ -27,7 +27,7 @@ A `transactional.id` must be defined and unique for each instance of the applica
 
 ## Consume-Transform-Produce Workflow
 
-Kafka transactions are handled transparently to the user.  The `Transactional.source` will enforce that a consumer group id is specified and the `Transactional.flow` or `Transactional.sink` will enforce that a `transactional.id` is specified.  All other Kafka consumer and producer properties required to enable transactions are overridden.
+Kafka transactions are handled transparently to the user.  The @apidoc[Transactional.source](Transactional$) will enforce that a consumer group id is specified and the @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$) will enforce that a `transactional.id` is specified.  All other Kafka consumer and producer properties required to enable transactions are overridden.
 
 Transactions are committed on an interval which can be controlled with the producer config `akka.kafka.producer.eos-commit-interval`, similar to how exactly once works with Kafka Streams.  The default value is `100ms`.  The larger commit interval is the more records will need to be reprocessed in the event of failure and the transaction is aborted.
 
@@ -35,7 +35,7 @@ When the stream is materialized the producer will initialize the transaction for
 
 Messages are also drained from the stream when the consumer gets a rebalance of partitions. In that case, the consumer will wait in the `onPartitionsRevoked` callback until all of the messages have been drained from the stream and the transaction is committed before allowing the rebalance to continue. The amount of total time the consumer will wait for draining is controlled by the `akka.kafka.consumer.commit-timeout`, and the interval between checks is controlled by the `akka.kafka.consuner.eos-draining-check-interval` configuration settings.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the `Control` (@scala[@scaladoc[API](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[API](akka.kafka.javadsl.Consumer$$Control)]) materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @scala[@scaladoc[Control](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[Control](akka.kafka.javadsl.Consumer$$Control)] materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
@@ -47,9 +47,9 @@ Java
 
 ### Recovery From Failure
 
-When any stage in the stream fails the whole stream will be torn down.  In the general case it's desirable to allow transient errors to fail the whole stream because they cannot be recovered from within the application.  Transient errors can be caused by network partitions, Kafka broker failures, `ProducerFencedException`'s from other application instances, and so on.  When the stream encounters transient errors then the current transaction will be aborted before the stream is torn down.  Any produced messages that were not committed will not be available to downstream consumers as long as those consumers are configured with `isolation.level = read_committed`.
+When any stage in the stream fails the whole stream will be torn down.  In the general case it's desirable to allow transient errors to fail the whole stream because they cannot be recovered from within the application.  Transient errors can be caused by network partitions, Kafka broker failures, @javadoc[ProducerFencedException](org.apache.kafka.common.errors.ProducerFencedException)'s from other application instances, and so on.  When the stream encounters transient errors then the current transaction will be aborted before the stream is torn down.  Any produced messages that were not committed will not be available to downstream consumers as long as those consumers are configured with `isolation.level = read_committed`.
 
-For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the `RestartSource` (@extref[Akka docs](akka-docs:/stream/stream-error.html#delayed-restarts-with-a-backoff-stage)) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
+For transient errors we can choose to rely on the Kafka producer's configuration to retry, or we can handle it ourselves at the Akka Streams or Application layer.  Using the @extref[RestartSource](akka:/stream/stream-error.html#delayed-restarts-with-a-backoff-stage) we can backoff connection attempts so that we don't hammer the Kafka cluster in a tight loop.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #transactionalFailureRetry }
@@ -63,7 +63,7 @@ There are several scenarios that this library's implementation of Kafka transact
 
 All of the scenarios covered in the @ref[At-Least-Once Delivery documentation](atleastonce.md) (Multiple Effects per Commit, Non-Sequential Processing, and Conditional Message Processing) are applicable to transactional scenarios as well.
 
-Only one application instance per `transactional.id` is allowed.  If two application instances with the same `transactional.id` are run at the same time then the instance that registers with Kafka's transaction coordinator second will throw a `ProducerFencedException` so it doesn't interfere with transactions in process by the first instance.  To distribute multiple transactional workflows for the same subscription the user must manually subdivide the subscription across multiple instances of the application.  This may be handled internally in future versions.
+Only one application instance per `transactional.id` is allowed.  If two application instances with the same `transactional.id` are run at the same time then the instance that registers with Kafka's transaction coordinator second will throw a @javadoc[ProducerFencedException](org.apache.kafka.common.errors.ProducerFencedException) so it doesn't interfere with transactions in process by the first instance.  To distribute multiple transactional workflows for the same subscription the user must manually subdivide the subscription across multiple instances of the application.  This may be handled internally in future versions.
 
 Any state in the transformation logic is not part of a transaction.  It's left to the user to rebuild state when applying stateful operations with transaction.  It's possible to encode state into messages produced to topics during a transaction.  For example you could produce messages to a topic that represents an event log as part of a transaction.  This event log can be replayed to reconstitute the correct state before the stateful stream resumes consuming again at startup.
 

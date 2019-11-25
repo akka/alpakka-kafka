@@ -6,7 +6,7 @@ You're always welcome to submit your PR straight away and start the discussion (
 
 # The Akka Community
 
-In case of questions about the contribution process or for discussion of specific issues please visit the [akka/reactive-kafka gitter chat](https://gitter.im/akka/reactive-kafka) or the [akka/dev gitter chat](https://gitter.im/akka/dev).
+In case of questions about the contribution process or for discussion of specific issues please visit the [akka/alpakka-kafka gitter chat](https://gitter.im/akka/alpakka-kafka) or the [akka/dev gitter chat](https://gitter.im/akka/dev).
 
 You may also check out these [other resources](https://akka.io/get-involved/).
 
@@ -112,7 +112,7 @@ Example:
 
 ## How To Enforce These Guidelines?
 
-1. [Travis CI](https://travis-ci.org/akka/reactive-kafka) automatically merges the code, builds it, runs the tests and sets Pull Request status accordingly of results in GitHub.  
+1. [Travis CI](https://travis-ci.org/akka/alpakka-kafka) automatically merges the code, builds it, runs the tests and sets Pull Request status accordingly of results in GitHub.
 1. [Scalafmt](http://scalameta.org/scalafmt/) enforces some of the code style rules.
 1. [sbt-header plugin](https://github.com/sbt/sbt-header) manages consistent copyright headers in every source file.
 1. The [sbt-whitesourece plugin](https://github.com/lightbend/sbt-whitesource) checks licensing models of all (transitive) dependencies. 
