@@ -17,11 +17,11 @@ The supported metadata are
 
 | Metadata | Response type |
 |-------| ------- |
-| Topics list | `Future[Map[String, List[PartitionInfo]]]` | 
-| Partitions | `Future[List[PartitionInfo]]` |
-| Beginning offsets | `Future[Map[TopicPartition, Long]]` |
-| End offsets | `Future[Map[TopicPartition, Long]]` |
-| Committed offset | `Future[OffsetAndMetadata]` |
+| Topics list | @scala[Future[Map[String, List[PartitionInfo]]]]@java[CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]]] |
+| Partitions | @scala[Future[List[PartitionInfo]]]@java[CompletionStage[java.util.List[PartitionInfo]]] |
+| Beginning offsets | @scala[Future[Map[TopicPartition, Long]]]@java[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]] |
+| End offsets | @scala[Future[Map[TopicPartition, Long]]]@java[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]] |
+| Committed offset | @scala[Future[OffsetAndMetadata]]@java[CompletionStage[OffsetAndMetadata]] |
    
 @@@ warning
 
