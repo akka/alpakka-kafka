@@ -350,6 +350,5 @@ Java
 
 * [subscription](subscription.md)
 * [metadata](consumer-metadata.md)
-* [metadata-client](metadata-client.md)
 
 @@@
