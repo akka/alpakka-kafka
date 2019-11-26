@@ -5,6 +5,7 @@
 
 package akka.kafka.testkit.scaladsl
 
+import java.time.Duration
 import java.util
 import java.util.concurrent.TimeUnit
 
@@ -56,7 +57,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   }
 
   def cleanUp(): Unit = {
-    if (testProducer ne null) testProducer.close(60, TimeUnit.SECONDS)
+    if (testProducer ne null) testProducer.close(Duration.ofSeconds(60))
     cleanUpAdminClient()
     TestKit.shutdownActorSystem(system)
   }

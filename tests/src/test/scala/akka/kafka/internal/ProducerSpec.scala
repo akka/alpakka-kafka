@@ -5,7 +5,7 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.{CompletableFuture, TimeUnit}
+import java.util.concurrent.CompletableFuture
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
@@ -30,9 +30,9 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class ProducerSpec(_system: ActorSystem)
@@ -555,7 +555,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
         }
       })
     Mockito
-      .when(result.close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit]))
+      .when(result.close(mockito.ArgumentMatchers.any[java.time.Duration]))
       .thenAnswer(new Answer[Unit] {
         override def answer(invocation: InvocationOnMock) =
           closed = true
@@ -570,14 +570,16 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
 
   def verifyClosed() = {
     Mockito.verify(mock).flush()
-    Mockito.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    Mockito.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 
   def verifyForceClosedInCallback() = {
     val inOrder = Mockito.inOrder(mock)
-    inOrder.verify(mock, atLeastOnce()).close(mockito.ArgumentMatchers.eq(0L), mockito.ArgumentMatchers.any[TimeUnit])
+    // the force close from the async callback `failStageCb`
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
+    // the flush and close from `closeProducer`
     inOrder.verify(mock).flush()
-    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 
   def verifyNoMoreInteractions() =
@@ -608,7 +610,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     val inOrder = Mockito.inOrder(mock)
     inOrder.verify(mock).abortTransaction()
     inOrder.verify(mock).flush()
-    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 }
 

@@ -11,7 +11,7 @@ import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage.Committable
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, CommitterSettings, ConsumerMessage, ProducerSettings}
-import akka.stream.javadsl.{Flow, FlowWithContext, Keep, Sink}
+import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 import akka.{japi, Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 

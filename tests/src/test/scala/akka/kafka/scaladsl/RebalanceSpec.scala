@@ -52,7 +52,6 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .run()
 
       // Await initial partition assignment
-      probe1rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
@@ -69,12 +68,11 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      // Await a revoke to both consumers
+      // Await a revoke to consumer 1
       probe1rebalanceActor.expectMsg(
         TopicPartitionsRevoked(probe1subscription,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      probe2rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
 
       // the rebalance finishes
       probe1rebalanceActor.expectMsg(

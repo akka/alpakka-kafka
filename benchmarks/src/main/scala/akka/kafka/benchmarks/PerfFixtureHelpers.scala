@@ -5,6 +5,7 @@
 
 package akka.kafka.benchmarks
 
+import java.time.Duration
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.{Arrays, Properties, UUID}
@@ -39,6 +40,8 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
 
   val producerTimeout = 6 minutes
   val logPercentStep = 25
+  val adminClientCloseTimeout = Duration.ofSeconds(5)
+  val producerCloseTimeout = adminClientCloseTimeout
 
   def randomId(): String = PerfFixtureHelpers.randomId()
 
@@ -50,7 +53,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
     val admin = AdminClient.create(props)
     val producer = createTopicAndFill(ft, props, admin)
-    admin.close(5, TimeUnit.SECONDS)
+    admin.close(adminClientCloseTimeout)
     producer
   }
 
@@ -64,9 +67,9 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
       logger.info(s"Reusing existing topic $ft")
     } else {
       val producer = createTopicAndFill(ft, props, admin)
-      producer.close(5, TimeUnit.SECONDS)
+      producer.close(producerCloseTimeout)
     }
-    admin.close(5, TimeUnit.SECONDS)
+    admin.close(adminClientCloseTimeout)
   }
 
   private def createTopicAndFill(ft: FilledTopic, props: Properties, admin: AdminClient) = {

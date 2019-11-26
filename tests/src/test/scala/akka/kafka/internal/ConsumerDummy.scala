@@ -5,6 +5,8 @@
 
 package akka.kafka.internal
 
+import java.time.Duration
+import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -48,6 +50,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def commitAsync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                            callback: OffsetCommitCallback): Unit = ???
   override def seek(partition: TopicPartition, offset: Long): Unit = ???
+  override def seek(partition: TopicPartition, offsetAndMetadata: OffsetAndMetadata): Unit = ???
   override def seekToBeginning(partitions: java.util.Collection[TopicPartition]): Unit = ???
   override def seekToEnd(partitions: java.util.Collection[TopicPartition]): Unit = ???
   override def position(partition: TopicPartition): Long = ???
@@ -80,6 +83,10 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                           timeout: java.time.Duration): Unit = ???
   override def committed(partition: TopicPartition, timeout: java.time.Duration): OffsetAndMetadata = ???
+  override def committed(partitions: util.Set[TopicPartition]): util.Map[TopicPartition, OffsetAndMetadata] = ???
+  override def committed(partitions: util.Set[TopicPartition],
+                         timeout: Duration): util.Map[TopicPartition, OffsetAndMetadata] = ???
+
   override def partitionsFor(topic: String, timeout: java.time.Duration): java.util.List[PartitionInfo] = ???
   override def listTopics(timeout: java.time.Duration): java.util.Map[String, java.util.List[PartitionInfo]] = ???
   override def beginningOffsets(partitions: java.util.Collection[TopicPartition],
@@ -87,5 +94,4 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def endOffsets(partitions: java.util.Collection[TopicPartition],
                           timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
   override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
-
 }

@@ -321,7 +321,8 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike {
               case (_, value) => duplicates.contains(value)
             }
             .groupBy(_._2) // message
-            .mapValues(_.map(_._1)) // keep offset
+            // workaround for Scala collection refactoring of `mapValues` to remain compat with 2.12/2.13 cross build
+            .map { case (k, v) => (k, v.map(_._1)) } // keep offset
             .filter {
               case (_, offsets) => offsets.distinct.size > 1
             }
@@ -446,13 +447,13 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike {
 
       sumsConsumer
         .request(10)
-        .expectNextN((1 to 100).grouped(10).map(_.sum.toString).to[immutable.Seq])
+        .expectNextN((1 to 100).grouped(10).map(_.sum.toString).toList)
 
       val concatsConsumer = valuesProbeConsumer(probeConsumerSettings(createGroupId(2)), concatsTopic)
 
       concatsConsumer
         .request(10)
-        .expectNextN((1 to 100).map(_.toString).grouped(10).map(_.reduce(_ + _)).to[immutable.Seq])
+        .expectNextN((1 to 100).map(_.toString).grouped(10).map(_.reduce(_ + _)).toList)
 
       sumsConsumer.cancel()
       concatsConsumer.cancel()

@@ -290,7 +290,6 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       producer.futureValue shouldBe Done
 
-      rebalanceActor.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
       rebalanceActor.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       // waits until partitions are assigned across both consumers

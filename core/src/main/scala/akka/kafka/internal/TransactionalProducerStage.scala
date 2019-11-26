@@ -142,11 +142,15 @@ private final class TransactionalProducerStageLogic[K, V, P](
       maybeCommitTransaction()
     }
 
-  private def maybeCommitTransaction(beginNewTransaction: Boolean = true): Unit = {
+  private def maybeCommitTransaction(beginNewTransaction: Boolean = true,
+                                     abortEmptyTransactionOnComplete: Boolean = false): Unit = {
     val awaitingConf = awaitingConfirmation.get
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
         commitTransaction(batch, beginNewTransaction)
+      case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
+        log.debug("Aborting empty transaction because we're completing.")
+        abortTransaction()
       case _ if awaitingConf > 0 =>
         suspendDemand()
         scheduleOnce(commitSchedulerKey, messageDrainInterval)
@@ -162,7 +166,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")
     cancelTimer(commitSchedulerKey)
-    maybeCommitTransaction(beginNewTransaction = false)
+    maybeCommitTransaction(beginNewTransaction = false, abortEmptyTransactionOnComplete = true)
     super.onCompletionSuccess()
   }
 
