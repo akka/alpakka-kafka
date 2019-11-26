@@ -5,6 +5,7 @@
 
 package akka.kafka.testkit.scaladsl
 
+import java.time.Duration
 import java.util
 import java.util.concurrent.TimeUnit
 
@@ -56,7 +57,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   }
 
   def cleanUp(): Unit = {
-    if (testProducer ne null) testProducer.close(60, TimeUnit.SECONDS)
+    if (testProducer ne null) testProducer.close(Duration.ofSeconds(60))
     cleanUpAdminClient()
     TestKit.shutdownActorSystem(system)
   }
@@ -146,7 +147,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
     // using a hash of the key. If neither key nor partition is present a partition
     // will be assigned in a round-robin fashion.
       .map(n => new ProducerRecord(topic, partition, DefaultKey, n))
-      .runWith(Producer.plainSink(producerDefaults, testProducer))
+      .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
   /**
    * Produce messages to topic using specified range and return
@@ -162,7 +163,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
       .map {
         case (n, ts) => new ProducerRecord(topic, partition0, ts, DefaultKey, n.toString)
       }
-      .runWith(Producer.plainSink(producerDefaults, testProducer))
+      .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
   /**
    * Produce batches over several topics.

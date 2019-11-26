@@ -6,6 +6,9 @@
 package akka.kafka
 
 import akka.actor.ActorRef
+import akka.annotation.InternalApi
+import akka.kafka.internal.PartitionAssignmentHelpers
+import akka.kafka.internal.PartitionAssignmentHelpers.EmptyPartitionAssignmentHandler
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.varargs
@@ -23,6 +26,10 @@ sealed trait Subscription {
 
   protected def renderListener: String = ""
 }
+
+/**
+ * Kafka-speak for these is "Assignments".
+ */
 sealed trait ManualSubscription extends Subscription {
 
   /** @deprecated Manual subscriptions do never rebalance, since 1.0-RC1 */
@@ -33,13 +40,24 @@ sealed trait ManualSubscription extends Subscription {
   @deprecated("Manual subscription does never rebalance", "1.0-RC1")
   def withRebalanceListener(ref: ActorRef): ManualSubscription
 }
+
+/**
+ * Kafka-speak for these is "Subscriptions".
+ */
 sealed trait AutoSubscription extends Subscription {
 
   /** ActorRef which is to receive [[akka.kafka.ConsumerRebalanceEvent]] signals when rebalancing happens */
   def rebalanceListener: Option[ActorRef]
 
+  @InternalApi
+  def partitionAssignmentHandler: scaladsl.PartitionAssignmentHandler
+
   /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
   def withRebalanceListener(ref: ActorRef): AutoSubscription
+
+  def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription
+
+  def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription
 
   override protected def renderListener: String =
     rebalanceListener match {
@@ -58,20 +76,39 @@ object Subscriptions {
 
   /** INTERNAL API */
   @akka.annotation.InternalApi
-  private[kafka] final case class TopicSubscription(tps: Set[String], rebalanceListener: Option[ActorRef])
-      extends AutoSubscription {
+  private[kafka] final case class TopicSubscription(
+      tps: Set[String],
+      rebalanceListener: Option[ActorRef],
+      override val partitionAssignmentHandler: scaladsl.PartitionAssignmentHandler
+  ) extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
       copy(rebalanceListener = Some(ref))
 
+    def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
+      copy(partitionAssignmentHandler = handler)
+
+    def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription =
+      copy(partitionAssignmentHandler = PartitionAssignmentHelpers.WrappedJava(handler))
+
     def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
+
   }
 
   /** INTERNAL API */
   @akka.annotation.InternalApi
-  private[kafka] final case class TopicSubscriptionPattern(pattern: String, rebalanceListener: Option[ActorRef])
-      extends AutoSubscription {
+  private[kafka] final case class TopicSubscriptionPattern(
+      pattern: String,
+      rebalanceListener: Option[ActorRef],
+      override val partitionAssignmentHandler: scaladsl.PartitionAssignmentHandler
+  ) extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
       copy(rebalanceListener = Some(ref))
+
+    def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
+      copy(partitionAssignmentHandler = handler)
+
+    def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription =
+      copy(partitionAssignmentHandler = PartitionAssignmentHelpers.WrappedJava(handler))
 
     def renderStageAttribute: String = s"pattern $pattern$renderListener"
   }
@@ -102,7 +139,7 @@ object Subscriptions {
 
   /** Creates subscription for given set of topics */
   def topics(ts: Set[String]): AutoSubscription =
-    TopicSubscription(ts, rebalanceListener = None)
+    TopicSubscription(ts, rebalanceListener = None, EmptyPartitionAssignmentHandler)
 
   /**
    * JAVA API
@@ -121,7 +158,7 @@ object Subscriptions {
    * Creates subscription for given topics pattern
    */
   def topicPattern(pattern: String): AutoSubscription =
-    TopicSubscriptionPattern(pattern, rebalanceListener = None)
+    TopicSubscriptionPattern(pattern, rebalanceListener = None, EmptyPartitionAssignmentHandler)
 
   /**
    * Manually assign given topics and partitions

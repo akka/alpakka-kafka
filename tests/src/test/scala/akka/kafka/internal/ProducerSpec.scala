@@ -5,7 +5,7 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.{CompletableFuture, TimeUnit}
+import java.util.concurrent.CompletableFuture
 
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
@@ -30,9 +30,9 @@ import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class ProducerSpec(_system: ActorSystem)
@@ -86,43 +86,57 @@ class ProducerSpec(_system: ActorSystem)
   }
 
   val settings =
-    ProducerSettings(system, new StringSerializer, new StringSerializer).withEosCommitInterval(10.milliseconds)
+    ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withEosCommitInterval(10.milliseconds)
 
   def testProducerFlow[P](mock: ProducerMock[K, V],
-                          closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] =
+                          closeOnStop: Boolean = true): Flow[Message[K, V, P], Result[K, V, P], NotUsed] = {
+    val pSettings = settings.withProducer(mock.mock).withCloseProducerOnStop(closeOnStop)
     Flow
       .fromGraph(
-        new DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](settings.closeTimeout,
-                                                                             closeOnStop,
-                                                                             _ => Future.successful(mock.mock))
+        new DefaultProducerStage[K, V, P, Message[K, V, P], Result[K, V, P]](pSettings)
       )
       .mapAsync(1)(identity)
+  }
 
-  def testTransactionProducerFlow[P](mock: ProducerMock[K, V],
-                                     closeOnStop: Boolean = true): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] =
+  def testTransactionProducerFlow[P](
+      mock: ProducerMock[K, V],
+      closeOnStop: Boolean = true
+  ): Flow[Envelope[K, V, P], Results[K, V, P], NotUsed] = {
+    val pSettings = settings.withProducerFactory(_ => mock.mock).withCloseProducerOnStop(closeOnStop)
     Flow
       .fromGraph(
-        new TransactionalProducerStage[K, V, P](settings.closeTimeout,
-                                                closeOnStop,
-                                                _ => Future.successful(mock.mock),
-                                                settings.eosCommitInterval)
+        new TransactionalProducerStage[K, V, P](pSettings)
       )
       .mapAsync(1)(identity)
+  }
 
-  "Producer" should "not send messages when source is empty" in {
+  "Producer" should "send one message and shutdown the producer gracefully" in {
     assertAllStagesStopped {
-      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+      val input = recordAndMetadata(1)
 
-      val probe = Source
-        .empty[Msg]
+      val client = {
+        val inputMap = Map(input)
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+      val committer = new CommittedMarkerMock
+
+      val (source, sink) = TestSource
+        .probe[TxMsg]
         .via(testProducerFlow(client))
-        .runWith(TestSink.probe)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-      probe
-        .request(1)
-        .expectComplete()
+      val txMsg = toTxMessage(input, committer.mock)
+      source.sendNext(txMsg)
+      sink.requestNext()
 
-      client.verifySend(never())
+      // we must wait for the producer to be asynchronously assigned before observing interactions with the mock
+      awaitAssert(client.verifySend(times(1)))
+
+      source.sendComplete()
+      sink.expectComplete()
+
       client.verifyClosed()
       client.verifyNoMoreInteractions()
     }
@@ -134,7 +148,7 @@ class ProducerSpec(_system: ActorSystem)
 
       val mockProducer = new MockProducer[String, String](true, null, null)
 
-      val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings, mockProducer))
+      val fut: Future[Done] = Source(input).runWith(Producer.plainSink(settings.withProducer(mockProducer)))
 
       Await.result(fut, Duration.apply("1 second"))
       mockProducer.close()
@@ -357,18 +371,29 @@ class ProducerSpec(_system: ActorSystem)
 
   it should "initialize and begin a transaction when first run" in {
     assertAllStagesStopped {
-      val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
+      val input = recordAndMetadata(1)
 
-      val probe = Source
-        .empty[Msg]
+      val client = {
+        val inputMap = Map(input)
+        new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
+      }
+      val committer = new CommittedMarkerMock
+
+      val (source, sink) = TestSource
+        .probe[TxMsg]
         .via(testTransactionProducerFlow(client))
-        .runWith(TestSink.probe)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-      probe
-        .request(1)
-        .expectComplete()
+      val txMsg = toTxMessage(input, committer.mock)
+      source.sendNext(txMsg)
+      sink.requestNext()
 
-      client.verifyTxInitialized()
+      // we must wait for the producer to be asynchronously assigned before observing interactions with the mock
+      awaitAssert(client.verifyTxInitialized())
+
+      source.sendComplete()
+      sink.expectComplete()
     }
   }
 
@@ -530,7 +555,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
         }
       })
     Mockito
-      .when(result.close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit]))
+      .when(result.close(mockito.ArgumentMatchers.any[java.time.Duration]))
       .thenAnswer(new Answer[Unit] {
         override def answer(invocation: InvocationOnMock) =
           closed = true
@@ -545,14 +570,16 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
 
   def verifyClosed() = {
     Mockito.verify(mock).flush()
-    Mockito.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    Mockito.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 
   def verifyForceClosedInCallback() = {
     val inOrder = Mockito.inOrder(mock)
-    inOrder.verify(mock, atLeastOnce()).close(mockito.ArgumentMatchers.eq(0L), mockito.ArgumentMatchers.any[TimeUnit])
+    // the force close from the async callback `failStageCb`
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
+    // the flush and close from `closeProducer`
     inOrder.verify(mock).flush()
-    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 
   def verifyNoMoreInteractions() =
@@ -583,7 +610,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     val inOrder = Mockito.inOrder(mock)
     inOrder.verify(mock).abortTransaction()
     inOrder.verify(mock).flush()
-    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[Long], mockito.ArgumentMatchers.any[TimeUnit])
+    inOrder.verify(mock).close(mockito.ArgumentMatchers.any[java.time.Duration])
   }
 }
 

@@ -23,11 +23,11 @@ Akka Stream connectors to other technologies are listed in the [Alpakka reposito
 Documentation
 -------------
 
-- [Alpakka reference](https://developer.lightbend.com/docs/alpakka/current/) documentation 
+- [Alpakka reference](https://doc.akka.io/docs/alpakka/current/) documentation
 
 - **[Alpakka Kafka connector reference](https://doc.akka.io/docs/akka-stream-kafka/current/) documentation**
 
-To keep up with the latest Alpakka releases check out [Alpakka releases](https://github.com/akka/alpakka/releases) and [Alpakka Kafka connector releases](https://github.com/akka/alpakka-kafka/releases).
+To keep up with the latest Alpakka releases check out [Alpakka releases](https://doc.akka.io/docs/alpakka/current/release-notes/index.html) and [Alpakka Kafka connector releases](https://doc.akka.io/docs/alpakka-kafka/current/release-notes/index.html).
 
 
 Community

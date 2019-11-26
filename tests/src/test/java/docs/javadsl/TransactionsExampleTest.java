@@ -11,7 +11,7 @@ import akka.actor.ActorSystem;
 import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Transactional;
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 
-public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
+public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem system = ActorSystem.create("TransactionsExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -37,7 +37,7 @@ public class TransactionsExampleTest extends EmbeddedKafkaJunit4Test {
   private final ProducerSettings<String, String> producerSettings = producerDefaults();
 
   public TransactionsExampleTest() {
-    super(system, materializer, KafkaPorts.JavaTransactionsExamples());
+    super(system, materializer);
   }
 
   @AfterClass

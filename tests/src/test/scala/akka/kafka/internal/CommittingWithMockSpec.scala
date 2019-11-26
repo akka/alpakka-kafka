@@ -116,7 +116,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
+    val done = probe.expectNext().committableOffset.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -149,7 +149,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
+    val done = probe.expectNext().committableOffset.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -181,7 +181,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(List(toRecord(msg)))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitScaladsl()
+    val done = probe.expectNext().committableOffset.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -211,7 +211,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(count.toLong)
-    val done = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitScaladsl()))
+    val done = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitInternal()))
 
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {
@@ -248,7 +248,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       .map(_.committableOffset)
       .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
 
-    val done = batch.commitScaladsl()
+    val done = batch.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -287,7 +287,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       .map(_.committableOffset)
       .foldLeft(CommittableOffsetBatch.empty)(_.updated(_))
 
-    val done = batch.commitScaladsl()
+    val done = batch.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -330,7 +330,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       .map(_.foldLeft(CommittableOffsetBatch.empty)(_ updated _))
       .foldLeft(CommittableOffsetBatch.empty)(_ updated _)
 
-    val done = batch.commitScaladsl()
+    val done = batch.commitInternal()
 
     awaitAssert {
       commitLog.calls should have size (1)
@@ -387,7 +387,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       .map(_.committableOffset)
       .foldLeft(batch1)(_.updated(_))
 
-    val done2 = batch2.commitScaladsl()
+    val done2 = batch2.commitInternal()
 
     awaitAssert {
       commitLog1.calls should have size (1)

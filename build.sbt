@@ -9,9 +9,15 @@ val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
-val akkaVersion = if (Nightly) "2.6.0-RC1" else "2.5.23"
-val kafkaVersion = "2.1.1"
-val kafkaVersionForDocs = "21"
+val akkaVersion = if (Nightly) "2.6.0" else "2.5.23"
+val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
+val kafkaVersion = "2.4.0"
+val embeddedKafkaVersion = kafkaVersion
+val embeddedKafka = "io.github.seglo" %% "embedded-kafka" % embeddedKafkaVersion // "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
+// this depends on Kafka, and should be upgraded to such latest version
+// that depends on the same Kafka version, as is defined above
+val embeddedKafkaSchemaRegistry = "5.1.1"
+val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.2"
 val slf4jVersion = "1.7.26"
@@ -28,15 +34,13 @@ val silencer = {
   )
 }
 
-// this depends on Kafka, and should be upgraded to such latest version
-// that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.1.2"
-
 resolvers in ThisBuild ++= Seq(
-  // for Embedded Kafka
-  Resolver.bintrayRepo("manub", "maven"),
+  // for Embedded Kafka 2.4.0
+  Resolver.bintrayRepo("seglo", "maven"),
   // for Jupiter interface (JUnit 5)
-  Resolver.jcenterRepo
+  Resolver.jcenterRepo,
+  // for release candidate builds of Apache Kafka
+  "Apache Staging" at "https://repository.apache.org/content/groups/staging/"
 )
 
 TaskKey[Unit]("verifyCodeStyle") := {
@@ -170,9 +174,6 @@ lazy val `alpakka-kafka` =
             |  verifyCodeStyle
             |    checks if all of the code is formatted according to the configuration
             |
-            |  verifyCompilation
-            |    compiles all the code and checks for compilation warnings
-            |
             |  verifyDocs
             |    builds all of the docs
             |
@@ -222,25 +223,11 @@ lazy val testkit = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
-        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
-      ) ++ silencer ++ {
-        if (scalaBinaryVersion.value == "2.13") Seq()
-        else
-          Seq(
-            "org.apache.kafka" %% "kafka" % kafkaVersion exclude ("org.slf4j", "slf4j-log4j12"),
-            "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10", // Kafka pulls in jackson databind ApacheV2
-            "org.apache.commons" % "commons-compress" % "1.19", // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-            "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion exclude ("log4j", "log4j")
-          )
-      },
-    Compile / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == "2.13") {
-        HiddenFileFilter ||
-        "EmbeddedKafkaLike.scala" ||
-        "EmbeddedKafkaTest.java" ||
-        "EmbeddedKafkaJunit4Test.java"
-      } else (Test / unmanagedSources / excludeFilter).value
-    },
+        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
+        "org.apache.kafka" %% "kafka" % embeddedKafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
+        "org.apache.commons" % "commons-compress" % "1.19" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+        embeddedKafka % Provided exclude ("log4j", "log4j")
+      ) ++ silencer,
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -268,15 +255,16 @@ lazy val tests = project
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
-        "org.hamcrest" % "hamcrest-library" % "2.1" % Test,
-        "org.hamcrest" % "hamcrest" % "2.1" % Test,
+        "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
+        "org.hamcrest" % "hamcrest" % "2.2" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
         "ch.qos.logback" % "logback-classic" % "1.2.3" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "2.24.5" % Test
+        "org.mockito" % "mockito-core" % "2.24.5" % Test,
+        embeddedKafka % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
@@ -294,23 +282,12 @@ lazy val tests = project
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
-      if (scalaBinaryVersion.value == "2.13") {
-        HiddenFileFilter ||
-        "RetentionPeriodSpec.scala" ||
-        "MultiConsumerSpec.scala" ||
-        "ReconnectSpec.scala" ||
-        "EmbeddedKafkaSampleSpec.scala" ||
-        "TransactionsSpec.scala" ||
-        "SerializationSpec.scala" ||
-        "PartitionExamples.scala" ||
-        "TransactionsExample.scala" ||
-        "ConnectionCheckerSpec.scala" ||
-        "EmbeddedKafkaWithSchemaRegistryTest.java" ||
-        "AssignmentTest.java" ||
-        "ProducerExampleTest.java" ||
-        "SerializationTest.java" ||
-        "TransactionsExampleTest.java"
-      } else (Test / unmanagedSources / excludeFilter).value
+      HiddenFileFilter ||
+      // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is
+      // available for Kafka 2.4.0
+      "SerializationTest.java" ||
+      "SerializationSpec.scala" ||
+      "EmbeddedKafkaWithSchemaRegistryTest.java"
     }
   )
 
@@ -332,22 +309,36 @@ lazy val docs = project
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
-        "akka.version" -> akkaVersion,
-        "kafka.version" -> kafkaVersion,
+        "embeddedKafka.version" -> embeddedKafkaVersion,
         "confluent.version" -> confluentAvroSerializerVersion,
         "scalatest.version" -> scalatestVersion,
-        "testcontainers.version" -> testcontainersVersion,
-        "extref.akka-docs.base_url" -> s"https://doc.akka.io/docs/akka/$akkaVersion/%s",
-        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
-        "extref.kafka-docs.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/documentation/%s",
-        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
-        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
-        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$akkaVersion",
         "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
-        "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+        "javadoc.akka.kafka.base_url" -> "",
+        // Akka
+        "akka.version" -> akkaVersion,
+        "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
+        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
+        "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
+        "javadoc.akka.link_style" -> "frames",
+        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        // Kafka
+        "kafka.version" -> kafkaVersion,
+        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
-        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/"
+        "javadoc.org.apache.kafka.link_style" -> "frames",
+        // Java
+        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
+        "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
+        "javadoc.link_style" -> "direct",
+        // Scala
+        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
+        "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
+        // Testcontainers
+        "testcontainers.version" -> testcontainersVersion,
+        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/",
+        "javadoc.org.testcontainers.link_style" -> "frames"
       ),
+    apidocRootPackage := "akka",
     paradoxRoots := List("index.html",
                          "release-notes/1.0-M1.html",
                          "release-notes/1.0-RC1.html",

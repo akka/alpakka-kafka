@@ -77,7 +77,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
       }
       .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize.toLong).withParallelism(3)))
       .toMat(Sink.foreach {
-        _.offsets().values
+        _.offsets.values
           .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
           .foreach(_ => if (counter.decrementAndGet() == 0) promise.complete(Success(())))
       })(Keep.left)
@@ -130,7 +130,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
     val control = fixture.source
       .mapAsync(1) { m =>
         meter.mark()
-        m.committableOffset.commitScaladsl().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
+        m.committableOffset.commitInternal().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
       .toMat(Sink.foreach { msg =>
         if (msg.committableOffset.partitionOffset.offset >= fixture.msgCount - 1)

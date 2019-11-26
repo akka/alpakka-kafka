@@ -4,20 +4,20 @@
  */
 
 package akka.kafka.internal
+
 import akka.Done
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
-import akka.stream.{Attributes, FlowShape}
+import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.stage._
+import akka.stream.{Attributes, FlowShape}
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
@@ -26,15 +26,12 @@ import scala.jdk.CollectionConverters._
  */
 @InternalApi
 private[kafka] final class TransactionalProducerStage[K, V, P](
-    val closeTimeout: FiniteDuration,
-    val closeProducerOnStop: Boolean,
-    val producerProvider: ExecutionContext => Future[Producer[K, V]],
-    commitInterval: FiniteDuration
+    val settings: ProducerSettings[K, V]
 ) extends GraphStage[FlowShape[Envelope[K, V, P], Future[Results[K, V, P]]]]
     with ProducerStage[K, V, P, Envelope[K, V, P], Results[K, V, P]] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new TransactionalProducerStageLogic(this, producerProvider, inheritedAttributes, commitInterval)
+    new TransactionalProducerStageLogic(this, inheritedAttributes)
 }
 
 /** Internal API */
@@ -100,12 +97,8 @@ private object TransactionalProducerStage {
  */
 private final class TransactionalProducerStageLogic[K, V, P](
     stage: TransactionalProducerStage[K, V, P],
-    producerFactory: ExecutionContext => Future[Producer[K, V]],
-    inheritedAttributes: Attributes,
-    commitInterval: FiniteDuration
-) extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage,
-                                                                                    producerFactory,
-                                                                                    inheritedAttributes)
+    inheritedAttributes: Attributes
+) extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage, inheritedAttributes)
     with StageLogging
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
@@ -128,7 +121,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
     initTransactions()
     beginTransaction()
     resumeDemand()
-    scheduleOnce(commitSchedulerKey, commitInterval)
+    scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
   }
 
   // suspend demand until a Producer has been created
@@ -149,16 +142,20 @@ private final class TransactionalProducerStageLogic[K, V, P](
       maybeCommitTransaction()
     }
 
-  private def maybeCommitTransaction(beginNewTransaction: Boolean = true): Unit = {
+  private def maybeCommitTransaction(beginNewTransaction: Boolean = true,
+                                     abortEmptyTransactionOnComplete: Boolean = false): Unit = {
     val awaitingConf = awaitingConfirmation.get
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
         commitTransaction(batch, beginNewTransaction)
+      case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
+        log.debug("Aborting empty transaction because we're completing.")
+        abortTransaction()
       case _ if awaitingConf > 0 =>
         suspendDemand()
         scheduleOnce(commitSchedulerKey, messageDrainInterval)
       case _ =>
-        scheduleOnce(commitSchedulerKey, commitInterval)
+        scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
     }
   }
 
@@ -169,7 +166,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")
     cancelTimer(commitSchedulerKey)
-    maybeCommitTransaction(beginNewTransaction = false)
+    maybeCommitTransaction(beginNewTransaction = false, abortEmptyTransactionOnComplete = true)
     super.onCompletionSuccess()
   }
 
@@ -201,7 +198,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   val onInternalCommitAckCb: AsyncCallback[Unit] = {
     getAsyncCallback[Unit](
-      _ => scheduleOnce(commitSchedulerKey, commitInterval)
+      _ => scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
     )
   }
 

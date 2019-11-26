@@ -7,29 +7,22 @@ package docs.scaladsl
 
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetBatch}
+import akka.Done
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.{ActorMaterializer, Materializer}
-import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink, Source}
+import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{
-  ByteArrayDeserializer,
-  ByteArraySerializer,
-  StringDeserializer,
-  StringSerializer
-}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, Future, Promise}
 
 // Consume messages and store a representation, including offset, in DB
 class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
@@ -393,6 +386,52 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     revokedPromise.future.futureValue should be(Done)
   }
 
+  "Partition Assignment Listener" should "get notified" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    val tpsSet = Set(new TopicPartition(topic, 0))
+    val assignedPromise = Promise[Set[TopicPartition]]
+    val revokedPromise = Promise[Set[TopicPartition]]
+    val stopPromise = Promise[Set[TopicPartition]]
+
+    // #partitionAssignmentHandler
+    val assignmentHandler = new PartitionAssignmentHandler {
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
+        revokedPromise.success(revokedTps)
+
+      // #partitionAssignmentHandler
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
+        assignedPromise.success(assignedTps)
+
+      // #partitionAssignmentHandler
+      override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
+        stopPromise.success(currentTps)
+      // #partitionAssignmentHandler
+    }
+
+    val subscription = Subscriptions
+      .topics(topic)
+      .withPartitionAssignmentHandler(assignmentHandler)
+
+    // #partitionAssignmentHandler
+
+    val (control, result) =
+      Consumer
+        .plainSource(consumerSettings, subscription)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    control.shutdown().futureValue shouldBe Done
+    result.futureValue should have size 10
+    // handler methods were called
+    assignedPromise.future.futureValue shouldBe tpsSet
+    stopPromise.future.futureValue shouldBe tpsSet
+    revokedPromise.future.futureValue shouldBe tpsSet // revoke of partitions occurs after stop
+  }
+
   "Shutdown via Consumer.Control" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
@@ -488,67 +527,5 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     // when shut down is desired
     val drainingControl = DrainingControl(Tuple2(control.get(), result))
     drainingControl.drainAndShutdown().futureValue shouldBe Done
-  }
-}
-
-// Join flows based on automatically assigned partitions
-object ConsumerWithOtherSource {
-  val system = ActorSystem("example")
-  implicit val ec: ExecutionContext = system.dispatcher
-  implicit val m: Materializer = ActorMaterializer.create(system)
-
-  val maxPartitions = 100
-
-  val config = system.settings.config.getConfig("akka.kafka.consumer")
-  val consumerSettings =
-    ConsumerSettings(config, new StringDeserializer, new ByteArrayDeserializer)
-      .withBootstrapServers("localhost:9092")
-      .withGroupId("group1")
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-
-  val producerSettings = ProducerSettings(system, new StringSerializer, new ByteArraySerializer)
-    .withBootstrapServers("localhost:9092")
-
-  def businessFlow[T] = Flow[T]
-
-  def main(args: Array[String]): Unit = {
-    // #committablePartitionedSource3
-    type Msg = CommittableMessage[String, Array[Byte]]
-
-    def zipper(left: Source[Msg, _], right: Source[Msg, _]): Source[(Msg, Msg), NotUsed] = ???
-
-    Consumer
-      .committablePartitionedSource(consumerSettings, Subscriptions.topics("topic1"))
-      .map {
-        case (topicPartition, source) =>
-          // get corresponding partition from other topic
-          val otherTopicPartition = new TopicPartition("otherTopic", topicPartition.partition())
-          val otherSource = Consumer.committableSource(consumerSettings, Subscriptions.assignment(otherTopicPartition))
-          zipper(source, otherSource)
-      }
-      .flatMapMerge(maxPartitions, identity)
-      .via(businessFlow)
-      //build commit offsets
-      .batch(
-        max = 20,
-        seed = {
-          case (left, right) =>
-            (
-              CommittableOffsetBatch(left.committableOffset),
-              CommittableOffsetBatch(right.committableOffset)
-            )
-        }
-      )(
-        aggregate = {
-          case ((batchL, batchR), (l, r)) =>
-            batchL.updated(l.committableOffset)
-            batchR.updated(r.committableOffset)
-            (batchL, batchR)
-        }
-      )
-      .mapAsync(1) { case (l, r) => l.commitScaladsl().map(_ => r) }
-      .mapAsync(1)(_.commitScaladsl())
-      .runWith(Sink.ignore)
-    // #committablePartitionedSource3
   }
 }

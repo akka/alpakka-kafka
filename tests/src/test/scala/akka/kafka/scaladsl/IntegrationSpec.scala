@@ -85,7 +85,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       def createAndRunProducer(elements: immutable.Iterable[Long]) =
         Source(elements)
           .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-          .runWith(Producer.plainSink(producerDefaults, testProducer))
+          .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
 
       val control = createAndRunConsumer(subscription1)
 
@@ -94,7 +94,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
-      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       createAndRunProducer(0L until totalMessages / 2).futureValue
@@ -111,7 +110,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
-      rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
 
       sleep(4.seconds,
@@ -156,7 +154,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .via(Producer.flexiFlow(producerDefaults))
           .map(_.passThrough)
           .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
-          .mapAsync(producerDefaults.parallelism)(_.commitScaladsl())
+          .mapAsync(producerDefaults.parallelism)(_.commitInternal())
 
         val probe = source.runWith(TestSink.probe)
 
@@ -195,7 +193,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val (control, res) =
         Consumer
           .committableSource(consumerDefaults.withGroupId(group1), Subscriptions.topics(topic1))
-          .mapAsync(1)(msg => msg.committableOffset.commitScaladsl().map(_ => msg.record.value))
+          .mapAsync(1)(msg => msg.committableOffset.commitInternal().map(_ => msg.record.value))
           .take(5)
           .toMat(Sink.seq)(Keep.both)
           .run()
@@ -214,7 +212,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .mapMaterializedValue(DrainingControl.apply)
           .run()
 
-      control.isShutdown.futureValue
+      control.isShutdown.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]
       control.drainAndShutdown().failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]
     }
 

@@ -14,6 +14,7 @@
 
     <logger name="akka" level="WARN"/>
     <logger name="akka.kafka" level="DEBUG"/>
+    <logger name="docs.scaladsl" levle="DEBUG"/>
 
     <logger name="org.apache.zookeeper" level="WARN"/>
     <logger name="org.I0Itec.zkclient" level="WARN"/>

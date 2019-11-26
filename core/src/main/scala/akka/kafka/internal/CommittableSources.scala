@@ -35,7 +35,7 @@ private[kafka] final class CommittableSource[K, V](settings: ConsumerSettings[K,
     ) {
   override protected def logic(shape: SourceShape[CommittableMessage[K, V]]): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription)
-    with CommittableMessageBuilder[K, V] {
+      with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -58,7 +58,7 @@ private[kafka] final class SourceWithOffsetContext[K, V](
       shape: SourceShape[(ConsumerRecord[K, V], CommittableOffset)]
   ): GraphStageLogic with Control =
     new SingleSourceLogic[K, V, (ConsumerRecord[K, V], CommittableOffset)](shape, settings, subscription)
-    with OffsetContextBuilder[K, V] {
+      with OffsetContextBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -79,7 +79,7 @@ private[kafka] final class ExternalCommittableSource[K, V](consumer: ActorRef,
     ) {
   override protected def logic(shape: SourceShape[CommittableMessage[K, V]]): GraphStageLogic with Control =
     new ExternalSingleSourceLogic[K, V, CommittableMessage[K, V]](shape, consumer, subscription)
-    with CommittableMessageBuilder[K, V] {
+      with CommittableMessageBuilder[K, V] {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = OffsetFetchResponse.NO_METADATA
       override def groupId: String = _groupId
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -104,7 +104,8 @@ private[kafka] final class CommittableSubSource[K, V](
       shape: SourceShape[(TopicPartition, Source[CommittableMessage[K, V], NotUsed])]
   ): GraphStageLogic with Control =
     new SubSourceLogic[K, V, CommittableMessage[K, V]](shape, settings, subscription, getOffsetsOnAssign, onRevoke)
-    with CommittableMessageBuilder[K, V] with MetricsControl {
+      with CommittableMessageBuilder[K, V]
+      with MetricsControl {
       override def metadataFromRecord(record: ConsumerRecord[K, V]): String = _metadataFromRecord(record)
       override def groupId: String = settings.properties(ConsumerConfig.GROUP_ID_CONFIG)
       lazy val committer: KafkaAsyncConsumerCommitterRef = {
@@ -117,14 +118,13 @@ private[kafka] final class CommittableSubSource[K, V](
 /**
  * Internal API.
  *
- * [[InternalCommitter]] implementation for committable sources.
- *
- * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit Commit]] messages to the consumer actor.
- *
- * This should be case class to be comparable based on consumerActor and commitTimeout. This comparison is used in [[CommittableOffsetBatchImpl]].
+ * Sends [[akka.kafka.internal.KafkaConsumerActor.Internal.Commit]],
+ * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitSingle]] and
+ * [[akka.kafka.internal.KafkaConsumerActor.Internal.CommitWithoutReply]] messages to the consumer actor.
  */
 @InternalApi
-private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, commitTimeout: FiniteDuration)(
+private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: ActorRef,
+                                                    private val commitTimeout: FiniteDuration)(
     implicit ec: ExecutionContext
 ) {
 
@@ -138,9 +138,10 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
 
   def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
-      val futures = b.groupIdOffsetMaps.map {
-        case (groupId, offsets) =>
-          b.committerFor(groupId).sendCommit(Commit(offsets))
+      val futures = b.offsetsAndMetadata.map {
+        case (groupTopicPartition, offset) =>
+          // sends one message per partition, they are aggregated in the KafkaConsumerActor
+          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset))
       }
       Future.sequence(futures).map(_ => Done)
 
@@ -149,9 +150,11 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
 
   def tellCommit(batch: CommittableOffsetBatch): Unit = batch match {
     case b: CommittableOffsetBatchImpl =>
-      b.groupIdOffsetMaps.foreach {
-        case (groupId, offsets) =>
-          b.committerFor(groupId).tellCommit(CommitWithoutReply(offsets))
+      b.offsetsAndMetadata.foreach {
+        case (groupTopicPartition, offset) =>
+          // sends one message per partition, they are aggregated in the KafkaConsumerActor
+          b.committerFor(groupTopicPartition)
+            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset))
       }
 
     case _ => failForUnexpectedImplementation(batch)
@@ -176,4 +179,15 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(consumerActor: ActorRef, com
   }
 
   private def tellCommit(msg: CommitWithoutReply): Unit = consumerActor ! msg
+
+  /**
+   * This must be comparable based on `consumerActor` and `commitTimeout`. The comparison is used in [[CommittableOffsetBatchImpl]].
+   * The comparison is mostly relevant when multiple sources share a consumer actor.
+   */
+  override def equals(obj: Any): Boolean =
+    obj match {
+      case that: KafkaAsyncConsumerCommitterRef =>
+        this.consumerActor == that.consumerActor && this.commitTimeout == that.commitTimeout
+      case _ => false
+    }
 }

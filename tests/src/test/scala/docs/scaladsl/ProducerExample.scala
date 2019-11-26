@@ -71,12 +71,14 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val producerSettings = producerDefaults
     val topic = createTopic()
     // #plainSinkWithProducer
-    val kafkaProducer = producerSettings.createKafkaProducerAsync()
+    // create a producer
+    val kafkaProducer = producerSettings.createKafkaProducer()
+    val settingsWithProducer = producerSettings.withProducer(kafkaProducer)
 
     val done = Source(1 to 100)
       .map(_.toString)
       .map(value => new ProducerRecord[String, String](topic, value))
-      .runWith(Producer.plainSink(producerSettings, kafkaProducer))
+      .runWith(Producer.plainSink(settingsWithProducer))
     // #plainSinkWithProducer
     val (control2, result) = Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic))
@@ -89,7 +91,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     // #plainSinkWithProducer
 
     // close the producer after use
-    system.registerOnTermination(kafkaProducer.foreach(p => p.close()))
+    kafkaProducer.close()
     // #plainSinkWithProducer
   }
 

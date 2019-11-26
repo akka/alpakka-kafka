@@ -4,22 +4,22 @@
  */
 
 package akka.kafka.internal
-import java.util.concurrent.TimeUnit
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerMessage._
+import akka.kafka.ProducerSettings
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
-import akka.stream.{Attributes, FlowShape, Supervision}
 import akka.stream.stage._
+import akka.stream.{Attributes, FlowShape, Supervision}
 import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -28,14 +28,12 @@ import scala.util.{Failure, Success, Try}
  */
 @InternalApi
 private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
-    val closeTimeout: FiniteDuration,
-    val closeProducerOnStop: Boolean,
-    val producerProvider: ExecutionContext => Future[Producer[K, V]]
+    val settings: ProducerSettings[K, V]
 ) extends GraphStage[FlowShape[IN, Future[OUT]]]
     with ProducerStage[K, V, P, IN, OUT] {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new DefaultProducerStageLogic(this, producerProvider, inheritedAttributes)
+    new DefaultProducerStageLogic(this, inheritedAttributes)
 }
 
 /**
@@ -45,7 +43,6 @@ private[kafka] class DefaultProducerStage[K, V, P, IN <: Envelope[K, V, P], OUT 
  */
 private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <: Results[K, V, P]](
     stage: ProducerStage[K, V, P, IN, OUT],
-    producerFactory: ExecutionContext => Future[Producer[K, V]],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageLogging
@@ -61,21 +58,26 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
+  override def preStart(): Unit = {
+    super.preStart()
+    resolveProducer()
+  }
+
   protected def assignProducer(p: Producer[K, V]): Unit = {
     producer = p
     resumeDemand()
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    val producerFuture = producerFactory(materializer.executionContext)
+  private def resolveProducer(): Unit = {
+    val producerFuture = stage.settings.createKafkaProducerAsync()(materializer.executionContext)
     producerFuture.value match {
       case Some(Success(p)) => assignProducer(p)
       case Some(Failure(e)) => failStage(e)
       case None =>
+        val assign = getAsyncCallback(assignProducer)
         producerFuture
           .transform(
-            producer => getAsyncCallback(assignProducer).invoke(producer),
+            producer => assign.invoke(producer),
             e => {
               log.error(e, "producer creation failed")
               failStageCb.invoke(e)
@@ -103,6 +105,11 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   val failStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
+    if (producer != null) {
+      // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
+      // https://github.com/akka/alpakka-kafka/pull/318
+      producer.close(Duration.ofSeconds(0))
+    }
     failStage(ex)
   }
 
@@ -189,13 +196,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       if (exception == null) onSuccess(metadata)
       else
         decider(exception) match {
-          case Supervision.Stop =>
-            if (stage.closeProducerOnStop) {
-              producer.close(0, TimeUnit.MILLISECONDS)
-            }
-            failStageCb.invoke(exception)
-          case _ =>
-            promise.failure(exception)
+          case Supervision.Stop => failStageCb.invoke(exception)
+          case _ => promise.failure(exception)
         }
       if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
         checkForCompletionCB.invoke(())
@@ -203,19 +205,21 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   override def postStop(): Unit = {
-    log.debug("Stage completed")
+    log.debug("ProducerStage completed")
+    closeProducer()
+    super.postStop()
+  }
 
-    if (stage.closeProducerOnStop && producer != null) {
+  private def closeProducer(): Unit =
+    if (stage.settings.closeProducerOnStop && producer != null) {
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()
-        producer.close(stage.closeTimeout.toMillis, TimeUnit.MILLISECONDS)
+        producer.close(Duration.ofMillis(stage.settings.closeTimeout.toMillis))
         log.debug("Producer closed")
       } catch {
         case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
       }
     }
 
-    super.postStop()
-  }
 }

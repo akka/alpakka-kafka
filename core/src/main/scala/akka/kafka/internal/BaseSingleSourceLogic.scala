@@ -84,6 +84,16 @@ import scala.concurrent.{ExecutionContext, Future}
       tps ++= topics.keySet
   }
 
+  protected def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit =
+    if (topicPartitions.nonEmpty) {
+      log.debug("filtering out messages from revoked partitions {}", topicPartitions)
+      // as buffer is an Iterator the filtering will be applied during `pump`
+      buffer = buffer.filterNot { record =>
+        val tp = new TopicPartition(record.topic, record.partition)
+        topicPartitions.contains(tp)
+      }
+    }
+
   @tailrec
   private def pump(): Unit =
     if (isAvailable(shape.out)) {

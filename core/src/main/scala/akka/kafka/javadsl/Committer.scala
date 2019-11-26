@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage
 import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.{Done, NotUsed}
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.{scaladsl, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 

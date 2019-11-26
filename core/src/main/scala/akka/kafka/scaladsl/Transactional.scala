@@ -17,7 +17,7 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerConfig
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
  * Akka Stream connector to support transactions between Kafka topics.
@@ -69,12 +69,11 @@ object Transactional {
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), Future[Done]] =
-    Flow[(Envelope[K, V, NotUsed], PartitionOffset)]
-      .map {
+    sink(settings, transactionalId)
+      .contramap {
         case (env, offset) =>
           env.withPassThrough(offset)
       }
-      .toMat(sink(settings, transactionalId))(Keep.right)
 
   /**
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
@@ -86,6 +85,7 @@ object Transactional {
       transactionalId: String
   ): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] = {
     require(transactionalId != null && transactionalId.length > 0, "You must define a Transactional id.")
+    require(settings.producerFactorySync.isEmpty, "You cannot use a shared or external producer factory.")
 
     val txSettings = settings.withProperties(
       ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
@@ -95,12 +95,7 @@ object Transactional {
 
     val flow = Flow
       .fromGraph(
-        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](
-          txSettings.closeTimeout,
-          closeProducerOnStop = true,
-          producerProvider = (ec: ExecutionContext) => txSettings.createKafkaProducerAsync()(ec),
-          settings.eosCommitInterval
-        )
+        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](txSettings)
       )
       .mapAsync(txSettings.parallelism)(identity)
 

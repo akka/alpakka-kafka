@@ -29,7 +29,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
   "Fetched records" must {
 
     // The `max.poll.records` controls how many records Kafka fetches internally during a poll.
-    // documented in https://github.com/akka/alpakka-kafka/pull/865
+    // issue explained in https://github.com/akka/alpakka-kafka/issues/872
+    // this test added with https://github.com/akka/alpakka-kafka/pull/865
     "actually show even if partition is revoked" in assertAllStagesStopped {
       val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
@@ -37,8 +38,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
-      // This test FAILS with the default value as messages are enqueue in the stage
-        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500") // 500 is the default value
         .withGroupId(group1)
 
       awaitProduce(produce(topic1, 0 to count.toInt, partition1))
@@ -52,7 +52,6 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .run()
 
       // Await initial partition assignment
-      probe1rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
@@ -69,12 +68,11 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      // Await a revoke to both consumers
+      // Await a revoke to consumer 1
       probe1rebalanceActor.expectMsg(
         TopicPartitionsRevoked(probe1subscription,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
-      probe2rebalanceActor.expectMsgClass(classOf[TopicPartitionsRevoked])
 
       // the rebalance finishes
       probe1rebalanceActor.expectMsg(

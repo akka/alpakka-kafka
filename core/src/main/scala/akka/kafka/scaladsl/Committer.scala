@@ -9,7 +9,7 @@ import akka.dispatch.ExecutionContexts
 import akka.annotation.ApiMayChange
 import akka.{Done, NotUsed}
 import akka.kafka.CommitterSettings
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 
 import scala.concurrent.Future
@@ -35,7 +35,7 @@ object Committer {
       case WaitForAck =>
         offsetBatches
           .mapAsyncUnordered(settings.parallelism) { b =>
-            b.commitScaladsl().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
+            b.commitInternal().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
           }
       case SendAndForget =>
         offsetBatches

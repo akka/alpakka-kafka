@@ -5,7 +5,7 @@ The general recommendation for de-/serialization of messages is to use byte arra
 
 ## Jackson JSON
 
-Serializing data to JSON text with [Jackson](https://github.com/FasterXML/jackson) in a `map` operator will turn the object instance into a String which is used as value in the `ProducerRecord`.
+Serializing data to JSON text with [Jackson](https://github.com/FasterXML/jackson) in a `map` operator will turn the object instance into a String which is used as value in the @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord).
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #jackson-imports #jackson-serializer }
@@ -79,7 +79,7 @@ Gradle
 
 ### Producer
 
-To create serializers that use the Schema Registry, its URL needs to be provided as configuration `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the serializer and that serializer is used in the `ProducerSettings`.
+To create serializers that use the Schema Registry, its URL needs to be provided as configuration `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the serializer and that serializer is used in the @apidoc[ProducerSettings$].
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #serializer }
@@ -91,7 +91,7 @@ Java
 
 ### Consumer
 
-To create deserializers that use the Schema Registry, its URL needs to be provided as configuration  `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the deserializer and that deserializer is used in the `ConsumerSettings`.
+To create deserializers that use the Schema Registry, its URL needs to be provided as configuration  `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the deserializer and that deserializer is used in the @apidoc[ConsumerSettings$].
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #de-serializer }

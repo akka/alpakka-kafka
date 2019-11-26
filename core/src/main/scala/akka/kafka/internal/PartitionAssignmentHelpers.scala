@@ -8,9 +8,12 @@ package akka.kafka.internal
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.kafka.scaladsl.PartitionAssignmentHandler
+import akka.kafka.javadsl
 import akka.kafka.{AutoSubscription, RestrictedConsumer, TopicPartitionsAssigned, TopicPartitionsRevoked}
 import akka.stream.stage.AsyncCallback
 import org.apache.kafka.common.TopicPartition
+
+import scala.jdk.CollectionConverters._
 
 /**
  * Internal API.
@@ -27,6 +30,20 @@ object PartitionAssignmentHelpers {
     override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
     override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+
+    override def toString: String = "EmptyPartitionAssignmentHandler"
+  }
+
+  @InternalApi
+  final case class WrappedJava(handler: javadsl.PartitionAssignmentHandler) extends PartitionAssignmentHandler {
+    override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      handler.onRevoke(revokedTps.asJava, consumer)
+
+    override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      handler.onAssign(assignedTps.asJava, consumer)
+
+    override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      handler.onStop(currentTps.asJava, consumer)
   }
 
   @InternalApi
@@ -55,6 +72,8 @@ object PartitionAssignmentHelpers {
     }
 
     override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+
+    override def toString: String = s"AsyncCallbacks($subscription, $sourceActor)"
   }
 
   @InternalApi
@@ -74,6 +93,13 @@ object PartitionAssignmentHelpers {
       handler1.onStop(revokedTps, consumer)
       handler2.onStop(revokedTps, consumer)
     }
+
+    override def toString: String = s"Chain($handler1, $handler2)"
   }
+
+  def chain(handler1: PartitionAssignmentHandler, handler2: PartitionAssignmentHandler): PartitionAssignmentHandler =
+    if (handler1 == EmptyPartitionAssignmentHandler) handler2
+    else if (handler2 == EmptyPartitionAssignmentHandler) handler1
+    else new Chain(handler1, handler2)
 
 }
