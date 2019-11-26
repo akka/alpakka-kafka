@@ -166,6 +166,9 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
           consumerActor.tell(KafkaConsumerActor.Internal.Stop, consumerActor)
         }
 
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        onRevoke(lostTps, consumer)
+
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }
     new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)

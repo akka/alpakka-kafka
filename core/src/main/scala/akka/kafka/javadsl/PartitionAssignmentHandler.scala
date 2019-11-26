@@ -22,7 +22,7 @@ import org.apache.kafka.common.TopicPartition
  * This complements the methods of Kafka's [[org.apache.kafka.clients.consumer.ConsumerRebalanceListener ConsumerRebalanceListener]] with
  * an `onStop` callback which is called before `Consumer.close`.
  */
-@ApiMayChange
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
 trait PartitionAssignmentHandler {
 
   /**
@@ -40,6 +40,15 @@ trait PartitionAssignmentHandler {
    * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
    */
   def onAssign(assignedTps: java.util.Set[TopicPartition], consumer: RestrictedConsumer): Unit
+
+  /**
+   * Called when partitions have been reassigned to a different consumer.
+   * See [[org.apache.kafka.clients.consumer.ConsumerRebalanceListener#onPartitionsLost]]
+   *
+   * @param lostTps The list of partitions that used to be assigned to this consumer but now get assigned to a different consumer
+   * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
+   */
+  def onLost(lostTps: java.util.Set[TopicPartition], consumer: RestrictedConsumer): Unit
 
   /**
    * Called before a consumer is closed.

@@ -694,6 +694,7 @@ import scala.util.control.NonFatal
       with NoSerializationVerificationNeeded {
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit
+    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit
     def postStop(): Unit = ()
   }
 
@@ -730,6 +731,15 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler.onRevoke(revokedTps, restrictedConsumer)
       checkDuration(startTime, "onRevoke")
       commitRefreshing.revoke(revokedTps)
+      rebalanceInProgress = true
+    }
+
+    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {
+      val lostTps = partitions.asScala.toSet
+      val startTime = System.nanoTime()
+      partitionAssignmentHandler.onLost(lostTps, restrictedConsumer)
+      checkDuration(startTime, "onLost")
+      commitRefreshing.revoke(lostTps)
       rebalanceInProgress = true
     }
 
