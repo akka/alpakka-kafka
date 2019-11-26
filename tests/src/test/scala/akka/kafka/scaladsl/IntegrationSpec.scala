@@ -94,7 +94,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
       }
 
-      rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set.empty))
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps: _*)))
 
       createAndRunProducer(0L until totalMessages / 2).futureValue
@@ -110,7 +109,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       }
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
-      rebalanceActor2.expectMsg(TopicPartitionsRevoked(subscription2, Set.empty))
 
       // The assignment may swap which consumer gets which partitions
       val assigned1 = rebalanceActor1.expectMsgClass(classOf[TopicPartitionsAssigned])
@@ -147,6 +145,12 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           Long.box(stream1messages + stream2messages),
           Long.box(totalMessages)
         )
+
+      // since Kafka 2.4.0 issued by `consumer.close`
+      val revoked1 = rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
+      val revoked2 = rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
+      revoked1.topicPartitions shouldBe Partitions1
+      revoked2.topicPartitions shouldBe Partitions2
     }
 
     "connect consumer to producer and commit in batches" in {
