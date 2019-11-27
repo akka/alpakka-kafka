@@ -7,7 +7,12 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, Status, Terminated}
 import akka.annotation.InternalApi
-import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
+import akka.kafka.Subscriptions.{
+  Assignment,
+  AssignmentLastOffsetMinusN,
+  AssignmentOffsetsForTimes,
+  AssignmentWithOffset
+}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
@@ -82,6 +87,9 @@ import scala.concurrent.{ExecutionContext, Future}
     case AssignmentOffsetsForTimes(topics) =>
       consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
       tps ++= topics.keySet
+    case AssignmentLastOffsetMinusN(tp, n) =>
+      consumerActor.tell(KafkaConsumerActor.Internal.AssignLastOffsetMinusN(tp, n), sourceActor.ref)
+      tps += tp
   }
 
   protected def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit =

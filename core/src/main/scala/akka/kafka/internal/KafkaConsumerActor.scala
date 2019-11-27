@@ -5,6 +5,7 @@
 
 package akka.kafka.internal
 
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
@@ -52,6 +53,7 @@ import scala.util.control.NonFatal
     final case class Assign(tps: Set[TopicPartition]) extends SubscriptionRequest
     final case class AssignWithOffset(tps: Map[TopicPartition, Long]) extends SubscriptionRequest
     final case class AssignOffsetsForTimes(timestampsToSearch: Map[TopicPartition, Long]) extends SubscriptionRequest
+    final case class AssignLastOffsetMinusN(tp: TopicPartition, n: Long) extends SubscriptionRequest
     final case class Subscribe(topics: Set[String], rebalanceHandler: PartitionAssignmentHandler)
         extends SubscriptionRequest
     case object RequestMetrics extends NoSerializationVerificationNeeded
@@ -374,6 +376,15 @@ import scala.util.control.NonFatal
               tp -> offset
           }
           commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+
+        case AssignLastOffsetMinusN(tp, n) =>
+          val endOffset = consumer
+            .endOffsets(Set(tp).asJava, settings.getMetadataRequestTimeout)
+            .get(tp)
+          val offset = endOffset - n
+          consumer.assign(Set(tp).asJava)
+          consumer.seek(tp, offset)
+          commitRefreshing.assignedPositions(Set(tp), Map(tp -> offset))
 
         case Subscribe(topics, rebalanceHandler) =>
           val callback = new RebalanceListenerImpl(rebalanceHandler)
