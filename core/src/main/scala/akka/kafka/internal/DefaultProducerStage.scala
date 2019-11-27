@@ -4,12 +4,11 @@
  */
 
 package akka.kafka.internal
-import java.time.Duration
+
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
 import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
@@ -17,10 +16,9 @@ import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Supervision}
-import org.apache.kafka.clients.producer.{Callback, Producer, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -46,45 +44,23 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageLogging
+    with DeferredProducer[K, V]
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
   protected val awaitingConfirmation = new AtomicInteger(0)
-  protected var producer: Producer[K, V] = _
   private var inIsClosed = false
   private var completionState: Option[Try[Done]] = None
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
+  final override val producerSettings: ProducerSettings[K, V] = stage.settings
+
   override def preStart(): Unit = {
     super.preStart()
     resolveProducer()
-  }
-
-  protected def assignProducer(p: Producer[K, V]): Unit = {
-    producer = p
-    resumeDemand()
-  }
-
-  private def resolveProducer(): Unit = {
-    val producerFuture = stage.settings.createKafkaProducerAsync()(materializer.executionContext)
-    producerFuture.value match {
-      case Some(Success(p)) => assignProducer(p)
-      case Some(Failure(e)) => failStage(e)
-      case None =>
-        val assign = getAsyncCallback(assignProducer)
-        producerFuture
-          .transform(
-            producer => assign.invoke(producer),
-            e => {
-              log.error(e, "producer creation failed")
-              failStageCb.invoke(e)
-              e
-            }
-          )(ExecutionContexts.sameThreadExecutionContext)
-    }
   }
 
   def checkForCompletion(): Unit =
@@ -104,16 +80,14 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     checkForCompletion()
   }
 
-  val failStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
-    if (producer != null) {
-      // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
-      // https://github.com/akka/alpakka-kafka/pull/318
-      producer.close(Duration.ofSeconds(0))
-    }
+  override protected val closeAndFailStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { ex =>
+    closeProducerImmediately()
     failStage(ex)
   }
 
   def postSend(msg: Envelope[K, V, P]) = ()
+
+  override protected def producerAssigned(): Unit = resumeDemand()
 
   protected def resumeDemand(tryToPull: Boolean = true): Unit = {
     setHandler(stage.out, new OutHandler {
@@ -196,7 +170,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       if (exception == null) onSuccess(metadata)
       else
         decider(exception) match {
-          case Supervision.Stop => failStageCb.invoke(exception)
+          case Supervision.Stop => closeAndFailStageCb.invoke(exception)
           case _ => promise.failure(exception)
         }
       if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
@@ -209,17 +183,5 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     closeProducer()
     super.postStop()
   }
-
-  private def closeProducer(): Unit =
-    if (stage.settings.closeProducerOnStop && producer != null) {
-      try {
-        // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
-        producer.flush()
-        producer.close(Duration.ofMillis(stage.settings.closeTimeout.toMillis))
-        log.debug("Producer closed")
-      } catch {
-        case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")
-      }
-    }
 
 }

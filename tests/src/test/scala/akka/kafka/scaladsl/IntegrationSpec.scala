@@ -109,8 +109,21 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       }
 
       rebalanceActor1.expectMsg(TopicPartitionsRevoked(subscription1, Set(allTps: _*)))
-      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set(allTps(0), allTps(1))))
-      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(allTps(2), allTps(3))))
+
+      // The assignment may swap which consumer gets which partitions
+      val assigned1 = rebalanceActor1.expectMsgClass(classOf[TopicPartitionsAssigned])
+      val assigned2 = rebalanceActor2.expectMsgClass(classOf[TopicPartitionsAssigned])
+
+      val Partitions1 = Set(allTps(0), allTps(1))
+      val Partitions2 = Set(allTps(2), allTps(3))
+      (assigned1.topicPartitions, assigned2.topicPartitions) match {
+        case (Partitions1, Partitions2) =>
+        case (Partitions2, Partitions1) =>
+        case (receivePartitions1, receivedPartitions2) =>
+          fail(
+            s"The `TopicPartitionsAssigned` contained different topic partitions than expected:\nrebalanceActor1: $receivePartitions1\nrebalanceActor2: $receivedPartitions2"
+          )
+      }
 
       sleep(4.seconds,
             "to get the second consumer started, otherwise it might miss the first messages because of `latest` offset")
@@ -132,6 +145,12 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           Long.box(stream1messages + stream2messages),
           Long.box(totalMessages)
         )
+
+      // since Kafka 2.4.0 issued by `consumer.close`
+      val revoked1 = rebalanceActor1.expectMsgClass(classOf[TopicPartitionsRevoked])
+      val revoked2 = rebalanceActor2.expectMsgClass(classOf[TopicPartitionsRevoked])
+      revoked1.topicPartitions shouldBe Partitions1
+      revoked2.topicPartitions shouldBe Partitions2
     }
 
     "connect consumer to producer and commit in batches" in {

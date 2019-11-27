@@ -14,7 +14,6 @@ import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape}
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
-import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
@@ -116,12 +115,11 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override def preStart(): Unit = super.preStart()
 
-  override protected def assignProducer(p: Producer[K, V]): Unit = {
-    producer = p
+  override protected def producerAssigned(): Unit = {
     initTransactions()
     beginTransaction()
     resumeDemand()
-    scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
+    scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
   }
 
   // suspend demand until a Producer has been created
@@ -155,7 +153,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
         suspendDemand()
         scheduleOnce(commitSchedulerKey, messageDrainInterval)
       case _ =>
-        scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
+        scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
     }
   }
 
@@ -198,7 +196,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   val onInternalCommitAckCb: AsyncCallback[Unit] = {
     getAsyncCallback[Unit](
-      _ => scheduleOnce(commitSchedulerKey, stage.settings.eosCommitInterval)
+      _ => scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
     )
   }
 

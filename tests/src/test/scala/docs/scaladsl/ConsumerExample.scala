@@ -317,7 +317,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   "Flow per partition" should "Process each assigned partition separately" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId()).withStopTimeout(10.millis)
-    val comitterSettings = committerDefaults
+    val committerSettings = committerDefaults
     val topic = createTopic()
     val maxPartitions = 100
     // #committablePartitionedSource-stream-per-partition
@@ -328,7 +328,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           source
             .via(businessFlow)
             .map(_.committableOffset)
-            .runWith(Committer.sink(comitterSettings))
+            .runWith(Committer.sink(committerSettings))
       }
       .toMat(Sink.ignore)(Keep.both)
       .mapMaterializedValue(DrainingControl.apply)

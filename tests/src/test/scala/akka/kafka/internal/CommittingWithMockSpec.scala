@@ -211,7 +211,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(count.toLong)
-    val done = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitInternal()))
+    val allCommits = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitInternal()))
 
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {
@@ -226,8 +226,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
 
-    Await.result(done, remainingOrDefault)
-    Await.result(control.shutdown(), remainingOrDefault)
+    allCommits.futureValue should have size (count.toLong)
+    control.shutdown().futureValue shouldBe Done
   }
 
   it should "support commit batching" in assertAllStagesStopped {
