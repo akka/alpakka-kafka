@@ -21,6 +21,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 
 /**
  * INTERNAL API
@@ -123,6 +124,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   override def preStart(): Unit = resumeDemand()
 
   override protected def producerAssigned(): Unit = {
+    producingInHandler()
     initTransactions()
     beginTransaction()
     produceFirstMessage()
@@ -143,10 +145,15 @@ private final class TransactionalProducerStageLogic[K, V, P](
     demandSuspended = false
   }
 
-  override protected def suspendDemand(fromStageLogicConstructor: Boolean = false): Unit = {
-    if (!demandSuspended) super.suspendDemand(fromStageLogicConstructor)
+  override protected def suspendDemand(): Unit = {
+    if (!demandSuspended) super.suspendDemand()
     demandSuspended = true
   }
+
+  override protected def initialInHandler(): Unit =
+    setHandler(stage.in, new DefaultInHandler {
+      override def onPush(): Unit = parseFirstMessage(grab(stage.in))
+    })
 
   override protected def onTimer(timerKey: Any): Unit =
     if (timerKey == commitSchedulerKey) {
@@ -160,8 +167,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
         commitTransaction(batch, beginNewTransaction)
       case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
-        log.debug("Aborting empty transaction because we're completing.")
-        abortTransaction()
+        abortTransaction("Transaction is empty and stage is completing")
       case _ if awaitingConf > 0 =>
         suspendDemand()
         scheduleOnce(commitSchedulerKey, messageDrainInterval)
@@ -170,14 +176,17 @@ private final class TransactionalProducerStageLogic[K, V, P](
     }
   }
 
-  override def filterSend(msg: Envelope[K, V, P]): Boolean =
+  /**
+   * When using partitioned sources we extract the transactional id, group id, and topic partition information from
+   * the first message in order to define a `transacitonal.id` before constructing the [[org.apache.kafka.clients.producer.KafkaProducer]]
+   */
+  private def parseFirstMessage(msg: Envelope[K, V, P]): Boolean =
     producerAssignmentLifecycle match {
       case Assigned => true
+      case Unassigned if firstMessage.nonEmpty =>
+        // this should never happen because demand should be suspended until the producer is assigned
+        throw new IllegalStateException("Cannot reapply first message")
       case Unassigned =>
-        if (firstMessage.nonEmpty) {
-          // this should never happen because demand should be suspended until the producer is assigned
-          throw new IllegalStateException("Cannot reapply first message")
-        }
         // stash the first message so it can be sent after the producer is assigned
         firstMessage = Some(msg)
         // initiate async async producer request _after_ first message is stashed in case future eagerly resolves
@@ -187,7 +196,9 @@ private final class TransactionalProducerStageLogic[K, V, P](
         suspendDemand()
         false
       case AsyncCreateRequestSent =>
-        throw new IllegalStateException(s"Should never receive new messages while in state '$AsyncCreateRequestSent'")
+        throw new IllegalStateException(
+          s"Should never receive new messages while in producer assignment state '$AsyncCreateRequestSent'"
+        )
     }
 
   private def generatedTransactionalConfig(msg: Envelope[K, V, P]): ProducerSettings[K, V] = {
@@ -200,18 +211,14 @@ private final class TransactionalProducerStageLogic[K, V, P](
       case _ => transactionalId
     }
 
-    stage.settings.withEnrichAsync { settings =>
-      Future.successful(
-        settings.withProperties(
-          ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
-          ProducerConfig.TRANSACTIONAL_ID_CONFIG -> txId,
-          ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
-        )
-      )
-    }
+    stage.settings.withProperties(
+      ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
+      ProducerConfig.TRANSACTIONAL_ID_CONFIG -> txId,
+      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
+    )
   }
 
-  override def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
+  override protected def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
     case o: ConsumerMessage.PartitionOffsetCommittedMarker => batchOffsets = batchOffsets.updated(o)
   }
 
@@ -223,8 +230,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   }
 
   override def onCompletionFailure(ex: Throwable): Unit = {
-    log.debug("Aborting transaction due to stage failure")
-    abortTransaction()
+    abortTransaction("Stage failure")
     batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
   }
@@ -254,7 +260,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
     }
   }
 
-  val onInternalCommitAckCb: AsyncCallback[Unit] = {
+  private val onInternalCommitAckCb: AsyncCallback[Unit] = {
     getAsyncCallback[Unit](
       _ => scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
     )
@@ -270,8 +276,8 @@ private final class TransactionalProducerStageLogic[K, V, P](
     producer.beginTransaction()
   }
 
-  private def abortTransaction(): Unit = {
-    log.debug("Aborting transaction")
+  private def abortTransaction(reason: String): Unit = {
+    log.debug("Aborting transaction: {}", reason)
     if (producerAssignmentLifecycle == Assigned) producer.abortTransaction()
   }
 }

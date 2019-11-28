@@ -14,6 +14,7 @@ import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.internal.SubSourceLogic._
+import akka.kafka.internal.TransactionalSubSourceStageLogic.DrainingComplete
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, RestrictedConsumer, Subscription}
@@ -240,10 +241,10 @@ private[kafka] final class TransactionalSubSource[K, V](
           override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
             if (revokedTps.isEmpty) ()
             else if (waitForDraining(revokedTps)) {
-              subSources.values.map(_.stageActor).foreach(_ ! Revoked(revokedTps.toList))
+              subSources.values.map(_.stageActor).foreach(_.tell(Revoked(revokedTps.toList), stageActor.ref))
             } else {
-              sourceActor.ref ! Status.Failure(new Error("Timeout while draining"))
-              consumerActor ! KafkaConsumerActor.Internal.Stop
+              sourceActor.ref.tell(Status.Failure(new Error("Timeout while draining")), stageActor.ref)
+              consumerActor.tell(KafkaConsumerActor.Internal.Stop, stageActor.ref)
             }
 
           override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
@@ -251,7 +252,7 @@ private[kafka] final class TransactionalSubSource[K, V](
         new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
       }
 
-      def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
+      private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
         import akka.pattern.ask
         implicit val timeout = Timeout(txConsumerSettings.commitTimeout)
         try {
@@ -274,10 +275,10 @@ private object TransactionalSourceLogic {
   type Offset = Long
 
   case object Drained
-  case class Drain[T](partitions: Set[TopicPartition],
-                      drainedConfirmationRef: Option[ActorRef],
-                      drainedConfirmationMsg: T)
-  case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
+  final case class Drain[T](partitions: Set[TopicPartition],
+                            drainedConfirmationRef: Option[ActorRef],
+                            drainedConfirmationMsg: T)
+  final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
   case object CommittingFailure
 
   private[internal] final case class CommittedMarkerRef(sourceActor: ActorRef, commitTimeout: FiniteDuration)(
@@ -337,7 +338,7 @@ private object TransactionalSourceLogic {
 }
 
 @InternalApi
-private class TransactionalSubSourceStageLogic[K, V](
+private final class TransactionalSubSourceStageLogic[K, V](
     shape: SourceShape[TransactionalMessage[K, V]],
     tp: TopicPartition,
     consumerActor: ActorRef,
@@ -355,7 +356,7 @@ private class TransactionalSubSourceStageLogic[K, V](
 
   import TransactionalSourceLogic._
 
-  val inFlightRecords = InFlightRecords.empty
+  private val inFlightRecords = InFlightRecords.empty
 
   override def groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
@@ -372,7 +373,7 @@ private class TransactionalSubSourceStageLogic[K, V](
 
   override protected def onDownstreamFinishSubSourceCancellationStrategy(): SubSourceCancellationStrategy = DoNothing
 
-  def shuttingDownReceive: PartialFunction[(ActorRef, Any), Unit] =
+  private def shuttingDownReceive: PartialFunction[(ActorRef, Any), Unit] =
     drainHandling
       .orElse {
         case (_, Status.Failure(e)) =>
@@ -391,10 +392,10 @@ private class TransactionalSubSourceStageLogic[K, V](
     drainAndComplete()
   }
 
-  def drainAndComplete(): Unit =
-    subSourceActor.ref.tell(Drain(inFlightRecords.assigned(), None, "complete"), subSourceActor.ref)
+  private def drainAndComplete(): Unit =
+    subSourceActor.ref.tell(Drain(inFlightRecords.assigned(), None, DrainingComplete), subSourceActor.ref)
 
-  def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
+  private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
       inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
       sender ! Done
@@ -408,12 +409,15 @@ private class TransactionalSubSourceStageLogic[K, V](
         ack.getOrElse(sender) ! msg
       } else {
         log.debug(s"Draining partitions {}", partitions)
-        materializer.scheduleOnce(consumerSettings.drainingCheckInterval, new Runnable {
-          override def run(): Unit =
-            subSourceActor.ref ! Drain(partitions, ack.orElse(Some(sender)), msg)
-        })
+        materializer.scheduleOnce(
+          consumerSettings.drainingCheckInterval,
+          new Runnable {
+            override def run(): Unit =
+              subSourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), stageActor.ref)
+          }
+        )
       }
-    case (sender, "complete") =>
+    case (sender, DrainingComplete) =>
       completeStage()
   }
 
@@ -421,4 +425,8 @@ private class TransactionalSubSourceStageLogic[K, V](
     val ec = materializer.executionContext
     CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)(ec)
   }
+}
+
+private object TransactionalSubSourceStageLogic {
+  case object DrainingComplete
 }

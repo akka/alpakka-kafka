@@ -11,6 +11,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 
@@ -89,8 +90,8 @@ class TransactionsSourceSpec extends SpecBase
 
       val probeConsumerGroup = createGroupId(2)
 
-      while (completedCopy.get() < consumers) {
-        Thread.sleep(2000)
+      eventually(Interval(2.seconds)) {
+        completedCopy.get() should be < consumers
       }
 
       val consumer = offsetValueSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)

@@ -55,30 +55,30 @@ object Transactional {
       .map(_._1)
       .asJava
 
-  /**
-   * Internal API. Work in progress.
-   *
-   * The `partitionedSource` is a way to track automatic partition assignment from kafka.
-   * Each source is setup for for Exactly Only Once (EoS) kafka message semantics.
-   * To enable EoS it's necessary to use the [[Transactional.sink]] or [[Transactional.flow]] (for passthrough).
-   * When Kafka rebalances partitions, all sources complete before the remaining sources are issued again.
-   *
-   * By generating the `transactionalId` from the [[TopicPartition]], multiple instances of your application can run
-   * without having to manually assign partitions to each instance.
-   */
-  @ApiMayChange
-  @InternalApi
-  private[kafka] def partitionedSource[K, V](
-      consumerSettings: ConsumerSettings[K, V],
-      subscription: AutoSubscription
-  ): Source[Pair[TopicPartition, Source[TransactionalMessage[K, V], NotUsed]], Control] =
-    scaladsl.Transactional
-      .partitionedSource(consumerSettings, subscription)
-      .map {
-        case (tp, source) => Pair(tp, source.asJava)
-      }
-      .mapMaterializedValue(ConsumerControlAsJava.apply)
-      .asJava
+//  /**
+//   * Internal API. Work in progress.
+//   *
+//   * The `partitionedSource` is a way to track automatic partition assignment from kafka.
+//   * Each source is setup for for Exactly Only Once (EoS) kafka message semantics.
+//   * To enable EoS it's necessary to use the [[Transactional.sink]] or [[Transactional.flow]] (for passthrough).
+//   * When Kafka rebalances partitions, all sources complete before the remaining sources are issued again.
+//   *
+//   * By generating the `transactionalId` from the [[TopicPartition]], multiple instances of your application can run
+//   * without having to manually assign partitions to each instance.
+//   */
+//  @ApiMayChange
+//  @InternalApi
+//  private[kafka] def partitionedSource[K, V](
+//      consumerSettings: ConsumerSettings[K, V],
+//      subscription: AutoSubscription
+//  ): Source[Pair[TopicPartition, Source[TransactionalMessage[K, V], NotUsed]], Control] =
+//    scaladsl.Transactional
+//      .partitionedSource(consumerSettings, subscription)
+//      .map {
+//        case (tp, source) => Pair(tp, source.asJava)
+//      }
+//      .mapMaterializedValue(ConsumerControlAsJava.apply)
+//      .asJava
 
   /**
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will

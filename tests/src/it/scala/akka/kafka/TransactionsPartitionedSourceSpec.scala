@@ -9,6 +9,7 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Ignore, Matchers, WordSpecLike}
 
@@ -96,8 +97,8 @@ class TransactionsPartitionedSourceSpec extends SpecBase
         .map(_.toString)
         .map(runStream)
 
-      while (completedCopy.get() < consumers) {
-        Thread.sleep(2000)
+      eventually(Interval(2.seconds)) {
+        completedCopy.get() should be < consumers
       }
 
       val consumer = consumePartitionOffsetValues(
