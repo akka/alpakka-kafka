@@ -22,7 +22,7 @@ import scala.util.{Failure, Success}
 private[kafka] object DeferredProducer {
 
   /**
-   * The [[ProducerAssignmentLifecycle]] allows us to change track the status of the aynchronous producer assignment
+   * The [[ProducerAssignmentLifecycle]] allows us to track the state of the asynchronous producer assignment
    * within the stage. This is useful when we need to manage different behavior during the assignment process. For
    * example, in [[TransactionalProducerStageLogic]] we match on the lifecycle when extracting the transactional.id
    * of the first message received from a partitioned source.
@@ -76,7 +76,7 @@ private[kafka] trait DeferredProducer[K, V] {
     }
   }
 
-  protected def changeProducerAssignmentLifecycle(state: ProducerAssignmentLifecycle): Unit = {
+  private def changeProducerAssignmentLifecycle(state: ProducerAssignmentLifecycle): Unit = {
     val oldState = producerAssignmentLifecycle
     producerAssignmentLifecycle = state
     log.debug("Asynchronous producer assignment lifecycle changed '{} -> {}'", oldState, state)

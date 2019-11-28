@@ -211,7 +211,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
 }
 
 @InternalApi
-private class CommittableSubSourceStageLogic[K, V](
+private final class CommittableSubSourceStageLogic[K, V](
     shape: SourceShape[CommittableMessage[K, V]],
     tp: TopicPartition,
     consumerActor: ActorRef,

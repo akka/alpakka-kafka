@@ -61,7 +61,7 @@ jobs:
 
     - stage: integration
       env: CMD="tests/it:test"
-      name: "Run multi-broker integration tests"
+      name: "Run multi-broker and long running integration tests"
     - env: CMD="benchmarks/it:compile"
       name: "Compile benchmark tests"
 
@@ -75,10 +75,6 @@ jobs:
       name: "Publish API and reference documentation"
 
 stages:
-  # runs on master commits and PRs
-  - name: debug
-    if: NOT tag =~ ^v
-
   # runs on master commits and PRs
   - name: check
     if: NOT tag =~ ^v

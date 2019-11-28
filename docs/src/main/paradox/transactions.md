@@ -78,6 +78,8 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #transactionalSink }
 
+
+<!-- TODO: uncomment when Transacitonal.partitionedSource is ready
 ### Partitioned Source Example
 
 Scala
@@ -85,6 +87,7 @@ Scala
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #partitionedTransactionalSink }
+-->
 
 ### Recovery From Failure
 

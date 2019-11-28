@@ -59,6 +59,22 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   final override val producerSettings: ProducerSettings[K, V] = stage.settings
 
+  protected class DefaultInHandler extends InHandler {
+    override def onPush(): Unit = produce(grab(stage.in))
+
+    override def onUpstreamFinish(): Unit = {
+      inIsClosed = true
+      completionState = Some(Success(Done))
+      checkForCompletion()
+    }
+
+    override def onUpstreamFailure(ex: Throwable): Unit = {
+      inIsClosed = true
+      completionState = Some(Failure(ex))
+      checkForCompletion()
+    }
+  }
+
   override def preStart(): Unit = {
     super.preStart()
     resolveProducer(stage.settings)
@@ -86,9 +102,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     failStage(ex)
   }
 
-  def filterSend(msg: Envelope[K, V, P]): Boolean = true
-
-  def postSend(msg: Envelope[K, V, P]): Unit = ()
+  protected def postSend(msg: Envelope[K, V, P]): Unit = ()
 
   override protected def producerAssigned(): Unit = resumeDemand()
 
@@ -103,9 +117,13 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     }
   }
 
-  protected def suspendDemand(fromStageLogicConstructor: Boolean = false): Unit = {
-    // not permitted to access stage logic members from constructor
-    if (!fromStageLogicConstructor) log.debug("Suspend demand")
+  protected def suspendDemand(): Unit = {
+    log.debug("Suspend demand")
+    suspendDemandOutHandler()
+  }
+
+  // factored out of suspendDemand because logging is not permitted when called from the stage logic constructor
+  private def suspendDemandOutHandler(): Unit = {
     setHandler(
       stage.out,
       new OutHandler {
@@ -114,33 +132,14 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     )
   }
 
+  protected def initialInHandler(): Unit = producingInHandler()
+  protected def producingInHandler(): Unit = setHandler(stage.in, new DefaultInHandler())
+
   // suspend demand until a Producer has been created
-  suspendDemand(fromStageLogicConstructor = true)
+  suspendDemandOutHandler()
+  initialInHandler()
 
-  setHandler(
-    stage.in,
-    new InHandler {
-      override def onPush(): Unit = {
-        val msg = grab(stage.in)
-        if (filterSend(msg))
-          produce(msg)
-      }
-
-      override def onUpstreamFinish(): Unit = {
-        inIsClosed = true
-        completionState = Some(Success(Done))
-        checkForCompletion()
-      }
-
-      override def onUpstreamFailure(ex: Throwable): Unit = {
-        inIsClosed = true
-        completionState = Some(Failure(ex))
-        checkForCompletion()
-      }
-    }
-  )
-
-  def produce(in: Envelope[K, V, P]): Unit =
+  protected def produce(in: Envelope[K, V, P]): Unit =
     in match {
       case msg: Message[K, V, P] =>
         val r = Promise[Result[K, V, P]]

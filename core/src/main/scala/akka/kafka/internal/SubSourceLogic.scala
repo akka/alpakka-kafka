@@ -57,22 +57,22 @@ private class SubSourceLogic[K, V, Msg](
     with StageIdLogging {
   import SubSourceLogic._
 
-  val consumerPromise = Promise[ActorRef]
+  private val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
-  var consumerActor: ActorRef = _
-  var sourceActor: StageActor = _
+  protected var consumerActor: ActorRef = _
+  protected var sourceActor: StageActor = _
 
   /** Kafka has notified us that we have these partitions assigned, but we have not created a source for them yet. */
-  var pendingPartitions: immutable.Set[TopicPartition] = immutable.Set.empty
+  private var pendingPartitions: immutable.Set[TopicPartition] = immutable.Set.empty
 
   /** We have created a source for these partitions, but it has not started up and is not in subSources yet. */
-  var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
-  var subSources: Map[TopicPartition, ControlAndStageActor] = immutable.Map.empty
+  private var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
+  protected var subSources: Map[TopicPartition, ControlAndStageActor] = immutable.Map.empty
 
   /** Kafka has signalled these partitions are revoked, but some may be re-assigned just after revoking. */
-  var partitionsToRevoke: Set[TopicPartition] = Set.empty
+  private var partitionsToRevoke: Set[TopicPartition] = Set.empty
 
   override def preStart(): Unit = {
     super.preStart()
@@ -121,7 +121,7 @@ private class SubSourceLogic[K, V, Msg](
     failStage(ex)
   }
 
-  val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
+  private val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
     val formerlyUnknown = assigned -- partitionsToRevoke
 
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
@@ -170,7 +170,7 @@ private class SubSourceLogic[K, V, Msg](
       }
   }
 
-  val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
+  private val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
     partitionsToRevoke ++= revoked
     scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
   }
@@ -188,7 +188,7 @@ private class SubSourceLogic[K, V, Msg](
       partitionsToRevoke = Set.empty
   }
 
-  val subsourceCancelledCB: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)] =
+  private val subsourceCancelledCB: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)] =
     getAsyncCallback[(TopicPartition, SubSourceCancellationStrategy)] {
       case (tp, cancellationStrategy: SubSourceCancellationStrategy) =>
         subSources -= tp
@@ -210,7 +210,7 @@ private class SubSourceLogic[K, V, Msg](
         }
     }
 
-  val subsourceStartedCB: AsyncCallback[(TopicPartition, ControlAndStageActor)] =
+  private val subsourceStartedCB: AsyncCallback[(TopicPartition, ControlAndStageActor)] =
     getAsyncCallback[(TopicPartition, ControlAndStageActor)] {
       case (tp, value @ ControlAndStageActor(control, _)) =>
         if (!partitionsInStartup.contains(tp)) {
@@ -380,9 +380,9 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
   private val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
-  var requested = false
-  var subSourceActor: StageActor = _
-  var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
+  private var requested = false
+  protected var subSourceActor: StageActor = _
+  private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
   override def preStart(): Unit = {
     log.debug("#{} Starting SubSource for partition {}", actorNumber, tp)

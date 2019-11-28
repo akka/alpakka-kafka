@@ -9,11 +9,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
-import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ProducerMessage, _}
-import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.RecoverMethods._
 
@@ -22,6 +24,9 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with TransactionsOps with Repeated {
+
+  implicit val patience = PatienceConfig(5.seconds, 15.millis)
+
   "A consume-transform-produce cycle" must {
 
     "complete in happy-path scenario" in {
@@ -428,6 +433,92 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         Await.result(control1.shutdown(), remainingOrDefault)
         Await.result(control2.shutdown(), remainingOrDefault)
       }
+    }
+
+    "rebalance safely using transactional partitioned flow" in assertAllStagesStopped {
+      val partitions = 4
+      val totalMessages = 200L
+
+      val topic = createTopic(1, partitions)
+      val outTopic = createTopic(2, partitions)
+      val group = createGroupId(1)
+      val transactionalId = createTransactionalId()
+      val sourceSettings = consumerDefaults
+        .withGroupId(group)
+
+      val topicSubscription = Subscriptions.topics(topic)
+
+      def createAndRunTransactionalFlow(subscription: AutoSubscription) =
+        Transactional
+          .partitionedSource(sourceSettings, subscription)
+          .map {
+            case (tp, source) =>
+              source
+                .map { msg =>
+                  ProducerMessage.single(new ProducerRecord[String, String](outTopic,
+                                                                            msg.record.partition(),
+                                                                            msg.record.key(),
+                                                                            msg.record.value() + "-out"),
+                                         msg.partitionOffset)
+                }
+                .to(Transactional.sink(producerDefaults, transactionalId))
+                .run()
+          }
+          .toMat(Sink.ignore)(Keep.both)
+          .mapMaterializedValue(DrainingControl.apply)
+          .run()
+
+      def createAndRunProducer(elements: immutable.Iterable[Long]) =
+        Source(elements)
+          .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+          .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
+
+      val control = createAndRunTransactionalFlow(topicSubscription)
+
+      // waits until all partitions are assigned to the single consumer
+      waitUntilConsumerSummary(group) {
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == partitions
+      }
+
+      createAndRunProducer(0L until totalMessages / 2).futureValue
+
+      // create another consumer with the same groupId to trigger re-balancing
+      val control2 = createAndRunTransactionalFlow(topicSubscription)
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
+      }
+
+      createAndRunProducer(totalMessages / 2 until totalMessages).futureValue
+
+      val checkingGroup = createGroupId(2)
+
+      val (counterQueue, counterCompletion) = Source
+        .queue[String](8, OverflowStrategy.fail)
+        .scan(0L)((c, _) => c + 1)
+        .takeWhile(_ < totalMessages, inclusive = true)
+        .toMat(Sink.last)(Keep.both)
+        .run()
+
+      val streamMessages = Consumer
+        .plainSource[String, String](consumerDefaults
+                                       .withGroupId(checkingGroup)
+                                       .withProperty(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed"),
+                                     Subscriptions.topics(outTopic))
+        .mapAsync(1)(el => counterQueue.offer(el.value()).map(_ => el))
+        .scan(0L)((c, _) => c + 1)
+        .toMat(Sink.last)(Keep.both)
+        .mapMaterializedValue(DrainingControl.apply)
+        .run()
+
+      counterCompletion.futureValue shouldBe totalMessages
+
+      control.drainAndShutdown().futureValue
+      control2.drainAndShutdown().futureValue
+      streamMessages.drainAndShutdown().futureValue shouldBe totalMessages
     }
   }
 
