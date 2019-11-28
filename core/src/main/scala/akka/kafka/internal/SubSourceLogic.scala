@@ -16,7 +16,7 @@ import akka.kafka.scaladsl.Consumer.Control
 import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{StageLogging, _}
+import akka.stream.stage._
 import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -44,7 +44,7 @@ private abstract class SubSourceLogic[K, V, Msg](
     with PromiseControl
     with MetricsControl
     with MessageBuilder[K, V, Msg]
-    with StageLogging {
+    with StageIdLogging {
   import SubSourceLogic._
 
   val consumerPromise = Promise[ActorRef]
@@ -293,7 +293,7 @@ private final class SubSourceStage[K, V, Msg](
   val shape = new SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) with PromiseControl with MetricsControl with StageLogging {
+    new GraphStageLogic(shape) with PromiseControl with MetricsControl with StageIdLogging {
       override def executionContext: ExecutionContext = materializer.executionContext
       override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
       val shape = stage.shape

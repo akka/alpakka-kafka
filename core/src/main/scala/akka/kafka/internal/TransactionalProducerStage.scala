@@ -98,7 +98,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
     stage: TransactionalProducerStage[K, V, P],
     inheritedAttributes: Attributes
 ) extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage, inheritedAttributes)
-    with StageLogging
+    with StageIdLogging
     with MessageCallback[K, V, P]
     with ProducerCompletionState {
 

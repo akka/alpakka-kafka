@@ -13,7 +13,6 @@ import akka.Done
 import akka.actor.Status.Failure
 import akka.actor.{
   Actor,
-  ActorLogging,
   ActorRef,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
@@ -205,7 +204,7 @@ import scala.util.control.NonFatal
 @InternalApi final private[kafka] class KafkaConsumerActor[K, V](owner: Option[ActorRef],
                                                                  _settings: ConsumerSettings[K, V])
     extends Actor
-    with ActorLogging
+    with ActorIdLogging
     with Timers
     with Stash {
   import KafkaConsumerActor.Internal._

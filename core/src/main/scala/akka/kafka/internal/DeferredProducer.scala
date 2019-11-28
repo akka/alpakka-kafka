@@ -20,7 +20,7 @@ import scala.util.{Failure, Success}
  */
 @InternalApi
 private[kafka] trait DeferredProducer[K, V] {
-  self: GraphStageLogic with StageLogging =>
+  self: GraphStageLogic with StageIdLogging =>
 
   /** The Kafka producer may be created lazily, assigned via `preStart` in `assignProducer`. */
   protected var producer: Producer[K, V] = _
