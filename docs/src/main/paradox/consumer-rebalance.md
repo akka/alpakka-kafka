@@ -22,7 +22,7 @@ Alpakka Kafka's @apidoc[PartitionAssignmentHandler] expects callbacks to be impl
 
 1. `onRevoke` is called when the Kafka broker revokes partitions from this consumer
 1. `onAssign` is called when the Kafka broker assigns partitions to this consumer
-1. `onLost` is called when the Kafka broker has revoked partitions and already assigned them to a different consumer
+1. `onLost` is called when partition metadata has changed and partitions no longer exist.  This can occur if a topic is deleted or if the leader's metadata is stale.
 1. `onStop` is called when the Alpakka Kafka consumer source is about to stop
 
 Rebalancing starts with revoking partitions from all consumers in a consumer group and assigning all partitions to consumers in a second phase. During rebalance no consumer within that consumer group receives any messages.

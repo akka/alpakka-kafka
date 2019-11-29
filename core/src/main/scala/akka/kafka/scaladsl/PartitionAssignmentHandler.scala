@@ -42,10 +42,10 @@ trait PartitionAssignmentHandler {
   def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit
 
   /**
-   * Called when partitions have been reassigned to a different consumer.
+   * Called when partition metadata has changed and partitions no longer exist.  This can occur if a topic is deleted or if the leader's metadata is stale.
    * See [[org.apache.kafka.clients.consumer.ConsumerRebalanceListener#onPartitionsLost]]
    *
-   * @param lostTps The list of partitions that used to be assigned to this consumer but now get assigned to a different consumer
+   * @param lostTps The list of partitions that are no longer valid
    * @param consumer The [[akka.kafka.RestrictedConsumer]] gives some access to the internally used [[org.apache.kafka.clients.consumer.Consumer Consumer]]
    */
   def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit
