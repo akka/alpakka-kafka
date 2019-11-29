@@ -250,6 +250,9 @@ private[kafka] final class TransactionalSubSource[K, V](
               consumerActor.tell(KafkaConsumerActor.Internal.Stop, stageActor.ref)
             }
 
+          override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+            onRevoke(lostTps, consumer)
+
           override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
         }
         new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
