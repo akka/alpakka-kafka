@@ -43,7 +43,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     stage: ProducerStage[K, V, P, IN, OUT],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
-    with StageLogging
+    with StageIdLogging
     with DeferredProducer[K, V]
     with MessageCallback[K, V, P]
     with ProducerCompletionState {

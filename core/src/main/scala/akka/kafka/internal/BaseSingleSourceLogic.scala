@@ -11,7 +11,7 @@ import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, Assignme
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{GraphStageLogic, OutHandler, StageLogging}
+import akka.stream.stage.{GraphStageLogic, OutHandler}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 ) extends GraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
-    with StageLogging
+    with StageIdLogging
     with MessageBuilder[K, V, Msg] {
 
   override protected def executionContext: ExecutionContext = materializer.executionContext

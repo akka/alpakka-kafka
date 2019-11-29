@@ -47,7 +47,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     stage: CommittingProducerSinkStage[K, V, IN],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
-    with StageLogging
+    with StageIdLogging
     with DeferredProducer[K, V] {
 
   import CommittingProducerSinkStage._
