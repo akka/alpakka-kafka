@@ -8,7 +8,7 @@ package akka.kafka.scaladsl
 import akka.{Done, NotUsed}
 import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Keep, RunnableGraph}
+import akka.stream.scaladsl.{Keep, RunnableGraph, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -17,6 +17,7 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -101,13 +102,32 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     }
 
     "be removed from the partitioned source stage buffer when a partition is revoked" in assertAllStagesStopped {
+      def subSourcesWithProbes(
+          partitions: Int,
+          probe: TestSubscriber.Probe[(TopicPartition, Source[ConsumerRecord[String, String], NotUsed])]
+      ): Seq[(TopicPartition, TestSubscriber.Probe[ConsumerRecord[String, String]])] =
+        probe
+          .expectNextN(partitions)
+          .map {
+            case (tp, subSource) =>
+              (tp, subSource.toMat(TestSink.probe)(Keep.right).run())
+          }
+
+      def runForSubSource(
+          partition: Int,
+          subSourcesWithProbes: Seq[(TopicPartition, TestSubscriber.Probe[ConsumerRecord[String, String]])]
+      )(fun: TestSubscriber.Probe[ConsumerRecord[String, String]] => Unit) =
+        subSourcesWithProbes
+          .find { case (tp, _) => tp.partition() == partition }
+          .foreach { case (_, probe) => fun(probe) }
+
       val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
-        // This test FAILS with the default value as messages are enqueue in the stage
+      // This test FAILS with the default value as messages are enqueue in the stage
         .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
         //.withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500") // 500 is the default value
         .withGroupId(group1)
@@ -125,16 +145,12 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // Await initial partition assignment
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription,
-          Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
+                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
       // read 2 sub sources returned by partitioned source
       probe1.request(2)
-      val probe1RunningSubSourceProbes = probe1
-        .expectNextN(2)
-        .map { case (tp, subSource) =>
-          (tp, subSource.toMat(TestSink.probe)(Keep.right).run())
-        }
+      val probe1RunningSubSourceProbes = subSourcesWithProbes(partitions = 2, probe1)
 
       // read one message from probe1 sub source for partition 1
       probe1RunningSubSourceProbes
@@ -150,16 +166,12 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .run()
 
       probe2.request(1)
-      val probe2RunningSubSourceProbes = probe2
-        .expectNextN(1)
-        .map { case (tp, subSource) =>
-          (tp, subSource.toMat(TestSink.probe)(Keep.right).run())
-        }
+      val probe2RunningSubSourceProbes = subSourcesWithProbes(partitions = 1, probe2)
 
       // Await a revoke to consumer 1
       probe1rebalanceActor.expectMsg(
         TopicPartitionsRevoked(probe1subscription,
-          Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
+                               Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
       // the rebalance finishes
@@ -170,26 +182,25 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsAssigned(probe2subscription, Set(new TopicPartition(topic1, partition1)))
       )
 
-      probe1RunningSubSourceProbes
-        .find { case (tp, _) => tp.partition() == partition1 }
-        .foreach { case (_, probe) => println(probe.request(count)) }
-      probe2RunningSubSourceProbes
-        .find { case (tp, _) => tp.partition() == partition1 }
-        .foreach { case (_, probe) => println(probe.request(count)) }
+      runForSubSource(partition = 1, probe1RunningSubSourceProbes) { probe =>
+        println(probe.request(count))
+      }
+      runForSubSource(partition = 1, probe2RunningSubSourceProbes) { probe =>
+        println(probe.request(count))
+      }
 
       // no further messages enqueued on probe1 as partition 1 is balanced away
-      probe1RunningSubSourceProbes
-        .find { case (tp, _) => tp.partition() == partition1 }
-        .foreach { case (_, probe) =>
-          probe.expectComplete()
-          //probe.expectNoMessage(500.millis)
-        }
+      runForSubSource(partition = 1, probe1RunningSubSourceProbes) { probe =>
+        probe.expectComplete()
+      //probe.expectNoMessage(500.millis)
+      }
 
       val probe2messages = probe2RunningSubSourceProbes
         .find { case (tp, _) => tp.partition() == partition1 }
         .toList
-        .flatMap { case (_, probe) =>
-          probe.expectNextN(count)
+        .flatMap {
+          case (_, probe) =>
+            probe.expectNextN(count)
         }
 
       probe2messages should have size (count)
