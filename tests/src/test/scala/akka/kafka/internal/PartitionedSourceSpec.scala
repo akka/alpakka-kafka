@@ -13,6 +13,7 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -36,7 +37,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
     with BeforeAndAfterAll
     with OptionValues
     with ScalaFutures
-    with Eventually {
+    with Eventually
+    with LogCapturing {
 
   implicit val patience = PatienceConfig(4.seconds, 50.millis)
 

@@ -15,6 +15,7 @@ import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.Producer
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings}
 import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import akka.stream.scaladsl.{Keep, Source}
@@ -39,7 +40,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     with BeforeAndAfterAll
     with ScalaFutures
     with IntegrationPatience
-    with Eventually {
+    with Eventually
+    with LogCapturing {
 
   import CommittingProducerSinkSpec.FakeConsumer
 

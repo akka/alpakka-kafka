@@ -11,6 +11,7 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -39,7 +40,8 @@ class ProducerSpec(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with LogCapturing {
 
   def this() = this(ActorSystem())
 

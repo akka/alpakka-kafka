@@ -5,12 +5,13 @@
 
 package akka.kafka.internal
 
+import akka.kafka.tests.scaladsl.LogCapturing
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
 
-class EnhancedConfigSpec extends WordSpecLike with Matchers {
+class EnhancedConfigSpec extends WordSpecLike with Matchers with LogCapturing {
 
   "EnhancedConfig" must {
 

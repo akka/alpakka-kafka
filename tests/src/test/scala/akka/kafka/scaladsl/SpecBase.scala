@@ -7,6 +7,7 @@ package akka.kafka.scaladsl
 
 // #testkit
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
+import akka.kafka.tests.scaladsl.LogCapturing
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
 
@@ -15,7 +16,8 @@ abstract class SpecBase(kafkaPort: Int)
     with WordSpecLike
     with Matchers
     with ScalaFutures
-    with Eventually {
+    with Eventually
+    with LogCapturing {
 
   protected def this() = this(kafkaPort = -1)
 }

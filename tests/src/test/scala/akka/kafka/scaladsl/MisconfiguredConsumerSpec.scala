@@ -6,6 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.actor.ActorSystem
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -23,7 +24,8 @@ class MisconfiguredConsumerSpec
     with WordSpecLike
     with Matchers
     with ScalaFutures
-    with Eventually {
+    with Eventually
+    with LogCapturing {
 
   implicit val materializer: Materializer = ActorMaterializer()
   implicit val patience = PatienceConfig(2.seconds, 20.millis)
