@@ -23,7 +23,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with TransactionsOps with Repeated {
+class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with TransactionsOps {
 
   implicit val patience = PatienceConfig(5.seconds, 15.millis)
 

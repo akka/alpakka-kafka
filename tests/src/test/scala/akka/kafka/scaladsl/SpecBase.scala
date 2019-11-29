@@ -6,6 +6,7 @@
 package akka.kafka.scaladsl
 
 // #testkit
+import akka.kafka.Repeated
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import akka.kafka.tests.scaladsl.LogCapturing
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
@@ -17,7 +18,8 @@ abstract class SpecBase(kafkaPort: Int)
     with Matchers
     with ScalaFutures
     with Eventually
-    with LogCapturing {
+    with LogCapturing
+    with Repeated {
 
   protected def this() = this(kafkaPort = -1)
 }
