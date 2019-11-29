@@ -44,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
     super.preStart()
 
     sourceActor = getStageActor(messageHandling)
+    log.debug("Starting {}", sourceActor.ref)
     consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 

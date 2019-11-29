@@ -6,14 +6,18 @@
 package akka.kafka
 
 import akka.actor.{ActorRef, NoSerializationVerificationNeeded, Props}
+import akka.annotation.InternalApi
 import akka.kafka.internal.{KafkaConsumerActor => InternalKafkaConsumerActor}
 
 object KafkaConsumerActor {
 
+  @InternalApi
+  private[kafka] trait StopLike
+
   /**
    * Message to send for stopping the Kafka consumer actor.
    */
-  case object Stop extends NoSerializationVerificationNeeded
+  case object Stop extends NoSerializationVerificationNeeded with StopLike
 
   /**
    * Java API:

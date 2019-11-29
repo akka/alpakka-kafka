@@ -21,9 +21,10 @@ private[internal] trait InstanceId {
  */
 private[internal] trait StageIdLogging extends StageLogging with InstanceId { self: GraphStageLogic =>
   private[this] var _log: LoggingAdapter = _
+  protected def idLogPrefix: String = s"[$id] "
   override def log: LoggingAdapter = {
     if (_log eq null) {
-      _log = new LoggingAdapterWithId(super.log, id)
+      _log = new LoggingAdapterWithPrefix(super.log, idLogPrefix)
     }
     _log
   }
@@ -34,17 +35,17 @@ private[internal] trait StageIdLogging extends StageLogging with InstanceId { se
  */
 private[internal] trait ActorIdLogging extends ActorLogging with InstanceId { this: Actor =>
   private[this] var _log: LoggingAdapter = _
+  protected def idLogPrefix: String = s"[$id] "
   override def log: LoggingAdapter = {
     if (_log eq null) {
-      _log = new LoggingAdapterWithId(super.log, id)
+      _log = new LoggingAdapterWithPrefix(super.log, idLogPrefix)
     }
     _log
   }
 }
 
-private[internal] final class LoggingAdapterWithId(logger: LoggingAdapter, id: String) extends LoggingAdapter {
-  private val idPrefix: String = s"[$id] "
-  private def msgWithId(message: String): String = idPrefix + message
+private[internal] final class LoggingAdapterWithPrefix(logger: LoggingAdapter, prefix: String) extends LoggingAdapter {
+  private def msgWithId(message: String): String = prefix + message
 
   override protected def notifyError(message: String): Unit = logger.error(msgWithId(message))
   override protected def notifyError(cause: Throwable, message: String): Unit = logger.error(msgWithId(message), cause)
