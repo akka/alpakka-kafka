@@ -12,10 +12,17 @@ Alpakka Kafka allows to react to the Kafka broker's balancing of partitions with
 
 Kafka balances partitions between all consumers within a consumer group. When new consumers join or leave the group partitions are revoked from and assigned to those consumers.
 
-Alpakka Kafka's @apidoc[PartitionAssignmentHandler] expects three callbacks to be implemented, all are called with a set of @javadoc[TopicPartition](org.apache.kafka.common.TopicPartition)s and a reference to the @apidoc[RestrictedConsumer] which allows some access to the Kafka @javadoc[Consumer](org.apache.kafka.clients.consumer.Consumer) instance used internally by Alpakka Kafka.
+@@@ note { title="API may change" }
+This @apidoc[PartitionAssignmentHandler] API was introduced in Alpakka Kafka 2.0.0 and may still be subject to change.
+
+Please give input on its usefulness in [Issue #985](https://github.com/akka/alpakka-kafka/issues/985).
+@@@
+
+Alpakka Kafka's @apidoc[PartitionAssignmentHandler] expects callbacks to be implemented, all are called with a set of @javadoc[TopicPartition](org.apache.kafka.common.TopicPartition)s and a reference to the @apidoc[RestrictedConsumer] which allows some access to the Kafka @javadoc[Consumer](org.apache.kafka.clients.consumer.Consumer) instance used internally by Alpakka Kafka.
 
 1. `onRevoke` is called when the Kafka broker revokes partitions from this consumer
 1. `onAssign` is called when the Kafka broker assigns partitions to this consumer
+1. `onLost` is called when partition metadata has changed and partitions no longer exist.  This can occur if a topic is deleted or if the leader's metadata is stale. For details see [KIP-429 Incremental Rebalance Protocol](https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol).
 1. `onStop` is called when the Alpakka Kafka consumer source is about to stop
 
 Rebalancing starts with revoking partitions from all consumers in a consumer group and assigning all partitions to consumers in a second phase. During rebalance no consumer within that consumer group receives any messages.

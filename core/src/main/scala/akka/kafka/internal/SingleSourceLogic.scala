@@ -127,6 +127,9 @@ import scala.concurrent.{Future, Promise}
       override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         filterRevokedPartitions(lastRevoked -- assignedTps)
 
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        filterRevokedPartitions(lostTps)
+
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }
     new PartitionAssignmentHelpers.Chain(handler, flushMessagesOfRevokedPartitions)

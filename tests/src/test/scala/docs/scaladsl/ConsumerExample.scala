@@ -406,6 +406,11 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         assignedPromise.success(assignedTps)
 
       // #partitionAssignmentHandler
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
+        // #partitionAssignmentHandler
+        ???
+
+      // #partitionAssignmentHandler
       override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = // ???
         // #partitionAssignmentHandler
         stopPromise.success(currentTps)

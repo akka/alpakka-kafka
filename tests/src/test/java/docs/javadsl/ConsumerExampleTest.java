@@ -511,6 +511,8 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             // #partitionAssignmentHandler
           }
 
+          public void onLost(Set<TopicPartition> lostTps, RestrictedConsumer consumer) {}
+
           public void onStop(Set<TopicPartition> currentTps, RestrictedConsumer consumer) {
             // #partitionAssignmentHandler
             stopped.set(currentTps);

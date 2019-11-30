@@ -166,6 +166,9 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
           consumerActor.tell(KafkaConsumerActor.Internal.Stop, consumerActor)
         }
 
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        onRevoke(lostTps, consumer)
+
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }
     new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
@@ -246,6 +249,9 @@ private[kafka] final class TransactionalSubSource[K, V](
               sourceActor.ref.tell(Status.Failure(new Error("Timeout while draining")), stageActor.ref)
               consumerActor.tell(KafkaConsumerActor.Internal.Stop, stageActor.ref)
             }
+
+          override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+            onRevoke(lostTps, consumer)
 
           override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
         }
