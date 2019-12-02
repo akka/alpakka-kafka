@@ -15,6 +15,7 @@ import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
 // #metadataClient
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.hamcrest.core.IsInstanceOf;
@@ -39,6 +40,9 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.core.Is.is;
 
 public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
+
   private static final ActorSystem sys = ActorSystem.create("MetadataClientTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor executor = Executors.newSingleThreadExecutor();

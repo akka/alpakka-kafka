@@ -7,12 +7,13 @@ package akka.kafka.internal
 
 import java.net.URLEncoder
 
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{Subscription, Subscriptions}
 import akka.util.ByteString
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.{Matchers, WordSpec}
 
-class SubscriptionsSpec extends WordSpec with Matchers {
+class SubscriptionsSpec extends WordSpec with Matchers with LogCapturing {
 
   "URL encoded subscription" should {
     "be readable for topics" in {

@@ -18,6 +18,7 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.kafka.javadsl.PartitionAssignmentHandler;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
+import akka.kafka.tests.javadsl.LogCapturingExtension;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -34,6 +35,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -47,12 +49,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-
 import static org.hamcrest.CoreMatchers.*;
+import static org.junit.Assert.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(LogCapturingExtension.class)
 class ConsumerExampleTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");

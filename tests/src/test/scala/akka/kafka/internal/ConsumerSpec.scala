@@ -10,6 +10,7 @@ import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
 import akka.stream._
 import akka.stream.scaladsl._
@@ -49,7 +50,8 @@ class ConsumerSpec(_system: ActorSystem)
     extends TestKit(_system)
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with LogCapturing {
 
   import ConsumerSpec._
 

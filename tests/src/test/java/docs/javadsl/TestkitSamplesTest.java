@@ -14,6 +14,7 @@ import akka.kafka.ConsumerMessage;
 import akka.kafka.ProducerMessage;
 import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Flow;
@@ -23,6 +24,7 @@ import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.AfterClass;
+import org.junit.Rule;
 import org.junit.Test;
 
 import static org.junit.Assert.assertThat;
@@ -40,6 +42,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 public class TestkitSamplesTest {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("TestkitSamplesTest");
   private static final Materializer mat = ActorMaterializer.create(sys);

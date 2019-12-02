@@ -13,6 +13,7 @@ import akka.kafka.javadsl.Producer;
 // #testkit
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 // #testkit
+import akka.kafka.tests.javadsl.LogCapturingExtension;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -28,6 +29,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 // #testkit
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.extension.ExtendWith;
 // #testkit
 
 import java.util.Arrays;
@@ -41,6 +43,9 @@ import static org.junit.Assert.assertFalse;
 // #testkit
 
 @TestInstance(Lifecycle.PER_CLASS)
+// #testkit
+@ExtendWith(LogCapturingExtension.class)
+// #testkit
 class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create();

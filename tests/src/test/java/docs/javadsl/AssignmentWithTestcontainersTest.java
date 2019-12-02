@@ -16,6 +16,7 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 // #testkit
 import akka.kafka.javadsl.Producer;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -30,6 +31,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.AfterClass;
 import org.junit.Test;
 // #testkit
+import org.junit.Rule;
 
 import java.util.Arrays;
 import java.util.List;
@@ -51,6 +53,8 @@ public class AssignmentWithTestcontainersTest extends TestcontainersKafkaJunit4T
   }
 
   // #testkit
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   @Test
   public void mustConsumeFromTheSpecifiedSingleTopic() throws Exception {

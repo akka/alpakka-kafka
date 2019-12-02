@@ -9,6 +9,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.kafka.Metadata
 import akka.kafka.ConnectionCheckerSettings
 import akka.kafka.KafkaConnectionFailed
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.errors.TimeoutException
@@ -20,7 +21,8 @@ import scala.util.{Failure, Success}
 class ConnectionCheckerSpec
     extends TestKit(ActorSystem("KafkaConnectionCheckerSpec", ConfigFactory.load()))
     with WordSpecLike
-    with Matchers {
+    with Matchers
+    with LogCapturing {
 
   "KafkaConnectionChecker" must {
 

@@ -19,7 +19,7 @@ val embeddedKafka = "io.github.seglo" %% "embedded-kafka" % embeddedKafkaVersion
 val embeddedKafkaSchemaRegistry = "5.1.1"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
-val testcontainersVersion = "1.12.2"
+val testcontainersVersion = "1.12.4"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.0.3"
 
@@ -29,8 +29,8 @@ val confluentAvroSerializerVersion = "5.0.3"
 val silencer = {
   val Version = "1.4.4"
   Seq(
-    compilerPlugin("com.github.ghik" % "silencer-plugin" % Version cross CrossVersion.full),
-    "com.github.ghik" % "silencer-lib" % Version % Provided cross CrossVersion.full
+    compilerPlugin("com.github.ghik" % "silencer-plugin" % Version cross CrossVersion.patch),
+    "com.github.ghik" % "silencer-lib" % Version % Provided cross CrossVersion.patch
   )
 }
 
@@ -203,7 +203,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.1"
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.2"
       ) ++ silencer,
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
     mimaPreviousArtifacts := Set(
@@ -221,6 +221,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
+    JupiterKeys.junitJupiterVersion := "5.5.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,

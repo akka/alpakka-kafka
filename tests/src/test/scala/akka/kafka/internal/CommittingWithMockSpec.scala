@@ -11,6 +11,7 @@ import akka.kafka.ConsumerMessage._
 import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -51,7 +52,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with ScalaFutures {
+    with ScalaFutures
+    with LogCapturing {
 
   import CommittingWithMockSpec._
 
@@ -225,7 +227,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitLog.calls.foreach {
       case (offsets, callback) => callback.onComplete(offsets.asJava, null)
     }
-
     allCommits.futureValue should have size (count.toLong)
     control.shutdown().futureValue shouldBe Done
   }

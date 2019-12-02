@@ -7,6 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{ConnectionCheckerSettings, ConsumerSettings, KafkaConnectionFailed, KafkaPorts, Subscriptions}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Keep, Sink}
@@ -20,7 +21,7 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
 
-class ConnectionCheckerSpec extends WordSpecLike with Matchers {
+class ConnectionCheckerSpec extends WordSpecLike with Matchers with LogCapturing {
 
   implicit val system: ActorSystem = ActorSystem("KafkaConnectionCheckerSpec")
   implicit val ec: ExecutionContextExecutor = system.dispatcher

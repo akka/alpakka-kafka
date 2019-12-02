@@ -6,13 +6,19 @@
 package akka.kafka
 
 import akka.actor.ActorSystem
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 
-class ProducerSettingsSpec extends WordSpecLike with Matchers with ScalaFutures with IntegrationPatience {
+class ProducerSettingsSpec
+    extends WordSpecLike
+    with Matchers
+    with ScalaFutures
+    with IntegrationPatience
+    with LogCapturing {
 
   "ProducerSettings" must {
 
