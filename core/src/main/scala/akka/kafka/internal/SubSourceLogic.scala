@@ -397,12 +397,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
       requested = false
-      // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-      if (buffer.hasNext) {
-        buffer = buffer ++ msg.messages
-      } else {
-        buffer = msg.messages
-      }
+      buffer = buffer ++ msg.messages
       pump()
     case (_, Status.Failure(e)) =>
       failStage(e)
