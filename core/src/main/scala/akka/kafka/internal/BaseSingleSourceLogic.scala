@@ -55,12 +55,7 @@ import scala.concurrent.{ExecutionContext, Future}
       // might be more than one in flight when we assign/revoke tps
       if (msg.requestId == requestId)
         requested = false
-      // do not use simple ++ because of https://issues.scala-lang.org/browse/SI-9766
-      if (buffer.hasNext) {
-        buffer = buffer ++ msg.messages
-      } else {
-        buffer = msg.messages
-      }
+      buffer = buffer ++ msg.messages
       pump()
     case (_, Status.Failure(e)) =>
       failStage(e)

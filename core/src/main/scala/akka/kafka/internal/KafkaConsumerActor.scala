@@ -595,12 +595,15 @@ import scala.util.control.NonFatal
       requests.foreach {
         case (stageActorRef, req) =>
           //gather all messages for ref
-          val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
-            case (acc, tp) =>
-              val tpMessages = rawResult.records(tp).asScala.iterator
-              if (acc.isEmpty) tpMessages
-              else acc ++ tpMessages
+          // See https://github.com/akka/alpakka-kafka/issues/978
+          // Temporary fix to avoid https://github.com/scala/bug/issues/11807
+          // Using `VectorIterator` avoids the error from `ConcatIterator`
+          val b = Vector.newBuilder[ConsumerRecord[K, V]]
+          req.topics.foreach { tp =>
+            val tpMessages = rawResult.records(tp).asScala
+            b ++= tpMessages
           }
+          val messages = b.result().iterator
           if (messages.nonEmpty) {
             stageActorRef ! Messages(req.requestId, messages)
             requests -= stageActorRef
