@@ -54,15 +54,11 @@ final class LogCapturingJunit4 extends TestRule {
           )
         } catch {
           case NonFatal(e) =>
-            println(
-              s"--> [${Console.BLUE}${description.getClassName}: ${description.getMethodName}${Console.RESET}] " +
-              s"Start of log messages of test that failed with ${e.getMessage}"
-            )
+            val method = s"[${Console.BLUE}${description.getClassName}: ${description.getMethodName}${Console.RESET}]"
+            val error = e.toString
+            System.out.println(s"--> $method Start of log messages of test that failed with $error")
             capturingAppender.flush()
-            println(
-              s"<-- [${Console.BLUE}${description.getClassName}: ${description.getMethodName}${Console.RESET}] " +
-              s"End of log messages of test that failed with ${e.getMessage}"
-            )
+            System.out.println(s"<-- $method End of log messages of test that failed with $error")
             throw e
         } finally {
           capturingAppender.clear()
