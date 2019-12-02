@@ -28,6 +28,9 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
     super(system, materializer, startKafka(settings));
   }
 
+  /**
+   * @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0
+   */
   @Deprecated
   protected TestcontainersKafkaJunit4Test(
       ActorSystem system, Materializer materializer, String confluentPlatformVersion) {
@@ -39,6 +42,9 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
     super(system, materializer, startKafka(settings));
   }
 
+  /**
+   * @deprecated Use method with `testcontainersSettings` instead. since 2.0.0
+   */
   @Deprecated
   protected static String startKafka(String confluentPlatformVersion) {
     KafkaTestkitTestcontainersSettings settings =
