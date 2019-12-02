@@ -234,8 +234,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     withProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId)
 
   /**
-    * An id string that marks consumer as a unique static member of the consumer group.
-    */
+   * An id string that marks consumer as a unique static member of the consumer group.
+   */
   def withGroupInstanceId(groupInstanceId: String): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, groupInstanceId)
 
