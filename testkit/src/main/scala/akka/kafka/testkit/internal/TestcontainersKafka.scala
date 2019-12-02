@@ -27,7 +27,7 @@ object TestcontainersKafka {
      *
      * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
      */
-    @deprecated("Use testcontainersSettings instead.", "1.1.1")
+    @deprecated("Use testcontainersSettings instead.", "2.0.0")
     def confluentPlatformVersion: String = KafkaContainerCluster.CONFLUENT_PLATFORM_VERSION
 
     /**

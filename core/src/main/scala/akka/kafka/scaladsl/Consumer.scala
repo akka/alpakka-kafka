@@ -100,7 +100,7 @@ object Consumer {
 
     override def stop(): Future[Done] = control.stop()
 
-    @deprecated("Use `drainAndShutdown` for proper shutdown of the stream.", "1.1.1")
+    @deprecated("Use `drainAndShutdown` for proper shutdown of the stream.", "2.0.0")
     override def shutdown(): Future[Done] =
       control
         .shutdown()

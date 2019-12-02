@@ -44,7 +44,7 @@ object Producer {
    */
   @deprecated(
     "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
-    "1.1.1"
+    "2.0.0"
   )
   def plainSink[K, V](
       settings: ProducerSettings[K, V],
@@ -68,7 +68,7 @@ object Producer {
    * Note that there is a risk that something fails after publishing but before
    * committing, so it is "at-least once delivery" semantics.
    */
-  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.1.1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "2.0.0")
   def committableSink[K, V](
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
@@ -95,7 +95,7 @@ object Producer {
    *
    * Supports sharing a Kafka Producer instance.
    */
-  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "1.1.1")
+  @deprecated("use `committableSink(ProducerSettings, CommitterSettings)` instead", "2.0.0")
   def committableSink[K, V](
       settings: ProducerSettings[K, V],
       producer: org.apache.kafka.clients.producer.Producer[K, V]
@@ -265,7 +265,7 @@ object Producer {
    */
   @deprecated(
     "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
-    "1.1.1"
+    "2.0.0"
   )
   def flexiFlow[K, V, PassThrough](
       settings: ProducerSettings[K, V],
@@ -294,7 +294,7 @@ object Producer {
    */
   @deprecated(
     "Pass in external or shared producer using ProducerSettings.withProducerFactory or ProducerSettings.withProducer",
-    "1.1.1"
+    "2.0.0"
   )
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/880")
   def flowWithContext[K, V, C](
