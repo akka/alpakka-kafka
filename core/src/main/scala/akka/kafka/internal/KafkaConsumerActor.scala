@@ -32,7 +32,6 @@ import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
-import scala.collection.immutable.VectorIterator
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Success, Try}
@@ -604,7 +603,7 @@ import scala.util.control.NonFatal
             val tpMessages = rawResult.records(tp).asScala
             b ++= tpMessages
           }
-          val messages: VectorIterator[ConsumerRecord[K, V]] = b.result().iterator
+          val messages = b.result().iterator
           if (messages.nonEmpty) {
             stageActorRef ! Messages(req.requestId, messages)
             requests -= stageActorRef
