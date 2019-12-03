@@ -9,9 +9,9 @@ import akka.actor.{ActorRef, Status, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
-import akka.stream.SourceShape
+import akka.stream.{Outlet, SourceShape}
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{GraphStageLogic, OutHandler}
+import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -29,14 +29,15 @@ import scala.concurrent.{ExecutionContext, Future}
     with PromiseControl
     with MetricsControl
     with StageIdLogging
-    with MessageBuilder[K, V, Msg] {
+    with MessageBuilder[K, V, Msg]
+    with SourceLogicWithBuffer[K, V, Msg] {
 
   override protected def executionContext: ExecutionContext = materializer.executionContext
+  override val out: Outlet[Msg] = shape.out
   protected def consumerFuture: Future[ActorRef]
   protected final var consumerActor: ActorRef = _
   protected var sourceActor: StageActor = _
   protected var tps = Set.empty[TopicPartition]
-  private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   private var requested = false
   private var requestId = 0
 
@@ -80,21 +81,12 @@ import scala.concurrent.{ExecutionContext, Future}
       tps ++= topics.keySet
   }
 
-  protected def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit =
-    if (topicPartitions.nonEmpty) {
-      log.debug("filtering out messages from revoked partitions {}", topicPartitions)
-      // as buffer is an Iterator the filtering will be applied during `pump`
-      buffer = buffer.filterNot { record =>
-        val tp = new TopicPartition(record.topic, record.partition)
-        topicPartitions.contains(tp)
-      }
-    }
-
   @tailrec
-  private def pump(): Unit =
+  protected final def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()
+        log.debug(s"pump, sending a record $msg")
         push(shape.out, createMessage(msg))
         pump()
       } else if (!requested && tps.nonEmpty) {
@@ -110,9 +102,7 @@ import scala.concurrent.{ExecutionContext, Future}
   }
 
   setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit =
-      pump()
-
+    override def onPull(): Unit = pump()
     override def onDownstreamFinish(): Unit =
       performShutdown()
   })

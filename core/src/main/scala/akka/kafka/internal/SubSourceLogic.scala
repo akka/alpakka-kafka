@@ -94,11 +94,11 @@ private class SubSourceLogic[K, V, Msg](
 
     def assignmentHandler =
       PartitionAssignmentHelpers.chain(
+        subscription.partitionAssignmentHandler,
         new PartitionAssignmentHelpers.AsyncCallbacks(subscription,
                                                       sourceActor.ref,
                                                       partitionAssignedCB,
-                                                      partitionRevokedCB),
-        subscription.partitionAssignmentHandler
+                                                      partitionRevokedCB)
       )
 
     subscription match {
@@ -380,15 +380,17 @@ private abstract class SubSourceStageLogic[K, V, Msg](
 ) extends GraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
+    with StageIdLogging
     with MessageBuilder[K, V, Msg]
-    with StageIdLogging {
+    with SourceLogicWithBuffer[K, V, Msg] {
+
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
   override def id: String = s"${super.id}#$actorNumber"
+  override val out: Outlet[Msg] = shape.out
   private val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
   private var requested = false
   protected var subSourceActor: StageActor = _
-  private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
   override def preStart(): Unit = {
     super.preStart()
@@ -423,12 +425,38 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     super.postStop()
   }
 
+  override protected def suspendDemand(): Unit = {
+    log.debug("Suspend demand")
+    setHandler(
+      out,
+      new OutHandler {
+        override def onPull(): Unit = ()
+        override def onDownstreamFinish(): Unit = {
+          subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
+          super.onDownstreamFinish()
+        }
+      }
+    )
+  }
+
+  override protected def resumeDemand(): Unit = {
+    log.debug("Resume demand")
+    setHandler(
+      out,
+      new OutHandler {
+        override def onPull(): Unit = pump()
+        override def onDownstreamFinish(): Unit = {
+          subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
+          super.onDownstreamFinish()
+        }
+      }
+    )
+  }
+
   setHandler(
     shape.out,
     new OutHandler {
-      override def onPull(): Unit =
-        pump()
-
+      override def onPull(): Unit = pump()
       override def onDownstreamFinish(): Unit = {
         subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
         super.onDownstreamFinish()
@@ -442,7 +470,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   }
 
   @tailrec
-  private def pump(): Unit =
+  protected final def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()

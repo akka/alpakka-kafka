@@ -10,7 +10,7 @@ import akka.annotation.InternalApi
 import akka.kafka.Subscriptions._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, RestrictedConsumer, Subscription}
-import akka.stream.{ActorMaterializerHelper, SourceShape}
+import akka.stream.{ActorMaterializerHelper, Outlet, SourceShape}
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.{Future, Promise}
@@ -27,7 +27,6 @@ import scala.concurrent.{Future, Promise}
 ) extends BaseSingleSourceLogic[K, V, Msg](shape) {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
-
   private val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   final def consumerFuture: Future[ActorRef] = consumerPromise.future
@@ -40,8 +39,8 @@ import scala.concurrent.{Future, Promise}
       val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
 
       PartitionAssignmentHelpers.chain(
-        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB),
-        autoSubscription.partitionAssignmentHandler
+        autoSubscription.partitionAssignmentHandler,
+        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB)
       )
     }
 
@@ -125,11 +124,15 @@ import scala.concurrent.{Future, Promise}
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         lastRevoked = revokedTps
 
-      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
-        filterRevokedPartitions(lastRevoked -- assignedTps)
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
+        suspendDemand()
+        filterRevokedPartitionsCB.invoke(lastRevoked -- assignedTps)
+      }
 
-      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
-        filterRevokedPartitions(lostTps)
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
+        suspendDemand()
+        filterRevokedPartitionsCB.invoke(lostTps)
+      }
 
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }

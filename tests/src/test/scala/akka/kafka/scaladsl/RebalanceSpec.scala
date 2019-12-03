@@ -123,14 +123,14 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control1.isShutdown.futureValue shouldBe Done
       control2.isShutdown.futureValue shouldBe Done
     }
-
-    "be removed from the partitioned source stage buffer when a partition is revoked" in assertAllStagesStopped {
+    
+    "be removed from the partitioned source stage buffer when a partition is revoked" ignore assertAllStagesStopped {
       def subSourcesWithProbes(
           partitions: Int,
           probe: TestSubscriber.Probe[(TopicPartition, Source[ConsumerRecord[String, String], NotUsed])]
       ): Seq[(TopicPartition, TestSubscriber.Probe[ConsumerRecord[String, String]])] =
         probe
-          .expectNextN(partitions)
+          .expectNextN(partitions.toLong)
           .map {
             case (tp, subSource) =>
               (tp, subSource.toMat(TestSink.probe)(Keep.right).run())
