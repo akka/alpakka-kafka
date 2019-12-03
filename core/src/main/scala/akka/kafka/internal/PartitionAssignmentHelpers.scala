@@ -57,7 +57,8 @@ object PartitionAssignmentHelpers {
   final class AsyncCallbacks(subscription: AutoSubscription,
                              sourceActor: ActorRef,
                              partitionAssignedCB: AsyncCallback[Set[TopicPartition]],
-                             partitionRevokedCB: AsyncCallback[Set[TopicPartition]])
+                             partitionRevokedCB: AsyncCallback[Set[TopicPartition]],
+                             partitionLostCB: AsyncCallback[Set[TopicPartition]])
       extends PartitionAssignmentHandler {
 
     override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {

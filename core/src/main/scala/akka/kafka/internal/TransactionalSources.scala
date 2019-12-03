@@ -224,7 +224,7 @@ private[kafka] final class TransactionalSubSource[K, V](
           shape: SourceShape[TransactionalMessage[K, V]],
           tp: TopicPartition,
           consumerActor: ActorRef,
-          subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+          subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
           subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
           actorNumber: Int
       ): SubSourceStageLogic[K, V, TransactionalMessage[K, V]] =
@@ -249,7 +249,9 @@ private[kafka] final class TransactionalSubSource[K, V](
           override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
             if (revokedTps.isEmpty) ()
             else if (waitForDraining(revokedTps)) {
-              subSources.values.map(_.stageActor).foreach(_.tell(Revoked(revokedTps.toList), stageActor.ref))
+              subSources.values
+                .map(_.controlAndStageActor.stageActor)
+                .foreach(_.tell(Revoked(revokedTps.toList), stageActor.ref))
             } else {
               sourceActor.ref.tell(Status.Failure(new Error("Timeout while draining")), stageActor.ref)
               consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), stageActor.ref)
@@ -267,7 +269,8 @@ private[kafka] final class TransactionalSubSource[K, V](
         import akka.pattern.ask
         implicit val timeout = Timeout(txConsumerSettings.commitTimeout)
         try {
-          val drainCommandFutures = subSources.values.map(_.stageActor).map(ask(_, Drain(partitions, None, Drained)))
+          val drainCommandFutures =
+            subSources.values.map(_.controlAndStageActor.stageActor).map(ask(_, Drain(partitions, None, Drained)))
           implicit val ec = executionContext
           Await.result(Future.sequence(drainCommandFutures), timeout.duration)
           true
@@ -353,7 +356,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
     shape: SourceShape[TransactionalMessage[K, V]],
     tp: TopicPartition,
     consumerActor: ActorRef,
-    subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+    subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
     subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
     actorNumber: Int,
     consumerSettings: ConsumerSettings[K, V]

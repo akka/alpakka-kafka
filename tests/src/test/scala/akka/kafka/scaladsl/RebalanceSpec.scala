@@ -32,6 +32,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
   final val Numbers = (1 to 5000).map(_.toString)
   final val partition1 = 1
+  final val consumerClientId1 = "consumer-1"
+  final val consumerClientId2 = "consumer-2"
 
   "Fetched records" must {
 
@@ -55,7 +57,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
-          "consumer-1" -> Set(tp0, tp1)
+          consumerClientId1 -> Set(tp0, tp1)
         )
       )
 
@@ -63,7 +65,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe1rebalanceActor = TestProbe()
       val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
       val (control1, probe1) = Consumer
-        .plainSource(consumerSettings.withClientId("consumer-1"), probe1subscription)
+        .plainSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -75,12 +77,11 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       log.debug("read one message from probe1 with partition 1")
       val record = probe1.requestNext()
-      log.debug(s"read one msg: $record")
 
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
-          "consumer-1" -> Set(tp0),
-          "consumer-2" -> Set(tp1)
+          consumerClientId1 -> Set(tp0),
+          consumerClientId2 -> Set(tp1)
         )
       )
 
@@ -88,17 +89,17 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe2rebalanceActor = TestProbe()
       val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
-        .plainSource(consumerSettings.withClientId("consumer-2"), probe2subscription)
+        .plainSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      // Await a revoke to consumer 1
+      log.debug("Await a revoke to consumer 1")
       probe1rebalanceActor.expectMsg(
         TopicPartitionsRevoked(probe1subscription,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
-      // the rebalance finishes
+      log.debug("the rebalance finishes")
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription, Set(new TopicPartition(topic1, partition0)))
       )
@@ -123,8 +124,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control1.isShutdown.futureValue shouldBe Done
       control2.isShutdown.futureValue shouldBe Done
     }
-    
-    "be removed from the partitioned source stage buffer when a partition is revoked" ignore assertAllStagesStopped {
+
+    "be removed from the partitioned source stage buffer when a partition is revoked" in assertAllStagesStopped {
       def subSourcesWithProbes(
           partitions: Int,
           probe: TestSubscriber.Probe[(TopicPartition, Source[ConsumerRecord[String, String], NotUsed])]
@@ -149,55 +150,69 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
+      val tp0 = new TopicPartition(topic1, partition0)
+      val tp1 = new TopicPartition(topic1, partition1)
       val consumerSettings = consumerDefaults
-      // This test FAILS with the default value as messages are enqueue in the stage
-        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
-        //.withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500") // 500 is the default value
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500") // 500 is the default value
+        .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
         .withGroupId(group1)
 
       awaitProduce(produce(topic1, 0 to count.toInt, partition1))
 
-      // Subscribe to the topic (without demand)
+      AlpakkaAssignor.clientIdToPartitionMap.set(
+        Map(
+          consumerClientId1 -> Set(tp0, tp1)
+        )
+      )
+
+      log.debug("Subscribe to the topic (without demand)")
       val probe1rebalanceActor = TestProbe()
       val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
       val (control1, probe1) = Consumer
-        .plainPartitionedSource(consumerSettings, probe1subscription)
+        .plainPartitionedSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      // Await initial partition assignment
+      log.debug("Await initial partition assignment")
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription,
                                 Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
-      // read 2 sub sources returned by partitioned source
+      log.debug("read 2 sub sources returned by partitioned source")
       probe1.request(2)
       val probe1RunningSubSourceProbes = subSourcesWithProbes(partitions = 2, probe1)
 
-      // read one message from probe1 sub source for partition 1
+      log.debug("read one message from probe1 sub source for partition 1")
       probe1RunningSubSourceProbes
         .find { case (tp, _) => tp.partition() == partition1 }
-        .foreach { case (_, probe) => println(probe.requestNext()) }
+        .foreach { case (_, probe) => probe.requestNext() }
 
-      // Subscribe to the topic (without demand)
+      AlpakkaAssignor.clientIdToPartitionMap.set(
+        Map(
+          consumerClientId1 -> Set(tp0),
+          consumerClientId2 -> Set(tp1)
+        )
+      )
+
+      log.debug("Subscribe to the topic (without demand)")
       val probe2rebalanceActor = TestProbe()
       val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
-        .plainPartitionedSource(consumerSettings, probe2subscription)
+        .plainPartitionedSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
       probe2.request(1)
       val probe2RunningSubSourceProbes = subSourcesWithProbes(partitions = 1, probe2)
 
-      // Await a revoke to consumer 1
+      log.debug("Await a revoke to consumer 1")
       probe1rebalanceActor.expectMsg(
         TopicPartitionsRevoked(probe1subscription,
                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
       )
 
-      // the rebalance finishes
+      log.debug("the rebalance finishes")
       probe1rebalanceActor.expectMsg(
         TopicPartitionsAssigned(probe1subscription, Set(new TopicPartition(topic1, partition0)))
       )
@@ -212,11 +227,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         println(probe.request(count))
       }
 
-      // no further messages enqueued on probe1 as partition 1 is balanced away
-      runForSubSource(partition = 1, probe1RunningSubSourceProbes) { probe =>
-        probe.expectComplete()
-      //probe.expectNoMessage(500.millis)
-      }
+      log.debug("no further messages enqueued on probe1 as partition 1 is balanced away")
+      runForSubSource(partition = 1, probe1RunningSubSourceProbes)(_.expectComplete())
 
       val probe2messages = probe2RunningSubSourceProbes
         .find { case (tp, _) => tp.partition() == partition1 }
@@ -226,7 +238,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             probe.expectNextN(count)
         }
 
-      probe2messages should have size (count)
+      probe2messages should have size count
 
       probe1.cancel()
       probe2.cancel()

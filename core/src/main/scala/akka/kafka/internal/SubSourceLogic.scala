@@ -12,7 +12,7 @@ import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.internal.KafkaConsumerActor.Internal.RegisterSubStage
 import akka.kafka.internal.SubSourceLogic._
-import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings}
+import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, RestrictedConsumer}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.pattern.{ask, AskTimeoutException}
@@ -21,7 +21,6 @@ import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
 import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
 import akka.util.Timeout
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -70,7 +69,7 @@ private class SubSourceLogic[K, V, Msg](
 
   /** We have created a source for these partitions, but it has not started up and is not in subSources yet. */
   private var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
-  protected var subSources: Map[TopicPartition, ControlAndStageActor] = immutable.Map.empty
+  protected var subSources: Map[TopicPartition, SubSourceStageLogicControl] = immutable.Map.empty
 
   /** Kafka has signalled these partitions are revoked, but some may be re-assigned just after revoking. */
   private var partitionsToRevoke: Set[TopicPartition] = Set.empty
@@ -94,11 +93,12 @@ private class SubSourceLogic[K, V, Msg](
 
     def assignmentHandler =
       PartitionAssignmentHelpers.chain(
-        subscription.partitionAssignmentHandler,
+        addToPartitionAssignmentHandler(subscription.partitionAssignmentHandler),
         new PartitionAssignmentHelpers.AsyncCallbacks(subscription,
                                                       sourceActor.ref,
                                                       partitionAssignedCB,
-                                                      partitionRevokedCB)
+                                                      partitionRevokedCB,
+                                                      partitionLostCB)
       )
 
     subscription match {
@@ -153,6 +153,16 @@ private class SubSourceLogic[K, V, Msg](
     }
   }
 
+  private val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
+    partitionsToRevoke ++= revoked
+    scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
+  }
+
+  private val partitionLostCB = getAsyncCallback[Set[TopicPartition]] { lost =>
+    partitionsToRevoke ++= lost
+    scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
+  }
+
   private def seekAndEmitSubSources(
       formerlyUnknown: Set[TopicPartition],
       offsets: Map[TopicPartition, Long]
@@ -171,11 +181,6 @@ private class SubSourceLogic[K, V, Msg](
       }
   }
 
-  private val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
-    partitionsToRevoke ++= revoked
-    scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
-  }
-
   override def onTimer(timerKey: Any): Unit = timerKey match {
     case CloseRevokedPartitions =>
       if (log.isDebugEnabled) {
@@ -184,7 +189,7 @@ private class SubSourceLogic[K, V, Msg](
       onRevoke(partitionsToRevoke)
       pendingPartitions --= partitionsToRevoke
       partitionsInStartup --= partitionsToRevoke
-      partitionsToRevoke.flatMap(subSources.get).map(_.control).foreach(_.shutdown())
+      partitionsToRevoke.flatMap(subSources.get).map(_.controlAndStageActor.control).foreach(_.shutdown())
       subSources --= partitionsToRevoke
       partitionsToRevoke = Set.empty
   }
@@ -211,9 +216,9 @@ private class SubSourceLogic[K, V, Msg](
         }
     }
 
-  private val subsourceStartedCB: AsyncCallback[(TopicPartition, ControlAndStageActor)] =
-    getAsyncCallback[(TopicPartition, ControlAndStageActor)] {
-      case (tp, value @ ControlAndStageActor(control, _)) =>
+  private val subsourceStartedCB: AsyncCallback[SubSourceStageLogicControl] =
+    getAsyncCallback[SubSourceStageLogicControl] {
+      case value @ SubSourceStageLogicControl(tp, ControlAndStageActor(control, _), _) =>
         if (!partitionsInStartup.contains(tp)) {
           // Partition was revoked while
           // starting up.  Kill!
@@ -266,7 +271,7 @@ private class SubSourceLogic[K, V, Msg](
   override def performStop(): Unit = {
     setKeepGoing(true)
     subSources.foreach {
-      case (_, ControlAndStageActor(control, _)) => control.stop()
+      case (_, SubSourceStageLogicControl(_, ControlAndStageActor(control, _), _)) => control.stop()
     }
     complete(shape.out)
     onStop()
@@ -277,7 +282,7 @@ private class SubSourceLogic[K, V, Msg](
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
     subSources.foreach {
-      case (_, ControlAndStageActor(control, _)) => control.shutdown()
+      case (_, SubSourceStageLogicControl(_, ControlAndStageActor(control, _), _)) => control.shutdown()
     }
     if (!isClosed(shape.out)) {
       complete(shape.out)
@@ -297,10 +302,26 @@ private class SubSourceLogic[K, V, Msg](
   }
 
   /**
-   * Opportunity for subclasses to add their logic to the partition assignment callbacks.
+   * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
    */
-  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler =
-    handler
+  // TODO: extract the previous base impl and call to this method to trait?
+  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler = {
+    val flushMessagesOfRevokedPartitions: PartitionAssignmentHandler = new PartitionAssignmentHandler {
+      private var lastRevoked = Set.empty[TopicPartition]
+
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        lastRevoked = revokedTps
+
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        (lastRevoked -- assignedTps).foreach(tp => subSources(tp).filterRevokedPartitionsCB.invoke(Set(tp)))
+
+      override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+        lostTps.foreach(tp => subSources(tp).filterRevokedPartitionsCB.invoke(Set(tp)))
+
+      override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+    }
+    new PartitionAssignmentHelpers.Chain(handler, flushMessagesOfRevokedPartitions)
+  }
 
 }
 
@@ -314,6 +335,11 @@ private object SubSourceLogic {
    */
   @InternalApi
   final case class ControlAndStageActor(control: Control, stageActor: ActorRef)
+
+  @InternalApi
+  final case class SubSourceStageLogicControl(tp: TopicPartition,
+                                              controlAndStageActor: ControlAndStageActor,
+                                              filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]])
 
   /** Internal API
    * Used to determine how the [[SubSourceLogic]] will handle the cancellation of a sub source stage.  The default
@@ -336,7 +362,7 @@ private object SubSourceLogic {
         shape: SourceShape[Msg],
         tp: TopicPartition,
         consumerActor: ActorRef,
-        subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+        subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
         subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
         actorNumber: Int
     ): SubSourceStageLogic[K, V, Msg]
@@ -351,7 +377,7 @@ private object SubSourceLogic {
 private final class SubSourceStage[K, V, Msg](
     tp: TopicPartition,
     consumerActor: ActorRef,
-    subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+    subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
     subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
     actorNumber: Int,
     subSourceStageLogicFactory: SubSourceStageLogicFactory[K, V, Msg]
@@ -374,7 +400,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     val shape: SourceShape[Msg],
     tp: TopicPartition,
     consumerActor: ActorRef,
-    subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+    subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
     subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
     actorNumber: Int
 ) extends GraphStageLogic(shape)
@@ -398,7 +424,8 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     subSourceActor = getStageActor(messageHandling)
     subSourceActor.watch(consumerActor)
     val controlAndActor = ControlAndStageActor(this.asInstanceOf[Control], subSourceActor.ref)
-    subSourceStartedCb.invoke(tp -> controlAndActor)
+    val started = SubSourceStageLogicControl(tp, controlAndActor, filterRevokedPartitionsCB)
+    subSourceStartedCb.invoke(started)
     consumerActor.tell(RegisterSubStage, subSourceActor.ref)
   }
 

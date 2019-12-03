@@ -16,6 +16,7 @@ private trait SourceLogicWithBuffer[K, V, Msg] {
 
   def out: Outlet[Msg]
 
+  // TODO: can pump impl be factored out?
   protected def pump(): Unit
 
   protected var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty

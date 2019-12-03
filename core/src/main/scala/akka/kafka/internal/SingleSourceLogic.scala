@@ -38,9 +38,11 @@ import scala.concurrent.{Future, Promise}
 
       val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
 
+      val lostCB = getAsyncCallback[Set[TopicPartition]](partitionLostHandler)
+
       PartitionAssignmentHelpers.chain(
         autoSubscription.partitionAssignmentHandler,
-        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB)
+        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB, lostCB)
       )
     }
 
@@ -111,6 +113,11 @@ import scala.concurrent.{Future, Promise}
   protected def partitionRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {
     tps --= revokedTps
     log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+  }
+
+  protected def partitionLostHandler(lostTps: Set[TopicPartition]): Unit = {
+    tps --= lostTps
+    log.debug("Lost partitions: {}. All partitions: {}", lostTps, tps)
   }
 
   /**
