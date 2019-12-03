@@ -294,10 +294,16 @@ private class SubSourceLogic[K, V, Msg](
         lastRevoked = revokedTps
 
       override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
-        (lastRevoked -- assignedTps).foreach(tp => subSources(tp).filterRevokedPartitionsCB.invoke(Set(tp)))
+        for {
+          tp <- lastRevoked -- assignedTps
+          control <- subSources.get(tp)
+        } control.filterRevokedPartitionsCB.invoke(Set(tp))
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
-        lostTps.foreach(tp => subSources(tp).filterRevokedPartitionsCB.invoke(Set(tp)))
+        for {
+          tp <- lostTps
+          control <- subSources.get(tp)
+        } control.filterRevokedPartitionsCB.invoke(Set(tp))
 
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
     }
