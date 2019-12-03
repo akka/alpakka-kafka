@@ -33,7 +33,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** Internal API */
 @InternalApi
 private[kafka] final class TransactionalSource[K, V](consumerSettings: ConsumerSettings[K, V],
-                                                     subscription: Subscription)
+                                                     val subscription: Subscription)
     extends KafkaSourceStage[K, V, TransactionalMessage[K, V]](
       s"TransactionalSource ${subscription.renderStageAttribute}"
     ) {

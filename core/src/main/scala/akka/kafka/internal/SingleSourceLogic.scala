@@ -7,10 +7,9 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
-import akka.kafka.Subscriptions._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
-import akka.kafka.{AutoSubscription, ConsumerSettings, ManualSubscription, RestrictedConsumer, Subscription}
-import akka.stream.{ActorMaterializerHelper, Outlet, SourceShape}
+import akka.kafka.{ConsumerSettings, RestrictedConsumer, Subscription}
+import akka.stream.{ActorMaterializerHelper, SourceShape}
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.{Future, Promise}
@@ -23,50 +22,14 @@ import scala.concurrent.{Future, Promise}
 @InternalApi private abstract class SingleSourceLogic[K, V, Msg](
     shape: SourceShape[Msg],
     settings: ConsumerSettings[K, V],
-    subscription: Subscription
+    val subscription: Subscription
 ) extends BaseSingleSourceLogic[K, V, Msg](shape) {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
   private val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
+
   final def consumerFuture: Future[ActorRef] = consumerPromise.future
-
-  final def configureSubscription(): Unit = {
-
-    def rebalanceListener(autoSubscription: AutoSubscription): PartitionAssignmentHandler = {
-      val assignedCB = getAsyncCallback[Set[TopicPartition]](partitionAssignedHandler)
-
-      val revokedCB = getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
-
-      val lostCB = getAsyncCallback[Set[TopicPartition]](partitionLostHandler)
-
-      PartitionAssignmentHelpers.chain(
-        autoSubscription.partitionAssignmentHandler,
-        new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription, sourceActor.ref, assignedCB, revokedCB, lostCB)
-      )
-    }
-
-    subscription match {
-      case sub @ TopicSubscription(topics, _, _) =>
-        consumerActor.tell(
-          KafkaConsumerActor.Internal.Subscribe(
-            topics,
-            addToPartitionAssignmentHandler(rebalanceListener(sub))
-          ),
-          sourceActor.ref
-        )
-      case sub @ TopicSubscriptionPattern(topics, _, _) =>
-        consumerActor.tell(
-          KafkaConsumerActor.Internal.SubscribePattern(
-            topics,
-            addToPartitionAssignmentHandler(rebalanceListener(sub))
-          ),
-          sourceActor.ref
-        )
-      case s: ManualSubscription => configureManualSubscription(s)
-    }
-
-  }
 
   final def createConsumerActor(): ActorRef = {
     val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
@@ -104,27 +67,13 @@ import scala.concurrent.{Future, Promise}
         consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
     })
 
-  protected def partitionAssignedHandler(assignedTps: Set[TopicPartition]): Unit = {
-    tps ++= assignedTps
-    log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
-    requestMessages()
-  }
-
-  protected def partitionRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {
-    tps --= revokedTps
-    log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
-  }
-
-  protected def partitionLostHandler(lostTps: Set[TopicPartition]): Unit = {
-    tps --= lostTps
-    log.debug("Lost partitions: {}. All partitions: {}", lostTps, tps)
-  }
-
   /**
    * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
    * Used by the [[TransactionalSourceLogic]].
    */
-  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler = {
+  override protected def addToPartitionAssignmentHandler(
+      handler: PartitionAssignmentHandler
+  ): PartitionAssignmentHandler = {
     val flushMessagesOfRevokedPartitions: PartitionAssignmentHandler = new PartitionAssignmentHandler {
       private var lastRevoked = Set.empty[TopicPartition]
 

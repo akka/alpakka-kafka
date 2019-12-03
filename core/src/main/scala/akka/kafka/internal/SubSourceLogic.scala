@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.actor.Status
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
-import akka.kafka.Subscriptions.{TopicSubscription, TopicSubscriptionPattern}
 import akka.kafka.internal.KafkaConsumerActor.Internal.RegisterSubStage
 import akka.kafka.internal.SubSourceLogic._
 import akka.kafka.{AutoSubscription, ConsumerFailed, ConsumerSettings, RestrictedConsumer}
@@ -46,13 +45,14 @@ import scala.util.{Failure, Success}
 private class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
-    subscription: AutoSubscription,
+    val subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => (),
     subSourceStageLogicFactory: SubSourceStageLogicFactory[K, V, Msg]
 ) extends TimerGraphStageLogic(shape)
     with PromiseControl
     with MetricsControl
+    with SourceLogicSubscription
     with StageIdLogging {
   import SubSourceLogic._
 
@@ -61,6 +61,7 @@ private class SubSourceLogic[K, V, Msg](
   override def id: String = s"${super.id}#$actorNumber"
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
+
   protected var consumerActor: ActorRef = _
   protected var sourceActor: StageActor = _
 
@@ -91,28 +92,7 @@ private class SubSourceLogic[K, V, Msg](
     consumerPromise.success(consumerActor)
     sourceActor.watch(consumerActor)
 
-    def assignmentHandler =
-      PartitionAssignmentHelpers.chain(
-        addToPartitionAssignmentHandler(subscription.partitionAssignmentHandler),
-        new PartitionAssignmentHelpers.AsyncCallbacks(subscription,
-                                                      sourceActor.ref,
-                                                      partitionAssignedCB,
-                                                      partitionRevokedCB,
-                                                      partitionLostCB)
-      )
-
-    subscription match {
-      case TopicSubscription(topics, _, _) =>
-        consumerActor.tell(KafkaConsumerActor.Internal
-                             .Subscribe(topics, assignmentHandler),
-                           sourceActor.ref)
-      case TopicSubscriptionPattern(topics, _, _) =>
-        consumerActor.tell(
-          KafkaConsumerActor.Internal
-            .SubscribePattern(topics, assignmentHandler),
-          sourceActor.ref
-        )
-    }
+    configureSubscription(partitionAssignedCB, partitionRevokedCB, partitionLostCB)
   }
 
   private val updatePendingPartitionsAndEmitSubSourcesCb =
@@ -304,8 +284,9 @@ private class SubSourceLogic[K, V, Msg](
   /**
    * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
    */
-  // TODO: extract the previous base impl and call to this method to trait?
-  protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler = {
+  override protected def addToPartitionAssignmentHandler(
+      handler: PartitionAssignmentHandler
+  ): PartitionAssignmentHandler = {
     val flushMessagesOfRevokedPartitions: PartitionAssignmentHandler = new PartitionAssignmentHandler {
       private var lastRevoked = Set.empty[TopicPartition]
 
@@ -322,7 +303,6 @@ private class SubSourceLogic[K, V, Msg](
     }
     new PartitionAssignmentHelpers.Chain(handler, flushMessagesOfRevokedPartitions)
   }
-
 }
 
 /** Internal API */
@@ -408,7 +388,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     with MetricsControl
     with StageIdLogging
     with MessageBuilder[K, V, Msg]
-    with SourceLogicWithBuffer[K, V, Msg] {
+    with SourceLogicBuffer[K, V, Msg] {
 
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)

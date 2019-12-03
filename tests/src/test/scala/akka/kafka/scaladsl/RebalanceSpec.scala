@@ -76,7 +76,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       )
 
       log.debug("read one message from probe1 with partition 1")
-      val record = probe1.requestNext()
+      probe1.requestNext()
 
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
@@ -220,12 +220,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         TopicPartitionsAssigned(probe2subscription, Set(new TopicPartition(topic1, partition1)))
       )
 
-      runForSubSource(partition = 1, probe1RunningSubSourceProbes) { probe =>
-        println(probe.request(count))
-      }
-      runForSubSource(partition = 1, probe2RunningSubSourceProbes) { probe =>
-        println(probe.request(count))
-      }
+      log.debug("resume demand on both consumers")
+      runForSubSource(partition = 1, probe1RunningSubSourceProbes)(_.request(count))
+      runForSubSource(partition = 1, probe2RunningSubSourceProbes)(_.request(count))
 
       log.debug("no further messages enqueued on probe1 as partition 1 is balanced away")
       runForSubSource(partition = 1, probe1RunningSubSourceProbes)(_.expectComplete())
