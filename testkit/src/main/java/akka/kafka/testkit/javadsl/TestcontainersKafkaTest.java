@@ -35,18 +35,14 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
     super(system, materializer, startKafka(settings));
   }
 
-  /**
-   * @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0
-   */
+  /** @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0 */
   @Deprecated
   protected TestcontainersKafkaTest(
       ActorSystem system, Materializer materializer, String confluentPlatformVersion) {
     super(system, materializer, startKafka(confluentPlatformVersion));
   }
 
-  /**
-   * @deprecated Use method with `testcontainersSettings` instead. since 2.0.0
-   */
+  /** @deprecated Use method with `testcontainersSettings` instead. since 2.0.0 */
   @Deprecated
   protected static String startKafka(String confluentPlatformVersion) {
     KafkaTestkitTestcontainersSettings settings =
