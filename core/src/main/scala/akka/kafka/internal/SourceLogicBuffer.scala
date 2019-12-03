@@ -31,6 +31,7 @@ private trait SourceLogicBuffer[K, V, Msg] {
 
   protected val filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] {
     tps =>
+      suspendDemand()
       filterRevokedPartitions(tps)
   }
 
