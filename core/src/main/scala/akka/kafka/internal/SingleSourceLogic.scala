@@ -81,7 +81,8 @@ import scala.concurrent.{Future, Promise}
     super.postStop()
   }
 
-  final def performShutdown(): Unit = {
+  final override def performShutdown(): Unit = {
+    super.performShutdown()
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out)

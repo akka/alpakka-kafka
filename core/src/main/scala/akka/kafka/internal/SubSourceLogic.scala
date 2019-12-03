@@ -84,7 +84,7 @@ private class SubSourceLogic[K, V, Msg](
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
     }
-    log.debug("Starting {}", sourceActor.ref)
+    log.info("Starting. StageActor {}", sourceActor.ref)
     consumerActor = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
@@ -274,6 +274,7 @@ private class SubSourceLogic[K, V, Msg](
   }
 
   override def performShutdown(): Unit = {
+    log.info("Completing. Partitions [{}], StageActor {}", subSources.keys.mkString(","), sourceActor.ref)
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
     subSources.foreach {
@@ -397,7 +398,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   override def preStart(): Unit = {
     super.preStart()
     subSourceActor = getStageActor(messageHandling)
-    log.debug("Starting SubSource. StageActor {}, partition {}", subSourceActor.ref, tp)
+    log.info("Starting. Partition {}, StageActor {}", tp, subSourceActor.ref)
     subSourceActor.watch(consumerActor)
     val controlAndActor = ControlAndStageActor(this.asInstanceOf[Control], subSourceActor.ref)
     subSourceStartedCb.invoke(tp -> controlAndActor)
@@ -441,7 +442,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   )
 
   def performShutdown() = {
-    log.debug("Completing SubSource for partition {}", tp)
+    log.info("Completing. Partition {}, StageActor {}", tp, subSourceActor.ref)
     completeStage()
   }
 
