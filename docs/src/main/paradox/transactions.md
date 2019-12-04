@@ -9,7 +9,7 @@ For full details on how transactions are achieved in Kafka you may wish to revie
 
 ## Transactional Source
 
-The @apidoc[Transactional.source](Transactional$) emits a @scaladoc[ConsumerMessage.TransactionalMessage](akka.kafka.ConsumerMessage$$TransactionalMessage) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with @scaladoc[ConsumerMessage.CommittableMessage](akka.kafka.ConsumerMessage$$CommittableMessage), the user is not responsible for committing transactions, this is handled by a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
+The @apidoc[Transactional.source](Transactional$) emits a @apidoc[ConsumerMessage.TransactionalMessage] which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with @apidoc[ConsumerMessage.CommittableMessage], the user is not responsible for committing transactions, this is handled by a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
 
 This source overrides the Kafka consumer property `isolation.level` to `read_committed`, so that only committed messages can be consumed.
 
@@ -20,7 +20,7 @@ Only use this source if you have the intention to connect it to a @apidoc[Transa
 <!-- TODO: uncomment when Transacitonal.partitionedSource is ready
 ## Transactional Partitioned Source
 
-The `Transactional.partitionedSource` (@scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]) is similar to the  `Transactional.source`.
+The @apidoc[Transactional.partitionedSource](Transactional$) is similar to the  `Transactional.source`.
 It allows you to run transactional workloads per partition which makes it easier to distribute your transactional application across multiple instances.
 When a topic-partition is assigned to a consumer the source will emit a tuple with the assigned topic-partition and a corresponding source.
 When a topic-partition is revoked, the corresponding source completes.
@@ -68,7 +68,7 @@ When the stream is materialized the producer will initialize the transaction for
 
 Messages are also drained from the stream when the consumer gets a rebalance of partitions. In that case, the consumer will wait in the `onPartitionsRevoked` callback until all of the messages have been drained from the stream and the transaction is committed before allowing the rebalance to continue. The amount of total time the consumer will wait for draining is controlled by the `akka.kafka.consumer.commit-timeout`, and the interval between checks is controlled by the `akka.kafka.consuner.eos-draining-check-interval` configuration settings.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @scala[@scaladoc[Control](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[Control](akka.kafka.javadsl.Consumer$$Control)] materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @apidoc[akka.kafka.(javadsl|scaladsl).Consumer.Control] materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
