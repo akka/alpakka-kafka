@@ -22,6 +22,8 @@ import scala.collection.immutable.HashMap$;
  */
 public abstract class EmbeddedKafkaTest extends KafkaTest {
 
+
+
   private static EmbeddedKafkaConfig embeddedKafkaConfig(
       int kafkaPort, int zookeeperPort, int replicationFactor) {
     return EmbeddedKafkaConfig$.MODULE$.apply(
