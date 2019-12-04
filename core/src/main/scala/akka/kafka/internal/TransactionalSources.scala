@@ -149,7 +149,12 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   override protected def stopConsumerActor(): Unit =
     sourceActor.ref
-      .tell(Drain(inFlightRecords.assigned(), Some(consumerActor), KafkaConsumerActor.Internal.Stop), sourceActor.ref)
+      .tell(Drain(
+              inFlightRecords.assigned(),
+              Some(consumerActor),
+              KafkaConsumerActor.Internal.StopFromStage(id)
+            ),
+            sourceActor.ref)
 
   override protected def addToPartitionAssignmentHandler(
       handler: PartitionAssignmentHandler
@@ -163,7 +168,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
           sourceActor.ref.tell(Revoked(revokedTps.toList), consumerActor)
         } else {
           sourceActor.ref.tell(Failure(new Error("Timeout while draining")), consumerActor)
-          consumerActor.tell(KafkaConsumerActor.Internal.Stop, consumerActor)
+          consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), consumerActor)
         }
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
@@ -247,7 +252,7 @@ private[kafka] final class TransactionalSubSource[K, V](
               subSources.values.map(_.stageActor).foreach(_.tell(Revoked(revokedTps.toList), stageActor.ref))
             } else {
               sourceActor.ref.tell(Status.Failure(new Error("Timeout while draining")), stageActor.ref)
-              consumerActor.tell(KafkaConsumerActor.Internal.Stop, stageActor.ref)
+              consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), stageActor.ref)
             }
 
           override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =

@@ -20,6 +20,7 @@
     </logger>
 
     <logger name="akka" level="DEBUG"/>
+    <logger name="akka.actor.TimerScheduler" level="INFO"/>
     <logger name="akka.kafka" level="DEBUG"/>
 
     <logger name="org.apache.zookeeper" level="WARN"/>

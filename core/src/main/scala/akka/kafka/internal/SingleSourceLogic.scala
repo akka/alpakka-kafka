@@ -77,11 +77,12 @@ import scala.concurrent.{Future, Promise}
   }
 
   final override def postStop(): Unit = {
-    consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
+    consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
     super.postStop()
   }
 
-  final def performShutdown(): Unit = {
+  final override def performShutdown(): Unit = {
+    super.performShutdown()
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out)
@@ -99,7 +100,7 @@ import scala.concurrent.{Future, Promise}
   protected def stopConsumerActor(): Unit =
     materializer.scheduleOnce(settings.stopTimeout, new Runnable {
       override def run(): Unit =
-        consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
+        consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
     })
 
   protected def partitionAssignedHandler(assignedTps: Set[TopicPartition]): Unit = {

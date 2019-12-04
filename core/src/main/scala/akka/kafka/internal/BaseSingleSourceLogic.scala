@@ -44,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
     super.preStart()
 
     sourceActor = getStageActor(messageHandling)
+    log.info("Starting. StageActor {}", sourceActor.ref)
     consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 
@@ -121,6 +122,6 @@ import scala.concurrent.{ExecutionContext, Future}
     super.postStop()
   }
 
-  def performShutdown(): Unit
-
+  def performShutdown(): Unit =
+    log.info("Completing")
 }

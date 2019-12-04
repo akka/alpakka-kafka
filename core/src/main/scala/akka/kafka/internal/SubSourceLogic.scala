@@ -59,6 +59,7 @@ private class SubSourceLogic[K, V, Msg](
 
   private val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
+  override def id: String = s"${super.id}#$actorNumber"
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
   protected var consumerActor: ActorRef = _
@@ -76,7 +77,7 @@ private class SubSourceLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
-
+    log.info("Starting")
     sourceActor = getStageActor {
       case (_, Status.Failure(e)) =>
         failStage(e)
@@ -125,7 +126,7 @@ private class SubSourceLogic[K, V, Msg](
     val formerlyUnknown = assigned -- partitionsToRevoke
 
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
-      log.debug("#{} Assigning new partitions: {}", actorNumber, formerlyUnknown.mkString(", "))
+      log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
     }
 
     // make sure re-assigned partitions don't get closed on CloseRevokedPartitions timer
@@ -142,7 +143,7 @@ private class SubSourceLogic[K, V, Msg](
             case Failure(ex) =>
               stageFailCB.invoke(
                 new ConsumerFailed(
-                  s"#$actorNumber Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
+                  s"$idLogPrefix Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
                   ex
                 )
               )
@@ -164,7 +165,7 @@ private class SubSourceLogic[K, V, Msg](
         case _: AskTimeoutException =>
           stageFailCB.invoke(
             new ConsumerFailed(
-              s"#$actorNumber Consumer failed during seek for partitions: ${offsets.keys.mkString(", ")}."
+              s"$idLogPrefix Consumer failed during seek for partitions: ${offsets.keys.mkString(", ")}."
             )
           )
       }
@@ -178,7 +179,7 @@ private class SubSourceLogic[K, V, Msg](
   override def onTimer(timerKey: Any): Unit = timerKey match {
     case CloseRevokedPartitions =>
       if (log.isDebugEnabled) {
-        log.debug("#{} Closing SubSources for revoked partitions: {}", actorNumber, partitionsToRevoke.mkString(", "))
+        log.debug("Closing SubSources for revoked partitions: {}", partitionsToRevoke.mkString(", "))
       }
       onRevoke(partitionsToRevoke)
       pendingPartitions --= partitionsToRevoke
@@ -199,7 +200,7 @@ private class SubSourceLogic[K, V, Msg](
             // re-add this partition to pending partitions so it can be re-emitted
             pendingPartitions += tp
             if (log.isDebugEnabled) {
-              log.debug("#{} Seeking {} to {} after partition SubSource cancelled", actorNumber, tp, offset)
+              log.debug("Seeking {} to {} after partition SubSource cancelled", tp, offset)
             }
             seekAndEmitSubSources(formerlyUnknown = Set.empty, Map(tp -> offset))
           case ReEmit =>
@@ -257,7 +258,7 @@ private class SubSourceLogic[K, V, Msg](
     }
 
   override def postStop(): Unit = {
-    consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
+    consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
     onShutdown()
     super.postStop()
   }
@@ -272,6 +273,7 @@ private class SubSourceLogic[K, V, Msg](
   }
 
   override def performShutdown(): Unit = {
+    log.info("Completing. Partitions [{}], StageActor {}", subSources.keys.mkString(","), sourceActor.ref)
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
     subSources.foreach {
@@ -285,10 +287,13 @@ private class SubSourceLogic[K, V, Msg](
         onShutdown()
         completeStage()
     }
-    materializer.scheduleOnce(settings.stopTimeout, new Runnable {
-      override def run(): Unit =
-        consumerActor.tell(KafkaConsumerActor.Internal.Stop, sourceActor.ref)
-    })
+    materializer.scheduleOnce(
+      settings.stopTimeout,
+      new Runnable {
+        override def run(): Unit =
+          consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
+      }
+    )
   }
 
   /**
@@ -379,14 +384,15 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     with StageIdLogging {
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
+  override def id: String = s"${super.id}#$actorNumber"
   private val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
   private var requested = false
   protected var subSourceActor: StageActor = _
   private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
   override def preStart(): Unit = {
-    log.debug("#{} Starting SubSource for partition {}", actorNumber, tp)
     super.preStart()
+    log.info("Starting. Partition {}", tp)
     subSourceActor = getStageActor(messageHandling)
     subSourceActor.watch(consumerActor)
     val controlAndActor = ControlAndStageActor(this.asInstanceOf[Control], subSourceActor.ref)
@@ -431,7 +437,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   )
 
   def performShutdown() = {
-    log.debug("#{} Completing SubSource for partition {}", actorNumber, tp)
+    log.info("Completing. Partition {}", tp)
     completeStage()
   }
 

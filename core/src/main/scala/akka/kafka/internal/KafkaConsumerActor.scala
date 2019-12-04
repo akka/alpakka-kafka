@@ -24,7 +24,7 @@ import akka.actor.{
 import akka.annotation.InternalApi
 import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
-import akka.kafka.KafkaConsumerActor.StoppingException
+import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import org.apache.kafka.clients.consumer._
@@ -62,6 +62,7 @@ import scala.util.control.NonFatal
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
+    final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
     final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
@@ -292,13 +293,14 @@ import scala.util.control.NonFatal
         poll()
       else requestDelayedPoll()
 
-    case Stop =>
+    case s: StopLike =>
+      val from = stopFromMessage(s)
       commitAggregatedOffsets()
       if (commitsInProgress == 0) {
-        log.debug("Received Stop from {}, stopping", sender())
+        log.debug("Received Stop from {}, stopping", from)
         context.stop(self)
       } else {
-        log.debug("Received Stop from {}, waiting for commitsInProgress={}", sender(), commitsInProgress)
+        log.debug("Received Stop from {}, waiting for commitsInProgress={}", from, commitsInProgress)
         stopInProgress = true
         context.become(stopping)
       }
@@ -331,8 +333,9 @@ import scala.util.control.NonFatal
       owner.foreach(_ ! Failure(e))
       throw e
 
-    case Stop =>
-      log.debug("Received Stop from {}, stopping", sender())
+    case s: StopLike =>
+      val from = stopFromMessage(s)
+      log.debug("Received Stop from {}, stopping", from)
       context.stop(self)
 
     case _ =>
@@ -406,7 +409,7 @@ import scala.util.control.NonFatal
   def stopping: Receive = LoggingReceive.withLabel("stopping") {
     case p: Poll[_, _] =>
       receivePoll(p)
-    case Stop =>
+    case _: StopLike =>
     case Terminated(ref) =>
       stageActors -= ref
     case _ @(_: Commit | _: RequestMessages) =>
@@ -417,6 +420,7 @@ import scala.util.control.NonFatal
 
   override def preStart(): Unit = {
     super.preStart()
+    log.debug("Starting {}", self)
     val updateSettings: Future[ConsumerSettings[K, V]] = _settings.enriched
     updateSettings.value match {
       case Some(Success(s)) => applySettings(s)
@@ -677,6 +681,11 @@ import scala.util.control.NonFatal
         Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },
         partition
       )
+  }
+
+  private def stopFromMessage(msg: StopLike) = msg match {
+    case Stop => sender()
+    case StopFromStage(sourceStageId) => s"StageId [$sourceStageId]"
   }
 
   /**
