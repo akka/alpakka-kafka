@@ -92,7 +92,7 @@ private class SubSourceLogic[K, V, Msg](
     consumerPromise.success(consumerActor)
     sourceActor.watch(consumerActor)
 
-    configureSubscription(partitionAssignedCB, partitionRevokedCB, partitionLostCB)
+    configureSubscription(partitionAssignedCB, partitionRevokedCB)
   }
 
   private val updatePendingPartitionsAndEmitSubSourcesCb =
@@ -135,11 +135,6 @@ private class SubSourceLogic[K, V, Msg](
 
   private val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
     partitionsToRevoke ++= revoked
-    scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
-  }
-
-  private val partitionLostCB = getAsyncCallback[Set[TopicPartition]] { lost =>
-    partitionsToRevoke ++= lost
     scheduleOnce(CloseRevokedPartitions, settings.waitClosePartition)
   }
 
@@ -399,7 +394,6 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
   override def id: String = s"${super.id}#$actorNumber"
-  override val out: Outlet[Msg] = shape.out
   private val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
   private var requested = false
   protected var subSourceActor: StageActor = _
@@ -438,34 +432,6 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     super.postStop()
   }
 
-  override protected def suspendDemand(): Unit = {
-    log.debug("Suspend demand")
-    setHandler(
-      out,
-      new OutHandler {
-        override def onPull(): Unit = ()
-        override def onDownstreamFinish(): Unit = {
-          subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
-          super.onDownstreamFinish()
-        }
-      }
-    )
-  }
-
-  override protected def resumeDemand(): Unit = {
-    log.debug("Resume demand")
-    setHandler(
-      out,
-      new OutHandler {
-        override def onPull(): Unit = pump()
-        override def onDownstreamFinish(): Unit = {
-          subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
-          super.onDownstreamFinish()
-        }
-      }
-    )
-  }
-
   setHandler(
     shape.out,
     new OutHandler {
@@ -483,7 +449,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   }
 
   @tailrec
-  protected final def pump(): Unit =
+  private def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()

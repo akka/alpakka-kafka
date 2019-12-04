@@ -20,22 +20,17 @@ import org.apache.kafka.common.TopicPartition
  * duplicate messages sent downstream.
  */
 @InternalApi
-private trait SourceLogicBuffer[K, V, Msg] {
-  self: GraphStageLogic with StageIdLogging with PromiseControl =>
-
-  def out: Outlet[Msg]
-
-  protected def pump(): Unit
+private[kafka] trait SourceLogicBuffer[K, V, Msg] {
+  self: GraphStageLogic with StageIdLogging =>
 
   protected var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
   protected val filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] {
     tps =>
-      suspendDemand()
       filterRevokedPartitions(tps)
   }
 
-  protected def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit = {
+  private def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit = {
     if (topicPartitions.nonEmpty) {
       log.debug("filtering out messages from revoked partitions {}", topicPartitions)
       // as buffer is an Iterator the filtering will be applied during `pump`
@@ -43,26 +38,6 @@ private trait SourceLogicBuffer[K, V, Msg] {
         val tp = new TopicPartition(record.topic, record.partition)
         topicPartitions.contains(tp)
       }
-      log.debug("filtering applied")
     }
-    resumeDemand()
-  }
-
-  protected def suspendDemand(): Unit = {
-    log.debug("Suspend demand")
-    setHandler(out, new OutHandler {
-      override def onPull(): Unit = ()
-      override def onDownstreamFinish(): Unit =
-        performShutdown()
-    })
-  }
-
-  protected def resumeDemand(): Unit = {
-    log.debug("Resume demand")
-    setHandler(out, new OutHandler {
-      override def onPull(): Unit = pump()
-      override def onDownstreamFinish(): Unit =
-        performShutdown()
-    })
   }
 }

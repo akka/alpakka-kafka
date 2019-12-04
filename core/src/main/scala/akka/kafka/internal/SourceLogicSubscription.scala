@@ -5,6 +5,7 @@
 
 package akka.kafka.internal
 import akka.actor.ActorRef
+import akka.annotation.InternalApi
 import akka.kafka.{AutoSubscription, ManualSubscription, Subscription}
 import akka.kafka.Subscriptions._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
@@ -20,7 +21,8 @@ import org.apache.kafka.common.TopicPartition
  * 1. Asynchronously by providing [[AsyncCallback]]s for rebalance events
  * 2. Synchronously by overriding `addToPartitionAssignmentHandler`
  */
-trait SourceLogicSubscription {
+@InternalApi
+private[kafka] trait SourceLogicSubscription {
   self: GraphStageLogic =>
 
   def subscription: Subscription
@@ -29,8 +31,7 @@ trait SourceLogicSubscription {
   protected def sourceActor: StageActor
 
   protected def configureSubscription(partitionAssignedCB: AsyncCallback[Set[TopicPartition]],
-                                      partitionRevokedCB: AsyncCallback[Set[TopicPartition]],
-                                      partitionLostCB: AsyncCallback[Set[TopicPartition]]): Unit = {
+                                      partitionRevokedCB: AsyncCallback[Set[TopicPartition]]): Unit = {
 
     def rebalanceListener(autoSubscription: AutoSubscription): PartitionAssignmentHandler = {
       PartitionAssignmentHelpers.chain(
@@ -38,8 +39,7 @@ trait SourceLogicSubscription {
         new PartitionAssignmentHelpers.AsyncCallbacks(autoSubscription,
                                                       sourceActor.ref,
                                                       partitionAssignedCB,
-                                                      partitionRevokedCB,
-                                                      partitionLostCB)
+                                                      partitionRevokedCB)
       )
     }
 

@@ -9,7 +9,7 @@ import akka.actor.{ActorRef, Status, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, AssignmentWithOffset}
 import akka.kafka.{ConsumerFailed, ManualSubscription}
-import akka.stream.{Outlet, SourceShape}
+import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
 import org.apache.kafka.common.TopicPartition
@@ -33,7 +33,6 @@ import scala.concurrent.{ExecutionContext, Future}
     with SourceLogicBuffer[K, V, Msg] {
 
   override protected def executionContext: ExecutionContext = materializer.executionContext
-  override val out: Outlet[Msg] = shape.out
   protected def consumerFuture: Future[ActorRef]
   protected final var consumerActor: ActorRef = _
   protected var sourceActor: StageActor = _
@@ -41,11 +40,16 @@ import scala.concurrent.{ExecutionContext, Future}
   private var requested = false
   private var requestId = 0
 
-  protected val assignedCB: AsyncCallback[Set[TopicPartition]] =
-    getAsyncCallback[Set[TopicPartition]](partitionAssignedHandler)
-  protected val revokedCB: AsyncCallback[Set[TopicPartition]] =
-    getAsyncCallback[Set[TopicPartition]](partitionRevokedHandler)
-  protected val lostCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]](partitionLostHandler)
+  private val assignedCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
+    tps ++= assignedTps
+    log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
+    requestMessages()
+  }
+
+  private val revokedCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
+    tps --= revokedTps
+    log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+  }
 
   override def preStart(): Unit = {
     super.preStart()
@@ -55,7 +59,7 @@ import scala.concurrent.{ExecutionContext, Future}
     consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 
-    configureSubscription(assignedCB, revokedCB, lostCB)
+    configureSubscription(assignedCB, revokedCB)
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
@@ -85,24 +89,13 @@ import scala.concurrent.{ExecutionContext, Future}
       tps ++= topics.keySet
   }
 
-  protected def partitionAssignedHandler(assignedTps: Set[TopicPartition]): Unit = {
-    tps ++= assignedTps
-    log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
-    requestMessages()
-  }
-
-  protected def partitionRevokedHandler(revokedTps: Set[TopicPartition]): Unit = {
-    tps --= revokedTps
-    log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
-  }
-
   protected def partitionLostHandler(lostTps: Set[TopicPartition]): Unit = {
     tps --= lostTps
     log.debug("Lost partitions: {}. All partitions: {}", lostTps, tps)
   }
 
   @tailrec
-  protected final def pump(): Unit =
+  private def pump(): Unit =
     if (isAvailable(shape.out)) {
       if (buffer.hasNext) {
         val msg = buffer.next()
