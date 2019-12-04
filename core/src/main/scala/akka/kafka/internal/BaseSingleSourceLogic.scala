@@ -123,5 +123,5 @@ import scala.concurrent.{ExecutionContext, Future}
   }
 
   def performShutdown(): Unit =
-    log.info("Completing. StageActor {}", sourceActor.ref)
+    log.info("Completing")
 }

@@ -685,7 +685,7 @@ import scala.util.control.NonFatal
 
   private def stopFromMessage(msg: StopLike) = msg match {
     case Stop => sender()
-    case StopFromStage(sourceStageId) => s"${sender()}, StageId [$sourceStageId]"
+    case StopFromStage(sourceStageId) => s"StageId [$sourceStageId]"
   }
 
   /**

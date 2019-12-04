@@ -59,7 +59,7 @@ private class SubSourceLogic[K, V, Msg](
 
   private val consumerPromise = Promise[ActorRef]
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
-  override val idLogPrefix: String = idLogPrefixWithActorId(super.idLogPrefix, actorNumber)
+  override def id: String = s"${super.id}#$actorNumber"
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = consumerPromise.future
   protected var consumerActor: ActorRef = _
@@ -77,14 +77,13 @@ private class SubSourceLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
-
+    log.info("Starting")
     sourceActor = getStageActor {
       case (_, Status.Failure(e)) =>
         failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
     }
-    log.info("Starting. StageActor {}", sourceActor.ref)
     consumerActor = {
       val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
@@ -342,10 +341,6 @@ private object SubSourceLogic {
         actorNumber: Int
     ): SubSourceStageLogic[K, V, Msg]
   }
-
-  @InternalApi
-  private[kafka] def idLogPrefixWithActorId(idLogPrefix: String, actorNumber: Int): String =
-    idLogPrefix + s"KafkaConsumerActor [#$actorNumber] "
 }
 
 /** Internal API
@@ -389,7 +384,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     with StageIdLogging {
   override def executionContext: ExecutionContext = materializer.executionContext
   override def consumerFuture: Future[ActorRef] = Future.successful(consumerActor)
-  override val idLogPrefix: String = idLogPrefixWithActorId(super.idLogPrefix, actorNumber)
+  override def id: String = s"${super.id}#$actorNumber"
   private val requestMessages = KafkaConsumerActor.Internal.RequestMessages(0, Set(tp))
   private var requested = false
   protected var subSourceActor: StageActor = _
@@ -397,8 +392,8 @@ private abstract class SubSourceStageLogic[K, V, Msg](
 
   override def preStart(): Unit = {
     super.preStart()
+    log.info("Starting. Partition {}", tp)
     subSourceActor = getStageActor(messageHandling)
-    log.info("Starting. Partition {}, StageActor {}", tp, subSourceActor.ref)
     subSourceActor.watch(consumerActor)
     val controlAndActor = ControlAndStageActor(this.asInstanceOf[Control], subSourceActor.ref)
     subSourceStartedCb.invoke(tp -> controlAndActor)
@@ -442,7 +437,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   )
 
   def performShutdown() = {
-    log.info("Completing. Partition {}, StageActor {}", tp, subSourceActor.ref)
+    log.info("Completing. Partition {}", tp)
     completeStage()
   }
 

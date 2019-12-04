@@ -13,7 +13,8 @@ import akka.stream.stage.{GraphStageLogic, StageLogging}
  * Generate a short random UID for something.
  */
 private[internal] trait InstanceId {
-  val id: String = java.util.UUID.randomUUID().toString.take(5)
+  private val instanceId = java.util.UUID.randomUUID().toString.take(5)
+  def id: String = instanceId
 }
 
 /**
