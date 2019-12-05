@@ -45,7 +45,7 @@ import scala.util.{Failure, Success}
 private class SubSourceLogic[K, V, Msg](
     val shape: SourceShape[(TopicPartition, Source[Msg, NotUsed])],
     settings: ConsumerSettings[K, V],
-    val subscription: AutoSubscription,
+    override protected val subscription: AutoSubscription,
     getOffsetsOnAssign: Option[Set[TopicPartition] => Future[Map[TopicPartition, Long]]] = None,
     onRevoke: Set[TopicPartition] => Unit = _ => (),
     subSourceStageLogicFactory: SubSourceStageLogicFactory[K, V, Msg]
@@ -164,7 +164,7 @@ private class SubSourceLogic[K, V, Msg](
       onRevoke(partitionsToRevoke)
       pendingPartitions --= partitionsToRevoke
       partitionsInStartup --= partitionsToRevoke
-      partitionsToRevoke.flatMap(subSources.get).map(_.controlAndStageActor.control).foreach(_.shutdown())
+      partitionsToRevoke.flatMap(subSources.get).map(_.control).foreach(_.shutdown())
       subSources --= partitionsToRevoke
       partitionsToRevoke = Set.empty
   }
@@ -245,8 +245,8 @@ private class SubSourceLogic[K, V, Msg](
 
   override def performStop(): Unit = {
     setKeepGoing(true)
-    subSources.foreach {
-      case (_, SubSourceStageLogicControl(_, ControlAndStageActor(control, _), _)) => control.stop()
+    subSources.values.foreach {
+      _.control.stop()
     }
     complete(shape.out)
     onStop()
@@ -256,8 +256,8 @@ private class SubSourceLogic[K, V, Msg](
     log.info("Completing. Partitions [{}], StageActor {}", subSources.keys.mkString(","), sourceActor.ref)
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
-    subSources.foreach {
-      case (_, SubSourceStageLogicControl(_, ControlAndStageActor(control, _), _)) => control.shutdown()
+    subSources.values.foreach {
+      _.control.shutdown()
     }
     if (!isClosed(shape.out)) {
       complete(shape.out)
@@ -320,7 +320,10 @@ private object SubSourceLogic {
   @InternalApi
   final case class SubSourceStageLogicControl(tp: TopicPartition,
                                               controlAndStageActor: ControlAndStageActor,
-                                              filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]])
+                                              filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]]) {
+    def control: Control = controlAndStageActor.control
+    def stageActor: ActorRef = controlAndStageActor.stageActor
+  }
 
   /** Internal API
    * Used to determine how the [[SubSourceLogic]] will handle the cancellation of a sub source stage.  The default

@@ -89,11 +89,6 @@ import scala.concurrent.{ExecutionContext, Future}
       tps ++= topics.keySet
   }
 
-  protected def partitionLostHandler(lostTps: Set[TopicPartition]): Unit = {
-    tps --= lostTps
-    log.debug("Lost partitions: {}. All partitions: {}", lostTps, tps)
-  }
-
   @tailrec
   private def pump(): Unit =
     if (isAvailable(shape.out)) {

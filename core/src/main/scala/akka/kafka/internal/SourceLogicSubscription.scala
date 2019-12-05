@@ -25,7 +25,7 @@ import org.apache.kafka.common.TopicPartition
 private[kafka] trait SourceLogicSubscription {
   self: GraphStageLogic =>
 
-  def subscription: Subscription
+  protected def subscription: Subscription
 
   protected def consumerActor: ActorRef
   protected def sourceActor: StageActor

@@ -22,7 +22,7 @@ import scala.concurrent.{Future, Promise}
 @InternalApi private abstract class SingleSourceLogic[K, V, Msg](
     shape: SourceShape[Msg],
     settings: ConsumerSettings[K, V],
-    val subscription: Subscription
+    override protected val subscription: Subscription
 ) extends BaseSingleSourceLogic[K, V, Msg](shape) {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
@@ -69,7 +69,6 @@ import scala.concurrent.{Future, Promise}
 
   /**
    * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
-   * Used by the [[TransactionalSourceLogic]].
    */
   override protected def addToPartitionAssignmentHandler(
       handler: PartitionAssignmentHandler

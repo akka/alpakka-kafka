@@ -270,7 +270,7 @@ private[kafka] final class TransactionalSubSource[K, V](
         implicit val timeout = Timeout(txConsumerSettings.commitTimeout)
         try {
           val drainCommandFutures =
-            subSources.values.map(_.controlAndStageActor.stageActor).map(ask(_, Drain(partitions, None, Drained)))
+            subSources.values.map(_.stageActor).map(ask(_, Drain(partitions, None, Drained)))
           implicit val ec = executionContext
           Await.result(Future.sequence(drainCommandFutures), timeout.duration)
           true

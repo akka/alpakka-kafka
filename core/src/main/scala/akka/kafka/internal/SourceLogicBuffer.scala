@@ -5,14 +5,13 @@
 
 package akka.kafka.internal
 import akka.annotation.InternalApi
-import akka.stream.Outlet
-import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
+import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 /**
  * A buffer of messages provided by the [[KafkaConsumerActor]] for a Source Logic. When partitions are rebalanced
- * away from this Source Logic pre-emptively filter out messages for those partitions.
+ * away from this Source Logic preemptively filter out messages for those partitions.
  *
  * NOTE: Due to the asynchronous nature of Akka Streams, it's not possible to guarantee that a message has not
  * already been sent downstream for a revoked partition before the rebalance handler invokes
@@ -25,10 +24,8 @@ private[kafka] trait SourceLogicBuffer[K, V, Msg] {
 
   protected var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
 
-  protected val filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] {
-    tps =>
-      filterRevokedPartitions(tps)
-  }
+  protected val filterRevokedPartitionsCB: AsyncCallback[Set[TopicPartition]] =
+    getAsyncCallback[Set[TopicPartition]](filterRevokedPartitions)
 
   private def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit = {
     if (topicPartitions.nonEmpty) {
