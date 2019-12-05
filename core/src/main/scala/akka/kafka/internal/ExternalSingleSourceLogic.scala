@@ -20,7 +20,7 @@ import scala.concurrent.Future
 @InternalApi private abstract class ExternalSingleSourceLogic[K, V, Msg](
     shape: SourceShape[Msg],
     _consumerActor: ActorRef,
-    subscription: ManualSubscription
+    val subscription: ManualSubscription
 ) extends BaseSingleSourceLogic[K, V, Msg](shape) {
 
   final override protected def logSource: Class[_] = classOf[ExternalSingleSourceLogic[K, V, Msg]]

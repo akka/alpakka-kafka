@@ -11,8 +11,7 @@ import akka.kafka.Subscriptions.{Assignment, AssignmentOffsetsForTimes, Assignme
 import akka.kafka.{ConsumerFailed, ManualSubscription}
 import akka.stream.SourceShape
 import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.stage.{GraphStageLogic, OutHandler}
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.tailrec
@@ -29,16 +28,28 @@ import scala.concurrent.{ExecutionContext, Future}
     with PromiseControl
     with MetricsControl
     with StageIdLogging
-    with MessageBuilder[K, V, Msg] {
+    with SourceLogicSubscription
+    with MessageBuilder[K, V, Msg]
+    with SourceLogicBuffer[K, V, Msg] {
 
   override protected def executionContext: ExecutionContext = materializer.executionContext
   protected def consumerFuture: Future[ActorRef]
   protected final var consumerActor: ActorRef = _
   protected var sourceActor: StageActor = _
   protected var tps = Set.empty[TopicPartition]
-  private var buffer: Iterator[ConsumerRecord[K, V]] = Iterator.empty
   private var requested = false
   private var requestId = 0
+
+  private val assignedCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] { assignedTps =>
+    tps ++= assignedTps
+    log.debug("Assigned partitions: {}. All partitions: {}", assignedTps, tps)
+    requestMessages()
+  }
+
+  private val revokedCB: AsyncCallback[Set[TopicPartition]] = getAsyncCallback[Set[TopicPartition]] { revokedTps =>
+    tps --= revokedTps
+    log.debug("Revoked partitions: {}. All partitions: {}", revokedTps, tps)
+  }
 
   override def preStart(): Unit = {
     super.preStart()
@@ -48,7 +59,7 @@ import scala.concurrent.{ExecutionContext, Future}
     consumerActor = createConsumerActor()
     sourceActor.watch(consumerActor)
 
-    configureSubscription()
+    configureSubscription(assignedCB, revokedCB)
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
@@ -66,9 +77,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
   protected def createConsumerActor(): ActorRef
 
-  protected def configureSubscription(): Unit
-
-  protected def configureManualSubscription(subscription: ManualSubscription): Unit = subscription match {
+  override protected def configureManualSubscription(subscription: ManualSubscription): Unit = subscription match {
     case Assignment(topics) =>
       consumerActor.tell(KafkaConsumerActor.Internal.Assign(topics), sourceActor.ref)
       tps ++= topics
@@ -79,16 +88,6 @@ import scala.concurrent.{ExecutionContext, Future}
       consumerActor.tell(KafkaConsumerActor.Internal.AssignOffsetsForTimes(topics), sourceActor.ref)
       tps ++= topics.keySet
   }
-
-  protected def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit =
-    if (topicPartitions.nonEmpty) {
-      log.debug("filtering out messages from revoked partitions {}", topicPartitions)
-      // as buffer is an Iterator the filtering will be applied during `pump`
-      buffer = buffer.filterNot { record =>
-        val tp = new TopicPartition(record.topic, record.partition)
-        topicPartitions.contains(tp)
-      }
-    }
 
   @tailrec
   private def pump(): Unit =
@@ -110,9 +109,7 @@ import scala.concurrent.{ExecutionContext, Future}
   }
 
   setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit =
-      pump()
-
+    override def onPull(): Unit = pump()
     override def onDownstreamFinish(): Unit =
       performShutdown()
   })

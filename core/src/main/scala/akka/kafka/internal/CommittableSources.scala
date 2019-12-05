@@ -110,7 +110,7 @@ private[kafka] final class CommittableSubSource[K, V](
           shape: SourceShape[CommittableMessage[K, V]],
           tp: TopicPartition,
           consumerActor: ActorRef,
-          subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+          subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
           subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
           actorNumber: Int
       ): SubSourceStageLogic[K, V, CommittableMessage[K, V]] =
@@ -215,7 +215,7 @@ private final class CommittableSubSourceStageLogic[K, V](
     shape: SourceShape[CommittableMessage[K, V]],
     tp: TopicPartition,
     consumerActor: ActorRef,
-    subSourceStartedCb: AsyncCallback[(TopicPartition, ControlAndStageActor)],
+    subSourceStartedCb: AsyncCallback[SubSourceStageLogicControl],
     subSourceCancelledCb: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)],
     actorNumber: Int,
     consumerSettings: ConsumerSettings[K, V],
