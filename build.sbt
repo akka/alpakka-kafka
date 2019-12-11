@@ -44,6 +44,7 @@ resolvers in ThisBuild ++= Seq(
 )
 
 TaskKey[Unit]("verifyCodeStyle") := {
+  javafmt.?.all(ScopeFilter(inAnyProject, inAnyConfiguration)).result.value
   scalafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
     throw new MessageOnlyException("Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code")
   }
