@@ -68,7 +68,7 @@ When the stream is materialized the producer will initialize the transaction for
 
 Messages are also drained from the stream when the consumer gets a rebalance of partitions. In that case, the consumer will wait in the `onPartitionsRevoked` callback until all of the messages have been drained from the stream and the transaction is committed before allowing the rebalance to continue. The amount of total time the consumer will wait for draining is controlled by the `akka.kafka.consumer.commit-timeout`, and the interval between checks is controlled by the `akka.kafka.consuner.eos-draining-check-interval` configuration settings.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @apidoc[akka.kafka.(javadsl|scaladsl).Consumer.Control] materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @apidoc[(javadsl|scaladsl).Consumer.Control] materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
