@@ -9,8 +9,8 @@ Testcontainers also allow you to create a complete Kafka cluster (using Docker c
 
 ## Settings
 
-You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating @scaladoc[KafkaTestkitTestcontainersSettings](akka.kafka.testkit.KafkaTestkitTestcontainersSettings) in code or configuration.
-The @scaladoc[KafkaTestkitTestcontainersSettings](akka.kafka.testkit.KafkaTestkitTestcontainersSettings) type can be used to perform actions such as:
+You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating @apidoc[KafkaTestkitTestcontainersSettings] in code or configuration.
+The @apidoc[KafkaTestkitTestcontainersSettings] type can be used to perform actions such as:
 
 * Set the version of Confluent Platform docker images to use
 * Define number of Kafka brokers
@@ -33,7 +33,7 @@ Java
 : @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
 
 <!-- NOTE: Can't use paradox to link to `KafkaContainer` because it shares the same package name as the main artifact `org.testcontainers.containers`, but is published separately https://static.javadoc.io/org.testcontainers/kafka/version/ --> 
-To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @scaladoc[KafkaTestkitTestcontainersSettings](akka.kafka.testkit.KafkaTestkitTestcontainersSettings) see the API docs for [`KafkaContainer`](https://static.javadoc.io/org.testcontainers/kafka/$testcontainers.version$/org/testcontainers/containers/KafkaContainer.html) and @javadoc[GenericContainer](org.testcontainers.containers.GenericContainer).
+To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @apidoc[KafkaTestkitTestcontainersSettings] see the API docs for [`KafkaContainer`](https://static.javadoc.io/org.testcontainers/kafka/$testcontainers.version$/org/testcontainers/containers/KafkaContainer.html) and @javadoc[GenericContainer](org.testcontainers.containers.GenericContainer).
 
 ## Testing with a Docker Kafka cluster from Java code
 

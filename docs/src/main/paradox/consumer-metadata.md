@@ -46,7 +46,7 @@ Java
 
 ## Accessing metadata using KafkaConsumerActor
 
-To access the Kafka consumer metadata you need to create the @apidoc[akka.kafka.KafkaConsumerActor$] as described in the @ref[Consumer documentation](consumer.md#sharing-the-kafkaconsumer-instance) and send messages from @scaladoc[Metadata](akka.kafka.Metadata$) to it.
+To access the Kafka consumer metadata you need to create the @apidoc[akka.kafka.KafkaConsumerActor$] as described in the @ref[Consumer documentation](consumer.md#sharing-the-kafkaconsumer-instance) and send messages from @apidoc[Metadata$] to it.
 
 ## Supported metadata by KafkaConsumerActor
 

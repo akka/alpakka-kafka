@@ -7,7 +7,7 @@ Consumer Sources are created with different types of subscriptions, which contro
 
 Subscriptions are grouped into two categories: with automatic partition assignment and with manual control of partition assignment.
 
-Factory methods for all subscriptions can be found in the @scaladoc[Subscriptions](akka.kafka.Subscriptions$) factory.
+Factory methods for all subscriptions can be found in the @apidoc[Subscriptions$] factory.
 
 ## Automatic Partition Assignment
 
