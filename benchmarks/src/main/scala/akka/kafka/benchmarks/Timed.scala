@@ -5,7 +5,7 @@
 
 package akka.kafka.benchmarks
 
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
 import akka.kafka.benchmarks.app.RunTestCommand
@@ -16,6 +16,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object Timed extends LazyLogging {
+  private val benchmarkReportBasePath = Paths.get("benchmarks", "target")
 
   implicit val ec = ExecutionContext.fromExecutor(new ForkJoinPool)
 
@@ -31,7 +32,7 @@ object Timed extends LazyLogging {
       .forRegistry(metricRegistry)
       .convertRatesTo(TimeUnit.SECONDS)
       .convertDurationsTo(TimeUnit.MILLISECONDS)
-      .build(Paths.get("benchmarks", "target").toFile)
+      .build(benchmarkReportBasePath.toFile)
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
     val name = command.testName
@@ -43,6 +44,27 @@ object Timed extends LazyLogging {
     logger.info(s"Running benchmarks for $name")
     val now = System.nanoTime()
     testBody(fixture, meter)
+    val after = System.nanoTime()
+    val took = (after - now).nanos
+    logger.info(s"Test $name took ${took.toMillis} ms")
+    reporter(metrics).report()
+    csvReporter(metrics).report()
+  }
+
+  def runPerfTestInflightMetrics[F](command: RunTestCommand,
+                                    consumerMetricNames: List[String],
+                                    fixtureGen: FixtureGen[F],
+                                    testBody: (F, Meter, List[String], Path) => Unit): Unit = {
+    val name = command.testName
+    val msgCount = command.msgCount
+    val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$name-inflight-metrics.csv"))
+    logger.info(s"Generating fixture for $name ${command.filledTopic}")
+    val fixture = fixtureGen.generate(msgCount)
+    val metrics = new MetricRegistry()
+    val meter = metrics.meter(name)
+    logger.info(s"Running benchmarks for $name")
+    val now = System.nanoTime()
+    testBody(fixture, meter, consumerMetricNames, metricsReportPath)
     val after = System.nanoTime()
     val took = (after - now).nanos
     logger.info(s"Test $name took ${took.toMillis} ms")

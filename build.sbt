@@ -14,6 +14,11 @@ val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
 val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.seglo" %% "embedded-kafka" % embeddedKafkaVersion // "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
+
+// TODO: delete me. for blog post benchmarking
+//val kafkaVersion = "2.3.1"
+//val embeddedKafkaVersion = kafkaVersion
+//val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 val embeddedKafkaSchemaRegistry = "5.1.1"
@@ -369,6 +374,7 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "1.1.2",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,

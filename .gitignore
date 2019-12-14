@@ -24,4 +24,6 @@ test-output
 .project
 .settings/
 .tmpBin
+# TODO: revert this ignore of experimental test
+tests/src/test/scala/akka/kafka/scaladsl/EmbeddedKafkaWithMetricsSpec.scala
 

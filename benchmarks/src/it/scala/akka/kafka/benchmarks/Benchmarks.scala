@@ -6,7 +6,7 @@ package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.BenchmarksBase._
 import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
-import akka.kafka.benchmarks.Timed.runPerfTest
+import akka.kafka.benchmarks.Timed.{runPerfTest, runPerfTestInflightMetrics}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
@@ -33,6 +33,7 @@ object BenchmarksBase {
   lazy val topic_1000_100 = FilledTopic(1000 * factor, 100, replicationFactor = numBrokers)
   lazy val topic_1000_5000 = FilledTopic(1000 * factor, 5 * 1000, replicationFactor = numBrokers)
   lazy val topic_1000_5000_8 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8, replicationFactor = numBrokers)
+  lazy val topic_1000_5000_100 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 100, replicationFactor = numBrokers)
 
   lazy val topic_2000_100 = FilledTopic(2000 * factor, 100, replicationFactor = numBrokers)
   lazy val topic_2000_500 = FilledTopic(2000 * factor, 500, replicationFactor = numBrokers)
@@ -78,6 +79,28 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
     val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, topic_2000_100)
     runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
+  }
+
+  it should "bench with normal messages and one hundred partitions" in {
+    val cmd =
+      RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions", bootstrapServers, topic_1000_5000_100)
+    runPerfTest(cmd,
+      ReactiveKafkaConsumerFixtures.plainSources(cmd),
+      ReactiveKafkaConsumerBenchmarks.consumePlain)
+  }
+
+  it should "bench with normal messages and one hundred partitions with inflight metrics" in {
+    val cmd =
+      RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions-with-inflight-metrics", bootstrapServers, topic_1000_5000_100)
+    val consumerMetricNames = List("bytes-consumed-total",
+      "fetch-rate",
+      "fetch-total",
+      "records-per-request-avg",
+      "records-consumed-total")
+    runPerfTestInflightMetrics(cmd,
+      consumerMetricNames,
+      ReactiveKafkaConsumerFixtures.plainSources(cmd),
+      ReactiveKafkaConsumerBenchmarks.consumePlainInflightMetrics)
   }
 }
 

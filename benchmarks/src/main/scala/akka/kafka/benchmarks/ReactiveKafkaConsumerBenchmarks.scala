@@ -5,26 +5,27 @@
 
 package akka.kafka.benchmarks
 
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
-import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka.scaladsl.Committer
 import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{Await, ExecutionContext, Promise}
 import scala.language.postfixOps
 import scala.util.Success
 
-object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
+object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics {
   val streamingTimeout: FiniteDuration = 30 minutes
   type NonCommittableFixture = ReactiveKafkaConsumerTestFixture[ConsumerRecord[Array[Byte], String]]
   type CommittableFixture = ReactiveKafkaConsumerTestFixture[CommittableMessage[Array[Byte], String]]
@@ -62,6 +63,36 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
   }
 
   /**
+   * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit. Collects in flight
+   * metrics and writes them to a CSV file.
+   */
+  def consumePlainInflightMetrics(fixture: NonCommittableFixture,
+                                  meter: Meter,
+                                  consumerMetricNames: List[String],
+                                  reportPath: Path)(
+      implicit mat: Materializer
+  ): Unit = {
+    logger.debug("Creating and starting a stream")
+    val (control, future) = fixture.source
+      .take(fixture.msgCount.toLong)
+      .map { msg =>
+        meter.mark(); msg
+      }
+      .toMat(Sink.ignore)(Keep.both)
+      .run()
+
+    val metrics = pollForMetrics(interval = 1.second, control, consumerMetricNames)
+      .to(FileIO.toPath(reportPath))
+      .run()
+
+    implicit val ec: ExecutionContext = mat.executionContext
+    future.onComplete(_ => metrics.cancel())
+
+    Await.result(future, atMost = streamingTimeout)
+    logger.debug("Stream finished")
+  }
+
+  /**
    * Reads elements from Kafka source and commits a batch as soon as it's possible.
    */
   def consumerAtLeastOnceBatched(batchSize: Int)(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem,
@@ -75,7 +106,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging {
         meter.mark()
         msg.committableOffset
       }
-      .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize.toLong).withParallelism(3)))
+      .via(Committer.batchFlow(committerDefaults.withMaxBatch(batchSize.toLong)))
       .toMat(Sink.foreach {
         _.offsets.values
           .filter(_ >= fixture.msgCount / fixture.numberOfPartitions - 1)
