@@ -5,8 +5,9 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.BenchmarksBase._
+import akka.kafka.benchmarks.InflightMetrics._
 import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
-import akka.kafka.benchmarks.Timed.runPerfTest
+import akka.kafka.benchmarks.Timed.{runPerfTest, runPerfTestInflightMetrics}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
@@ -33,6 +34,7 @@ object BenchmarksBase {
   lazy val topic_1000_100 = FilledTopic(1000 * factor, 100, replicationFactor = numBrokers)
   lazy val topic_1000_5000 = FilledTopic(1000 * factor, 5 * 1000, replicationFactor = numBrokers)
   lazy val topic_1000_5000_8 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 8, replicationFactor = numBrokers)
+  lazy val topic_1000_5000_100 = FilledTopic(msgCount = 1000 * factor, msgSize = 5 * 1000, numberOfPartitions = 100, replicationFactor = numBrokers)
 
   lazy val topic_2000_100 = FilledTopic(2000 * factor, 100, replicationFactor = numBrokers)
   lazy val topic_2000_500 = FilledTopic(2000 * factor, 500, replicationFactor = numBrokers)
@@ -45,9 +47,6 @@ abstract class BenchmarksBase() extends SpecBase with TestcontainersKafkaLike {
   override def setUp(): Unit = {
     BenchmarksBase.initialize(system.settings.config.getConfig(KafkaTestkitTestcontainersSettings.ConfigPath))
     super.setUp()
-    waitUntilCluster() {
-      _.nodes().get().size == BenchmarksBase.numBrokers
-    }
   }
 }
 
@@ -78,6 +77,37 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
     val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, topic_2000_100)
     runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
+  }
+
+  it should "bench with normal messages and one hundred partitions" in {
+    val cmd =
+      RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions", bootstrapServers, topic_1000_5000_100)
+    runPerfTest(cmd,
+      ReactiveKafkaConsumerFixtures.plainSources(cmd),
+      ReactiveKafkaConsumerBenchmarks.consumePlain)
+  }
+
+  it should "bench with normal messages and one hundred partitions with inflight metrics" in {
+    val cmd =
+      RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions-with-inflight-metrics", bootstrapServers, topic_1000_5000_100)
+    val consumerMetricNames = List[ConsumerMetricRequest](
+      ConsumerMetricRequest("bytes-consumed-total", CounterMetricType),
+      ConsumerMetricRequest("fetch-rate", GaugeMetricType),
+      ConsumerMetricRequest("fetch-total", CounterMetricType),
+      ConsumerMetricRequest("records-per-request-avg", GaugeMetricType),
+      ConsumerMetricRequest("records-consumed-total", CounterMetricType)
+    )
+    val brokerMetricNames: List[BrokerMetricRequest] = List(
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", topic_1000_5000_100.topic, "Count", CounterMetricType),
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", topic_1000_5000_100.topic, "Count", CounterMetricType)
+    )
+    val brokerJmxUrls = brokerContainers.map(_.getJmxServiceUrl).toList
+    runPerfTestInflightMetrics(cmd,
+      consumerMetricNames,
+      brokerMetricNames,
+      brokerJmxUrls,
+      ReactiveKafkaConsumerFixtures.plainSources(cmd),
+      ReactiveKafkaConsumerBenchmarks.consumePlainInflightMetrics)
   }
 }
 

@@ -10,7 +10,6 @@ import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.rnorth.ducttape.unreliables.Unreliables;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
@@ -33,7 +32,7 @@ public class KafkaContainerCluster implements Startable {
   private final int brokersNum;
   private final Network network;
   private final GenericContainer zookeeper;
-  private final Collection<KafkaContainer> brokers;
+  private final Collection<AlpakkaKafkaContainer> brokers;
   private final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
@@ -59,17 +58,18 @@ public class KafkaContainerCluster implements Startable {
         new GenericContainer("confluentinc/cp-zookeeper:" + confluentPlatformVersion)
             .withNetwork(network)
             .withNetworkAliases("zookeeper")
-            .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(KafkaContainer.ZOOKEEPER_PORT));
+            .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(AlpakkaKafkaContainer.ZOOKEEPER_PORT));
 
     this.brokers =
         IntStream.range(0, this.brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new KafkaContainer(confluentPlatformVersion)
+                    new AlpakkaKafkaContainer(confluentPlatformVersion)
                         .withNetwork(this.network)
                         .withNetworkAliases("broker-" + brokerNum)
+                        .withRemoteJmxService()
                         .dependsOn(this.zookeeper)
-                        .withExternalZookeeper("zookeeper:" + KafkaContainer.ZOOKEEPER_PORT)
+                        .withExternalZookeeper("zookeeper:" + AlpakkaKafkaContainer.ZOOKEEPER_PORT)
                         .withEnv("KAFKA_BROKER_ID", brokerNum + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", internalTopicsRf + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", internalTopicsRf + "")
@@ -87,13 +87,13 @@ public class KafkaContainerCluster implements Startable {
     return this.zookeeper;
   }
 
-  public Collection<KafkaContainer> getBrokers() {
+  public Collection<AlpakkaKafkaContainer> getBrokers() {
     return this.brokers;
   }
 
   public String getBootstrapServers() {
     return brokers.stream()
-        .map(KafkaContainer::getBootstrapServers)
+        .map(AlpakkaKafkaContainer::getBootstrapServers)
         .collect(Collectors.joining(","));
   }
 
@@ -133,7 +133,7 @@ public class KafkaContainerCluster implements Startable {
                       "sh",
                       "-c",
                       "zookeeper-shell zookeeper:"
-                          + KafkaContainer.ZOOKEEPER_PORT
+                          + AlpakkaKafkaContainer.ZOOKEEPER_PORT
                           + " ls /brokers/ids | tail -n 1")
                   .exec()
                   .getId())

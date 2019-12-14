@@ -365,7 +365,7 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .dependsOn(core, testkit)
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -381,20 +381,10 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "1.1.2",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
-      ),
-    dockerfile in docker := {
-      val artifact: File = assembly.value
-      val artifactTargetPath = s"/app/${artifact.name}"
-
-      new Dockerfile {
-        from("netflixoss/java:8")
-        add(artifact, artifactTargetPath)
-        entryPoint("java", "-jar", artifactTargetPath)
-        expose(8080)
-      }
-    }
+      )
   )
