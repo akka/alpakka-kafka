@@ -91,7 +91,7 @@ Java
 
 ## Producing messages
 
-Sinks and flows accept implementations of @apidoc[ProducerMessage.Envelope] as input. They contain an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the @apidoc[ProducerMessage.Results]' `passThrough()`. It can for example hold a @apidoc[ConsumerMessage.CommittableOffset] or @apidoc[ConsumerMessage.CommittableOffsetBatch] from a @apidoc[Consumer.committableSource](Consumer$) that can be committed after publishing to Kafka. 
+Sinks and flows accept implementations of @apidoc[ProducerMessage.Envelope] as input. They contain an extra field to pass through data, the so called `passThrough`. Its value is passed through the flow and becomes available in the @apidoc[akka.kafka.ProducerMessage.Results]' `passThrough()`. It can for example hold a @apidoc[akka.kafka.ConsumerMessage.CommittableOffset] or @apidoc[ConsumerMessage.CommittableOffsetBatch] from a @apidoc[Consumer.committableSource](Consumer$) that can be committed after publishing to Kafka. 
 
 
 ### Produce a single message to Kafka
@@ -105,7 +105,7 @@ Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #singleMessage }
 
 
-For flows the @apidoc[ProducerMessage.Message]s continue as @apidoc[ProducerMessage.Result] elements containing: 
+For flows the @apidoc[ProducerMessage.Message]s continue as @apidoc[akka.kafka.ProducerMessage.Result] elements containing: 
  
  1. the original input message,
  1. the record metadata (Kafka @javadoc[RecordMetadata](org.apache.kafka.clients.producer.RecordMetadata) API), and
@@ -122,7 +122,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #multiMessage }
 
-For flows the @apidoc[ProducerMessage.MultiMessage]s continue as @apidoc[ProducerMessage.MultiResult] elements containing: 
+For flows the @apidoc[ProducerMessage.MultiMessage]s continue as @apidoc[akka.kafka.ProducerMessage.MultiResult] elements containing: 
  
  1. a list of @apidoc[ProducerMessage.MultiResultPart] with
     1. the original input message,
