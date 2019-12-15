@@ -38,9 +38,7 @@ resolvers in ThisBuild ++= Seq(
   // for Embedded Kafka 2.4.0
   Resolver.bintrayRepo("seglo", "maven"),
   // for Jupiter interface (JUnit 5)
-  Resolver.jcenterRepo,
-  // for release candidate builds of Apache Kafka
-  "Apache Staging" at "https://repository.apache.org/content/groups/staging/"
+  Resolver.jcenterRepo
 )
 
 TaskKey[Unit]("verifyCodeStyle") := {
@@ -324,7 +322,7 @@ lazy val docs = project
         "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
         "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
-        "javadoc.akka.link_style" -> "frames",
+        "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
