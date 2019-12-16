@@ -24,15 +24,11 @@ import java.util.stream.Stream;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-/**
- * Provides an easy way to launch a Kafka cluster with multiple brokers.
- *
- * <p>TODO: This may be deleted when/if the upstream testcontainers-java PR is merged:
- * https://github.com/testcontainers/testcontainers-java/pull/1984
- */
+/** Provides an easy way to launch a Kafka cluster with multiple brokers. */
 public class KafkaContainerCluster implements Startable {
 
-  public static final String CONFLUENT_PLATFORM_VERSION = "5.2.1";
+  public static final String CONFLUENT_PLATFORM_VERSION = "5.3.1";
+  public static final int START_TIMEOUT_SECONDS = 120;
 
   private final int brokersNum;
   private final Network network;
@@ -63,21 +59,17 @@ public class KafkaContainerCluster implements Startable {
         new GenericContainer("confluentinc/cp-zookeeper:" + confluentPlatformVersion)
             .withNetwork(network)
             .withNetworkAliases("zookeeper")
-            .withEnv(
-                "ZOOKEEPER_CLIENT_PORT",
-                String.valueOf(org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT));
+            .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(KafkaContainer.ZOOKEEPER_PORT));
 
     this.brokers =
         IntStream.range(0, this.brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new org.testcontainers.containers.KafkaContainer(confluentPlatformVersion)
+                    new KafkaContainer(confluentPlatformVersion)
                         .withNetwork(this.network)
                         .withNetworkAliases("broker-" + brokerNum)
                         .dependsOn(this.zookeeper)
-                        .withExternalZookeeper(
-                            "zookeeper:"
-                                + org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT)
+                        .withExternalZookeeper("zookeeper:" + KafkaContainer.ZOOKEEPER_PORT)
                         .withEnv("KAFKA_BROKER_ID", brokerNum + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", internalTopicsRf + "")
                         .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", internalTopicsRf + "")
@@ -113,27 +105,25 @@ public class KafkaContainerCluster implements Startable {
 
   @Override
   public void start() {
-    Stream<Startable> startables = this.brokers.stream().map(b -> (Startable) b);
     try {
-      Startables.deepStart(startables).get(60, SECONDS);
+      Stream<Startable> startables = this.brokers.stream().map(b -> (Startable) b);
+      Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
+
+      Unreliables.retryUntilTrue(
+          START_TIMEOUT_SECONDS,
+          TimeUnit.SECONDS,
+          () ->
+              Stream.of(this.zookeeper)
+                  .map(this::clusterBrokers)
+                  .anyMatch(brokers -> brokers.split(",").length == this.brokersNum));
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-
-    Unreliables.retryUntilTrue(
-        30,
-        TimeUnit.SECONDS,
-        () ->
-            this.brokers.stream()
-                .findFirst()
-                .map(this::clusterBrokers)
-                .filter(brokers -> brokers.split(",").length == this.brokersNum)
-                .isPresent());
   }
 
-  private String clusterBrokers(org.testcontainers.containers.KafkaContainer c) {
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+  private String clusterBrokers(GenericContainer c) {
     try {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       dockerClient
           .execStartCmd(
               dockerClient
@@ -143,27 +133,20 @@ public class KafkaContainerCluster implements Startable {
                       "sh",
                       "-c",
                       "zookeeper-shell zookeeper:"
-                          + org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT
+                          + KafkaContainer.ZOOKEEPER_PORT
                           + " ls /brokers/ids | tail -n 1")
                   .exec()
                   .getId())
           .exec(new ExecStartResultCallback(outputStream, null))
           .awaitCompletion();
+      return outputStream.toString();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-    return outputStream.toString();
   }
 
   @Override
   public void stop() {
-    // TODO: is there an inverse of `deepStart` to stop all dependant containers?  stopping
-    // zookeeper didn't seem to stop brokers alone.
     allContainers().parallel().forEach(GenericContainer::stop);
-  }
-
-  @Override
-  public void close() {
-    this.stop();
   }
 }
