@@ -190,8 +190,8 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
       .ask(msg)(Timeout(commitTimeout))
       .map(_ => Done)(ec)
       .recoverWith {
-        case _: AskTimeoutException =>
-          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout"))
+        case e: AskTimeoutException =>
+          Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout (${e.getMessage})"))
         case other => Future.failed(other)
       }(ec)
   }
