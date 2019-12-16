@@ -452,7 +452,9 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           .map(_.committableOffset)
           .groupedWithin(20, 5.seconds)
           .map(CommittableOffsetBatch.apply)
+          .log("sending offset batch")
           .via(Committer.batchFlow(committerDefaults.withMaxBatch(1L)))
+          .log("offset batch done")
           .runWith(Sink.head)
 
       val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue
