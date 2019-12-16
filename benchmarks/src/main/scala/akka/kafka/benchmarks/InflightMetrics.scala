@@ -35,7 +35,7 @@ private[benchmarks] trait InflightMetrics {
   def pollForMetrics(
       interval: FiniteDuration,
       control: Control,
-      consumerMetricNames: List[String]
+      consumerMetricNames: List[String] // TODO: use `SortedSet`
   )(implicit mat: Materializer): Source[ByteString, Cancellable] = {
     implicit val ec: ExecutionContext = mat.executionContext
 
@@ -65,7 +65,7 @@ private[benchmarks] trait InflightMetrics {
   }
 
   /**
-   * Use first GC pool that matches compatible GC names and return total gc count and last collection time length in ms
+   * Use first GC pool that matches compatible GC names and return total GC count and last collection time length in ms.
    */
   private def gc(): (String, String) = {
     gcBeans
