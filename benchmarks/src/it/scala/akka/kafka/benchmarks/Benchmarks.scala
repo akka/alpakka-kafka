@@ -5,6 +5,7 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.BenchmarksBase._
+import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
 import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
 import akka.kafka.benchmarks.Timed.{runPerfTest, runPerfTestInflightMetrics}
 import akka.kafka.benchmarks.app.RunTestCommand
@@ -46,9 +47,6 @@ abstract class BenchmarksBase() extends SpecBase with TestcontainersKafkaLike {
   override def setUp(): Unit = {
     BenchmarksBase.initialize(system.settings.config.getConfig(KafkaTestkitTestcontainersSettings.ConfigPath))
     super.setUp()
-    waitUntilCluster() {
-      _.nodes().get().size == BenchmarksBase.numBrokers
-    }
   }
 }
 
@@ -97,8 +95,15 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
       "fetch-total",
       "records-per-request-avg",
       "records-consumed-total")
+    val brokerMetricNames = List(
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec,topic=${topic_1000_5000_100.topic}", "Count"),
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec,topic=${topic_1000_5000_100.topic}", "Count")
+    )
+    val brokerJmxUrls = brokerContainers.map(_.getJmxServiceUrl).toList
     runPerfTestInflightMetrics(cmd,
       consumerMetricNames,
+      brokerMetricNames,
+      brokerJmxUrls,
       ReactiveKafkaConsumerFixtures.plainSources(cmd),
       ReactiveKafkaConsumerBenchmarks.consumePlainInflightMetrics)
   }

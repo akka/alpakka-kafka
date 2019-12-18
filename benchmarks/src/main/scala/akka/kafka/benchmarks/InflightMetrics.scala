@@ -9,15 +9,18 @@ import java.lang.management.{BufferPoolMXBean, ManagementFactory, MemoryType}
 
 import akka.NotUsed
 import akka.actor.Cancellable
+import akka.kafka.benchmarks.InflightMetrics.{BrokerMetricRequest, BrokerMetricResult}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.Materializer
 import akka.stream.alpakka.csv.scaladsl.CsvFormatting
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import javax.management.remote.{JMXConnectorFactory, JMXServiceURL}
+import javax.management.{Attribute, MBeanServerConnection, ObjectName}
 import org.apache.kafka.common.{Metric, MetricName}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
 private[benchmarks] trait InflightMetrics {
@@ -35,12 +38,21 @@ private[benchmarks] trait InflightMetrics {
   def pollForMetrics(
       interval: FiniteDuration,
       control: Control,
-      consumerMetricNames: List[String] // TODO: use `SortedSet`
+      consumerMetricNames: List[String],
+      brokerMetricNames: List[BrokerMetricRequest],
+      brokerJmxUrls: List[String]
   )(implicit mat: Materializer): Source[ByteString, Cancellable] = {
     implicit val ec: ExecutionContext = mat.executionContext
 
     val consumerMetricNamesSorted: List[String] = consumerMetricNames.sorted
+    val brokerMetricNamesSorted: List[String] = brokerMetricNames.map(_.name).sorted
+
     val accStart = (0.seconds, None.asInstanceOf[Option[List[String]]])
+    val brokersJmx: Seq[MBeanServerConnection] = brokerJmxUrls.map { url =>
+      val jmxUrl = new JMXServiceURL(url)
+      val conn = JMXConnectorFactory.connect(jmxUrl)
+      conn.getMBeanServerConnection
+    }
 
     val metricsFetcher = Source
       .tick(0.seconds, interval, NotUsed)
@@ -50,13 +62,22 @@ private[benchmarks] trait InflightMetrics {
           val (heapBytes, nonHeapBytes, directBytes) = memoryUsage()
           val baseRow = List(timeMs.toMillis.toString, gcCount, gcTimeMs, heapBytes, nonHeapBytes, directBytes)
 
-          consumer(control, consumerMetricNamesSorted).map { metrics =>
-            (interval + timeMs, Some(baseRow ++ metrics))
+          val asyncMetrics = List(
+            consumer(control, consumerMetricNamesSorted),
+            broker(brokersJmx, brokerMetricNames)
+          )
+
+          Future.sequence(asyncMetrics) map {
+            case consumerMetrics :: brokerMetrics :: Nil =>
+              (interval + timeMs, Some(baseRow ++ consumerMetrics ++ brokerMetrics))
+            case _ => throw new IllegalStateException("The wrong number of Future results were returned.")
           }
       })
       .mapConcat { case (_, o: Option[List[String]]) => o.toList }
 
-    val header = Source.single(baseHeader ++ consumerMetricNamesSorted.map("kafka-consumer:" + _))
+    val header = Source.single(
+      baseHeader ++ consumerMetricNamesSorted.map("kafka-consumer:" + _) ++ brokerMetricNamesSorted.map("broker:" + _)
+    )
 
     // prepend header row to stream and use `Cancellable` mat value from metricsFetcher stream
     header
@@ -92,24 +113,53 @@ private[benchmarks] trait InflightMetrics {
   /**
    * Return specified consumer-level metrics using Alpakka Kafka's [[Control]] metrics API.
    */
-  private def consumer(control: Control, consumerMetricNamesSorted: List[String])(implicit ec: ExecutionContext) = {
+  private def consumer(control: Control,
+                       consumerMetricNamesSorted: List[String])(implicit ec: ExecutionContext): Future[List[String]] = {
     control.metrics.map { consumerMetrics =>
       val metrics = consumerMetrics
-        .map { case (name, metric) => InflightMetrics.ConsumerMetric(name, metric) }
+        .map { case (name, metric) => InflightMetrics.ConsumerMetricResult(name, metric) }
         .filter(cm => consumerMetricNamesSorted.contains(cm.name.name()))
         // filter out topic-level or partition-level metrics
         .filterNot(cm => cm.name.tags.containsKey("topic") || cm.name.tags.containsKey("partition"))
         .toList
         .sortBy(_.name.name())
+        .map(_.value.metricValue().toString)
 
       require(metrics.size == consumerMetricNamesSorted.size,
               "Number of returned metric values DNE number of requested consumer metrics")
 
-      metrics.map(_.metric.metricValue().toString())
+      metrics
     }
+  }
+
+  private def broker(
+      brokersJmx: Seq[MBeanServerConnection],
+      brokerMetricNames: List[BrokerMetricRequest]
+  )(implicit ec: ExecutionContext): Future[List[String]] = Future {
+    brokerMetricNames
+      .map { case request @ BrokerMetricRequest(objectName, attrName) =>
+        val sum = brokersJmx
+          .map(conn => getRemoteJmxValue(objectName, attrName, conn))
+          .sum
+        BrokerMetricResult(request, sum.toString)
+      }
+      .sortBy(_.request.name)
+      .map(_.value)
+  }
+
+  private def getRemoteJmxValue(objectName: String,
+                                attrName: String,
+                                conn: MBeanServerConnection): Long = {
+    val bytesInPerSec: ObjectName = new ObjectName(objectName)
+    val attributes = Array(attrName)
+    val attributeValues = conn.getAttributes(bytesInPerSec, attributes)
+    val attr = attributeValues.stream.findFirst.get.asInstanceOf[Attribute]
+    Long.unbox(attr.getValue)
   }
 }
 
 private[benchmarks] object InflightMetrics {
-  final case class ConsumerMetric(name: MetricName, metric: Metric)
+  final case class ConsumerMetricResult(name: MetricName, value: Metric)
+  final case class BrokerMetricRequest(name: String, attribute: String)
+  final case class BrokerMetricResult(request: BrokerMetricRequest, value: String)
 }

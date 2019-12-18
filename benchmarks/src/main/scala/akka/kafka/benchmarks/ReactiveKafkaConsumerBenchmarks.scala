@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.CommittableMessage
+import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
 import akka.kafka.scaladsl.Committer
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{CommitDelivery, CommitterSettings}
@@ -69,6 +70,8 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
   def consumePlainInflightMetrics(fixture: NonCommittableFixture,
                                   meter: Meter,
                                   consumerMetricNames: List[String],
+                                  brokerMetricNames: List[BrokerMetricRequest],
+                                  brokerJmxUrls: List[String],
                                   reportPath: Path)(
       implicit mat: Materializer
   ): Unit = {
@@ -81,7 +84,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
       .toMat(Sink.ignore)(Keep.both)
       .run()
 
-    val metrics = pollForMetrics(interval = 1.second, control, consumerMetricNames)
+    val metrics = pollForMetrics(interval = 1.second, control, consumerMetricNames, brokerMetricNames, brokerJmxUrls)
       .to(FileIO.toPath(reportPath))
       .run()
 

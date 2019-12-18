@@ -8,17 +8,18 @@ package akka.kafka.testkit
 import java.util.function.Consumer
 
 import akka.actor.ActorSystem
+import akka.kafka.testkit.internal.AlpakkaKafkaContainer
 import com.typesafe.config.Config
-import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+import org.testcontainers.containers.GenericContainer
 
 final class KafkaTestkitTestcontainersSettings private (
     val confluentPlatformVersion: String,
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
-    val configureKafka: Vector[KafkaContainer] => Unit = _ => (),
-    val configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]] =
-      new Consumer[java.util.Collection[KafkaContainer]]() {
-        override def accept(arg: java.util.Collection[KafkaContainer]): Unit = ()
+    val configureKafka: Vector[AlpakkaKafkaContainer] => Unit = _ => (),
+    val configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
+      new Consumer[java.util.Collection[AlpakkaKafkaContainer]]() {
+        override def accept(arg: java.util.Collection[AlpakkaKafkaContainer]): Unit = ()
       },
     val configureZooKeeper: GenericContainer[_] => Unit = _ => (),
     val configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] =
@@ -66,13 +67,13 @@ final class KafkaTestkitTestcontainersSettings private (
    * Replaces the default Kafka testcontainers configuration logic
    */
   def withConfigureKafkaConsumer(
-      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]]
+      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]]
   ): KafkaTestkitTestcontainersSettings = copy(configureKafkaConsumer = configureKafkaConsumer)
 
   /**
    * Replaces the default Kafka testcontainers configuration logic
    */
-  def withConfigureKafka(configureKafka: Vector[KafkaContainer] => Unit): KafkaTestkitTestcontainersSettings =
+  def withConfigureKafka(configureKafka: Vector[AlpakkaKafkaContainer] => Unit): KafkaTestkitTestcontainersSettings =
     copy(configureKafka = configureKafka)
 
   /**
@@ -95,8 +96,9 @@ final class KafkaTestkitTestcontainersSettings private (
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
-      configureKafka: Vector[KafkaContainer] => Unit = configureKafka,
-      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[KafkaContainer]] = configureKafkaConsumer,
+      configureKafka: Vector[AlpakkaKafkaContainer] => Unit = configureKafka,
+      configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
+        configureKafkaConsumer,
       configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper,
       configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] = configureZooKeeperConsumer
   ): KafkaTestkitTestcontainersSettings =

@@ -6,8 +6,8 @@
 package akka.kafka.testkit.scaladsl
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
-import akka.kafka.testkit.internal.TestcontainersKafka
-import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+import akka.kafka.testkit.internal.{AlpakkaKafkaContainer, TestcontainersKafka}
+import org.testcontainers.containers.GenericContainer
 
 /**
  * Uses [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka cluster in a Docker container.
@@ -19,7 +19,7 @@ import org.testcontainers.containers.{GenericContainer, KafkaContainer}
 trait TestcontainersKafkaLike extends TestcontainersKafka.Spec {
   override def kafkaPort: Int = TestcontainersKafka.Singleton.kafkaPort
   override def bootstrapServers: String = TestcontainersKafka.Singleton.bootstrapServers
-  override def brokerContainers: Vector[KafkaContainer] = TestcontainersKafka.Singleton.brokerContainers
+  override def brokerContainers: Vector[AlpakkaKafkaContainer] = TestcontainersKafka.Singleton.brokerContainers
   override def zookeeperContainer: GenericContainer[_] = TestcontainersKafka.Singleton.zookeeperContainer
   override def startKafka(settings: KafkaTestkitTestcontainersSettings): String =
     TestcontainersKafka.Singleton.startKafka(settings)

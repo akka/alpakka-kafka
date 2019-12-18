@@ -8,6 +8,7 @@ package akka.kafka.benchmarks
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
+import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
 import akka.kafka.benchmarks.app.RunTestCommand
 import com.codahale.metrics._
 import com.typesafe.scalalogging.LazyLogging
@@ -51,10 +52,14 @@ object Timed extends LazyLogging {
     csvReporter(metrics).report()
   }
 
-  def runPerfTestInflightMetrics[F](command: RunTestCommand,
-                                    consumerMetricNames: List[String],
-                                    fixtureGen: FixtureGen[F],
-                                    testBody: (F, Meter, List[String], Path) => Unit): Unit = {
+  def runPerfTestInflightMetrics[F](
+      command: RunTestCommand,
+      consumerMetricNames: List[String],
+      brokerMetricNamesAndAttributes: List[BrokerMetricRequest],
+      brokerJmxUrls: List[String],
+      fixtureGen: FixtureGen[F],
+      testBody: (F, Meter, List[String], List[BrokerMetricRequest], List[String], Path) => Unit
+  ): Unit = {
     val name = command.testName
     val msgCount = command.msgCount
     val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$name-inflight-metrics.csv"))
@@ -64,7 +69,7 @@ object Timed extends LazyLogging {
     val meter = metrics.meter(name)
     logger.info(s"Running benchmarks for $name")
     val now = System.nanoTime()
-    testBody(fixture, meter, consumerMetricNames, metricsReportPath)
+    testBody(fixture, meter, consumerMetricNames, brokerMetricNamesAndAttributes, brokerJmxUrls, metricsReportPath)
     val after = System.nanoTime()
     val took = (after - now).nanos
     logger.info(s"Test $name took ${took.toMillis} ms")

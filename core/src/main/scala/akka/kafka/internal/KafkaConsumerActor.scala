@@ -708,7 +708,7 @@ import scala.util.control.NonFatal
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit
     // TODO: revert me. for blog post benchmarking
     // Kafka 2.3.1
-    def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {}
+    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {}
     // Kafka 2.4.0
     //override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {}
     def postStop(): Unit = ()

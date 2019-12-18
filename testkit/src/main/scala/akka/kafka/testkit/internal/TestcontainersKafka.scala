@@ -7,7 +7,7 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
-import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+import org.testcontainers.containers.GenericContainer
 
 import scala.jdk.CollectionConverters._
 
@@ -46,7 +46,7 @@ object TestcontainersKafka {
       kafkaBootstrapServersInternal
     }
 
-    def brokerContainers: Vector[KafkaContainer] = cluster.getBrokers.asScala.toVector
+    def brokerContainers: Vector[AlpakkaKafkaContainer] = cluster.getBrokers.asScala.toVector
 
     def zookeeperContainer: GenericContainer[_] = cluster.getZooKeeper
 
