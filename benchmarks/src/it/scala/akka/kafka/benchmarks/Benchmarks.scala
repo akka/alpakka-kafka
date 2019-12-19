@@ -91,15 +91,15 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
     val cmd =
       RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions-with-inflight-metrics", bootstrapServers, topic_1000_5000_100)
     val consumerMetricNames = List[ConsumerMetricRequest](
-      BaseCounterConsumerMetricRequest("bytes-consumed-total"),
-      GaugeConsumerMetricRequest("fetch-rate"),
-      BaseCounterConsumerMetricRequest("fetch-total"),
-      GaugeConsumerMetricRequest("records-per-request-avg"),
-      BaseCounterConsumerMetricRequest("records-consumed-total")
+      ConsumerMetricRequest("bytes-consumed-total", CounterMetricType),
+      ConsumerMetricRequest("fetch-rate", GaugeMetricType),
+      ConsumerMetricRequest("fetch-total", CounterMetricType),
+      ConsumerMetricRequest("records-per-request-avg", GaugeMetricType),
+      ConsumerMetricRequest("records-consumed-total", CounterMetricType)
     )
     val brokerMetricNames: List[BrokerMetricRequest] = List(
-      BaseCountBrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec,topic=${topic_1000_5000_100.topic}", "Count"),
-      BaseCountBrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec,topic=${topic_1000_5000_100.topic}", "Count")
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec", topic_1000_5000_100.topic, "Count", CounterMetricType),
+      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec", topic_1000_5000_100.topic, "Count", CounterMetricType)
     )
     val brokerJmxUrls = brokerContainers.map(_.getJmxServiceUrl).toList
     runPerfTestInflightMetrics(cmd,

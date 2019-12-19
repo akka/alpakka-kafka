@@ -5,16 +5,19 @@
 
 package akka.kafka.benchmarks
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
 import akka.kafka.benchmarks.InflightMetrics.{BrokerMetricRequest, ConsumerMetricRequest}
 import akka.kafka.benchmarks.app.RunTestCommand
+import akka.stream.Materializer
+import akka.stream.alpakka.csv.scaladsl.CsvFormatting
+import akka.stream.scaladsl.{FileIO, Sink, Source}
 import com.codahale.metrics._
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object Timed extends LazyLogging {
   private val benchmarkReportBasePath = Paths.get("benchmarks", "target")
@@ -34,6 +37,18 @@ object Timed extends LazyLogging {
       .convertRatesTo(TimeUnit.SECONDS)
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build(benchmarkReportBasePath.toFile)
+
+  def inflightMetricsReport(inflightMetrics: List[List[String]], testName: String)(implicit mat: Materializer) = {
+    val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics.csv"))
+    val metricsReportDetailPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics-details.csv"))
+    val summary = Source(List(inflightMetrics.head, inflightMetrics.last))
+      .via(CsvFormatting.format())
+      .alsoTo(Sink.foreach(bs => logger.info(bs.utf8String)))
+      .runWith(FileIO.toPath(metricsReportPath))
+    val details = Source(inflightMetrics).via(CsvFormatting.format()).runWith(FileIO.toPath(metricsReportDetailPath))
+    implicit val ec: ExecutionContext = mat.executionContext
+    Await.result(Future.sequence(List(summary, details)), 10.seconds)
+  }
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
     val name = command.testName
@@ -55,24 +70,24 @@ object Timed extends LazyLogging {
   def runPerfTestInflightMetrics[F](
       command: RunTestCommand,
       consumerMetricNames: List[ConsumerMetricRequest],
-      brokerMetricNamesAndAttributes: List[BrokerMetricRequest],
+      brokerMetricNames: List[BrokerMetricRequest],
       brokerJmxUrls: List[String],
       fixtureGen: FixtureGen[F],
-      testBody: (F, Meter, List[ConsumerMetricRequest], List[BrokerMetricRequest], List[String], Path) => Unit
-  ): Unit = {
+      testBody: (F, Meter, List[ConsumerMetricRequest], List[BrokerMetricRequest], List[String]) => List[List[String]]
+  )(implicit mat: Materializer): Unit = {
     val name = command.testName
     val msgCount = command.msgCount
-    val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$name-inflight-metrics.csv"))
     logger.info(s"Generating fixture for $name ${command.filledTopic}")
     val fixture = fixtureGen.generate(msgCount)
     val metrics = new MetricRegistry()
     val meter = metrics.meter(name)
     logger.info(s"Running benchmarks for $name")
     val now = System.nanoTime()
-    testBody(fixture, meter, consumerMetricNames, brokerMetricNamesAndAttributes, brokerJmxUrls, metricsReportPath)
+    val inflightMetrics = testBody(fixture, meter, consumerMetricNames, brokerMetricNames, brokerJmxUrls)
     val after = System.nanoTime()
     val took = (after - now).nanos
     logger.info(s"Test $name took ${took.toMillis} ms")
+    inflightMetricsReport(inflightMetrics, name)
     reporter(metrics).report()
     csvReporter(metrics).report()
   }

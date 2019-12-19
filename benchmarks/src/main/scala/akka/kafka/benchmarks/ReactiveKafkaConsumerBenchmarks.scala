@@ -5,7 +5,6 @@
 
 package akka.kafka.benchmarks
 
-import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
@@ -16,7 +15,7 @@ import akka.kafka.scaladsl.Committer
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -65,16 +64,15 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
 
   /**
    * Creates a stream and reads N elements, discarding them into a Sink.ignore. Does not commit. Collects in flight
-   * metrics and writes them to a CSV file.
+   * metrics.
    */
   def consumePlainInflightMetrics(fixture: NonCommittableFixture,
                                   meter: Meter,
                                   consumerMetricNames: List[ConsumerMetricRequest],
                                   brokerMetricNames: List[BrokerMetricRequest],
-                                  brokerJmxUrls: List[String],
-                                  reportPath: Path)(
+                                  brokerJmxUrls: List[String])(
       implicit mat: Materializer
-  ): Unit = {
+  ): List[List[String]] = {
     logger.debug("Creating and starting a stream")
     val (control, future) = fixture.source
       .take(fixture.msgCount.toLong)
@@ -84,15 +82,17 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
       .toMat(Sink.ignore)(Keep.both)
       .run()
 
-    val metrics = pollForMetrics(interval = 1.second, control, consumerMetricNames, brokerMetricNames, brokerJmxUrls)
-      .to(FileIO.toPath(reportPath))
-      .run()
+    val (metricsStream, metricsFuture) =
+      pollForMetrics(interval = 1.second, control, consumerMetricNames, brokerMetricNames, brokerJmxUrls)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
 
     implicit val ec: ExecutionContext = mat.executionContext
-    future.onComplete(_ => metrics.cancel())
+    future.onComplete(_ => metricsStream.cancel())
 
     Await.result(future, atMost = streamingTimeout)
     logger.debug("Stream finished")
+    Await.result(metricsFuture, atMost = streamingTimeout).toList
   }
 
   /**
