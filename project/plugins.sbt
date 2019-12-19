@@ -10,7 +10,7 @@ addSbtPlugin("com.lightbend.sbt" % "sbt-publish-rsync" % "0.1")
 addSbtPlugin("com.lightbend" % "sbt-whitesource" % "0.1.17")
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.0")
 addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.5")
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.6.0")
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.6.1")
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.0")
 addSbtPlugin("com.eed3si9n" % "sbt-unidoc" % "0.4.2")
 // patched version of sbt-dependency-graph
