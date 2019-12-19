@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.CommittableMessage
-import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
+import akka.kafka.benchmarks.InflightMetrics.{BrokerMetricRequest, ConsumerMetricRequest}
 import akka.kafka.scaladsl.Committer
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.{CommitDelivery, CommitterSettings}
@@ -69,7 +69,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
    */
   def consumePlainInflightMetrics(fixture: NonCommittableFixture,
                                   meter: Meter,
-                                  consumerMetricNames: List[String],
+                                  consumerMetricNames: List[ConsumerMetricRequest],
                                   brokerMetricNames: List[BrokerMetricRequest],
                                   brokerJmxUrls: List[String],
                                   reportPath: Path)(

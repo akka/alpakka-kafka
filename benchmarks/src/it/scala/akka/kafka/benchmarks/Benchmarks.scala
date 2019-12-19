@@ -5,7 +5,7 @@
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.BenchmarksBase._
-import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
+import akka.kafka.benchmarks.InflightMetrics._
 import akka.kafka.benchmarks.PerfFixtureHelpers.FilledTopic
 import akka.kafka.benchmarks.Timed.{runPerfTest, runPerfTestInflightMetrics}
 import akka.kafka.benchmarks.app.RunTestCommand
@@ -15,7 +15,7 @@ import com.typesafe.config.Config
 
 object BenchmarksBase {
   // Message count multiplier to adapt for shorter local testing
-  val factor = 1000
+  val factor = 100
 
   // Default settings for Kafka testcontainers cluster
   var settings: Option[KafkaTestkitTestcontainersSettings] = None
@@ -90,14 +90,16 @@ class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench with normal messages and one hundred partitions with inflight metrics" in {
     val cmd =
       RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions-with-inflight-metrics", bootstrapServers, topic_1000_5000_100)
-    val consumerMetricNames = List("bytes-consumed-total",
-      "fetch-rate",
-      "fetch-total",
-      "records-per-request-avg",
-      "records-consumed-total")
-    val brokerMetricNames = List(
-      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec,topic=${topic_1000_5000_100.topic}", "Count"),
-      BrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec,topic=${topic_1000_5000_100.topic}", "Count")
+    val consumerMetricNames = List[ConsumerMetricRequest](
+      BaseCounterConsumerMetricRequest("bytes-consumed-total"),
+      GaugeConsumerMetricRequest("fetch-rate"),
+      BaseCounterConsumerMetricRequest("fetch-total"),
+      GaugeConsumerMetricRequest("records-per-request-avg"),
+      BaseCounterConsumerMetricRequest("records-consumed-total")
+    )
+    val brokerMetricNames: List[BrokerMetricRequest] = List(
+      BaseCountBrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=TotalFetchRequestsPerSec,topic=${topic_1000_5000_100.topic}", "Count"),
+      BaseCountBrokerMetricRequest(s"kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec,topic=${topic_1000_5000_100.topic}", "Count")
     )
     val brokerJmxUrls = brokerContainers.map(_.getJmxServiceUrl).toList
     runPerfTestInflightMetrics(cmd,

@@ -8,7 +8,7 @@ package akka.kafka.benchmarks
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{ForkJoinPool, TimeUnit}
 
-import akka.kafka.benchmarks.InflightMetrics.BrokerMetricRequest
+import akka.kafka.benchmarks.InflightMetrics.{BrokerMetricRequest, ConsumerMetricRequest}
 import akka.kafka.benchmarks.app.RunTestCommand
 import com.codahale.metrics._
 import com.typesafe.scalalogging.LazyLogging
@@ -54,11 +54,11 @@ object Timed extends LazyLogging {
 
   def runPerfTestInflightMetrics[F](
       command: RunTestCommand,
-      consumerMetricNames: List[String],
+      consumerMetricNames: List[ConsumerMetricRequest],
       brokerMetricNamesAndAttributes: List[BrokerMetricRequest],
       brokerJmxUrls: List[String],
       fixtureGen: FixtureGen[F],
-      testBody: (F, Meter, List[String], List[BrokerMetricRequest], List[String], Path) => Unit
+      testBody: (F, Meter, List[ConsumerMetricRequest], List[BrokerMetricRequest], List[String], Path) => Unit
   ): Unit = {
     val name = command.testName
     val msgCount = command.msgCount
