@@ -23,7 +23,6 @@ jobs:
     - stage: check
       script:
         - sbt verifyCodeStyle
-        - git diff --exit-code --color || { echo "[error] Unformatted code found. Please run 'verifyCodeStyle' and commit the reformatted code."; false; }
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
     - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"

@@ -41,10 +41,16 @@ resolvers in ThisBuild ++= Seq(
   Resolver.jcenterRepo
 )
 
-TaskKey[Unit]("verifyCodeStyle") := {
-  javafmt.?.all(ScopeFilter(inAnyProject, inAnyConfiguration)).result.value
+TaskKey[Unit]("verifyCodeFmt") := {
+  javafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
+    throw new MessageOnlyException(
+      "Unformatted Java code found. Please run 'javafmtAll' and commit the reformatted code"
+    )
+  }
   scalafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
-    throw new MessageOnlyException("Unformatted code found. Please run 'scalafmtAll' and commit the reformatted code")
+    throw new MessageOnlyException(
+      "Unformatted Scala code found. Please run 'scalafmtAll' and commit the reformatted code"
+    )
   }
   (Compile / scalafmtSbtCheck).result.value.toEither.left.foreach { _ =>
     throw new MessageOnlyException(
@@ -52,6 +58,8 @@ TaskKey[Unit]("verifyCodeStyle") := {
     )
   }
 }
+
+addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
 
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
