@@ -71,20 +71,17 @@ class ApacheKafkaPlainConsumer extends BenchmarksBase() {
     val cmd = RunTestCommand("apache-kafka-plain-consumer", bootstrapServers, topic_2000_100)
     runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
   }
+
+  it should "bench with normal messages and one hundred partitions" in {
+    val cmd = RunTestCommand("apache-kafka-plain-consumer-normal-msg-100-partitions", bootstrapServers, topic_1000_5000_100)
+    runPerfTest(cmd, KafkaConsumerFixtures.filledTopics(cmd), KafkaConsumerBenchmarks.consumePlain)
+  }
 }
 
 class AlpakkaKafkaPlainConsumer extends BenchmarksBase() {
   it should "bench" in {
     val cmd = RunTestCommand("alpakka-kafka-plain-consumer", bootstrapServers, topic_2000_100)
     runPerfTest(cmd, ReactiveKafkaConsumerFixtures.plainSources(cmd), ReactiveKafkaConsumerBenchmarks.consumePlain)
-  }
-
-  it should "bench with normal messages and one hundred partitions" in {
-    val cmd =
-      RunTestCommand("alpakka-kafka-plain-consumer-normal-msg-100-partitions", bootstrapServers, topic_1000_5000_100)
-    runPerfTest(cmd,
-      ReactiveKafkaConsumerFixtures.plainSources(cmd),
-      ReactiveKafkaConsumerBenchmarks.consumePlain)
   }
 
   it should "bench with normal messages and one hundred partitions with inflight metrics" in {

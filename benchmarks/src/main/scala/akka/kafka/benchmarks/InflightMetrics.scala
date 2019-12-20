@@ -56,16 +56,8 @@ private[benchmarks] trait InflightMetrics {
       .tick(0.seconds, interval, NotUsed)
       .scanAsync(accStart)({
         case ((timeMs, accLastMetrics), _) =>
-          val (gcCount, gcTimeMs) = gc()
-          val (heapBytes, nonHeapBytes, directBytes) = memoryUsage()
-          val jvmMetrics =
-            List(Counter(gcCount), Counter(gcTimeMs), Gauge(heapBytes), Gauge(nonHeapBytes), Gauge(directBytes))
-          val asyncMetrics = List(
-            consumer(control, consumerMetricNamesSorted),
-            broker(brokersJmx, brokerMetricNamesSorted)
-          )
-          Future.sequence(asyncMetrics) map {
-            case consumerMetrics :: brokerMetrics :: Nil =>
+          getAllMetrics(control, consumerMetricNamesSorted, brokerMetricNamesSorted, brokersJmx) map {
+            case jvmMetrics :: consumerMetrics :: brokerMetrics :: Nil =>
               val newMetrics = Gauge(timeMs.toMillis.toDouble) +: (jvmMetrics ++ consumerMetrics ++ brokerMetrics)
               val nextInterval = interval + timeMs
               val nextAcc = accLastMetrics match {
@@ -79,15 +71,67 @@ private[benchmarks] trait InflightMetrics {
       .mapConcat { case (_, results: Option[List[Metric]]) => results.map(_.map(_.value.toString)).toList }
 
     val header = Source.single(
-      timeMsHeader +: (
-        jvmHeaders ++
-        consumerMetricNamesSorted.map(consumerHeaderPrefix + _.name) ++
-        brokerMetricNamesSorted.map(brokerHeaderPrefix + _.name)
-      )
+      timeMsHeader +: metricHeaders(consumerMetricNamesSorted, brokerMetricNamesSorted)
     )
 
     // prepend header row to stream and use `Cancellable` mat value from metricsFetcher stream
     header.concatMat(metricsFetcher) { case (_, metricsMat) => metricsMat }
+  }
+
+  /**
+   * Collect JVM and specified Kafka Consumer & Broker metrics once.
+   */
+  def snapshot(control: Control,
+               consumerMetricNames: List[ConsumerMetricRequest],
+               brokerMetricNames: List[BrokerMetricRequest],
+               brokerJmxUrls: List[String])(implicit mat: Materializer): Future[List[List[String]]] = {
+    implicit val ec: ExecutionContext = mat.executionContext
+
+    val consumerMetricNamesSorted = consumerMetricNames.sortBy(_.name)
+    val brokerMetricNamesSorted = brokerMetricNames.sortBy(_.name)
+
+    val brokersJmx: List[MBeanServerConnection] = jmxConnections(brokerJmxUrls)
+
+    getAllMetrics(control, consumerMetricNamesSorted, brokerMetricNamesSorted, brokersJmx) map {
+      case jvmMetrics :: consumerMetrics :: brokerMetrics :: Nil =>
+        List(
+          metricHeaders(consumerMetricNamesSorted, brokerMetricNamesSorted),
+          (jvmMetrics ++ consumerMetrics ++ brokerMetrics).map(_.toString)
+        )
+      case _ => throw new IllegalStateException("The wrong number of Future results were returned.")
+    }
+  }
+
+  private def metricHeaders(consumerMetricNamesSorted: List[ConsumerMetricRequest],
+                            brokerMetricNamesSorted: List[BrokerMetricRequest]): List[String] = {
+    jvmHeaders ++
+    consumerMetricNamesSorted.map(consumerHeaderPrefix + _.name) ++
+    brokerMetricNamesSorted.map(brokerHeaderPrefix + _.name.replace(",", "-"))
+  }
+
+  /**
+   * Asynchronously retrieve all metrics
+   */
+  private def getAllMetrics(control: Control,
+                            consumerMetricNamesSorted: List[ConsumerMetricRequest],
+                            brokerMetricNamesSorted: List[BrokerMetricRequest],
+                            brokersJmx: List[MBeanServerConnection])(implicit ec: ExecutionContext) = {
+    Future.sequence(
+      List(
+        jvm(),
+        consumer(control, consumerMetricNamesSorted),
+        broker(brokersJmx, brokerMetricNamesSorted)
+      )
+    )
+  }
+
+  /**
+   * Get all JVM metrics
+   */
+  private def jvm()(implicit ec: ExecutionContext) = Future {
+    val (gcCount, gcTimeMs) = gc()
+    val (heapBytes, nonHeapBytes, directBytes) = memoryUsage()
+    List(Counter(gcCount), Counter(gcTimeMs), Gauge(heapBytes), Gauge(nonHeapBytes), Gauge(directBytes))
   }
 
   /**

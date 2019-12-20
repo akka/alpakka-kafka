@@ -5,6 +5,7 @@
 
 package akka.kafka.testkit.internal;
 
+import akka.annotation.InternalApi;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
@@ -21,9 +22,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** This container wraps Confluent Kafka and Zookeeper (optionally) */
+@InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
+
+  public static final String DEFAULT_CP_PLATFORM_VERSION = "5.3.1";
 
   public static final int KAFKA_PORT = 9093;
 
@@ -43,7 +47,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private boolean enableRemoteJmxService = false;
 
   public AlpakkaKafkaContainer() {
-    this("5.2.1");
+    this("5.3.1");
   }
 
   public AlpakkaKafkaContainer(String confluentPlatformVersion) {

@@ -5,6 +5,7 @@
 
 package akka.kafka.testkit.internal;
 
+import akka.annotation.InternalApi;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.rnorth.ducttape.unreliables.Unreliables;
@@ -24,9 +25,11 @@ import java.util.stream.Stream;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /** Provides an easy way to launch a Kafka cluster with multiple brokers. */
+@InternalApi
 public class KafkaContainerCluster implements Startable {
 
-  public static final String CONFLUENT_PLATFORM_VERSION = "5.3.1";
+  public static final String CONFLUENT_PLATFORM_VERSION =
+      AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION;
   public static final int START_TIMEOUT_SECONDS = 120;
 
   private final int brokersNum;
