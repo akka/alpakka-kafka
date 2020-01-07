@@ -82,20 +82,19 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
       .toMat(Sink.ignore)(Keep.both)
       .run()
 
-    val (metricsStream, metricsFuture) =
+    val (metricsControl, metricsFuture) =
       pollForMetrics(interval = 100.millis, control, consumerMetricNames, brokerMetricNames, brokerJmxUrls)
-        .toMat(Sink.seq)(Keep.both)
-        .run()
 
     implicit val ec: ExecutionContext = mat.executionContext
     future.onComplete { _ =>
-      metricsStream.cancel()
+      metricsControl.cancel()
     }
 
     Await.result(future, atMost = streamingTimeout)
     logger.debug("Stream finished")
-    val inflight = Await.result(metricsFuture, atMost = streamingTimeout).toList
-    inflight
+
+    val inflightMetrics = Await.result(metricsFuture, atMost = streamingTimeout)
+    inflightMetrics
   }
 
   /**

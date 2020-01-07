@@ -11,7 +11,8 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.codahale.metrics.{Histogram, MetricRegistry}
 import javax.management.remote.{JMXConnectorFactory, JMXServiceURL}
 import javax.management.{Attribute, MBeanServerConnection, ObjectName}
 
@@ -22,6 +23,8 @@ import scala.jdk.CollectionConverters._
 private[benchmarks] trait InflightMetrics {
   import InflightMetrics._
 
+  private val registry = new MetricRegistry()
+
   private val gcBeans = ManagementFactory.getGarbageCollectorMXBeans.asScala
   private val memoryPoolBeans = ManagementFactory.getMemoryPoolMXBeans.asScala
   private val directBufferPoolBeans = ManagementFactory.getPlatformMXBeans(classOf[BufferPoolMXBean]).asScala
@@ -29,8 +32,10 @@ private[benchmarks] trait InflightMetrics {
   private val compatibleGcNames = List("ConcurrentMarkSweep", "PS MarkSweep")
 
   private val timeMsHeader = "time-ms"
+  private val (gcCountHeader, gcTimeMsHeader, heapBytesHeader, nonHeapBytesHeader, directBytesHeader) =
+    ("gc-count", "gc-time-ms", "heap-bytes:mean", "non-heap-bytes:mean", "direct-bytes:mean")
   private val jvmHeaders =
-    List("gc-count", "gc-time-ms", "heap-bytes", "non-heap-bytes", "direct-bytes").map("jvm:" + _)
+    List(gcCountHeader, gcTimeMsHeader, heapBytesHeader, nonHeapBytesHeader, directBytesHeader).map("jvm:" + _)
   private val consumerHeaderPrefix = "kafka-consumer:"
   private val brokerHeaderPrefix = "broker:"
 
@@ -43,7 +48,7 @@ private[benchmarks] trait InflightMetrics {
       consumerMetricNames: List[ConsumerMetricRequest],
       brokerMetricNames: List[BrokerMetricRequest],
       brokerJmxUrls: List[String]
-  )(implicit mat: Materializer): Source[List[String], Cancellable] = {
+  )(implicit mat: Materializer): (Cancellable, Future[List[List[String]]]) = {
     implicit val ec: ExecutionContext = mat.executionContext
 
     val consumerMetricNamesSorted = consumerMetricNames.sortBy(_.name)
@@ -52,61 +57,45 @@ private[benchmarks] trait InflightMetrics {
     val accStart = (0.seconds, None.asInstanceOf[Option[List[Metric]]])
     val brokersJmx = jmxConnections(brokerJmxUrls)
 
-    val metricsFetcher = Source
+    val (metricsControl, metricsFuture) = Source
       .tick(0.seconds, interval, NotUsed)
       .scanAsync(accStart)({
         case ((timeMs, accLastMetrics), _) =>
           getAllMetrics(control, consumerMetricNamesSorted, brokerMetricNamesSorted, brokersJmx) map {
             case jvmMetrics :: consumerMetrics :: brokerMetrics :: Nil =>
-              val newMetrics = Gauge(timeMs.toMillis.toDouble) +: (jvmMetrics ++ consumerMetrics ++ brokerMetrics)
+              val timeMsMeasurement = Measurement(timeMsHeader, timeMs.toMillis.toDouble, GaugeMetricType)
+              val newMetrics = timeMsMeasurement +: (jvmMetrics ++ consumerMetrics ++ brokerMetrics)
               val nextInterval = interval + timeMs
               val nextAcc = accLastMetrics match {
-                case None => Counter.reset(newMetrics)
-                case Some(lastMetrics) => Counter.update(lastMetrics, newMetrics)
+                case None => InflightMetrics.reset(newMetrics, registry)
+                case Some(lastMetrics) => InflightMetrics.update(lastMetrics, newMetrics)
               }
               (nextInterval, Some(nextAcc))
             case _ => throw new IllegalStateException("The wrong number of Future results were returned.")
           }
       })
-      .mapConcat { case (_, results: Option[List[Metric]]) => results.map(_.map(_.value.toString)).toList }
+      .mapConcat { case (_, results: Option[List[Metric]]) => results.toList }
+      .toMat(Sink.seq)(Keep.both)
+      .run()
 
-    val header = Source.single(
-      timeMsHeader +: metricHeaders(consumerMetricNamesSorted, brokerMetricNamesSorted)
-    )
-
-    // prepend header row to stream and use `Cancellable` mat value from metricsFetcher stream
-    header.concatMat(metricsFetcher) { case (_, metricsMat) => metricsMat }
-  }
-
-  /**
-   * Collect JVM and specified Kafka Consumer & Broker metrics once.
-   */
-  def snapshot(control: Control,
-               consumerMetricNames: List[ConsumerMetricRequest],
-               brokerMetricNames: List[BrokerMetricRequest],
-               brokerJmxUrls: List[String])(implicit mat: Materializer): Future[List[List[String]]] = {
-    implicit val ec: ExecutionContext = mat.executionContext
-
-    val consumerMetricNamesSorted = consumerMetricNames.sortBy(_.name)
-    val brokerMetricNamesSorted = brokerMetricNames.sortBy(_.name)
-
-    val brokersJmx: List[MBeanServerConnection] = jmxConnections(brokerJmxUrls)
-
-    getAllMetrics(control, consumerMetricNamesSorted, brokerMetricNamesSorted, brokersJmx) map {
-      case jvmMetrics :: consumerMetrics :: brokerMetrics :: Nil =>
-        List(
-          metricHeaders(consumerMetricNamesSorted, brokerMetricNamesSorted),
-          (jvmMetrics ++ consumerMetrics ++ brokerMetrics).map(_.toString)
-        )
-      case _ => throw new IllegalStateException("The wrong number of Future results were returned.")
+    val metricsWithHeaderAndFooter: Future[List[List[String]]] = metricsFuture.map { metrics =>
+      val header = timeMsHeader +: metricHeaders(consumerMetricNamesSorted, brokerMetricNamesSorted)
+      val metricsStrings = metrics.map(_.map(_.value.toString)).toList
+      val summaryLine = metrics.last.map {
+        case hg: HistogramGauge => hg.summaryValue.toString
+        case metric => metric.value.toString
+      }
+      header +: metricsStrings :+ summaryLine
     }
+
+    (metricsControl, metricsWithHeaderAndFooter)
   }
 
   private def metricHeaders(consumerMetricNamesSorted: List[ConsumerMetricRequest],
                             brokerMetricNamesSorted: List[BrokerMetricRequest]): List[String] = {
     jvmHeaders ++
     consumerMetricNamesSorted.map(consumerHeaderPrefix + _.name) ++
-    brokerMetricNamesSorted.map(brokerHeaderPrefix + _.name.replace(",", "-"))
+    brokerMetricNamesSorted.map(brokerHeaderPrefix + _.name.replace(",", ":"))
   }
 
   /**
@@ -131,7 +120,14 @@ private[benchmarks] trait InflightMetrics {
   private def jvm()(implicit ec: ExecutionContext) = Future {
     val (gcCount, gcTimeMs) = gc()
     val (heapBytes, nonHeapBytes, directBytes) = memoryUsage()
-    List(Counter(gcCount), Counter(gcTimeMs), Gauge(heapBytes), Gauge(nonHeapBytes), Gauge(directBytes))
+    val getMeanSummary: Option[com.codahale.metrics.Sampling => Long] = Some(_.getSnapshot.getMean.toLong)
+    List(
+      Measurement(gcCountHeader, gcCount, CounterMetricType),
+      Measurement(gcTimeMsHeader, gcTimeMs, CounterMetricType),
+      Measurement(heapBytesHeader, heapBytes, GaugeMetricType, getMeanSummary),
+      Measurement(nonHeapBytesHeader, nonHeapBytes, GaugeMetricType, getMeanSummary),
+      Measurement(directBytesHeader, directBytes, GaugeMetricType, getMeanSummary)
+    )
   }
 
   /**
@@ -164,7 +160,7 @@ private[benchmarks] trait InflightMetrics {
    */
   private def consumer[T](control: Control, requests: List[ConsumerMetricRequest])(
       implicit ec: ExecutionContext
-  ): Future[List[Metric]] = {
+  ): Future[List[Measurement]] = {
     control.metrics.map { consumerMetrics =>
       val metricValues = consumerMetrics
         .filter { case (name, _) => requests.map(_.name).contains(name.name()) }
@@ -177,11 +173,10 @@ private[benchmarks] trait InflightMetrics {
       require(metricValues.size == requests.size,
               "Number of returned metric values DNE number of requested consumer metrics")
 
-      val results: List[Metric] = requests
+      val results: List[Measurement] = requests
         .zip(metricValues)
         .map {
-          case (ConsumerMetricRequest(_, GaugeMetricType), value) => Gauge(value)
-          case (ConsumerMetricRequest(_, CounterMetricType), value) => Counter(value)
+          case (ConsumerMetricRequest(name, metricType), value) => Measurement(name, value, metricType)
         }
 
       results
@@ -194,15 +189,15 @@ private[benchmarks] trait InflightMetrics {
   private def broker(
       brokersJmx: Seq[MBeanServerConnection],
       brokerMetricNames: List[BrokerMetricRequest]
-  )(implicit ec: ExecutionContext): Future[List[Metric]] = Future {
+  )(implicit ec: ExecutionContext): Future[List[Measurement]] = Future {
     brokerMetricNames
       .sortBy(_.name)
       .map {
-        case bmr @ BrokerMetricRequest(_, _, attrName, _) =>
+        case bmr @ BrokerMetricRequest(name, _, attrName, _) =>
           val sum = brokersJmx
             .map(conn => getRemoteJmxValue(bmr.topicMetricName, attrName, conn))
             .sum
-          Counter(parseNumeric(sum))
+          Measurement(name, parseNumeric(sum), CounterMetricType)
       }
   }
 
@@ -226,42 +221,53 @@ private[benchmarks] trait InflightMetrics {
 
 private[benchmarks] object InflightMetrics {
   sealed trait MetricType
+
   case object GaugeMetricType extends MetricType
   case object CounterMetricType extends MetricType
 
   final case class ConsumerMetricRequest(name: String, metricType: MetricType)
-  final case class ConsumerMetricResult(name: String, rawMetric: Object)
-
   final case class BrokerMetricRequest(name: String, topic: String, attribute: String, metricType: MetricType) {
     val topicMetricName: String = s"$name,topic=$topic"
   }
 
-  final case class BrokerMetricResult(request: BrokerMetricRequest, metric: Metric)
+  /**
+   * Optional summary value HoF lets you choose how to calculate the summary value of the gauge.  Choosing [[None]]
+   * will return the last gauge value.  Providing a HoF allows you to extract a statistical calculation from a
+   * dropwizard [[Sampling]].
+   */
+  final case class Measurement(name: String,
+                               value: Double,
+                               metricType: MetricType,
+                               summaryValueF: Option[com.codahale.metrics.Sampling => Long] = None)
 
   sealed trait Metric {
-    def value: Double
-    override def toString: String = value.toString
+    def measurement: Measurement
+    def value: Double = measurement.value
+    def update(measurement: Measurement): Metric
+    override def toString: String = measurement.value.toString
   }
 
-  final case class Gauge(value: Double) extends Metric
-  final case class Counter(value: Double) extends Metric
-  private final case class BaseCounter(base: Double, newValue: Double) extends Metric {
-    val value: Double = newValue - base
-    def update(newValue: Double): BaseCounter = BaseCounter(base, newValue)
+  private final case class HistogramGauge(measurement: Measurement, histogram: Histogram) extends Metric {
+    histogram.update(measurement.value.toLong)
+    def summaryValue: Double = measurement.summaryValueF.map(f => f(histogram).toDouble).getOrElse(value)
+    def update(measurement: Measurement): HistogramGauge = HistogramGauge(measurement, histogram)
   }
 
-  object Counter {
-    def reset(metrics: List[Metric]): List[Metric] = metrics.map {
-      case metric: Counter => BaseCounter(metric.value, metric.value)
-      case metric => metric
+  private final case class BaseCounter(base: Measurement, measurement: Measurement) extends Metric {
+    override val value: Double = measurement.value - base.value
+    def update(measurement: Measurement): Metric = BaseCounter(base, measurement)
+  }
+
+  def reset(measurements: List[Measurement], registry: MetricRegistry): List[Metric] = measurements.map {
+    case measurement @ Measurement(_, _, CounterMetricType, _) => BaseCounter(measurement, measurement)
+    case measurement @ Measurement(_, _, GaugeMetricType, _) =>
+      HistogramGauge(measurement, registry.histogram(measurement.name))
+  }
+
+  def update(lastMetrics: List[Metric], measurements: List[Measurement]): List[Metric] =
+    measurements.zip(lastMetrics).map {
+      case (measurement, lastMetric) => lastMetric.update(measurement)
     }
-
-    def update(lastMetrics: List[Metric], newMetrics: List[Metric]): List[Metric] =
-      newMetrics.zip(lastMetrics).map {
-        case (newMetric: BaseCounter, lastMetric: BaseCounter) => lastMetric.update(newMetric.value)
-        case (newMetric, _) => newMetric
-      }
-  }
 
   def parseNumeric(n: Any): Double = n match {
     case n: Double => n
