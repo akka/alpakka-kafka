@@ -6,23 +6,29 @@
 package akka.kafka.scaladsl
 
 import java.util
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.{ConcurrentHashMap => CMap}
 
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerPartitionAssignor, ConsumerRecord}
+import org.apache.kafka.clients.consumer.RoundRobinAssignor
+//import org.apache.kafka.clients.consumer.RangeAssignor
 import org.apache.kafka.clients.consumer.internals.AbstractPartitionAssignor
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerPartitionAssignor, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.mutable.{Set => MSet}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
@@ -34,6 +40,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
   final val partition1 = 1
   final val consumerClientId1 = "consumer-1"
   final val consumerClientId2 = "consumer-2"
+  final val consumerClientId3 = "consumer-3"
 
   "Fetched records" must {
 
@@ -242,6 +249,212 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       control1.isShutdown.futureValue shouldBe Done
       control2.isShutdown.futureValue shouldBe Done
+    }
+
+    "no message loss during partition revocation and re-subscription" in assertAllStagesStopped {
+      // BEGIN: vals and defs
+      val topicCount = 10
+      val partitionCount = 10
+      val perPartitionMessageCount = 1000
+      val businessSleep = 10.milliseconds
+      val rebalanceEventBufferTime = 8.seconds
+      val expectedTimeToFinish = 60.seconds // with 19 seconds buffer after last message
+      // inmemory message storage along with duplicate message count
+      val messageStorage = new CMap[Int, AtomicInteger]().asScala
+      val group1 = createGroupId(1)
+      val consumerSettings = consumerDefaults
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "20") // 500 is the default value
+        //.withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[RangeAssignor].getName)
+        .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[RoundRobinAssignor].getName)
+        .withGroupId(group1)
+      val topicMap = new CMap[String, MSet[TopicPartition]]().asScala
+      val topicIdxMap = new CMap[Int, String]().asScala
+
+      def businessFlow(clientId: String): Flow[CommittableMessage[String, String], CommittableOffset, NotUsed] = {
+        Flow.fromFunction { message =>
+          val messageVal = message.record.value.toInt
+          if (!messageStorage.contains(messageVal)) {
+            messageStorage(messageVal) = new AtomicInteger(0)
+          }
+          val duplicateCount = messageStorage(messageVal).incrementAndGet()
+          log.debug(
+            s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
+          )
+          // sleep to simulate expensive business logic
+          sleep(businessSleep, "business sleep time")
+          message.committableOffset
+        }
+      }
+
+      def subscribeAndConsumeMessages(clientId: String, subscription: AutoSubscription, tpCount: Int, ptCount: Int) =
+        Consumer
+          .committablePartitionedSource(consumerSettings.withClientId(clientId), subscription)
+          .mapAsyncUnordered(tpCount * ptCount) {
+            case (topicPartition, topicPartitionStream) => {
+              topicPartitionStream
+                .via(businessFlow(clientId))
+                .map(offsetOption => {
+                  log.debug(
+                    s"topicPartition ${topicPartition.topic}-${offsetOption.partitionOffset.key.partition} offset ${offsetOption.partitionOffset.offset} consumer ${clientId}"
+                  )
+                  offsetOption
+                })
+                .runWith(Committer.sink(committerDefaults))
+            }
+          }
+          .toMat(TestSink.probe)(Keep.both)
+          .run()
+      // END: vals and defs
+
+      // BEGIN: create topic-partition map
+      (1 to topicCount).foreach(topicIdx => {
+        val topic1 = createTopic(topicIdx, partitions = partitionCount)
+        log.debug(s"created topic topic1=${topic1}")
+        topicIdxMap.put(topicIdx, topic1)
+        topicMap.put(topic1, CMap.newKeySet[TopicPartition]().asScala)
+        (1 to partitionCount).foreach(partitionIdx => {
+          val tp1 = new TopicPartition(topic1, partitionIdx - 1)
+          topicMap(topic1).add(tp1)
+        })
+      })
+      val topicSet = topicMap.keySet.toSet
+      // END: create topic-partition map
+
+      // BEGIN: publish a numeric series tagged messages across all topic-partitions
+      val msgTpMap = new CMap[Int, String]().asScala
+      val producers: Seq[Future[Done]] = topicIdxMap.keySet
+        .map { topicIdx =>
+          val topic1 = topicIdxMap(topicIdx)
+          val topicOffset = (topicIdx - 1) * partitionCount * perPartitionMessageCount
+          (0 until partitionCount).toSet.map { partitionIdx: Int =>
+            val startMessageIdx = partitionIdx * perPartitionMessageCount + 1 + topicOffset
+            val endMessageIdx = startMessageIdx + perPartitionMessageCount - 1
+            val messageRange = startMessageIdx to endMessageIdx
+            messageRange.foreach(messageId => {
+              val topicPartition = s"${topic1}-${partitionIdx}"
+              log.debug(s"produce messages for topicPartition=${topicPartition} messageId=${messageId}")
+              msgTpMap.put(messageId, topicPartition)
+            })
+            produce(topic1, messageRange, partitionIdx)
+          }.toSeq
+        }
+        .toSeq
+        .flatten
+      Await.result(Future.sequence(producers), 4.minute)
+      // END: publish a numeric series tagged messages across all topic-partitions
+
+      // BEGIN: introduce first consumer1 with all topic-partitions assigned to it
+      log.debug(s"BEGIN:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
+      val probe1rebalanceActor = TestProbe()
+      val probe1subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe1rebalanceActor.ref)
+      val t1 = subscribeAndConsumeMessages(consumerClientId1, probe1subscription, topicCount, partitionCount)
+      val (control1, probe1) = (t1._1, t1._2)
+      probe1.ensureSubscription()
+      probe1.request(1)
+      log.debug(s"END:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
+      sleep(rebalanceEventBufferTime, s"SLEEP:1:sleep to allow consume messages by ${consumerClientId1}")
+      // END: introduce first consumer1 with all topic-partitions assigned to it
+
+      // BEGIN: introduce second consumer2 with topic-partitions divided between two consumers
+      log.debug(s"BEGIN:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
+      var probe2rebalanceActor = TestProbe()
+      var probe2subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe2rebalanceActor.ref)
+      var t2 = subscribeAndConsumeMessages(consumerClientId2, probe2subscription, topicCount, partitionCount)
+      var (control2, probe2) = (t2._1, t2._2)
+      probe2.ensureSubscription()
+      probe2.request(1)
+      log.debug(s"END:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
+      sleep(rebalanceEventBufferTime, s"SLEEP:2:sleep to allow consume messages by ${consumerClientId2}")
+      // END: introduce second consumer2 with topic-partitions divided between two consumers
+
+      // BEGIN: introduce third consumer3 with all topic-partitions divided into three consumers
+      log.debug(s"BEGIN:3:Subscribe client ${consumerClientId3} to all topic-partitions in parallel")
+      val probe3rebalanceActor = TestProbe()
+      val probe3subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe3rebalanceActor.ref)
+      val t3 = subscribeAndConsumeMessages(consumerClientId3, probe3subscription, topicCount, partitionCount)
+      val (control3, probe3) = (t3._1, t3._2)
+      probe3.ensureSubscription()
+      //probe2.request(topicCount * partitionCount)
+      probe3.request(1)
+      log.debug(s"END:3:Subscribe client ${consumerClientId3} to all topic-partitions in parallel")
+      sleep(rebalanceEventBufferTime, s"SLEEP:3:sleep to allow consume messages by ${consumerClientId3}")
+      // END: introduce third consumer3 with all topic-partitions divided into three consumers
+
+      // BEGIN: cancel consumer1 and assign all topic-partitions to consumer2 and consumer3
+      log.debug(s"BEGIN:1:Cancelling client ${consumerClientId1}")
+      probe1.cancel()
+      control1.shutdown()
+      control1.isShutdown.futureValue shouldBe Done
+      log.debug(s"END:1:Cancelling consumer ${consumerClientId1}")
+      sleep(rebalanceEventBufferTime,
+            s"SLEEP:4:sleep to allow consume messages by ${consumerClientId2} and ${consumerClientId3}")
+      // END: cancel consumer1 and assign all topic-partitions to consumer1 and consumer2
+
+      // BEGIN: cancel consumer2 and assign all topic-partitions to consumer3
+      log.debug(s"BEGIN:2:Cancelling consumer ${consumerClientId2}")
+      probe2.cancel()
+      control2.shutdown()
+      control2.isShutdown.futureValue shouldBe Done
+      log.debug(s"END:2:Cancelling consumer ${consumerClientId2}")
+      sleep(rebalanceEventBufferTime, s"SLEEP:5:sleep to allow consume messages by ${consumerClientId3}")
+      // END: cancel consumer2 and assign all topic-partitions to consumer3
+
+      // BEGIN: Re-subscribe consumer2
+      log.debug(s"BEGIN:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
+      probe2rebalanceActor = TestProbe()
+      probe2subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe2rebalanceActor.ref)
+      t2 = subscribeAndConsumeMessages(consumerClientId2, probe2subscription, topicCount, partitionCount)
+      control2 = t2._1; probe2 = t2._2
+      probe2.ensureSubscription()
+      probe2.request(1)
+      log.debug(s"END:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
+      sleep(rebalanceEventBufferTime, s"SLEEP:6:sleep to allow consume messages by ${consumerClientId2}")
+      // END: Re-subscribe consumer2
+
+      // BEGIN: cancel consumer3 and assign all topic-partitions to consumer2
+      log.debug(s"BEGIN:5:Cancelling consumer ${consumerClientId3}")
+      probe3.cancel()
+      control3.shutdown()
+      control3.isShutdown.futureValue shouldBe Done
+      log.debug(s"END:5:Cancelling consumer ${consumerClientId3}")
+      // END: cancel consumer3 and assign all topic-partitions to consumer2
+
+      // BEGIN: let consumer2 consume all remaining messages
+      sleep(expectedTimeToFinish, s"sleep to allow consume messages by ${consumerClientId2}")
+      // END: let consumer2 consume all remaining messages
+
+      // BEGIN: cancel final consumer2 and wait for shutdown
+      log.debug(s"BEGIN:4:Cancelling consumer ${consumerClientId2}")
+      probe2.cancel()
+      control2.shutdown()
+      control2.isShutdown.futureValue shouldBe Done
+      log.debug(s"END:4:Cancelling consumer ${consumerClientId2}")
+      // END: cancel final consumer2 and wait for shutdown
+
+      // BEGIN: analyze received messages
+      val publishedMessageCount = topicCount * partitionCount * perPartitionMessageCount
+      log.debug(
+        s"handleMessage:: messageStorage keySet.size=${messageStorage.size} publishedMessageCount=${publishedMessageCount}"
+      )
+
+      // print a list of replayed messages, a value of 1 means no replay
+      import scala.collection.immutable.SortedMap
+      val sortedMessageStorage = SortedMap[Int, AtomicInteger]() ++ messageStorage
+      sortedMessageStorage.filter(_._2.get > 1).foreach { m =>
+        log.error(s"Replayed message ${m._1} topicPartition ${msgTpMap(m._1)} replayed count ${m._2.get}")
+      }
+
+      if (messageStorage.size != publishedMessageCount) {
+        val s1 = 1 to publishedMessageCount
+        val s2 = messageStorage.keySet
+        log.error(s"1::missing messages found ${s1.size} != ${s2.size}")
+        s1.filter(!s2.contains(_)).foreach(m => log.error(s"missing:1: message ${m} topicPartition ${msgTpMap(m)}"))
+      }
+
+      messageStorage.size shouldBe publishedMessageCount
+
+      //fail("uncomment me to dump logs for successful run")
+      // END: analyze received messages
     }
   }
 }
