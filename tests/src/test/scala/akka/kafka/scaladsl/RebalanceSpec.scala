@@ -256,7 +256,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val topicCount = 10
       val partitionCount = 10
       val perPartitionMessageCount = 1000
-      val businessSleep = 10.milliseconds
+      val businessSleep = 10L
       val rebalanceEventBufferTime = 8.seconds
       val expectedTimeToFinish = 60.seconds // with 19 seconds buffer after last message
       // inmemory message storage along with duplicate message count
@@ -276,13 +276,14 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           if (!messageStorage.contains(messageVal)) {
             messageStorage(messageVal) = new AtomicInteger(0)
           }
-          val duplicateCount = messageStorage(messageVal).incrementAndGet()
-          if (duplicateCount > 1)
-            log.warn(
-              s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
-            )
+//          val duplicateCount =
+          messageStorage(messageVal).incrementAndGet()
+//          if (duplicateCount > 1)
+//            log.warn(
+//              s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
+//            )
           // sleep to simulate expensive business logic
-          Thread.sleep(businessSleep.toMillis) // sleep(businessSleep, "business sleep time")
+          Thread.sleep(businessSleep) // sleep(businessSleep, "business sleep time")
           message.committableOffset
         }
       }
@@ -377,8 +378,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // BEGIN: cancel consumer1 and assign all topic-partitions to consumer2 and consumer3
       log.debug(s"BEGIN:1:Cancelling client ${consumerClientId1}")
       probe1.cancel()
-      control1.shutdown()
-      control1.isShutdown.futureValue shouldBe Done
+      control1.shutdown().futureValue shouldBe Done
       log.debug(s"END:1:Cancelling consumer ${consumerClientId1}")
       sleep(rebalanceEventBufferTime,
             s"SLEEP:4:sleep to allow consume messages by ${consumerClientId2} and ${consumerClientId3}")
@@ -387,8 +387,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // BEGIN: cancel consumer2 and assign all topic-partitions to consumer3
       log.debug(s"BEGIN:2:Cancelling consumer ${consumerClientId2}")
       probe2.cancel()
-      control2.shutdown()
-      control2.isShutdown.futureValue shouldBe Done
+      control2.shutdown().futureValue shouldBe Done
       log.debug(s"END:2:Cancelling consumer ${consumerClientId2}")
       sleep(rebalanceEventBufferTime, s"SLEEP:5:sleep to allow consume messages by ${consumerClientId3}")
       // END: cancel consumer2 and assign all topic-partitions to consumer3
@@ -406,8 +405,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // BEGIN: cancel consumer3 and assign all topic-partitions to consumer2
       log.debug(s"BEGIN:5:Cancelling consumer ${consumerClientId3}")
       probe3.cancel()
-      control3.shutdown()
-      control3.isShutdown.futureValue shouldBe Done
+      control3.shutdown().futureValue shouldBe Done
       log.debug(s"END:5:Cancelling consumer ${consumerClientId3}")
       // END: cancel consumer3 and assign all topic-partitions to consumer2
 
@@ -417,9 +415,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // BEGIN: cancel final consumer2 and wait for shutdown
       log.debug(s"BEGIN:4:Cancelling consumer ${consumerClientId2}")
-      probe2.cancel()
-      control2b.shutdown()
-      control2b.isShutdown.futureValue shouldBe Done
+      probe2b.cancel()
+      control2b.shutdown().futureValue shouldBe Done
       log.debug(s"END:4:Cancelling consumer ${consumerClientId2}")
       // END: cancel final consumer2 and wait for shutdown
 
@@ -432,9 +429,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // print a list of replayed messages, a value of 1 means no replay
       import scala.collection.immutable.SortedMap
       val sortedMessageStorage = SortedMap[Int, AtomicInteger]() ++ messageStorage
-      sortedMessageStorage.filter(_._2.get > 1).foreach { m =>
-        log.error(s"Replayed message ${m._1} topicPartition ${msgTpMap(m._1)} replayed count ${m._2.get}")
+      val replayed = sortedMessageStorage.filter(_._2.get > 1).map { m =>
+        s"  ${m._1} ${msgTpMap(m._1)} replayed count ${m._2.get}"
       }
+      log.error(s"Replayed messages:\n${replayed.mkString("\n")}")
 
       if (messageStorage.size != publishedMessageCount) {
         val s1 = 1 to publishedMessageCount
