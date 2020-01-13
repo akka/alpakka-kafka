@@ -277,11 +277,12 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             messageStorage(messageVal) = new AtomicInteger(0)
           }
           val duplicateCount = messageStorage(messageVal).incrementAndGet()
-          log.debug(
-            s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
-          )
+          if (duplicateCount > 1)
+            log.warn(
+              s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
+            )
           // sleep to simulate expensive business logic
-          sleep(businessSleep, "business sleep time")
+          Thread.sleep(businessSleep.toMillis) // sleep(businessSleep, "business sleep time")
           message.committableOffset
         }
       }
@@ -294,9 +295,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
               topicPartitionStream
                 .via(businessFlow(clientId))
                 .map(offsetOption => {
-                  log.debug(
-                    s"topicPartition ${topicPartition.topic}-${offsetOption.partitionOffset.key.partition} offset ${offsetOption.partitionOffset.offset} consumer ${clientId}"
-                  )
+//                  log.debug(
+//                    s"topicPartition ${topicPartition.topic}-${offsetOption.partitionOffset.key.partition} offset ${offsetOption.partitionOffset.offset} consumer ${clientId}"
+//                  )
                   offsetOption
                 })
                 .runWith(Committer.sink(committerDefaults))
@@ -346,10 +347,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // BEGIN: introduce first consumer1 with all topic-partitions assigned to it
       log.debug(s"BEGIN:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
-      val probe1rebalanceActor = TestProbe()
-      val probe1subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe1rebalanceActor.ref)
-      val t1 = subscribeAndConsumeMessages(consumerClientId1, probe1subscription, topicCount, partitionCount)
-      val (control1, probe1) = (t1._1, t1._2)
+      val subscription = Subscriptions.topics(topicSet)
+      val (control1, probe1) = subscribeAndConsumeMessages(consumerClientId1, subscription, topicCount, partitionCount)
       probe1.ensureSubscription()
       probe1.request(1)
       log.debug(s"END:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
@@ -358,10 +357,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // BEGIN: introduce second consumer2 with topic-partitions divided between two consumers
       log.debug(s"BEGIN:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
-      var probe2rebalanceActor = TestProbe()
-      var probe2subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe2rebalanceActor.ref)
-      var t2 = subscribeAndConsumeMessages(consumerClientId2, probe2subscription, topicCount, partitionCount)
-      var (control2, probe2) = (t2._1, t2._2)
+      val (control2, probe2) = subscribeAndConsumeMessages(consumerClientId2, subscription, topicCount, partitionCount)
       probe2.ensureSubscription()
       probe2.request(1)
       log.debug(s"END:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
@@ -370,10 +366,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // BEGIN: introduce third consumer3 with all topic-partitions divided into three consumers
       log.debug(s"BEGIN:3:Subscribe client ${consumerClientId3} to all topic-partitions in parallel")
-      val probe3rebalanceActor = TestProbe()
-      val probe3subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe3rebalanceActor.ref)
-      val t3 = subscribeAndConsumeMessages(consumerClientId3, probe3subscription, topicCount, partitionCount)
-      val (control3, probe3) = (t3._1, t3._2)
+      val (control3, probe3) = subscribeAndConsumeMessages(consumerClientId3, subscription, topicCount, partitionCount)
       probe3.ensureSubscription()
       //probe2.request(topicCount * partitionCount)
       probe3.request(1)
@@ -402,12 +395,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // BEGIN: Re-subscribe consumer2
       log.debug(s"BEGIN:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
-      probe2rebalanceActor = TestProbe()
-      probe2subscription = Subscriptions.topics(topicSet).withRebalanceListener(probe2rebalanceActor.ref)
-      t2 = subscribeAndConsumeMessages(consumerClientId2, probe2subscription, topicCount, partitionCount)
-      control2 = t2._1; probe2 = t2._2
-      probe2.ensureSubscription()
-      probe2.request(1)
+      val (control2b, probe2b) =
+        subscribeAndConsumeMessages(consumerClientId2, subscription, topicCount, partitionCount)
+      probe2b.ensureSubscription()
+      probe2b.request(1)
       log.debug(s"END:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
       sleep(rebalanceEventBufferTime, s"SLEEP:6:sleep to allow consume messages by ${consumerClientId2}")
       // END: Re-subscribe consumer2
@@ -427,8 +418,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // BEGIN: cancel final consumer2 and wait for shutdown
       log.debug(s"BEGIN:4:Cancelling consumer ${consumerClientId2}")
       probe2.cancel()
-      control2.shutdown()
-      control2.isShutdown.futureValue shouldBe Done
+      control2b.shutdown()
+      control2b.isShutdown.futureValue shouldBe Done
       log.debug(s"END:4:Cancelling consumer ${consumerClientId2}")
       // END: cancel final consumer2 and wait for shutdown
 
