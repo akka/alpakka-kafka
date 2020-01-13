@@ -332,7 +332,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             val messageRange = startMessageIdx to endMessageIdx
             messageRange.foreach(messageId => {
               val topicPartition = s"${topic1}-${partitionIdx}"
-              log.debug(s"produce messages for topicPartition=${topicPartition} messageId=${messageId}")
+              if (messageId % 1000 == 0)
+                log.debug(s"produce messages for topicPartition=${topicPartition} messageId=${messageId}")
               msgTpMap.put(messageId, topicPartition)
             })
             produce(topic1, messageRange, partitionIdx)
