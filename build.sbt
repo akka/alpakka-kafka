@@ -13,7 +13,7 @@ val akkaVersion = if (Nightly) "2.6.0" else "2.5.23"
 val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
 val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
-val embeddedKafka = "io.github.seglo" %% "embedded-kafka" % embeddedKafkaVersion // "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
+val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 val embeddedKafkaSchemaRegistry = "5.1.1"
