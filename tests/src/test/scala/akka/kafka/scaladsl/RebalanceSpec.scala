@@ -257,7 +257,6 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val partitionCount = 10
       val perPartitionMessageCount = 1000
       val businessSleep = 10L
-      val rebalanceEventBufferTime = 8.seconds
       val expectedTimeToFinish = 60.seconds // with 19 seconds buffer after last message
       // inmemory message storage along with duplicate message count
       val messageStorage = new CMap[Int, AtomicInteger]().asScala
@@ -353,7 +352,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe1.ensureSubscription()
       probe1.request(1)
       log.debug(s"END:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
-      sleep(rebalanceEventBufferTime, s"SLEEP:1:sleep to allow consume messages by ${consumerClientId1}")
+
+      waitUntilConsumerSummary(group1) {
+        case singleConsumer :: Nil => singleConsumer.assignment.topicPartitions.size == topicCount * partitionCount
+      }
       // END: introduce first consumer1 with all topic-partitions assigned to it
 
       // BEGIN: introduce second consumer2 with topic-partitions divided between two consumers
@@ -362,7 +364,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe2.ensureSubscription()
       probe2.request(1)
       log.debug(s"END:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
-      sleep(rebalanceEventBufferTime, s"SLEEP:2:sleep to allow consume messages by ${consumerClientId2}")
+      waitUntilConsumerSummary(group1) {
+        case consumer1 :: consumer2 :: Nil =>
+          consumer1.assignment.topicPartitions.size < topicCount * partitionCount && consumer1.assignment.topicPartitions.size + consumer2.assignment.topicPartitions.size == topicCount * partitionCount
+      }
       // END: introduce second consumer2 with topic-partitions divided between two consumers
 
       // BEGIN: introduce third consumer3 with all topic-partitions divided into three consumers
@@ -372,7 +377,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       //probe2.request(topicCount * partitionCount)
       probe3.request(1)
       log.debug(s"END:3:Subscribe client ${consumerClientId3} to all topic-partitions in parallel")
-      sleep(rebalanceEventBufferTime, s"SLEEP:3:sleep to allow consume messages by ${consumerClientId3}")
+      waitUntilConsumerSummary(group1) {
+        case consumer1 :: consumer2 :: consumer3 :: Nil => true
+      }
       // END: introduce third consumer3 with all topic-partitions divided into three consumers
 
       // BEGIN: cancel consumer1 and assign all topic-partitions to consumer2 and consumer3
@@ -380,8 +387,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe1.cancel()
       control1.shutdown().futureValue shouldBe Done
       log.debug(s"END:1:Cancelling consumer ${consumerClientId1}")
-      sleep(rebalanceEventBufferTime,
-            s"SLEEP:4:sleep to allow consume messages by ${consumerClientId2} and ${consumerClientId3}")
+      waitUntilConsumerSummary(group1) {
+        case consumer2 :: consumer3 :: Nil => true
+      }
       // END: cancel consumer1 and assign all topic-partitions to consumer1 and consumer2
 
       // BEGIN: cancel consumer2 and assign all topic-partitions to consumer3
@@ -389,7 +397,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe2.cancel()
       control2.shutdown().futureValue shouldBe Done
       log.debug(s"END:2:Cancelling consumer ${consumerClientId2}")
-      sleep(rebalanceEventBufferTime, s"SLEEP:5:sleep to allow consume messages by ${consumerClientId3}")
+      waitUntilConsumerSummary(group1) {
+        case consumer3 :: Nil => true
+      }
       // END: cancel consumer2 and assign all topic-partitions to consumer3
 
       // BEGIN: Re-subscribe consumer2
@@ -399,7 +409,9 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe2b.ensureSubscription()
       probe2b.request(1)
       log.debug(s"END:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
-      sleep(rebalanceEventBufferTime, s"SLEEP:6:sleep to allow consume messages by ${consumerClientId2}")
+      waitUntilConsumerSummary(group1) {
+        case consumer3 :: consumer2b :: Nil => true
+      }
       // END: Re-subscribe consumer2
 
       // BEGIN: cancel consumer3 and assign all topic-partitions to consumer2
