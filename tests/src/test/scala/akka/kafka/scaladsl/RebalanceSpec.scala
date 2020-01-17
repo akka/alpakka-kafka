@@ -19,7 +19,6 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.RoundRobinAssignor
-import org.apache.kafka.clients.producer.ProducerConfig
 
 //import org.apache.kafka.clients.consumer.RangeAssignor
 import org.apache.kafka.clients.consumer.internals.AbstractPartitionAssignor
@@ -252,9 +251,6 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control1.isShutdown.futureValue shouldBe Done
       control2.isShutdown.futureValue shouldBe Done
     }
-
-    def producerDefaults: ProducerSettings[String, String] =
-      super.producerDefaults.withProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
 
     "no message loss during partition revocation and re-subscription" in assertAllStagesStopped {
       // BEGIN: vals and defs
