@@ -12,13 +12,15 @@ import java.util.concurrent.{ConcurrentHashMap => CMap}
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Flow, Keep, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.RoundRobinAssignor
+import org.apache.kafka.clients.producer.ProducerConfig
+
 //import org.apache.kafka.clients.consumer.RangeAssignor
 import org.apache.kafka.clients.consumer.internals.AbstractPartitionAssignor
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerPartitionAssignor, ConsumerRecord}
@@ -34,7 +36,7 @@ import scala.util.Random
 
 class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
-  implicit val patience: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
+  implicit val patience: PatienceConfig = PatienceConfig(60.seconds, 500.millis)
 
   final val Numbers = (1 to 5000).map(_.toString)
   final val partition1 = 1
@@ -251,21 +253,27 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       control2.isShutdown.futureValue shouldBe Done
     }
 
+    def producerDefaults: ProducerSettings[String, String] =
+      super.producerDefaults.withProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
+
     "no message loss during partition revocation and re-subscription" in assertAllStagesStopped {
       // BEGIN: vals and defs
       val topicCount = 10
       val partitionCount = 10
       val perPartitionMessageCount = 1000
       val businessSleep = 10L
-      val expectedTimeToFinish = 60.seconds // with 19 seconds buffer after last message
+      val expectedTimeToFinish = 5.minutes
       // inmemory message storage along with duplicate message count
       val messageStorage = new CMap[Int, AtomicInteger]().asScala
+      val partitionProcessedCount = new AtomicInteger()
       val group1 = createGroupId(1)
       val consumerSettings = consumerDefaults
         .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "20") // 500 is the default value
         //.withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[RangeAssignor].getName)
         .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[RoundRobinAssignor].getName)
         .withGroupId(group1)
+        .withStopTimeout(0.seconds)
+        .withCloseTimeout(5.seconds)
       val topicMap = new CMap[String, MSet[TopicPartition]]().asScala
       val topicIdxMap = new CMap[Int, String]().asScala
 
@@ -281,6 +289,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 //            log.warn(
 //              s"businessFlow offset ${message.committableOffset.partitionOffset.offset} messageId=${messageVal} topicPartition=${message.record.topic}-${message.record.partition} consumerId=${clientId} duplicateCount=${duplicateCount}"
 //            )
+          if (messageVal % 1000 == 0)
+            log.debug(s"Received message $messageVal on tp ${message.record.topic()}-${message.record.partition()}")
           // sleep to simulate expensive business logic
           Thread.sleep(businessSleep) // sleep(businessSleep, "business sleep time")
           message.committableOffset
@@ -290,9 +300,10 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       def subscribeAndConsumeMessages(clientId: String, subscription: AutoSubscription, tpCount: Int, ptCount: Int) =
         Consumer
           .committablePartitionedSource(consumerSettings.withClientId(clientId), subscription)
-          .mapAsyncUnordered(tpCount * ptCount) {
+          .map {
             case (topicPartition, topicPartitionStream) => {
-              topicPartitionStream
+              log.debug(s"Consuming partitioned source clientId: $clientId, for tp: $topicPartition")
+              val innerStream: Source[ConsumerMessage.CommittableOffsetBatch, NotUsed] = topicPartitionStream
                 .via(businessFlow(clientId))
                 .map(offsetOption => {
 //                  log.debug(
@@ -300,12 +311,39 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 //                  )
                   offsetOption
                 })
-                .runWith(Committer.sink(committerDefaults))
+                .via(Committer.batchFlow(committerDefaults))
+              innerStream
             }
           }
           .toMat(TestSink.probe)(Keep.both)
           .run()
       // END: vals and defs
+
+      def runSubSource(
+          stream: Source[ConsumerMessage.CommittableOffsetBatch, NotUsed],
+          outerStream: Option[TestSubscriber.Probe[Source[ConsumerMessage.CommittableOffsetBatch, NotUsed]]] = None
+      ) = {
+        stream
+        // end the sub source once all messages have been committed.  this actually isn't that helpful because the
+        // partitioned source will just re-emit the sub source if it shuts down anyway
+          .takeWhile { batch =>
+            val lastOffset = batch.offsets.head._2
+            log.debug(s"Batch committed offset: $lastOffset for tp ${batch.offsets.head._1.topicPartition}")
+            if (lastOffset == 999) {
+              val count = partitionProcessedCount.incrementAndGet()
+              log.debug(
+                s"Processing complete for ${batch.offsets.head._1.topicPartition}. Incrementing partition processed count ($count)."
+              )
+              // if all sub sources have been fully processed then cancel the outer stream
+              if (count == (topicCount * partitionCount)) {
+                log.debug("All partitions have been processed")
+                outerStream.map(_.cancel())
+              }
+            }
+            lastOffset < 999
+          }
+          .runWith(Sink.ignore)
+      }
 
       // BEGIN: create topic-partition map
       (1 to topicCount).foreach(topicIdx => {
@@ -333,11 +371,14 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             val messageRange = startMessageIdx to endMessageIdx
             messageRange.foreach(messageId => {
               val topicPartition = s"${topic1}-${partitionIdx}"
-              if (messageId % 1000 == 0)
-                log.debug(s"produce messages for topicPartition=${topicPartition} messageId=${messageId}")
+//              if (messageId % 1000 == 0)
+//                log.debug(s"produce messages for topicPartition=${topicPartition} messageId=${messageId}")
               msgTpMap.put(messageId, topicPartition)
             })
-            produce(topic1, messageRange, partitionIdx)
+            produce(topic1, messageRange, partitionIdx).map { f =>
+              log.debug(s"Produced messages $startMessageIdx to $endMessageIdx to topic $topic1")
+              f
+            }
           }.toSeq
         }
         .toSeq
@@ -351,6 +392,8 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val (control1, probe1) = subscribeAndConsumeMessages(consumerClientId1, subscription, topicCount, partitionCount)
       probe1.ensureSubscription()
       probe1.request(1)
+      runSubSource(probe1.expectNext())
+
       log.debug(s"END:1:Subscribe client ${consumerClientId1} to all topic-partitions in parallel")
 
       waitUntilConsumerSummary(group1) {
@@ -363,6 +406,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val (control2, probe2) = subscribeAndConsumeMessages(consumerClientId2, subscription, topicCount, partitionCount)
       probe2.ensureSubscription()
       probe2.request(1)
+      runSubSource(probe2.expectNext())
       log.debug(s"END:2:Subscribe client ${consumerClientId2} to all topic-partitions in parallel")
       waitUntilConsumerSummary(group1) {
         case consumer1 :: consumer2 :: Nil =>
@@ -376,6 +420,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       probe3.ensureSubscription()
       //probe2.request(topicCount * partitionCount)
       probe3.request(1)
+      runSubSource(probe3.expectNext())
       log.debug(s"END:3:Subscribe client ${consumerClientId3} to all topic-partitions in parallel")
       waitUntilConsumerSummary(group1) {
         case consumer1 :: consumer2 :: consumer3 :: Nil => true
@@ -408,6 +453,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         subscribeAndConsumeMessages(consumerClientId2, subscription, topicCount, partitionCount)
       probe2b.ensureSubscription()
       probe2b.request(1)
+      runSubSource(probe2b.expectNext())
       log.debug(s"END:4:Re-subscribe client ${consumerClientId2} to all topic-partitions in parallel")
       waitUntilConsumerSummary(group1) {
         case consumer3 :: consumer2b :: Nil => true
@@ -422,7 +468,17 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       // END: cancel consumer3 and assign all topic-partitions to consumer2
 
       // BEGIN: let consumer2 consume all remaining messages
-      sleep(expectedTimeToFinish, s"sleep to allow consume messages by ${consumerClientId2}")
+
+      // SG: relieve any back-pressure and let the probe consumer all available partitioned sources
+      probe2b.request(999)
+      val futs = probe2b
+        .receiveWithin(1.minute, 999)
+        .map { innerStream =>
+          runSubSource(innerStream, Some(probe2b))
+        }
+
+      Await.result(Future.sequence(futs), expectedTimeToFinish)
+      //sleep(expectedTimeToFinish, s"sleep to allow consume messages by ${consumerClientId2}")
       // END: let consumer2 consume all remaining messages
 
       // BEGIN: cancel final consumer2 and wait for shutdown
@@ -438,13 +494,13 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         s"handleMessage:: messageStorage keySet.size=${messageStorage.size} publishedMessageCount=${publishedMessageCount}"
       )
 
-      // print a list of replayed messages, a value of 1 means no replay
-      import scala.collection.immutable.SortedMap
-      val sortedMessageStorage = SortedMap[Int, AtomicInteger]() ++ messageStorage
-      val replayed = sortedMessageStorage.filter(_._2.get > 1).map { m =>
-        s"  ${m._1} ${msgTpMap(m._1)} replayed count ${m._2.get}"
-      }
-      log.error(s"Replayed messages:\n${replayed.mkString("\n")}")
+      // we don't care about duplicates.  it is expected when there are frequent rebalances
+//      // print a list of replayed messages, a value of 1 means no replay
+//      val sortedMessageStorage = SortedMap[Int, AtomicInteger]() ++ messageStorage
+//      val replayed = sortedMessageStorage.filter(_._2.get > 1).map { m =>
+//        s"  ${m._1} ${msgTpMap(m._1)} replayed count ${m._2.get}"
+//      }
+//      log.error(s"Replayed messages:\n${replayed.mkString("\n")}")
 
       if (messageStorage.size != publishedMessageCount) {
         val s1 = 1 to publishedMessageCount

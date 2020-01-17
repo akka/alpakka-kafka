@@ -36,7 +36,11 @@
     <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
     <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="INFO"/>
     -->
+<!--
+    <logger name="org.apache.kafka.clients.consumer.KafkaConsumer" level="DEBUG"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="DEBUG"/>
     <logger name="org.apache.kafka.clients.producer" level="DEBUG"/>
+-->
 
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>

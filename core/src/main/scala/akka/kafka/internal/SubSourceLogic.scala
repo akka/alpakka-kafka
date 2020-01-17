@@ -158,7 +158,7 @@ private class SubSourceLogic[K, V, Msg](
 
   override def onTimer(timerKey: Any): Unit = timerKey match {
     case CloseRevokedPartitions =>
-      if (log.isDebugEnabled) {
+      if (log.isDebugEnabled && partitionsToRevoke.nonEmpty) {
         log.debug("Closing SubSources for revoked partitions: {}", partitionsToRevoke.mkString(", "))
       }
       onRevoke(partitionsToRevoke)

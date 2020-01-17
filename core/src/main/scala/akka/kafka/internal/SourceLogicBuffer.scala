@@ -29,11 +29,14 @@ private[kafka] trait SourceLogicBuffer[K, V, Msg] {
 
   private def filterRevokedPartitions(topicPartitions: Set[TopicPartition]): Unit = {
     if (topicPartitions.nonEmpty) {
-      log.debug("filtering out messages from revoked partitions {}", topicPartitions)
+      log.debug("Filtering out messages from revoked partitions {}", topicPartitions)
       // as buffer is an Iterator the filtering will be applied during `pump`
       buffer = buffer.filterNot { record =>
         val tp = new TopicPartition(record.topic, record.partition)
-        topicPartitions.contains(tp)
+        val filtered = topicPartitions.contains(tp)
+        if (filtered)
+          log.debug("Filtering offset {} on topic partition {} value {}", record.offset(), tp, record.value())
+        filtered
       }
     }
   }
