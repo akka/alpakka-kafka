@@ -107,6 +107,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         } producer.send(record, cb)
 
       case msg: PassThroughMessage[K, V, Committable] =>
+        awaitingCommitResult += 1
         collectOffset(0, msg.passThrough)
     }
 
