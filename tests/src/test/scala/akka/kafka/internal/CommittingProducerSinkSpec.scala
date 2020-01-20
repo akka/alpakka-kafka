@@ -100,6 +100,49 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     control.drainAndShutdown().futureValue shouldBe Done
   }
 
+  it should "produce, and commit after interval with pass-through messages" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "skip"),
+      consumer.message(partition, "send")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val commitInterval = 200.millis
+    val committerSettings = CommitterSettings(system).withMaxInterval(commitInterval)
+
+    val control = Source(elements)
+      .concat(Source.maybe) // keep the source alive
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        if (msg.record.value == "skip") {
+          ProducerMessage.passThrough[String, String, ConsumerMessage.CommittableOffset](msg.committableOffset)
+        } else {
+          ProducerMessage.single(
+            new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+            msg.committableOffset
+          )
+        }
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    consumer.actor.expectNoMessage(commitInterval)
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (1)
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
   it should "produce, and commit when batch size is reached" in assertAllStagesStopped {
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
 
@@ -133,6 +176,40 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
 
     eventually {
       producer.history.asScala should have size (2)
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
+  it should "produce, and commit when batch size is reached with pass-through messages" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(2L).withMaxInterval(10.seconds)
+
+    val control = Source(elements)
+      .concat(Source.maybe) // keep the source alive
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.passThrough[String, String, ConsumerMessage.CommittableOffset](msg.committableOffset)
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (0)
     }
     control.drainAndShutdown().futureValue shouldBe Done
   }
