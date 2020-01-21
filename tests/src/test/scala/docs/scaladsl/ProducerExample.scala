@@ -13,7 +13,6 @@ import akka.kafka.{ProducerMessage, ProducerSettings, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.serialization.StringSerializer
 
 import scala.concurrent.Future
