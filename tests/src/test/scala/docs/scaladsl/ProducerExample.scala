@@ -5,25 +5,25 @@
 
 package docs.scaladsl
 
-import akka.kafka.{ProducerMessage, ProducerSettings, Subscriptions}
+import akka.Done
+import akka.kafka.ProducerMessage.MultiResultPart
 import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.kafka.{ProducerMessage, ProducerSettings, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.serialization.StringSerializer
 
 import scala.concurrent.Future
-import akka.Done
-import akka.kafka.ProducerMessage.MultiResultPart
-import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-
 import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
 
 class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
-  override def sleepAfterProduce: FiniteDuration = 4.seconds
   private def waitBeforeValidation(): Unit = sleep(6.seconds)
+
+  val invalidTopicName = "---*---"
 
   "Creating a producer" should "work" in {
     // #producer
@@ -206,4 +206,15 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     control2.shutdown().futureValue should be(Done)
     result.futureValue should have size (100)
   }
+
+  it should "fail stream with error from producing" in assertAllStagesStopped {
+    val streamCompletion =
+      Source
+        .single(ProducerMessage.single(new ProducerRecord[String, String](invalidTopicName, "1")))
+        .via(Producer.flexiFlow(producerDefaults))
+        .runWith(Sink.head)
+
+    streamCompletion.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
+  }
+
 }
