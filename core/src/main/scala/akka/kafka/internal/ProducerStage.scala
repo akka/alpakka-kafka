@@ -38,8 +38,4 @@ private[internal] object ProducerStage {
     def onCompletionSuccess(): Unit
     def onCompletionFailure(ex: Throwable): Unit
   }
-
-  trait MessageCallback[K, V, P] {
-    protected def awaitingConfirmation: AtomicInteger
-  }
 }
