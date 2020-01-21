@@ -52,7 +52,6 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
   protected val awaitingConfirmation = new AtomicInteger(0)
 
-  private var inIsClosed = false
   private var completionState: Option[Try[Done]] = None
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
@@ -63,13 +62,11 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     override def onPush(): Unit = produce(grab(stage.in))
 
     override def onUpstreamFinish(): Unit = {
-      inIsClosed = true
       completionState = Some(Success(Done))
       checkForCompletion()
     }
 
     override def onUpstreamFailure(ex: Throwable): Unit = {
-      inIsClosed = true
       completionState = Some(Failure(ex))
       checkForCompletion()
     }
@@ -177,14 +174,18 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   private def sendCallback(promise: Promise[_], onSuccess: RecordMetadata => Unit): Callback = new Callback {
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-      if (exception == null) onSuccess(metadata)
-      else
+      if (exception == null) {
+        onSuccess(metadata)
+        if (awaitingConfirmation.decrementAndGet() == 0)
+          checkForCompletionCB.invoke(())
+      } else
         decider(exception) match {
           case Supervision.Stop => closeAndFailStageCb.invoke(exception)
-          case _ => promise.failure(exception)
+          case _ =>
+            promise.failure(exception)
+            if (awaitingConfirmation.decrementAndGet() == 0)
+              checkForCompletionCB.invoke(())
         }
-      if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-        checkForCompletionCB.invoke(())
     }
   }
 
