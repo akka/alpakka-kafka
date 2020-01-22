@@ -206,6 +206,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
     result.futureValue should have size (100)
   }
 
+  // This showed a race fixed in https://github.com/akka/alpakka-kafka/pull/1025
   it should "fail stream with error from producing" in assertAllStagesStopped {
     val streamCompletion =
       Source
@@ -213,7 +214,7 @@ class ProducerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .via(Producer.flexiFlow(producerDefaults))
         .runWith(Sink.head)
 
-    streamCompletion.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidTopicException]
+    streamCompletion.failed.futureValue shouldBe an[org.apache.kafka.common.errors.InvalidTopicException]
   }
 
 }
