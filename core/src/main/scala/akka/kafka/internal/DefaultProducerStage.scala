@@ -5,18 +5,16 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
-import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
+import akka.kafka.internal.ProducerStage.ProducerCompletionState
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Supervision}
-import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -45,31 +43,28 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 ) extends TimerGraphStageLogic(stage.shape)
     with StageIdLogging
     with DeferredProducer[K, V]
-    with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
-  protected val awaitingConfirmation = new AtomicInteger(0)
-
-  private var inIsClosed = false
+  private var awaitingConfirmation = 0
   private var completionState: Option[Try[Done]] = None
 
   override protected def logSource: Class[_] = classOf[DefaultProducerStage[_, _, _, _, _]]
 
   final override val producerSettings: ProducerSettings[K, V] = stage.settings
 
+  protected def awaitingConfirmationValue: Int = awaitingConfirmation
+
   protected class DefaultInHandler extends InHandler {
     override def onPush(): Unit = produce(grab(stage.in))
 
     override def onUpstreamFinish(): Unit = {
-      inIsClosed = true
       completionState = Some(Success(Done))
       checkForCompletion()
     }
 
     override def onUpstreamFailure(ex: Throwable): Unit = {
-      inIsClosed = true
       completionState = Some(Failure(ex))
       checkForCompletion()
     }
@@ -80,8 +75,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     resolveProducer(stage.settings)
   }
 
-  def checkForCompletion(): Unit =
-    if (isClosed(stage.in) && awaitingConfirmation.get == 0) {
+  private def checkForCompletion(): Unit =
+    if (isClosed(stage.in) && awaitingConfirmation == 0) {
       completionState match {
         case Some(Success(_)) => onCompletionSuccess()
         case Some(Failure(ex)) => onCompletionFailure(ex)
@@ -93,7 +88,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   override def onCompletionFailure(ex: Throwable): Unit = failStage(ex)
 
-  val checkForCompletionCB: AsyncCallback[Unit] = getAsyncCallback[Unit] { _ =>
+  private val confirmAndCheckForCompletionCB: AsyncCallback[Unit] = getAsyncCallback[Unit] { _ =>
+    awaitingConfirmation -= 1
     checkForCompletion()
   }
 
@@ -143,10 +139,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     in match {
       case msg: Message[K, V, P] =>
         val r = Promise[Result[K, V, P]]
-        awaitingConfirmation.incrementAndGet()
-        producer.send(msg.record, sendCallback(r, onSuccess = metadata => {
-          r.success(Result(metadata, msg))
-        }))
+        awaitingConfirmation += 1
+        producer.send(msg.record, new SendCallback(msg, r))
         postSend(msg)
         val future = r.future.asInstanceOf[Future[OUT]]
         push(stage.out, future)
@@ -156,8 +150,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
           msg <- multiMsg.records
         } yield {
           val r = Promise[MultiResultPart[K, V]]
-          awaitingConfirmation.incrementAndGet()
-          producer.send(msg, sendCallback(r, onSuccess = metadata => r.success(MultiResultPart(metadata, msg))))
+          awaitingConfirmation += 1
+          producer.send(msg, new SendMultiCallback(msg, r))
           r.future
         }
         postSend(multiMsg)
@@ -175,21 +169,38 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
     }
 
-  private def sendCallback(promise: Promise[_], onSuccess: RecordMetadata => Unit): Callback = new Callback {
-    override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = {
-      if (exception == null) onSuccess(metadata)
-      else
+  private abstract class CallbackBase(promise: Promise[_]) extends Callback {
+    protected def emitElement(metadata: RecordMetadata): Unit
+
+    override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
+      if (exception == null) {
+        emitElement(metadata)
+        confirmAndCheckForCompletionCB.invoke(())
+      } else
         decider(exception) match {
           case Supervision.Stop => closeAndFailStageCb.invoke(exception)
-          case _ => promise.failure(exception)
+          case _ =>
+            promise.failure(exception)
+            confirmAndCheckForCompletionCB.invoke(())
         }
-      if (awaitingConfirmation.decrementAndGet() == 0 && inIsClosed)
-        checkForCompletionCB.invoke(())
-    }
+  }
+
+  /** send-callback for a single message. */
+  private final class SendCallback(msg: Message[K, V, P], promise: Promise[Result[K, V, P]])
+      extends CallbackBase(promise) {
+    override protected def emitElement(metadata: RecordMetadata): Unit =
+      promise.success(Result(metadata, msg))
+  }
+
+  /** send-callback for a multi-message. */
+  private final class SendMultiCallback(msg: ProducerRecord[K, V], promise: Promise[MultiResultPart[K, V]])
+      extends CallbackBase(promise) {
+    override protected def emitElement(metadata: RecordMetadata): Unit =
+      promise.success(MultiResultPart(metadata, msg))
   }
 
   override def postStop(): Unit = {
-    log.debug("ProducerStage completed")
+    log.debug("ProducerStage postStop")
     closeProducer()
     super.postStop()
   }

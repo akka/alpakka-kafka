@@ -10,7 +10,7 @@ import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.DeferredProducer._
-import akka.kafka.internal.ProducerStage.{MessageCallback, ProducerCompletionState}
+import akka.kafka.internal.ProducerStage.ProducerCompletionState
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape}
@@ -21,7 +21,6 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success}
 
 /**
  * INTERNAL API
@@ -104,7 +103,6 @@ private final class TransactionalProducerStageLogic[K, V, P](
     inheritedAttributes: Attributes
 ) extends DefaultProducerStageLogic[K, V, P, Envelope[K, V, P], Results[K, V, P]](stage, inheritedAttributes)
     with StageIdLogging
-    with MessageCallback[K, V, P]
     with ProducerCompletionState {
 
   import TransactionalProducerStage._
@@ -162,7 +160,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   private def maybeCommitTransaction(beginNewTransaction: Boolean = true,
                                      abortEmptyTransactionOnComplete: Boolean = false): Unit = {
-    val awaitingConf = awaitingConfirmation.get
+    val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
         commitTransaction(batch, beginNewTransaction)
