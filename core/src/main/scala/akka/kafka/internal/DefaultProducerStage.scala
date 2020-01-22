@@ -169,36 +169,34 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
     }
 
-  private sealed abstract class CallbackBase extends Callback {
-    protected def onException(exception: Exception, promise: Promise[_]): Unit = {
-      decider(exception) match {
-        case Supervision.Stop => closeAndFailStageCb.invoke(exception)
-        case _ =>
-          promise.failure(exception)
-          confirmAndCheckForCompletionCB.invoke(())
-      }
-    }
-  }
-
-  /** send-callback for a single message. */
-  private final class SendCallback(msg: Message[K, V, P], promise: Promise[Result[K, V, P]]) extends CallbackBase {
+  private abstract class CallbackBase(promise: Promise[_]) extends Callback {
+    protected def emitElement(metadata: RecordMetadata): Unit
 
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
       if (exception == null) {
-        promise.success(Result(metadata, msg))
+        emitElement(metadata)
         confirmAndCheckForCompletionCB.invoke(())
-      } else onException(exception, promise)
+      } else
+        decider(exception) match {
+          case Supervision.Stop => closeAndFailStageCb.invoke(exception)
+          case _ =>
+            promise.failure(exception)
+            confirmAndCheckForCompletionCB.invoke(())
+        }
+  }
+
+  /** send-callback for a single message. */
+  private final class SendCallback(msg: Message[K, V, P], promise: Promise[Result[K, V, P]])
+      extends CallbackBase(promise) {
+    override protected def emitElement(metadata: RecordMetadata): Unit =
+      promise.success(Result(metadata, msg))
   }
 
   /** send-callback for a multi-message. */
   private final class SendMultiCallback(msg: ProducerRecord[K, V], promise: Promise[MultiResultPart[K, V]])
-      extends CallbackBase {
-
-    override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
-      if (exception == null) {
-        promise.success(MultiResultPart(metadata, msg))
-        confirmAndCheckForCompletionCB.invoke(())
-      } else onException(exception, promise)
+      extends CallbackBase(promise) {
+    override protected def emitElement(metadata: RecordMetadata): Unit =
+      promise.success(MultiResultPart(metadata, msg))
   }
 
   override def postStop(): Unit = {
