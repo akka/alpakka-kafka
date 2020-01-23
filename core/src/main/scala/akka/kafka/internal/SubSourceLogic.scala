@@ -5,6 +5,8 @@
 
 package akka.kafka.internal
 
+import java.util.concurrent.atomic.AtomicLong
+
 import akka.NotUsed
 import akka.actor.Status
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
@@ -75,6 +77,9 @@ private class SubSourceLogic[K, V, Msg](
   /** Kafka has signalled these partitions are revoked, but some may be re-assigned just after revoking. */
   private var partitionsToRevoke: Set[TopicPartition] = Set.empty
 
+  /** Generate fencing tokens for async offset loading so that out-of-date loaded offsets are ignored */
+  private val offsetLoadingFencingGen = new AtomicLong()
+
   override def preStart(): Unit = {
     super.preStart()
     log.info("Starting")
@@ -103,7 +108,10 @@ private class SubSourceLogic[K, V, Msg](
   }
 
   private val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
-    val formerlyUnknown = assigned -- partitionsToRevoke
+    val fencingToken = offsetLoadingFencingGen.incrementAndGet()
+    val formerlyUnknown = assigned -- partitionsToRevoke.filter(
+        tp => partitionsInStartup.contains(tp) || subSources.contains(tp)
+      )
 
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
       log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
@@ -128,7 +136,15 @@ private class SubSourceLogic[K, V, Msg](
                 )
               )
             case Success(offsets) =>
-              seekAndEmitSubSources(formerlyUnknown, offsets)
+              if (fencingToken == offsetLoadingFencingGen.get()) {
+                log.debug(s"Fencing token ok for ${offsets}: ${fencingToken} == ${offsetLoadingFencingGen.get()}")
+                seekAndEmitSubSources(formerlyUnknown, offsets)
+              } else {
+                log.debug(
+                  s"Ignoring loaded offsets with out-of-date fencing token $fencingToken " +
+                  s"(current is ${offsetLoadingFencingGen.get()})"
+                )
+              }
           }
     }
   }
@@ -152,6 +168,10 @@ private class SubSourceLogic[K, V, Msg](
             new ConsumerFailed(
               s"$idLogPrefix Consumer failed during seek for partitions: ${offsets.keys.mkString(", ")}."
             )
+          )
+        case other =>
+          log.warning(
+            s"$idLogPrefix Consumer failed during seek for partitions: ${offsets.keys.mkString(", ")}. -> $other"
           )
       }
   }
