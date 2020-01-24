@@ -5,6 +5,7 @@
 
 package akka.kafka.internal
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.UnaryOperator
 
@@ -381,6 +382,74 @@ class PartitionedSourceSpec(_system: ActorSystem)
     sink.cancel()
   }
 
+  it should "handle slow-loading offsets" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    val latch = new CountDownLatch(1)
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      Future {
+        latch.await(10, TimeUnit.SECONDS)
+        log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+        tps.map(tp => (tp, 300L)).toMap
+      }
+    }
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+    dummy.assignWithCallback(tp0)
+    latch.countDown()
+
+    val subSources1 = Map(sink.requestNext(10.seconds))
+    subSources1.keys should contain theSameElementsAs Set(tp0)
+
+    sink.cancel()
+  }
+
+  it should "handle out-of-order loading of offsets" in assertAllStagesStopped {
+    val dummy = new Dummy()
+
+    val latch = new CountDownLatch(1)
+
+    def getOffsetsOnAssign: Set[TopicPartition] => Future[Map[TopicPartition, Long]] = { tps =>
+      // This will be called twice, but we ensure that the second returned Future completes
+      // before the first returned Future
+      log.debug(s"getOffsetsOnAssign (${tps.mkString(",")})")
+      val offsets = tps.map(tp => (tp, 300L)).toMap
+      if (tps.size == 2) {
+        Future {
+          latch.await(10, TimeUnit.SECONDS)
+          sleep(100.milliseconds)
+          offsets
+        }
+      } else {
+        Future {
+          latch.countDown()
+          offsets
+        }
+      }
+    }
+
+    val sink = Consumer
+      .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
+      .runWith(TestSink.probe)
+
+    dummy.started.futureValue should be(Done)
+
+    dummy.assignWithCallback(tp0, tp1)
+    dummy.assignWithCallback(tp0)
+
+    val subSources1 = Map(sink.requestNext(10.seconds))
+    subSources1.keys should contain theSameElementsAs Set(tp0)
+
+    sink.cancel()
+  }
+
   "committable manual offset partitioned source" should "request offsets for partitions" in assertAllStagesStopped {
     val dummy = new Dummy()
 
@@ -736,6 +805,9 @@ object PartitionedSourceSpec {
     override def position(partition: TopicPartition, timeout: java.time.Duration): Long = 0
     override def seek(partition: TopicPartition, offset: Long): Unit = {
       log.debug(s"seek($partition, $offset)")
+      if (!assignment().contains(partition)) {
+        throw new IllegalStateException(s"Seeking on partition $partition which is not currently assigned")
+      }
       seeks = seeks.updated(partition, offset)
     }
     override def seek(partition: TopicPartition, offsetAndMeta: OffsetAndMetadata): Unit =
