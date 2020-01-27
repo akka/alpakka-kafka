@@ -19,7 +19,7 @@ Key links:
 - [ ] Check that any new `deprecated` annotations use the correct version name
 - [ ] Check that open PRs and issues assigned to the milestone are reasonable
 - [ ] Decide on a planned release date
-- [ ] Notify depending projects (notably Lagom and Pipelines) about the upcoming release
+- [ ] Notify depending projects (notably Lagom and Cloudflow) about the upcoming release
 - [ ] Create a new milestone for the [next version](https://github.com/akka/alpakka-kafka/milestones)
 - [ ] Check [closed issues without a milestone](https://github.com/akka/alpakka-kafka/issues?utf8=%E2%9C%93&q=is%3Aissue%20is%3Aclosed%20no%3Amilestone) and either assign them the 'upcoming' release milestone or `invalid/not release-bound`
 
@@ -41,7 +41,7 @@ Key links:
 ### Cutting the release
 
 - [ ] Wait until [master build finished](https://travis-ci.org/akka/alpakka-kafka/builds/) after merging the release notes 
-- [ ] Create a [new release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description linking to the announcement, release notes and milestone
+- [ ] Update the [draft release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description linking to the announcement, release notes and milestone
 - [ ] Check that Travis CI release build has executed successfully (Travis will start a [CI build](https://travis-ci.org/akka/alpakka-kafka/builds) for the new tag and publish artifacts to Bintray)
 - [ ] Go to [Bintray](https://bintray.com/akka/maven/alpakka-kafka) and select the just released version
 - [ ] Go to the Maven Central tab and sync with Sonatype (using your Sonatype TOKEN key and password) (you may watch progress in the [Staging repository](https://oss.sonatype.org/#stagingRepositories))
@@ -49,7 +49,7 @@ Key links:
 ### Check availability
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$VERSION$/) documentation
 - [ ] Check [reference](https://doc.akka.io/docs/alpakka-kafka/$VERSION$/) documentation
-- [ ] Check the release on [Maven central](http://central.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.13/$VERSION$/)
+- [ ] Check the release on [Maven central](https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-kafka_2.13/$VERSION$/)
 
 ### When everything is on maven central
 - [ ] Log into `gustav.akka.io` as `akkarepo`
@@ -57,14 +57,14 @@ Key links:
      ```
      ln -nsf $VERSION$ www/docs/alpakka-kafka/current
      ln -nsf $VERSION$ www/api/alpakka-kafka/current
-     ln -nsf $VERSION$ www/docs/alpakka-kafka/1.1
-     ln -nsf $VERSION$ www/api/alpakka-kafka/1.1
+     ln -nsf $VERSION$ www/docs/alpakka-kafka/2.0
+     ln -nsf $VERSION$ www/api/alpakka-kafka/2.0
      ```
   - [ ] check changes and commit the new version to the local git repository
      ```
      cd ~/www
-     git add docs/alpakka-kafka/1.1 docs/alpakka-kafka/current docs/alpakka-kafka/$VERSION$
-     git add api/alpakka-kafka/1.1 api/alpakka-kafka/current api/alpakka-kafka/$VERSION$
+     git add docs/alpakka-kafka/2.0 docs/alpakka-kafka/current docs/alpakka-kafka/$VERSION$
+     git add api/alpakka-kafka/2.0 api/alpakka-kafka/current api/alpakka-kafka/$VERSION$
      git commit -m "Alpakka Kafka $VERSION$"
      ```
      
