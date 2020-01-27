@@ -143,13 +143,6 @@ object Subscriptions {
       s"${timestampsToSearch.map { case (tp, timestamp) => s"$tp timestamp$timestamp" }.mkString(" ")}"
   }
 
-  /** INTERNAL API */
-  @akka.annotation.InternalApi
-  private[kafka] final case class AssignmentLastOffsetMinusN(tp: TopicPartition, n: Long) extends ManualSubscription {
-    override def withRebalanceListener(ref: ActorRef): AssignmentLastOffsetMinusN = this
-    override def renderStageAttribute: String = s"$tp n$n"
-  }
-
   /** Creates subscription for given set of topics */
   def topics(ts: Set[String]): AutoSubscription =
     TopicSubscription(ts, rebalanceListener = None, EmptyPartitionAssignmentHandler)
@@ -238,11 +231,5 @@ object Subscriptions {
    */
   def assignmentOffsetsForTimes(tp: TopicPartition, timestamp: Long): ManualSubscription =
     assignmentOffsetsForTimes(Map(tp -> timestamp))
-
-  /**
-   * Manually assign given topic partition to offset equal to last offset - n
-   */
-  def assignmentForLastOffsetMinusN(tp: TopicPartition, n: Long): ManualSubscription =
-    AssignmentLastOffsetMinusN(tp, n)
 
 }
