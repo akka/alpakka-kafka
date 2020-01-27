@@ -183,7 +183,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
 
   @deprecated(
     "Use createKafkaProducer(), createKafkaProducerAsync(), or createKafkaProducerCompletionStage() to get a new KafkaProducer",
-    "1.1.1"
+    "2.0.0"
   )
   def producerFactory: ProducerSettings[K, V] => Producer[K, V] = _ => createKafkaProducer()
 

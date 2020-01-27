@@ -189,6 +189,8 @@ abstract class KafkaTestKitClass(override val system: ActorSystem, override val 
 object KafkaTestKitClass {
   val topicCounter = new AtomicInteger()
   def createReplicationFactorBrokerProps(replicationFactor: Int): Map[String, String] = Map(
-    "offsets.topic.replication.factor" -> s"$replicationFactor"
+    "offsets.topic.replication.factor" -> s"$replicationFactor",
+    "transaction.state.log.replication.factor" -> s"$replicationFactor",
+    "transaction.state.log.min.isr" -> s"$replicationFactor"
   )
 }

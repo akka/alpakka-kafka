@@ -16,7 +16,7 @@ the flow in a particular state, and that state could be unlikely to occur.
 
 When connecting a committable source to a producer flow, some applications may require each consumed message to produce more than one message. In that case, in order to preserve at-least-once semantics, the message offset should only be committed after all associated messages have been produced.
 
-To achieve this, use the @scaladoc[ProducerMessage.MultiMessage](akka.kafka.ProducerMessage$$MultiMessage) implementation of @scaladoc[ProducerMessage.Envelope](akka.kafka.ProducerMessage$$Envelope):
+To achieve this, use the @apidoc[ProducerMessage.MultiMessage] implementation of @apidoc[ProducerMessage.Envelope]:
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToMany }  
@@ -27,9 +27,9 @@ Java
 
 ### Batches
 
-If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting @scaladoc[CommittableOffsetBatch](akka.kafka.ConsumerMessage$$CommittableOffsetBatch) only after all messages in the batch are fully processed.
+If committable messages are processed in batches (using `batch` or `grouped`), it is also important to commit the resulting @apidoc[ConsumerMessage.CommittableOffsetBatch] only after all messages in the batch are fully processed.
 
-Should the batch need to be split up again, using mapConcat, care should be taken to associate the @scaladoc[CommittableOffsetBatch](akka.kafka.ConsumerMessage$$CommittableOffsetBatch) only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
+Should the batch need to be split up again, using mapConcat, care should be taken to associate the @apidoc[ConsumerMessage.CommittableOffsetBatch] only with the last message. This scenario could occur if we created batches to more efficiently update a database and then needed to split up the batches to send individual messages to a Kafka producer flow.
 
 ### Multiple Destinations
 
@@ -67,7 +67,7 @@ This is a significant challenge. Below we suggest a few strategies to deal with 
 
 Since @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord) contains the destination topic, it is possible to use a single producer flow to write to any number of topics. This preserves the ordering of messages coming from the committable source. Since the destination topics likely admit different types of messages, it will be necessary to serialize the messages to the appropriate input type for the common producer flow, which could be a byte array or a string.
 
-In case a committable message should lead to the production of multiple messages, the @scaladoc[ProducerMessage.MultiMessage](akka.kafka.ProducerMessage$$MultiMessage) is available. If no messages should be produced, the @scaladoc[ProducerMessage.PassThroughMessage](akka.kafka.ProducerMessage$$PassThroughMessage) can be used.
+In case a committable message should lead to the production of multiple messages, the @apidoc[ProducerMessage.MultiMessage] is available. If no messages should be produced, the @apidoc[ProducerMessage.PassThroughMessage] can be used.
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/AtLeastOnce.scala) { #oneToConditional }  
@@ -82,4 +82,4 @@ Failure to deserialize a message is a particular case of conditional message pro
 
 Why can't we commit the offsets of bad messages as soon as we encounter them, instead of passing them downstream? Because the previous offsets, for messages that have deserialized successfully, may not have been committed yet. That's possible if the downstream flow includes a buffer, an asynchronous boundary or performs batching. It is then likely that some previous messages would concurrently be making their way downstream to a final committing stage.
 
-Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the committable source. We can instead create a @apidoc[ConsumerSettings$] parametrized by byte arrays. A subsequent `map` can deserialize and use @scaladoc[ProducerMessage.PassThroughMessage](akka.kafka.ProducerMessage$$PassThroughMessage) to skip bad messages.
+Note that here we assume that we take the full control over the handling of messages that fail to deserialize. To do this, we should not ask for the deserialization to be performed by the committable source. We can instead create a @apidoc[ConsumerSettings$] parametrized by byte arrays. A subsequent `map` can deserialize and use @apidoc[ProducerMessage.PassThroughMessage] to skip bad messages.

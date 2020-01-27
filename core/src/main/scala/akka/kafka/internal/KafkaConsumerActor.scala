@@ -14,7 +14,6 @@ import akka.Done
 import akka.actor.Status.Failure
 import akka.actor.{
   Actor,
-  ActorLogging,
   ActorRef,
   DeadLetterSuppression,
   NoSerializationVerificationNeeded,
@@ -26,7 +25,7 @@ import akka.actor.{
 import akka.annotation.InternalApi
 import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
-import akka.kafka.KafkaConsumerActor.StoppingException
+import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import org.apache.kafka.clients.consumer._
@@ -65,6 +64,7 @@ import scala.util.control.NonFatal
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
+    final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
     final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
@@ -207,7 +207,7 @@ import scala.util.control.NonFatal
 @InternalApi final private[kafka] class KafkaConsumerActor[K, V](owner: Option[ActorRef],
                                                                  _settings: ConsumerSettings[K, V])
     extends Actor
-    with ActorLogging
+    with ActorIdLogging
     with Timers
     with Stash {
   import KafkaConsumerActor.Internal._
@@ -295,13 +295,14 @@ import scala.util.control.NonFatal
         poll()
       else requestDelayedPoll()
 
-    case Stop =>
+    case s: StopLike =>
+      val from = stopFromMessage(s)
       commitAggregatedOffsets()
       if (commitsInProgress == 0) {
-        log.debug("Received Stop from {}, stopping", sender())
+        log.debug("Received Stop from {}, stopping", from)
         context.stop(self)
       } else {
-        log.debug("Received Stop from {}, waiting for commitsInProgress={}", sender(), commitsInProgress)
+        log.debug("Received Stop from {}, waiting for commitsInProgress={}", from, commitsInProgress)
         stopInProgress = true
         context.become(stopping)
       }
@@ -334,8 +335,9 @@ import scala.util.control.NonFatal
       owner.foreach(_ ! Failure(e))
       throw e
 
-    case Stop =>
-      log.debug("Received Stop from {}, stopping", sender())
+    case s: StopLike =>
+      val from = stopFromMessage(s)
+      log.debug("Received Stop from {}, stopping", from)
       context.stop(self)
 
     case _ =>
@@ -418,7 +420,7 @@ import scala.util.control.NonFatal
   def stopping: Receive = LoggingReceive.withLabel("stopping") {
     case p: Poll[_, _] =>
       receivePoll(p)
-    case Stop =>
+    case _: StopLike =>
     case Terminated(ref) =>
       stageActors -= ref
     case _ @(_: Commit | _: RequestMessages) =>
@@ -429,6 +431,7 @@ import scala.util.control.NonFatal
 
   override def preStart(): Unit = {
     super.preStart()
+    log.debug("Starting {}", self)
     val updateSettings: Future[ConsumerSettings[K, V]] = _settings.enriched
     updateSettings.value match {
       case Some(Success(s)) => applySettings(s)
@@ -607,12 +610,15 @@ import scala.util.control.NonFatal
       requests.foreach {
         case (stageActorRef, req) =>
           //gather all messages for ref
-          val messages = req.topics.foldLeft[Iterator[ConsumerRecord[K, V]]](Iterator.empty) {
-            case (acc, tp) =>
-              val tpMessages = rawResult.records(tp).asScala.iterator
-              if (acc.isEmpty) tpMessages
-              else acc ++ tpMessages
+          // See https://github.com/akka/alpakka-kafka/issues/978
+          // Temporary fix to avoid https://github.com/scala/bug/issues/11807
+          // Using `VectorIterator` avoids the error from `ConcatIterator`
+          val b = Vector.newBuilder[ConsumerRecord[K, V]]
+          req.topics.foreach { tp =>
+            val tpMessages = rawResult.records(tp).asScala
+            b ++= tpMessages
           }
+          val messages = b.result().iterator
           if (messages.nonEmpty) {
             stageActorRef ! Messages(req.requestId, messages)
             requests -= stageActorRef
@@ -688,6 +694,11 @@ import scala.util.control.NonFatal
       )
   }
 
+  private def stopFromMessage(msg: StopLike) = msg match {
+    case Stop => sender()
+    case StopFromStage(sourceStageId) => s"StageId [$sourceStageId]"
+  }
+
   /**
    * Copied from the implemented interface: "
    * These methods will be called after the partition re-assignment completes and before the
@@ -706,6 +717,8 @@ import scala.util.control.NonFatal
       with NoSerializationVerificationNeeded {
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit
+    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit
+
     def postStop(): Unit = ()
   }
 
@@ -742,6 +755,15 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler.onRevoke(revokedTps, restrictedConsumer)
       checkDuration(startTime, "onRevoke")
       commitRefreshing.revoke(revokedTps)
+      rebalanceInProgress = true
+    }
+
+    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {
+      val lostTps = partitions.asScala.toSet
+      val startTime = System.nanoTime()
+      partitionAssignmentHandler.onLost(lostTps, restrictedConsumer)
+      checkDuration(startTime, "onLost")
+      commitRefreshing.revoke(lostTps)
       rebalanceInProgress = true
     }
 

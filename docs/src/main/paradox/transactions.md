@@ -9,13 +9,46 @@ For full details on how transactions are achieved in Kafka you may wish to revie
 
 ## Transactional Source
 
-The @apidoc[Transactional.source](Transactional$) emits a @scaladoc[ConsumerMessage.TransactionalMessage](akka.kafka.ConsumerMessage$$TransactionalMessage) which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with @scaladoc[ConsumerMessage.CommittableMessage](akka.kafka.ConsumerMessage$$CommittableMessage), the user is not responsible for committing transactions, this is handled by a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
+The @apidoc[Transactional.source](Transactional$) emits a @apidoc[ConsumerMessage.TransactionalMessage] which contains topic, partition, and offset information required by the producer during the commit process.  Unlike with @apidoc[ConsumerMessage.CommittableMessage], the user is not responsible for committing transactions, this is handled by a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
 
 This source overrides the Kafka consumer property `isolation.level` to `read_committed`, so that only committed messages can be consumed.
 
 A consumer group ID must be provided.
 
 Only use this source if you have the intention to connect it to a @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$).
+
+<!-- TODO: uncomment when Transacitonal.partitionedSource is ready
+## Transactional Partitioned Source
+
+The @apidoc[Transactional.partitionedSource](Transactional$) is similar to the  `Transactional.source`.
+It allows you to run transactional workloads per partition which makes it easier to distribute your transactional application across multiple instances.
+When a topic-partition is assigned to a consumer the source will emit a tuple with the assigned topic-partition and a corresponding source.
+When a topic-partition is revoked, the corresponding source completes.
+ 
+One of the main advantages of using the `Transactional.partitionedSource` is that the transactional producer will automatically create a new `transactional.id` concatenated from the `transactionalId` provided by the user and the consumer group id, topic, and partition number associated with messages from the source.
+This allows users to distribute multiple instances of the application without having to worry about *transactional producer fencing* from conflicting duplicate `transactional.id`'s, which would be the case when using the non-partitioned `Transactional.source`.
+
+@@@note 
+
+The partitioned source requires a Kafka Producer per source (per partition) in order to prevent producer fencing.
+This can lead to several performance implications.
+
+1. A single producer per application has the opportunity to collectively batch sends to allow for better throughput.
+If we subdivide the same producing workload with multiple producers then we will lose the efficiency of consecutive batching to Kafka that one producer can manage.
+Since the Kafka Producer is threadsafe we would ideally only have one Producer per Alpakka Kafka application, but this isn't possible if we want to distribute our transactional application across multiple instances.
+
+2. The Kafka cluster will receive more connection and request overhead because there are more batches sent from more producers.
+
+This is a known issue in the Apache Kafka community and there's a Kafka Improvement Proposal (KIP), [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA/KIP-447%3A+Producer+scalability+for+exactly+once+semantics), that's been created to address the problem.
+Below is an excerpt from its Motivation section.
+
+> The problem we are trying to solve in this proposal is a semantic mismatch between consumers in a group and transactional producers. In a consumer group, ownership of partitions can transfer between group members through the rebalance protocol. For transactional producers, assignments are assumed to be static. Every transactional id must map to a consistent set of input partitions. To preserve the static partition mapping in a consumer group where assignments are frequently changing, the simplest solution is to create a separate producer for every input partition. This is what Kafka Streams does today.
+
+For more details see [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA/KIP-447%3A+Producer+scalability+for+exactly+once+semantics) ([Design Document](https://docs.google.com/document/d/1LhzHGeX7_Lay4xvrEXxfciuDWATjpUXQhrEIkph9qRE/edit)).
+
+@@@
+
+-->
 
 ## Transactional Sink and Flow
 
@@ -35,7 +68,7 @@ When the stream is materialized the producer will initialize the transaction for
 
 Messages are also drained from the stream when the consumer gets a rebalance of partitions. In that case, the consumer will wait in the `onPartitionsRevoked` callback until all of the messages have been drained from the stream and the transaction is committed before allowing the rebalance to continue. The amount of total time the consumer will wait for draining is controlled by the `akka.kafka.consumer.commit-timeout`, and the interval between checks is controlled by the `akka.kafka.consuner.eos-draining-check-interval` configuration settings.
 
-To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @scala[@scaladoc[Control](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[Control](akka.kafka.javadsl.Consumer$$Control)] materialized value to await all produced message acknowledgements and commit the final transaction.  
+To gracefully shutdown the stream and commit the current transaction you must call `shutdown()` on the @apidoc[(javadsl|scaladsl).Consumer.Control] materialized value to await all produced message acknowledgements and commit the final transaction.  
 
 ### Simple Example
 
@@ -44,6 +77,17 @@ Scala
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #transactionalSink }
+
+
+<!-- TODO: uncomment when Transacitonal.partitionedSource is ready
+### Partitioned Source Example
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/TransactionsExample.scala) { #partitionedTransactionalSink }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/TransactionsExampleTest.java) { #partitionedTransactionalSink }
+-->
 
 ### Recovery From Failure
 
@@ -65,6 +109,10 @@ All of the scenarios covered in the @ref[At-Least-Once Delivery documentation](a
 
 Only one application instance per `transactional.id` is allowed.  If two application instances with the same `transactional.id` are run at the same time then the instance that registers with Kafka's transaction coordinator second will throw a @javadoc[ProducerFencedException](org.apache.kafka.common.errors.ProducerFencedException) so it doesn't interfere with transactions in process by the first instance.  To distribute multiple transactional workflows for the same subscription the user must manually subdivide the subscription across multiple instances of the application.  This may be handled internally in future versions.
 
+<!-- TODO: replace above with Transactional.partitionedSources is available
+When using `Transactional.source` only one application instance per `transactional.id` is allowed.  If two application instances with the same `transactional.id` are run at the same time then the instance that registers with Kafka's transaction coordinator second will throw a @javadoc[ProducerFencedException](org.apache.kafka.common.errors.ProducerFencedException) so it doesn't interfere with transactions in process by the first instance.  To distribute multiple transactional workflows for the same subscription you can use the @ref[Transactional Partitioned Source](#transactional-partitioned-source) `Transactional.partitionedSource`, which manages the `transactional.id` so that no producer fencing occurs.
+-->
+
 Any state in the transformation logic is not part of a transaction.  It's left to the user to rebuild state when applying stateful operations with transaction.  It's possible to encode state into messages produced to topics during a transaction.  For example you could produce messages to a topic that represents an event log as part of a transaction.  This event log can be replayed to reconstitute the correct state before the stateful stream resumes consuming again at startup.
 
 Any side effects that occur in the transformation logic is not part of a transaction (i.e. writes to an database).  
@@ -77,5 +125,6 @@ For more information on exactly once and transactions in Kafka please consult th
 
 * [KIP-98: Exactly Once Delivery and Transactional Messaging](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) ([Design Document](https://docs.google.com/document/d/11Jqy_GjUGtdXJK94XGsEIK7CP1SnQGdp2eF0wSw9ra8/edit#heading=h.xq0ee1vnpz4o))
 * [KIP-129: Streams Exactly-Once Semantics](https://cwiki.apache.org/confluence/display/KAFKA/KIP-129%3A+Streams+Exactly-Once+Semantics) ([Design Document](https://docs.google.com/document/d/1pGZ8xtOOyGwDYgH5vA6h19zOMMaduFK1DAB8_gBYA2c/edit#heading=h.vkrkjfth3p8p))
+* [KIP-447: EOS Scalability Design](https://cwiki.apache.org/confluence/display/KAFKA/KIP-447%3A+Producer+scalability+for+exactly+once+semantics) ([Design Document](https://docs.google.com/document/d/1LhzHGeX7_Lay4xvrEXxfciuDWATjpUXQhrEIkph9qRE/edit))
 * [You Cannot Have Exactly-Once Delivery Redux](http://bravenewgeek.com/you-cannot-have-exactly-once-delivery-redux/) by Tyler Treat
 * [Exactly-once Semantics are Possible: Here’s How Kafka Does it](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/)

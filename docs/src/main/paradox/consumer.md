@@ -14,7 +14,7 @@ Alpakka Kafka offers a large variety of consumers that connect to Kafka and stre
 
 ### Consumers
 
-These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.scaladsl.Consumer$)]@java[@scaladoc[Consumer API](akka.kafka.javadsl.Consumer$)].
+These factory methods are part of the @apidoc[Consumer$] API.
 
 | Offsets handling                        | Partition aware | Subscription        | Shared consumer | Factory method | Stream element type |
 |-----------------------------------------|-----------------|---------------------|-----------------|----------------|---------------------|
@@ -33,7 +33,7 @@ These factory methods are part of the @scala[@scaladoc[Consumer API](akka.kafka.
 
 ### Transactional consumers
 
-These factory methods are part of the @scala[@scaladoc[Transactional API](akka.kafka.scaladsl.Transactional$)]@java[@scaladoc[Transactional API](akka.kafka.javadsl.Transactional$)]. For details see @ref[Transactions](transactions.md).
+These factory methods are part of the @apidoc[Transactional$]. For details see @ref[Transactions](transactions.md).
 
 | Offsets handling                  | Partition aware | Shared consumer | Factory method | Stream element type |
 |-----------------------------------|-----------------|-----------------|----------------|---------------------|
@@ -55,7 +55,7 @@ Alpakka Kafka's defaults for all settings are defined in `reference.conf` which 
 Important consumer settings
 : | Setting   | Description                                  |
 |-------------|----------------------------------------------|
-| stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using @scala[@scaladoc[DrainingControl](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[DrainingControl](akka.kafka.javadsl.Consumer$$DrainingControl)] |
+| stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using @apidoc[Consumer.DrainingControl] |
 | kafka-clients | Section for properties passed unchanged to the Kafka client (see @extref:[Kafka's Consumer Configs](kafka:/documentation.html#consumerconfigs)) |
 | connection-checker | Configuration to let the stream fail if the connection to the Kafka broker fails. |
 
@@ -205,7 +205,7 @@ Java
 
 In some cases you may wish to use external offset storage as your primary means to manage offsets, but also commit offsets to Kafka. 
 This gives you all the benefits of controlling offsets described in @ref:[Offset Storage external to Kafka](#offset-storage-external-to-kafka) and allows you to use tooling in the Kafka ecosystem to track consumer group lag. 
-You can use the @apidoc[Consumer.committablePartitionedManualOffsetSource](Consumer$) source, which emits a @scaladoc[CommittableMessage](akka.kafka.ConsumerMessage$$CommittableMessage), to seek to appropriate offsets on startup, do your processing, commit to external storage, and then commit offsets back to Kafka. 
+You can use the @apidoc[Consumer.committablePartitionedManualOffsetSource](Consumer$) source, which emits a @apidoc[ConsumerMessage.CommittableMessage], to seek to appropriate offsets on startup, do your processing, commit to external storage, and then commit offsets back to Kafka. 
 This will only provide at-least-once guarantees for your consumer group lag monitoring because it's possible for a failure between storing your offsets externally and committing to Kafka, but it will give you a more accurate representation of consumer group lag then when turning on auto commits with the `enable.auto.commit` consumer property.
 
 ## Consume "at-most-once"
@@ -228,7 +228,7 @@ How to achieve at-least-once delivery semantics is covered in @ref:[At-Least-Onc
 
 For cases when you need to read messages from one topic, transform or enrich them, and then write to another topic you can use @apidoc[Consumer.committableSource](Consumer$) and connect it to a @apidoc[Producer.committableSink](Producer$). The `committableSink` will commit the offset back to the consumer regularly.
 
-The `committableSink` accepts implementations @scaladoc[ProducerMessage.Envelope](akka.kafka.ProducerMessage$$Envelope) that contain the offset to commit the consumption of the originating message (of type  (@scaladoc[ConsumerMessage.Committable](akka.kafka.ConsumerMessage$$Committable)). See @ref[Producing messages](producer.md#producing-messages) about different implementations of @scaladoc[Envelope](akka.kafka.ProducerMessage$$Envelope).
+The `committableSink` accepts implementations @apidoc[ProducerMessage.Envelope] that contain the offset to commit the consumption of the originating message (of type @apidoc[akka.kafka.ConsumerMessage.Committable]). See @ref[Producing messages](producer.md#producing-messages) about different implementations of @apidoc[ProducerMessage.Envelope].
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #consumerToProducerSink }
@@ -294,8 +294,7 @@ Accessing of Kafka consumer metadata is possible as described in @ref[Consumer M
 
 
 ## Controlled shutdown
-The @apidoc[Source] created with @apidoc[Consumer.plainSource](Consumer$) and similar methods materializes to a @scala[@scaladoc[Consumer.Control](akka.kafka.scaladsl.Consumer$$Control)]@java[@scaladoc[Consumer.Control](akka.kafka.javadsl.Consumer$$Control)] 
-instance. This can be used to stop the stream in a controlled manner.
+The @apidoc[Source] created with @apidoc[Consumer.plainSource](Consumer$) and similar methods materializes to a @apidoc[akka.kafka.(javadsl|scaladsl).Consumer.Control] instance. This can be used to stop the stream in a controlled manner.
 
 When using external offset storage, a call to `Consumer.Control.shutdown()` suffices to complete the `Source`, which starts the completion of the stream.
 
@@ -313,8 +312,7 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 
 ### Draining control
 
-To manage this shutdown process, use the 
-@scala[@scaladoc[Consumer.DrainingControl](akka.kafka.scaladsl.Consumer$$DrainingControl)]@java[@scaladoc[Consumer.DrainingControl](akka.kafka.javadsl.Consumer$$DrainingControl)]
+To manage this shutdown process, use the @apidoc[Consumer.DrainingControl]
 by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue`. That control offers the method `drainAndShutdown` which implements the process descibed above.
 
 Note: The @apidoc[ConsumerSettings] `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).

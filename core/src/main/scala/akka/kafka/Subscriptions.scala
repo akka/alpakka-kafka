@@ -6,7 +6,7 @@
 package akka.kafka
 
 import akka.actor.ActorRef
-import akka.annotation.InternalApi
+import akka.annotation.{ApiMayChange, InternalApi}
 import akka.kafka.internal.PartitionAssignmentHelpers
 import akka.kafka.internal.PartitionAssignmentHelpers.EmptyPartitionAssignmentHandler
 import org.apache.kafka.common.TopicPartition
@@ -55,8 +55,10 @@ sealed trait AutoSubscription extends Subscription {
   /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
   def withRebalanceListener(ref: ActorRef): AutoSubscription
 
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
   def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription
 
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
   def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription
 
   override protected def renderListener: String =
@@ -84,9 +86,11 @@ object Subscriptions {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
       copy(rebalanceListener = Some(ref))
 
+    @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
       copy(partitionAssignmentHandler = handler)
 
+    @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription =
       copy(partitionAssignmentHandler = PartitionAssignmentHelpers.WrappedJava(handler))
 
@@ -104,9 +108,11 @@ object Subscriptions {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
       copy(rebalanceListener = Some(ref))
 
+    @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
       copy(partitionAssignmentHandler = handler)
 
+    @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: javadsl.PartitionAssignmentHandler): AutoSubscription =
       copy(partitionAssignmentHandler = PartitionAssignmentHelpers.WrappedJava(handler))
 

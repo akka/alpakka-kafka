@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.Done
 import akka.kafka.internal.ConsumerControlAsJava
+import akka.kafka.tests.scaladsl.LogCapturing
 import org.apache.kafka.common.{Metric, MetricName}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
@@ -36,7 +37,7 @@ object ControlSpec {
   }
 }
 
-class ControlSpec extends WordSpecLike with ScalaFutures with Matchers {
+class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogCapturing {
   import ControlSpec._
 
   val ec = Executors.newCachedThreadPool()

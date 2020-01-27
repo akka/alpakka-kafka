@@ -327,7 +327,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         probe.cancel()
       }
     }
-
   }
 
   "Consumer control" must {

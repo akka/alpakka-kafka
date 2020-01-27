@@ -12,7 +12,19 @@
         </encoder>
     </appender>
 
-    <logger name="akka" level="WARN"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%-20.20thread] %-36.36logger{36}  %msg%n%rEx</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="CapturingAppender" class="akka.kafka.tests.CapturingAppender"/>
+
+    <logger name="akka.kafka.tests.CapturingAppenderDelegate">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <logger name="akka" level="DEBUG"/>
     <logger name="akka.kafka" level="DEBUG"/>
     <logger name="docs.scaladsl" levle="DEBUG"/>
 
@@ -21,6 +33,14 @@
 
     <logger name="kafka" level="WARN"/>
     <logger name="org.apache.kafka" level="WARN"/>
+    <!-- Useful log levels for debugging rebalancing
+    <logger name="org.apache.kafka" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer" level="DEBUG"/>
+    <logger name="org.apache.kafka.clients.consumer.KafkaConsumer" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="INFO"/>
+    -->
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
@@ -28,7 +48,7 @@
     <logger name="org.testcontainers" level="INFO"/>
 
     <root level="DEBUG">
+        <appender-ref ref="CapturingAppender"/>
         <appender-ref ref="FILE" />
-        <appender-ref ref="STDOUT" />
     </root>
 </configuration>

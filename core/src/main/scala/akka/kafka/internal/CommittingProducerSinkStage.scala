@@ -47,7 +47,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     stage: CommittingProducerSinkStage[K, V, IN],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
-    with StageLogging
+    with StageIdLogging
     with DeferredProducer[K, V] {
 
   import CommittingProducerSinkStage._
@@ -73,7 +73,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
-    resolveProducer()
+    resolveProducer(stage.producerSettings)
   }
 
   /** When the producer is set up, the sink pulls and schedules the first commit. */
@@ -107,6 +107,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         } producer.send(record, cb)
 
       case msg: PassThroughMessage[K, V, Committable] =>
+        awaitingCommitResult += 1
         collectOffset(0, msg.passThrough)
     }
 

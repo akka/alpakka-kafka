@@ -17,6 +17,7 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 // #testkit
 import akka.kafka.javadsl.Producer;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -29,6 +30,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 // #testkit
 import org.junit.AfterClass;
+import org.junit.Rule;
 import org.junit.Test;
 // #testkit
 
@@ -43,6 +45,8 @@ import static org.junit.Assert.assertEquals;
 // #testkit
 
 public class AssignmentTest extends EmbeddedKafkaJunit4Test {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
   private static final Materializer mat = ActorMaterializer.create(sys);

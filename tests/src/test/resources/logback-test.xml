@@ -13,7 +13,14 @@
         </encoder>
     </appender>
 
-    <logger name="akka" level="WARN"/>
+    <appender name="CapturingAppender" class="akka.kafka.tests.CapturingAppender"/>
+
+    <logger name="akka.kafka.tests.CapturingAppenderDelegate">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <logger name="akka" level="DEBUG"/>
+    <logger name="akka.actor.TimerScheduler" level="INFO"/>
     <logger name="akka.kafka" level="DEBUG"/>
 
     <logger name="org.apache.zookeeper" level="WARN"/>
@@ -36,15 +43,12 @@
     <logger name="org.jboss" level="WARN"/>
     <logger name="org.glassfish" level="WARN"/>
     <logger name="io.confluent" level="WARN"/>
-    <logger name="org.testcontainers" level="WARN"/>
-    <logger name="com.github.dockerjava" level="WARN"/>
 
-    <logger name="org.testcontainers" level="WARN"/>
-    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="com.github.dockerjava" level="INFO"/>
+    <logger name="org.testcontainers" level="INFO"/>
 
     <root level="DEBUG">
-        <!--<appender-ref ref="STDOUT" /-->
+        <appender-ref ref="CapturingAppender"/>
         <appender-ref ref="FILE" />
     </root>
-
 </configuration>

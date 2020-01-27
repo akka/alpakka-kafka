@@ -7,7 +7,7 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
-import org.testcontainers.containers.{GenericContainer, KafkaContainer}
+import org.testcontainers.containers.GenericContainer
 
 import scala.jdk.CollectionConverters._
 
@@ -27,7 +27,7 @@ object TestcontainersKafka {
      *
      * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
      */
-    @deprecated("Use testcontainersSettings instead.", "1.1.1")
+    @deprecated("Use testcontainersSettings instead.", "2.0.0")
     def confluentPlatformVersion: String = KafkaContainerCluster.CONFLUENT_PLATFORM_VERSION
 
     /**
@@ -46,7 +46,7 @@ object TestcontainersKafka {
       kafkaBootstrapServersInternal
     }
 
-    def brokerContainers: Vector[KafkaContainer] = cluster.getBrokers.asScala.toVector
+    def brokerContainers: Vector[AlpakkaKafkaContainer] = cluster.getBrokers.asScala.toVector
 
     def zookeeperContainer: GenericContainer[_] = cluster.getZooKeeper
 

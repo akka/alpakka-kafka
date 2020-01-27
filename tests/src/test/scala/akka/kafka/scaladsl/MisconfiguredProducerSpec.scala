@@ -7,6 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.actor.ActorSystem
 import akka.kafka.ProducerSettings
+import akka.kafka.tests.scaladsl.LogCapturing
 import akka.stream.scaladsl.Source
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{ActorMaterializer, Materializer}
@@ -23,7 +24,8 @@ class MisconfiguredProducerSpec
     with WordSpecLike
     with Matchers
     with ScalaFutures
-    with Eventually {
+    with Eventually
+    with LogCapturing {
 
   implicit val materializer: Materializer = ActorMaterializer()
   implicit val patience = PatienceConfig(2.seconds, 20.millis)

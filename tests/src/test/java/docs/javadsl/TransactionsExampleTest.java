@@ -12,6 +12,7 @@ import akka.kafka.*;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Transactional;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.*;
@@ -19,8 +20,10 @@ import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.AfterClass;
+import org.junit.Rule;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.Assert.assertEquals;
 
 public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem system = ActorSystem.create("TransactionsExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
@@ -51,6 +56,11 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
 
   protected <T> Flow<T, T, NotUsed> business() {
     return Flow.create();
+  }
+
+  /** Overridden to set a different default timeout for [[#resultOf]]. Default is 5 seconds. */
+  protected Duration resultOfTimeout() {
+    return Duration.ofSeconds(15);
   }
 
   @Test
@@ -164,4 +174,48 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
     assertEquals(messages, resultOf(consumer.drainAndShutdown(ec)).size());
     assertDone(streamCompletion);
   }
+
+  //  @Test
+  //  public void partitionedSourceSink() throws Exception {
+  //    ConsumerSettings<String, String> consumerSettings =
+  //        consumerDefaults().withGroupId(createGroupId(1));
+  //    String sourceTopic = createTopic(1, 2, 1);
+  //    String targetTopic = createTopic(2, 1, 1);
+  //    String transactionalId = createTransactionalId(1);
+  //    // #partitionedTransactionalSink
+  //    Consumer.DrainingControl<Done> control =
+  //        Transactional.partitionedSource(consumerSettings, Subscriptions.topics(sourceTopic))
+  //            .mapAsync(
+  //                8,
+  //                pair -> {
+  //                  Source<ConsumerMessage.TransactionalMessage<String, String>, NotUsed> source =
+  //                      pair.second();
+  //                  return source
+  //                      .via(business())
+  //                      .map(
+  //                          msg ->
+  //                              ProducerMessage.single(
+  //                                  new ProducerRecord<>(
+  //                                      targetTopic, msg.record().key(), msg.record().value()),
+  //                                  msg.partitionOffset()))
+  //                      .runWith(Transactional.sink(producerSettings, transactionalId),
+  // materializer);
+  //                })
+  //            .toMat(Sink.ignore(), Keep.both())
+  //            .mapMaterializedValue(Consumer::createDrainingControl)
+  //            .run(materializer);
+  //
+  //    // ...
+  //
+  //    // #partitionedTransactionalSink
+  //    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
+  //        consumeString(targetTopic, 10);
+  //    produceString(sourceTopic, 10, partition0);
+  //    assertDone(consumer.isShutdown());
+  //    // #partitionedTransactionalSink
+  //    control.drainAndShutdown(ec);
+  //    // #partitionedTransactionalSink
+  //    assertDone(control.isShutdown());
+  //    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
+  //  }
 }

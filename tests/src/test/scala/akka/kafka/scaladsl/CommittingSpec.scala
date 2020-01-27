@@ -435,7 +435,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     }
 
     // Illustration of https://github.com/akka/alpakka-kafka/issues/942
-    "merge multiple consumers` offsets for different partitions (#942)" in assertAllStagesStopped {
+    "merge multiple consumers' offsets for different partitions (#942)" in assertAllStagesStopped {
       val topic = createTopic(0, partitions = 2)
       val group = createGroupId()
 
@@ -443,16 +443,24 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val consumerSettings = consumerDefaults.withGroupId(group)
       val result =
         Consumer
-          .committableSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition0)))
+          .committableSource(
+            consumerSettings
+              .withStopTimeout(100.millis), // this consumer actor needs to stay around to receive the commit
+            Subscriptions.assignment(new TopicPartition(topic, partition0))
+          )
           .take(10)
+          // triggers commit timeout as the actor is terminated
+          .delay(50.millis)
           .concat(
             Consumer
               .committableSource(consumerSettings, Subscriptions.assignment(new TopicPartition(topic, partition1)))
           )
           .map(_.committableOffset)
-          .groupedWithin(20, 5.seconds)
+          .groupedWithin(20, 10.seconds)
           .map(CommittableOffsetBatch.apply)
+          .log("sending offset batch")
           .via(Committer.batchFlow(committerDefaults.withMaxBatch(1L)))
+          .log("offset batch done")
           .runWith(Sink.head)
 
       val batch = result.mapTo[CommittableOffsetBatchImpl].futureValue

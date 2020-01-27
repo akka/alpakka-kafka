@@ -11,6 +11,7 @@ import akka.kafka.ConsumerSettings;
 import akka.kafka.KafkaConsumerActor;
 import akka.kafka.Metadata;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.pattern.Patterns;
 import java.time.Duration;
 import java.util.List;
@@ -26,11 +27,14 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import org.junit.AfterClass;
+import org.junit.Rule;
 import org.junit.Test;
 
 import static junit.framework.TestCase.assertTrue;
 
 public class FetchMetadataTest extends TestcontainersKafkaJunit4Test {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
   private static final Materializer mat = ActorMaterializer.create(sys);

@@ -29,6 +29,8 @@ object PartitionAssignmentHelpers {
 
     override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
+    override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+
     override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
     override def toString: String = "EmptyPartitionAssignmentHandler"
@@ -42,8 +44,13 @@ object PartitionAssignmentHelpers {
     override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
       handler.onAssign(assignedTps.asJava, consumer)
 
+    override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      handler.onLost(lostTps.asJava, consumer)
+
     override def onStop(currentTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
       handler.onStop(currentTps.asJava, consumer)
+
+    override def toString: String = s"WrappedJava($handler)"
   }
 
   @InternalApi
@@ -71,6 +78,9 @@ object PartitionAssignmentHelpers {
       }
     }
 
+    override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      onRevoke(lostTps, consumer)
+
     override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
     override def toString: String = s"AsyncCallbacks($subscription, $sourceActor)"
@@ -87,6 +97,11 @@ object PartitionAssignmentHelpers {
     override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
       handler1.onAssign(assignedTps, consumer)
       handler2.onAssign(assignedTps, consumer)
+    }
+
+    override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
+      handler1.onLost(lostTps, consumer)
+      handler2.onLost(lostTps, consumer)
     }
 
     override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {

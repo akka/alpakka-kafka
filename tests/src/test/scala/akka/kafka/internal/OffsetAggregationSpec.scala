@@ -5,12 +5,13 @@
 
 package akka.kafka.internal
 
+import akka.kafka.tests.scaladsl.LogCapturing
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 import org.scalatest.{Matchers, WordSpecLike}
 
-class OffsetAggregationSpec extends WordSpecLike with Matchers {
+class OffsetAggregationSpec extends WordSpecLike with Matchers with LogCapturing {
 
   val topicA = "topicA"
   val topicB = "topicB"

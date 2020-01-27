@@ -11,6 +11,7 @@ import static org.junit.Assert.*;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Keep;
@@ -39,6 +40,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 // #oneToMany #oneToConditional
 
 public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem system = ActorSystem.create("AtLeastOnceTest");
   private static final Materializer materializer = ActorMaterializer.create(system);

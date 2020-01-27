@@ -5,11 +5,6 @@ services:
   - docker
 
 before_install:
-  # upgrade to a later docker-compose which supports services.kafka.scale
-  - sudo rm /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-`uname -s`-`uname -m` > docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin
   # fetch full history for correct current and previous version detection
   - git fetch --unshallow
   # using jabba for custom jdk management
@@ -26,7 +21,7 @@ script:
 jobs:
   include:
     - stage: check
-      script: sbt verifyCodeStyle
+      env: CMD="verifyCodeStyle"
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
     - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
@@ -66,7 +61,7 @@ jobs:
 
     - stage: integration
       env: CMD="tests/it:test"
-      name: "Run multi-broker integration tests"
+      name: "Run multi-broker and long running integration tests"
     - env: CMD="benchmarks/it:compile"
       name: "Compile benchmark tests"
 
@@ -110,10 +105,9 @@ before_cache:
 
 cache:
   directories:
-    - $HOME/.coursier
+    - $HOME/.cache/coursier
     - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot
-    - $HOME/.sbt/launchers
+    - $HOME/.sbt
     - $HOME/.jabba
 
 env:
