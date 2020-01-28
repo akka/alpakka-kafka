@@ -23,7 +23,7 @@ object Committer {
     batchFlow(settings).map(_ => Done)
 
   /**
-   * Commits batches to Kafka, emits `CommittableOffsetBatch` for every committed batch.
+   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
     val offsetBatches = Flow[Committable]
@@ -34,7 +34,7 @@ object Committer {
   }
 
   /**
-   * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
+   * Commits batches to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(delivery: CommitDelivery,
                 parallelism: Int): Flow[CommittableOffsetBatch, CommittableOffsetBatch, NotUsed] = {
