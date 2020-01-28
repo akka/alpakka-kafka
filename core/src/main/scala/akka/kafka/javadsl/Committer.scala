@@ -10,7 +10,7 @@ import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.{Done, NotUsed}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
-import akka.kafka.{scaladsl, CommitterSettings}
+import akka.kafka.{scaladsl, CommitDelivery, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 
 import scala.compat.java8.FutureConverters.FutureOps
@@ -28,6 +28,13 @@ object Committer {
    */
   def batchFlow[C <: Committable](settings: CommitterSettings): Flow[C, CommittableOffsetBatch, NotUsed] =
     scaladsl.Committer.batchFlow(settings).asJava
+
+  /**
+   * Commits batches to Kafka, emits `CommittableOffsetBatch` for every committed batch.
+   */
+  def batchFlow[C <: CommittableOffsetBatch](delivery: CommitDelivery,
+                                             parallelism: Int): Flow[C, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.batchFlow(delivery, parallelism).asJava
 
   /**
    * API MAY CHANGE
