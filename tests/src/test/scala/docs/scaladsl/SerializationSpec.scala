@@ -17,6 +17,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
+import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityLevel
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
 import org.apache.avro.util.Utf8
 import org.apache.kafka.common.TopicPartition
@@ -70,7 +71,13 @@ class SerializationSpec
   val schemaRegistryPort = KafkaPorts.ScalaAvroSerialization + 2
 
   val configWithSchemaRegistryImpl =
-    EmbeddedKafkaConfigImpl(kafkaPort, zooKeeperPort, schemaRegistryPort, Map.empty, Map.empty, Map.empty)
+    EmbeddedKafkaConfigImpl(kafkaPort,
+                            zooKeeperPort,
+                            schemaRegistryPort,
+                            AvroCompatibilityLevel.NONE,
+                            Map.empty,
+                            Map.empty,
+                            Map.empty)
 
   override def bootstrapServers = s"localhost:${KafkaPorts.ScalaAvroSerialization}"
 
