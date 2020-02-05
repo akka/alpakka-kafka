@@ -49,7 +49,7 @@ private[internal] final class LoggingAdapterWithPrefix(logger: LoggingAdapter, p
   private def msgWithId(message: String): String = prefix + message
 
   override protected def notifyError(message: String): Unit = logger.error(msgWithId(message))
-  override protected def notifyError(cause: Throwable, message: String): Unit = logger.error(msgWithId(message), cause)
+  override protected def notifyError(cause: Throwable, message: String): Unit = logger.error(cause, msgWithId(message))
   override protected def notifyWarning(message: String): Unit = logger.warning(msgWithId(message))
   override protected def notifyInfo(message: String): Unit = logger.info(msgWithId(message))
   override protected def notifyDebug(message: String): Unit = logger.debug(msgWithId(message))
