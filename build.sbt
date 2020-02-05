@@ -296,7 +296,19 @@ lazy val tests = project
     Test / fork := true,
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false,
-    Test / unmanagedSources / excludeFilter := HiddenFileFilter
+    Test / unmanagedSources / excludeFilter := {
+      scalaBinaryVersion.value match {
+        case "2.12" | "2.11" =>
+          HiddenFileFilter
+        case "2.13" =>
+          HiddenFileFilter ||
+          // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
+          // https://github.com/embeddedkafka/embedded-kafka-schema-registry/issues/78
+          "SerializationTest.java" ||
+          "SerializationSpec.scala" ||
+          "EmbeddedKafkaWithSchemaRegistryTest.java"
+      }
+    }
   )
 
 lazy val docs = project
