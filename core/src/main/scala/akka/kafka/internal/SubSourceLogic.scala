@@ -105,8 +105,8 @@ private class SubSourceLogic[K, V, Msg](
   private val onOffsetsFromExternalResponseCB = getAsyncCallback[(Set[TopicPartition], Map[TopicPartition, Long])] {
     case (formerlyUnknown, offsetMap) =>
       val updatedFormerlyUnknown = formerlyUnknown -- (partitionsToRevoke ++ partitionsInStartup ++ pendingPartitions)
-      // Filter out the offsetMap so that we don't re-seek for partitions that we're already processing
-      seekAndEmitSubSources(updatedFormerlyUnknown, offsetMap.filterKeys(updatedFormerlyUnknown).toMap)
+      // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
+      seekAndEmitSubSources(updatedFormerlyUnknown, offsetMap.filterKeys(k => !partitionsToRevoke.contains(k)).toMap)
   }
 
   private val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
