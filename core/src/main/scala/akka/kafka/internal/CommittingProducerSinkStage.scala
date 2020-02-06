@@ -100,7 +100,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       case multiMsg: MultiMessage[K, V, Committable] =>
         val size = multiMsg.records.size
         awaitingProduceResult += size
-        awaitingCommitResult += size
+        awaitingCommitResult += 1
         val cb = new SendMultiCallback(size, multiMsg.passThrough)
         for {
           record <- multiMsg.records
