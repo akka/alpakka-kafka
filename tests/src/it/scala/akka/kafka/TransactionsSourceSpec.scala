@@ -28,7 +28,7 @@ class TransactionsSourceSpec extends SpecBase
   with TransactionsOps
   with Repeated {
 
-  implicit val pc = PatienceConfig(45.seconds, 1.second)
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(45.seconds, 1.second)
 
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
     .withNumBrokers(3)

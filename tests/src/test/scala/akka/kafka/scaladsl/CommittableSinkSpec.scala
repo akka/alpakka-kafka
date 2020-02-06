@@ -18,7 +18,7 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class CommittableSinkSpec extends SpecBase with TestcontainersKafkaLike with IntegrationPatience {
+class CommittableSinkSpec extends SpecBase with TestcontainersKafkaLike {
 
   final val Numbers = (1 to 200).map(_.toString)
   final val partition1 = 1

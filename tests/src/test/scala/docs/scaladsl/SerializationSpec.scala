@@ -20,6 +20,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
 import org.apache.avro.util.Utf8
 import org.apache.kafka.common.TopicPartition
+import org.scalatest.concurrent.IntegrationPatience
 // #imports
 import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
 import org.apache.avro.specific.SpecificRecord
@@ -62,10 +63,8 @@ class SerializationSpec
     with TestFrameworkInterface.Scalatest
     with Matchers
     with ScalaFutures
+    with IntegrationPatience
     with Eventually {
-
-  override implicit def patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))
 
   val schemaRegistryPort = KafkaPorts.ScalaAvroSerialization + 2
 

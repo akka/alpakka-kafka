@@ -11,14 +11,17 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 import org.scalatest._
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
-class ConsumerSettingsSpec extends WordSpecLike with Matchers with OptionValues with ScalaFutures with LogCapturing {
-
-  implicit val patience = PatienceConfig(5.seconds, 10.millis)
+class ConsumerSettingsSpec
+    extends WordSpecLike
+    with Matchers
+    with OptionValues
+    with ScalaFutures
+    with IntegrationPatience
+    with LogCapturing {
 
   "ConsumerSettings" must {
 

@@ -16,11 +16,8 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.immutable
-import scala.concurrent.duration._
 
 class AssignmentSpec extends SpecBase with TestcontainersKafkaLike {
-
-  implicit val patience = PatienceConfig(15.seconds, 1.second)
 
   "subscription with partition assignment" must {
 

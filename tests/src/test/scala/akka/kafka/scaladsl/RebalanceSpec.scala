@@ -28,7 +28,7 @@ import scala.util.Random
 
 class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
-  implicit val patience: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
+  implicit override val patienceConfig: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
 
   final val Numbers = (1 to 5000).map(_.toString)
   final val partition1 = 1
