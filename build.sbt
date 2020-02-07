@@ -28,9 +28,10 @@ val confluentLibsExclusionRules = Seq(
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
   ExclusionRule("com.typesafe.scala-logging"),
   ExclusionRule("org.apache.kafka"),
-  // something in the dependency tree of kafka-avro-serializer is depending on this artifact when using java 11, but
-  // which can't be resolved when using coursier. when coursier is disabled the compile succeeds, but i still don't
-  // see the artifact in the dependency tree or classpath.
+  // a transient dependency of `kafka-avro-serializer` brings in a SNAPSHOT version of `javafx.base` that is no longer
+  // published to maven central.  this is a workaround for the upstream confluent `rest-utils` project (that
+  // `kafka-avro-serializer` depends on, upgrades their version of jersey.
+  // https://github.com/confluentinc/rest-utils/issues/170
   ExclusionRule("org.openjfx", "javafx.base")
 )
 
