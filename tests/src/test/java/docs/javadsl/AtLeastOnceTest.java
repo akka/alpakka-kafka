@@ -24,6 +24,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 // #oneToMany #oneToConditional
@@ -199,5 +201,45 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
     assertThat(
         tuple.first().shutdown().toCompletableFuture().get(5, TimeUnit.SECONDS), is(Done.done()));
     assertThat(tuple.second().toCompletableFuture().get(5, TimeUnit.SECONDS).size(), is(10));
+  }
+
+  @Test
+  public void shouldSupportBatchingOfOffsetsWithOffsetContext() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId());
+    String topic1 = createTopic(1);
+    String topic2 = createTopic(2);
+    Consumer.DrainingControl<Done> control =
+        Consumer.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(topic1))
+            .grouped(5)
+            .map(
+                records -> {
+                  String key = records.iterator().next().key();
+                  String value =
+                      records.stream().map(ConsumerRecord::value).collect(Collectors.joining(","));
+                  return ProducerMessage.single(new ProducerRecord<>(topic2, key, value));
+                })
+            .mapContext(ConsumerMessage::createCommittableOffsetBatch)
+            .via(Producer.flowWithContext(producerDefaults()))
+            .toMat(Committer.sinkWithOffsetContext(committerDefaults()), Keep.both())
+            .mapMaterializedValue(Consumer::createDrainingControl)
+            .run(materializer);
+
+    Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> pair =
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2))
+            .toMat(Sink.seq(), Keep.both())
+            .run(materializer);
+
+    Consumer.Control consumerControl = pair.first();
+    CompletionStage<List<ConsumerRecord<String, String>>> consumerRecords = pair.second();
+
+    produceString(topic1, 10, partition0).toCompletableFuture().get(5, TimeUnit.SECONDS);
+    sleepSeconds(10, "to make produce happen");
+    assertThat(
+        control.drainAndShutdown(ec).toCompletableFuture().get(5, TimeUnit.SECONDS),
+        is(Done.done()));
+    assertThat(
+        consumerControl.shutdown().toCompletableFuture().get(5, TimeUnit.SECONDS), is(Done.done()));
+    assertThat(consumerRecords.toCompletableFuture().get(5, TimeUnit.SECONDS).size(), is(2));
   }
 }
