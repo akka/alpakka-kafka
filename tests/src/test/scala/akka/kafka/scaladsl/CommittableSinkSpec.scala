@@ -12,7 +12,6 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.concurrent.IntegrationPatience
 
 import scala.collection.immutable
 import scala.concurrent.Future
