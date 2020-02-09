@@ -9,7 +9,7 @@ package akka.kafka.scaladsl
 import akka.kafka.Repeated
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import akka.kafka.tests.scaladsl.LogCapturing
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
 
 abstract class SpecBase(kafkaPort: Int)
@@ -19,6 +19,9 @@ abstract class SpecBase(kafkaPort: Int)
     with ScalaFutures
     with Eventually
     with LogCapturing
+    // #testkit
+    with IntegrationPatience
+    // #testkit
     with Repeated {
 
   protected def this() = this(kafkaPort = -1)

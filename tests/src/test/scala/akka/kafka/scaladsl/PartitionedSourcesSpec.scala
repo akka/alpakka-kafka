@@ -29,7 +29,6 @@ import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues {
 
-  implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
 
   "Partitioned source" must {

@@ -14,10 +14,8 @@ import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{Matchers, WordSpecLike}
-
-import scala.concurrent.duration._
 
 class MisconfiguredProducerSpec
     extends TestKit(ActorSystem())
@@ -25,10 +23,10 @@ class MisconfiguredProducerSpec
     with Matchers
     with ScalaFutures
     with Eventually
+    with IntegrationPatience
     with LogCapturing {
 
   implicit val materializer: Materializer = ActorMaterializer()
-  implicit val patience = PatienceConfig(2.seconds, 20.millis)
 
   "Failing producer construction" must {
     "fail stream appropriately" in assertAllStagesStopped {

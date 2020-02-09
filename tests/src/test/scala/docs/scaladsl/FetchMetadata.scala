@@ -26,7 +26,7 @@ import scala.concurrent.duration._
 
 class FetchMetadata extends DocsSpecBase with TestcontainersKafkaLike with TryValues {
 
-  override implicit def patienceConfig: PatienceConfig =
+  override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(20, Seconds)), interval = scaled(Span(1, Seconds)))
 
   "Consumer metadata" should "be available" in {

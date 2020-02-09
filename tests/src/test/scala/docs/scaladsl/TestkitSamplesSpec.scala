@@ -6,7 +6,7 @@
 package docs.scaladsl
 
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.{CommittableOffset}
+import akka.kafka.ConsumerMessage.CommittableOffset
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage}
 import akka.stream.scaladsl.{Flow, Keep, Source}
@@ -16,21 +16,19 @@ import akka.testkit.TestKit
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.collection.immutable
-import scala.concurrent.duration._
 
 class TestkitSamplesSpec
     extends TestKit(ActorSystem("example"))
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with ScalaFutures {
+    with ScalaFutures
+    with IntegrationPatience {
   implicit val mat: Materializer = ActorMaterializer()
-
-  implicit val patience = PatienceConfig(3.seconds, 100.millis)
 
   override protected def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 

@@ -23,7 +23,7 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -39,9 +39,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
     with OptionValues
     with ScalaFutures
     with Eventually
+    with IntegrationPatience
     with LogCapturing {
-
-  implicit val patience = PatienceConfig(4.seconds, 50.millis)
 
   import PartitionedSourceSpec._
 

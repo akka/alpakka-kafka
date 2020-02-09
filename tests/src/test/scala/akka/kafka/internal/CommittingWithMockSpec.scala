@@ -20,12 +20,11 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object CommittingWithMockSpec {
@@ -53,11 +52,10 @@ class CommittingWithMockSpec(_system: ActorSystem)
     with Matchers
     with BeforeAndAfterAll
     with ScalaFutures
+    with IntegrationPatience
     with LogCapturing {
 
   import CommittingWithMockSpec._
-
-  implicit val patience: PatienceConfig = PatienceConfig(15.seconds, 1.second)
 
   def this() = this(ActorSystem())
 

@@ -10,8 +10,7 @@ import akka.kafka.testkit.scaladsl.KafkaSpec
 import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.stream.scaladsl.Flow
 import org.scalatest.{FlatSpecLike, Matchers, Suite}
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.time.{Millis, Seconds, Span}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 
 abstract class DocsSpecBase(kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
@@ -19,14 +18,12 @@ abstract class DocsSpecBase(kafkaPort: Int)
     with TestFrameworkInterface.Scalatest
     with Matchers
     with ScalaFutures
+    with IntegrationPatience
     with Eventually {
 
   this: Suite =>
 
   protected def this() = this(kafkaPort = -1)
-
-  override implicit def patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(15, Millis)))
 
   def businessFlow[T]: Flow[T, T, NotUsed] = Flow[T]
 
