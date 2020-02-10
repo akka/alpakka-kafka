@@ -118,3 +118,5 @@ env:
     - secure: "NLb9af0D3zS8UIHYqK86sLapFIN/iBpgXwjhc3t8e7bbVRVS1VKMNoqpzn75sd7rgYsComWboFUAo1oDMnGuOTf2onVOLDPWmp4QK568DVQTlEJ9rSI02RijjoPx4ViksI7wbh7Lz9VtupQVnBYU34Ozn7tuK12NGEHxQd9fCNE="
     # encrypt with: travis encrypt BINTRAY_PASS=...
     - secure: "DAhVvZ5hBy1MAznBCrQu6Rw6Pa7pCmqkpsYQFxG+y8Hsvi37WNMfyCOYcR6VnunMYWHDaFJ8LaqgWx8O4Usrl6JxZYt2J/jT7axKLqpsZg7xWaB2++tFWI2lZJewvb6EnPIZuEdr5oVKnazD5f55mxSqprOAHebim5IOXVaRGS0="
+    # override default akka.test.timefactor
+    - AKKA_TEST_TIMEFACTOR=10.0
