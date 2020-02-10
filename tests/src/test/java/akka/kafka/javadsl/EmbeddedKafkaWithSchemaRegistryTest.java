@@ -8,6 +8,7 @@ package akka.kafka.javadsl;
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.KafkaJunit4Test;
 import akka.stream.Materializer;
+import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityLevel;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKWithSR;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfig;
 import net.manub.embeddedkafka.schemaregistry.EmbeddedKafkaConfig$;
@@ -48,6 +49,7 @@ public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaJunit4Tes
         kafkaPort,
         zookeeperPort,
         schemaRegistryPort,
+        AvroCompatibilityLevel.NONE,
         createReplicationFactorBrokerProps(replicationFactor)
             .updated("zookeeper.connection.timeout.ms", "20000"),
         HashMap$.MODULE$.empty(),
