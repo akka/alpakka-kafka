@@ -166,7 +166,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
     val control = fixture.source
       .mapAsync(1) { m =>
         meter.mark()
-        m.committableOffset.commitInternal().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
+        m.committableOffset.commitInternal(flush = false).map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
       }
       .toMat(Sink.foreach { msg =>
         if (msg.committableOffset.partitionOffset.offset >= fixture.msgCount - 1)

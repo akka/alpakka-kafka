@@ -240,7 +240,7 @@ class ConsumerSpec(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(100)
-    val done = probe.expectNext().committableOffset.commitInternal()
+    val done = probe.expectNext().committableOffset.commitInternal(flush = false)
     probe.expectNextN(9)
 
     awaitAssert {
@@ -280,7 +280,7 @@ class ConsumerSpec(_system: ActorSystem)
     probe.expectComplete()
     Await.result(stopped, remainingOrDefault)
 
-    val done = first.committableOffset.commitInternal()
+    val done = first.committableOffset.commitInternal(flush = false)
     intercept[CommitTimeoutException] {
       Await.result(done, remainingOrDefault)
     }
@@ -297,7 +297,7 @@ class ConsumerSpec(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(5)
-    val done = probe.expectNext().committableOffset.commitInternal()
+    val done = probe.expectNext().committableOffset.commitInternal(flush = false)
     probe.expectNextN(4)
 
     awaitAssert {

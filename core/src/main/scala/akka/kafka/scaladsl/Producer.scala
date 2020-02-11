@@ -73,7 +73,7 @@ object Producer {
       settings: ProducerSettings[K, V]
   ): Sink[Envelope[K, V, ConsumerMessage.Committable], Future[Done]] =
     flexiFlow[K, V, ConsumerMessage.Committable](settings)
-      .mapAsync(settings.parallelism)(_.passThrough.commitInternal())
+      .mapAsync(settings.parallelism)(_.passThrough.commitInternal(flush = false))
       .toMat(Sink.ignore)(Keep.right)
 
   /**

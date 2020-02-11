@@ -60,7 +60,7 @@ object ConsumerMessage {
     def commitJavadsl(): CompletionStage[Done]
 
     @InternalApi
-    private[kafka] def commitInternal(): Future[Done]
+    private[kafka] def commitInternal(flush: Boolean): Future[Done]
 
     /**
      * Get a number of processed messages this committable contains
@@ -214,7 +214,7 @@ object ConsumerMessage {
      * Sends this offset batch to the consumer actor without expecting an answer.
      */
     @InternalApi
-    private[kafka] def tellCommit(): CommittableOffsetBatch
+    private[kafka] def tellCommit(flush: Boolean): CommittableOffsetBatch
   }
 
 }

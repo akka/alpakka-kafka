@@ -51,7 +51,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val (control, probe1) = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .mapAsync(10) { elem =>
-          elem.committableOffset.commitInternal().map { _ =>
+          elem.committableOffset.commitInternal(flush = false).map { _ =>
             committedElements.updateAndGet(new IntUnaryOperator {
               override def applyAsInt(operand: Int): Int = Math.max(operand, elem.record.value.toInt)
             })
@@ -157,7 +157,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val consumer1Read = Future.sequence(
         committables1
           .map { elem =>
-            elem.committableOffset.commitInternal().map { _ =>
+            elem.committableOffset.commitInternal(flush = false).map { _ =>
               elem.record.value
             }
           }
@@ -240,7 +240,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       Future.sequence(
         committables1
           .map { elem =>
-            elem.committableOffset.commitInternal().map { _ =>
+            elem.committableOffset.commitInternal(flush = false).map { _ =>
               elem.record.value
             }
           }
@@ -288,10 +288,10 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // then commit, which triggers a new poll while we haven't drained
       // previous buffer
-      committableOffset.commitInternal().futureValue shouldBe Done
+      committableOffset.commitInternal(flush = false).futureValue shouldBe Done
 
       probe1.request(1)
-      probe1.expectNext().committableOffset.commitInternal().futureValue shouldBe Done
+      probe1.expectNext().committableOffset.commitInternal(flush = false).futureValue shouldBe Done
 
       probe1.cancel()
       control.isShutdown.futureValue shouldBe Done
@@ -313,7 +313,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           )
           .map(_.committableOffset)
           .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
-          .mapAsync(1)(_.commitInternal())
+          .mapAsync(1)(_.commitInternal(flush = false))
           .toMat(TestSink.probe)(Keep.both)
           .run()
 

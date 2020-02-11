@@ -158,17 +158,17 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     scheduleOnce(CommittingProducerSinkStage.CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommittingProducerSinkStage.CommitNow => commit(Interval)
+    case CommittingProducerSinkStage.CommitNow => commit(Interval, flush = true)
   }
 
   private def collectOffset(count: Int, offset: Committable): Unit = {
     awaitingProduceResult -= count
     offsetBatch = offsetBatch.updated(offset)
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize)
-    else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed)
+    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize, flush = false)
+    else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed, flush = false)
   }
 
-  private def commit(triggeredBy: TriggerdBy): Unit = {
+  private def commit(triggeredBy: TriggerdBy, flush: Boolean): Unit = {
     if (offsetBatch.batchSize != 0) {
       log.debug("commit triggered by {} (awaitingProduceResult={} awaitingCommitResult={})",
                 triggeredBy,
@@ -176,7 +176,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
                 awaitingCommitResult)
       val batchSize = offsetBatch.batchSize
       offsetBatch
-        .commitInternal()
+        .commitInternal(flush)
         .onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
       offsetBatch = CommittableOffsetBatch.empty
     }
@@ -216,7 +216,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
           completeStage()
           streamCompletion.success(Done)
         } else {
-          commit(UpstreamFinish)
+          commit(UpstreamFinish, flush = false)
           setKeepGoing(true)
           upstreamCompletionState = Some(Success(Done))
         }
@@ -225,7 +225,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         if (awaitingCommitResult == 0) {
           closeAndFailStage(ex)
         } else {
-          commit(UpstreamFailure)
+          commit(UpstreamFailure, flush = true)
           setKeepGoing(true)
           upstreamCompletionState = Some(Failure(ex))
         }

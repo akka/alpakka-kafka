@@ -51,7 +51,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val (control, probe1) = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .mapAsync(10) { elem =>
-          elem.committableOffset.commitInternal().map { _ =>
+          elem.committableOffset.commitInternal(flush = false).map { _ =>
             committedElements.add(elem.record.value.toInt)
             Done
           }
