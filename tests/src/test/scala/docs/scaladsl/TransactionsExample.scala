@@ -11,7 +11,7 @@ import akka.Done
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.kafka.{ProducerMessage, Subscriptions}
+import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings, Repeated, Subscriptions, TransactionsOps}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -19,13 +19,13 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
+class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with TransactionsOps with Repeated {
 
   override def sleepAfterProduce: FiniteDuration = 10.seconds
 
   "Transactional sink" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val producerSettings = producerDefaults
+    val producerSettings = txProducerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
@@ -44,8 +44,9 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
     // ...
 
     // #transactionalSink
+    val testConsumerGroup = createGroupId(2)
     val (control2, result) = Consumer
-      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+      .plainSource(withProbeConsumerSettings(consumerSettings, testConsumerGroup), Subscriptions.topics(sinkTopic))
       .toMat(Sink.seq)(Keep.both)
       .run()
 
@@ -60,6 +61,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   it should "support `withOffsetContext`" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val producerSettings = txProducerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
     val control =
@@ -69,12 +71,13 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithOffsetContext(producerDefaults, createTransactionalId()))(Keep.both)
+        .toMat(Transactional.sinkWithOffsetContext(producerSettings, createTransactionalId()))(Keep.both)
         .mapMaterializedValue(DrainingControl.apply)
         .run()
 
+    val testConsumerGroup = createGroupId(2)
     val (control2, result) = Consumer
-      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+      .plainSource(probeConsumerSettings(testConsumerGroup), Subscriptions.topics(sinkTopic))
       .toMat(Sink.seq)(Keep.both)
       .run()
 
@@ -86,7 +89,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   "TransactionsFailureRetryExample" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val producerSettings = producerDefaults
+    val producerSettings = txProducerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
     val transactionalId = createTransactionalId()
@@ -116,8 +119,9 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
       Await.result(innerControl.get.shutdown(), 10.seconds)
     }
     // #transactionalFailureRetry
+    val testConsumerGroup = createGroupId(2)
     val (control2, result) = Consumer
-      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+      .plainSource(probeConsumerSettings(testConsumerGroup), Subscriptions.topics(sinkTopic))
       .toMat(Sink.seq)(Keep.both)
       .run()
 
@@ -129,7 +133,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 
 //  "Partitioned transactional sink" should "work" in {
 //    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-//    val producerSettings = producerDefaults
+//    val producerSettings = txProducerDefaults
 //    val maxPartitions = 2
 //    val sourceTopic = createTopic(1, maxPartitions, 1)
 //    val sinkTopic = createTopicName(2)
@@ -154,8 +158,9 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 //    // ...
 //
 //    // #partitionedTransactionalSink
+//    val testConsumerGroup = createGroupId(2)
 //    val (control2, result) = Consumer
-//      .plainSource(consumerSettings, Subscriptions.topics(sinkTopic))
+//      .plainSource(probeConsumerSettings(testConsumerGroup), Subscriptions.topics(sinkTopic))
 //      .toMat(Sink.seq)(Keep.both)
 //      .run()
 //
@@ -168,4 +173,12 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike {
 //    result.futureValue should have size (10)
 //  }
 
+  def probeConsumerSettings(groupId: String): ConsumerSettings[String, String] =
+    withProbeConsumerSettings(consumerDefaults, groupId)
+
+  override def producerDefaults: ProducerSettings[String, String] =
+    withTestProducerSettings(super.producerDefaults)
+
+  def txProducerDefaults: ProducerSettings[String, String] =
+    withTransactionalProducerSettings(super.producerDefaults)
 }
