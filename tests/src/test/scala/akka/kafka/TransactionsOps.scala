@@ -196,6 +196,18 @@ trait TransactionsOps extends TestSuite with Matchers {
 
   def withProbeConsumerSettings(settings: ConsumerSettings[String, String],
                                 groupId: String): ConsumerSettings[String, String] =
+    TransactionsOps.withProbeConsumerSettings(settings, groupId)
+
+  def withTestProducerSettings(settings: ProducerSettings[String, String]): ProducerSettings[String, String] =
+    TransactionsOps.withTestProducerSettings(settings)
+
+  def withTransactionalProducerSettings(settings: ProducerSettings[String, String]): ProducerSettings[String, String] =
+    TransactionsOps.withTransactionalProducerSettings(settings)
+}
+
+object TransactionsOps {
+  def withProbeConsumerSettings(settings: ConsumerSettings[String, String],
+                                groupId: String): ConsumerSettings[String, String] =
     settings
       .withGroupId(groupId)
       .withProperties(ConsumerConfig.ISOLATION_LEVEL_CONFIG -> "read_committed")

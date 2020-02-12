@@ -39,7 +39,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
   private static final ActorSystem system = ActorSystem.create("TransactionsExampleTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
-  private final ProducerSettings<String, String> producerSettings = producerDefaults();
+  private final ProducerSettings<String, String> producerSettings = txProducerDefaults();
 
   public TransactionsExampleTest() {
     super(system, materializer);
@@ -86,8 +86,9 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
     // ...
 
     // #transactionalSink
+    String testConsumerGroup = createGroupId(2);
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consumeString(targetTopic, 10);
+        consumeString(probeConsumerSettings(testConsumerGroup), targetTopic, 10);
     produceString(sourceTopic, 10, partition0);
     assertDone(consumer.isShutdown());
     // #transactionalSink
@@ -116,8 +117,9 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
             .mapMaterializedValue(Consumer::createDrainingControl)
             .run(materializer);
 
+    String testConsumerGroup = createGroupId(2);
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consumeString(targetTopic, 10);
+        consumeString(probeConsumerSettings(testConsumerGroup), targetTopic, 10);
     produceString(sourceTopic, 10, partition0);
     assertDone(consumer.isShutdown());
     control.drainAndShutdown(ec);
@@ -165,9 +167,10 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
     // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
     Runtime.getRuntime().addShutdownHook(new Thread(() -> innerControl.get().shutdown()));
     // #transactionalFailureRetry
+    String testConsumerGroup = createGroupId(2);
     int messages = 10;
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-        consumeString(targetTopic, messages);
+        consumeString(probeConsumerSettings(testConsumerGroup), targetTopic, messages);
     assertDone(produceString(sourceTopic, messages, partition0));
     assertDone(consumer.isShutdown());
     assertDone(innerControl.get().shutdown());
@@ -208,8 +211,9 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
   //    // ...
   //
   //    // #partitionedTransactionalSink
+  //    String testConsumerGroup = createGroupId(2);
   //    Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
-  //        consumeString(targetTopic, 10);
+  //        consumeString(probeConsumerSettings(testConsumerGroup), targetTopic, 10);
   //    produceString(sourceTopic, 10, partition0);
   //    assertDone(consumer.isShutdown());
   //    // #partitionedTransactionalSink
@@ -218,4 +222,26 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
   //    assertDone(control.isShutdown());
   //    assertEquals(10, resultOf(consumer.drainAndShutdown(ec)).size());
   //  }
+
+  protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
+      ConsumerSettings<String, String> settings, String topic, long take) {
+    return Consumer.plainSource(settings, Subscriptions.topics(topic))
+        .take(take)
+        .toMat(Sink.seq(), Keep.both())
+        .mapMaterializedValue(Consumer::createDrainingControl)
+        .run(materializer);
+  }
+
+  public ConsumerSettings<String, String> probeConsumerSettings(String groupId) {
+    return TransactionsOps$.MODULE$.withProbeConsumerSettings(this.consumerDefaults(), groupId);
+  }
+
+  @Override
+  public ProducerSettings<String, String> producerDefaults() {
+    return TransactionsOps$.MODULE$.withTestProducerSettings(super.producerDefaults());
+  }
+
+  public ProducerSettings<String, String> txProducerDefaults() {
+    return TransactionsOps$.MODULE$.withTransactionalProducerSettings(super.producerDefaults());
+  }
 }
