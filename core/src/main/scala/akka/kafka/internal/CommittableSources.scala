@@ -146,33 +146,34 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
     implicit ec: ExecutionContext
 ) {
 
-  def commitSingle(offset: CommittableOffsetImpl): Future[Done] =
+  def commitSingle(offset: CommittableOffsetImpl, flush: Boolean): Future[Done] =
     sendCommit(
       CommitSingle(
         new TopicPartition(offset.partitionOffset.key.topic, offset.partitionOffset.key.partition),
-        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata)
+        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata),
+        flush
       )
     )
 
-  def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
+  def commit(batch: CommittableOffsetBatch, flush: Boolean): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
       val futures = b.offsetsAndMetadata.map {
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
-          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset))
+          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset, flush))
       }
       Future.sequence(futures).map(_ => Done)
 
     case _ => failForUnexpectedImplementation(batch)
   }
 
-  def tellCommit(batch: CommittableOffsetBatch): Unit = batch match {
+  def tellCommit(batch: CommittableOffsetBatch, flush: Boolean): Unit = batch match {
     case b: CommittableOffsetBatchImpl =>
       b.offsetsAndMetadata.foreach {
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
           b.committerFor(groupTopicPartition)
-            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset))
+            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset, flush))
       }
 
     case _ => failForUnexpectedImplementation(batch)

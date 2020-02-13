@@ -63,13 +63,13 @@ import scala.util.control.NonFatal
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
     final case class StopFromStage(stageId: String) extends StopLike
-    final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
+    final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, flush: Boolean)
         extends NoSerializationVerificationNeeded
-    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
+    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, flush: Boolean)
         extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
-    final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
+    final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, flush: Boolean)
         extends NoSerializationVerificationNeeded
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -254,16 +254,16 @@ import scala.util.control.NonFatal
   override val receive: Receive = regularReceive
 
   def regularReceive: Receive = LoggingReceive {
-    case Commit(tp, offset) =>
+    case Commit(tp, offset, flush) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
 
-    case CommitWithoutReply(tp, offset) =>
+    case CommitWithoutReply(tp, offset, flush) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
 
-    case CommitSingle(tp, offset) =>
+    case CommitSingle(tp, offset, flush) =>
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
       requestDelayedPoll()
