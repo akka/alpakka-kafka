@@ -1,7 +1,6 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0")
 addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.6")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.3")
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.10")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.4.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.1")
