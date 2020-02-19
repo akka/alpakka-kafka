@@ -16,6 +16,12 @@ To simplify testing of streaming integrations with Alpakka Kafka, it provides th
   artifact=akka-stream-kafka-testkit_$scala.binary.version$
   version=$project.version$
   scope=test
+  symbol2=AkkaVersion
+  value2="$akka.version$"
+  group2=com.typesafe.akka
+  artifact2=akka-stream-testkit_$scala.binary.version$
+  version2=AkkaVersion
+  scope2=test
 }
 
 Note that Akka testkits do not promise binary compatibility. The API might be changed even between patch releases.
