@@ -51,6 +51,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     with DeferredProducer[K, V] {
 
   import CommittingProducerSinkStage._
+  import CommitTrigger._
 
   /** The promise behind the materialized future. */
   final val streamCompletion = Promise[Done]
@@ -259,21 +260,4 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
 private object CommittingProducerSinkStage {
   val CommitNow = "commit"
-
-  sealed trait TriggerdBy
-  case object BatchSize extends TriggerdBy {
-    override def toString: String = "batch size"
-  }
-  case object Interval extends TriggerdBy {
-    override def toString: String = "interval"
-  }
-  case object UpstreamClosed extends TriggerdBy {
-    override def toString: String = "upstream closed"
-  }
-  case object UpstreamFinish extends TriggerdBy {
-    override def toString: String = "upstream finish"
-  }
-  case object UpstreamFailure extends TriggerdBy {
-    override def toString: String = "upstream failure"
-  }
 }
