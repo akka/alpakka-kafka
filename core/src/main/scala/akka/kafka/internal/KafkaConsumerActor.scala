@@ -258,10 +258,16 @@ import scala.util.control.NonFatal
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
+      if (flush) {
+        requestDelayedPoll()
+      }
 
     case CommitWithoutReply(tp, offset, flush) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
+      if (flush) {
+        requestDelayedPoll()
+      }
 
     case CommitSingle(tp, offset, _) =>
       commitMaps = tp -> offset :: commitMaps

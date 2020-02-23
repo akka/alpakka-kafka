@@ -159,7 +159,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     scheduleOnce(CommittingProducerSinkStage.CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommittingProducerSinkStage.CommitNow => commit(Interval, flush = true)
+    case CommittingProducerSinkStage.CommitNow => commit(Interval, flush = false)
   }
 
   private def collectOffset(count: Int, offset: Committable): Unit = {

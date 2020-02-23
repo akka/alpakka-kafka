@@ -60,7 +60,7 @@ object ConsumerMessage {
     def commitJavadsl(): CompletionStage[Done]
 
     @InternalApi
-    private[kafka] def commitInternal(flush: Boolean): Future[Done]
+    private[kafka] def commitInternal(flush: Boolean = false): Future[Done]
 
     /**
      * Get a number of processed messages this committable contains
