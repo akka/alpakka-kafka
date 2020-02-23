@@ -11,13 +11,13 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch, PartitionOffset}
-import akka.kafka.scaladsl.Consumer
+import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{CommitterSettings, ConsumerMessage}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Keep}
+import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
@@ -106,11 +106,13 @@ class CommittingFlowStageSpec(_system: ActorSystem)
     }
 
     "all offsets are in batch that is in flight" should {
-      val settings = DefaultCommitterSettings.withMaxBatch(Integer.MAX_VALUE).withMaxInterval(10.hours)
+      val settings =
+        DefaultCommitterSettings.withMaxBatch(Integer.MAX_VALUE).withMaxInterval(10.hours).withParallelism(1)
 
       "batch commit all buffered elements if upstream has suddenly completed" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
 
+        sinkProbe.ensureSubscription()
         sinkProbe.request(100)
 
         val msg = factory.makeOffset()
@@ -151,20 +153,23 @@ class CommittingFlowStageSpec(_system: ActorSystem)
 
       "batch commit all buffered elements if upstream has suddenly failed" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
-        val testError = new IllegalStateException("BOOM")
 
         sinkProbe.request(100)
 
-        val msg = factory.makeOffset()
-        sourceProbe.sendNext(msg)
+        val msgs = (1 to 10).map(_ => factory.makeOffset())
+
+        msgs.foreach(sourceProbe.sendNext)
+
+        val testError = new IllegalStateException("BOOM")
         sourceProbe.sendError(testError)
 
         val committedBatch = sinkProbe.expectNext()
-        committedBatch.batchSize shouldBe 1
+        committedBatch.batchSize shouldBe 10
         committedBatch.offsets.values should have size 1
-        committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
+        committedBatch.offsets.values.last shouldBe msgs.last.partitionOffset.offset
         factory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
 
+        sinkProbe.request(1)
         sinkProbe.expectError(testError)
 
         control.shutdown().futureValue shouldBe Done
@@ -178,7 +183,7 @@ class CommittingFlowStageSpec(_system: ActorSystem)
       committerSettings: CommitterSettings
   ): (TestPublisher.Probe[CommittableOffset], Consumer.Control, TestSubscriber.Probe[CommittableOffsetBatch]) = {
 
-    val flow = Flow.fromGraph(new CommittingFlowStage(committerSettings))
+    val flow = Committer.batchFlow(committerSettings)
 
     val ((source, control), sink) = TestSource
       .probe[CommittableOffset]
@@ -203,9 +208,10 @@ class CommittingFlowStageSpec(_system: ActorSystem)
 }
 
 object TestCommittableOffset {
-  private val offsetCounter = new AtomicLong(0L)
 
-  def apply(committer: TestBatchCommitter, failWith: Option[Throwable] = None): CommittableOffset = {
+  def apply(offsetCounter: AtomicLong,
+            committer: TestBatchCommitter,
+            failWith: Option[Throwable] = None): CommittableOffset = {
     CommittableOffsetImpl(
       ConsumerResultFactory
         .partitionOffset(groupId = "group1", topic = "topic1", partition = 1, offset = offsetCounter.incrementAndGet()),
@@ -215,8 +221,10 @@ object TestCommittableOffset {
 }
 
 class TestOffsetFactory(val committer: TestBatchCommitter) {
+  private val offsetCounter = new AtomicLong(0L)
+
   def makeOffset(failWith: Option[Throwable] = None): CommittableOffset = {
-    TestCommittableOffset(committer, failWith)
+    TestCommittableOffset(offsetCounter, committer, failWith)
   }
 }
 

@@ -10,6 +10,8 @@ import akka.annotation.InternalApi
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.internal.CommittingFlowStage.FlushableOffsetBatch
+import akka.stream.ActorAttributes.SupervisionStrategy
+import akka.stream.Supervision.Decider
 import akka.stream._
 import akka.stream.stage._
 
@@ -53,6 +55,10 @@ private final class CommittingFlowStageLogic(
     log.debug("CommittingFlowStage initialized")
   }
 
+  inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
+
+  protected val failsStageCallback: AsyncCallback[Throwable] = getAsyncCallback[Throwable](failStage)
+
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
@@ -86,10 +92,6 @@ private final class CommittingFlowStageLogic(
     scheduleCommit()
   }
 
-  // ---- handler and completion
-  /** Keeps track of upstream completion signals until this stage shuts down. */
-  private var upstreamCompletionState: Option[Try[Done]] = None
-
   setHandler(
     stage.in,
     new InHandler {
@@ -112,16 +114,13 @@ private final class CommittingFlowStageLogic(
         if (noActiveBatchInProgress) {
           failStage(ex)
         } else {
-          pushDownStream(UpstreamFailure, flush = true)(push[FlushableOffsetBatch]) // push batch in flight and then fail
-          upstreamCompletionState = Some(Failure(ex))
-          failStage(ex)
+          setKeepGoing(true)
+          pushDownStream(UpstreamFailure, flush = true)(emit[FlushableOffsetBatch]) // push batch in flight and then fail
+          failsStageCallback.invoke(ex)
         }
       }
     }
   )
-
-  private def noActiveBatchInProgress: Boolean = offsetBatch.batchSize == 0
-  private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
 
   setHandler(
     stage.out,
@@ -136,6 +135,9 @@ private final class CommittingFlowStageLogic(
     log.debug("CommittingFlowStage stopped")
     super.postStop()
   }
+
+  private def noActiveBatchInProgress: Boolean = offsetBatch.batchSize == 0
+  private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
 }
 
 private[akka] object CommittingFlowStage {

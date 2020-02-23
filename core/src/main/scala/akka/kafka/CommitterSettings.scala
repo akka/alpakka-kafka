@@ -75,8 +75,7 @@ object CommitterSettings {
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
     val delivery = CommitDelivery.valueOf(config.getString("delivery"))
-    val flushPartialBatch = config.getBoolean("flush-partial-batches")
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, flushPartialBatch)
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
   }
 
   /**
@@ -105,8 +104,7 @@ class CommitterSettings private (
     val maxBatch: Long,
     val maxInterval: FiniteDuration,
     val parallelism: Int,
-    val delivery: CommitDelivery,
-    val flushPartialBatches: Boolean
+    val delivery: CommitDelivery
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -125,22 +123,16 @@ class CommitterSettings private (
   def withDelivery(value: CommitDelivery): CommitterSettings =
     copy(delivery = value)
 
-  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1039")
-  def withFlushPartialBatches(flushPartialBatches: Boolean): CommitterSettings =
-    copy(flushPartialBatches = flushPartialBatches)
-
   private def copy(maxBatch: Long = maxBatch,
                    maxInterval: FiniteDuration = maxInterval,
                    parallelism: Int = parallelism,
-                   delivery: CommitDelivery = delivery,
-                   flushPartialBatches: Boolean = flushPartialBatches): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, flushPartialBatches)
+                   delivery: CommitDelivery = delivery): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
     s"maxBatch=$maxBatch," +
     s"maxInterval=${maxInterval.toCoarsest}," +
     s"parallelism=$parallelism," +
-    s"delivery=$delivery," +
-    s"flushPartialBatches=$flushPartialBatches)"
+    s"delivery=$delivery)"
 }
