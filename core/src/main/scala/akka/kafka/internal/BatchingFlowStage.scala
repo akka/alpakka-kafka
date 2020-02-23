@@ -9,13 +9,13 @@ import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
-import akka.kafka.internal.CommittingFlowStage.FlushableOffsetBatch
+import akka.kafka.internal.BatchingFlowStage.FlushableOffsetBatch
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream._
 import akka.stream.stage._
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
  * INTERNAL API.
@@ -23,41 +23,37 @@ import scala.util.{Failure, Try}
  * Combined stage for producing, batching commits and committing.
  */
 @InternalApi
-private[kafka] final class CommittingFlowStage(val committerSettings: CommitterSettings)
-    extends GraphStage[FlowShape[Committable, FlushableOffsetBatch]] {
+private[kafka] final class BatchingFlowStage(val committerSettings: CommitterSettings)
+    extends GraphStage[FlowShape[Committable, Try[FlushableOffsetBatch]]] {
 
   val in: Inlet[Committable] = Inlet[Committable]("FlowIn")
-  val out: Outlet[FlushableOffsetBatch] = Outlet[FlushableOffsetBatch]("FlowOut")
-  val shape: FlowShape[Committable, FlushableOffsetBatch] = FlowShape(in, out)
+  val out: Outlet[Try[FlushableOffsetBatch]] = Outlet[Try[FlushableOffsetBatch]]("FlowOut")
+  val shape: FlowShape[Committable, Try[FlushableOffsetBatch]] = FlowShape(in, out)
 
   override def createLogic(
       inheritedAttributes: Attributes
   ): GraphStageLogic = {
-    new CommittingFlowStageLogic(this, inheritedAttributes)
+    new BatchingFlowStageLogic(this, inheritedAttributes)
   }
 }
 
-private final class CommittingFlowStageLogic(
-    stage: CommittingFlowStage,
+private final class BatchingFlowStageLogic(
+    stage: BatchingFlowStage,
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageIdLogging {
 
   import CommitTrigger._
-  import CommittingFlowStage._
+  import BatchingFlowStage._
 
-  override protected def logSource: Class[_] = classOf[CommittingFlowStageLogic]
+  override protected def logSource: Class[_] = classOf[BatchingFlowStageLogic]
 
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
     scheduleCommit()
-    log.debug("CommittingFlowStage initialized")
+    log.debug("BatchingFlowStage initialized")
   }
-
-  inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
-
-  protected val failsStageCallback: AsyncCallback[Throwable] = getAsyncCallback[Throwable](failStage)
 
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
@@ -74,18 +70,18 @@ private final class CommittingFlowStageLogic(
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommittingFlowStage.CommitNow => pushDownStream(Interval, flush = false)(push)
+    case BatchingFlowStage.CommitNow => pushDownStream(Interval, flush = false)(push)
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy, flush: Boolean)(
-      emission: (Outlet[FlushableOffsetBatch], FlushableOffsetBatch) => Unit
+      emission: (Outlet[Try[FlushableOffsetBatch]], Try[FlushableOffsetBatch]) => Unit
   ): Unit = {
     if (activeBatchInProgress) {
       log.debug("pushDownStream triggered by {} (flush={}, offsetBatch.size={})",
                 triggeredBy,
                 flush,
                 offsetBatch.batchSize)
-      val outBatch = FlushableOffsetBatch(offsetBatch, flush)
+      val outBatch = Success(FlushableOffsetBatch(offsetBatch, flush))
       emission(stage.out, outBatch)
       offsetBatch = CommittableOffsetBatch.empty
     }
@@ -104,19 +100,22 @@ private final class CommittingFlowStageLogic(
           completeStage()
         } else {
           val flush = false
-          pushDownStream(UpstreamFinish, flush)(emit[FlushableOffsetBatch])
+          pushDownStream(UpstreamFinish, flush)(emit[Try[FlushableOffsetBatch]])
           completeStage()
         }
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
+        def emissionWithException(outlet: Outlet[Try[FlushableOffsetBatch]], elem: Try[FlushableOffsetBatch]): Unit = {
+          emitMultiple(outlet, List(elem, Failure(ex)))
+        }
+
         log.debug("Received onUpstreamFailure with exception {}", ex)
         if (noActiveBatchInProgress) {
           failStage(ex)
         } else {
           setKeepGoing(true)
-          pushDownStream(UpstreamFailure, flush = true)(emit[FlushableOffsetBatch]) // push batch in flight and then fail
-          failsStageCallback.invoke(ex)
+          pushDownStream(UpstreamFailure, flush = true)(emissionWithException) // push batch in flight and then fail
         }
       }
     }
@@ -132,7 +131,7 @@ private final class CommittingFlowStageLogic(
   )
 
   override def postStop(): Unit = {
-    log.debug("CommittingFlowStage stopped")
+    log.debug("BatchingFlowStage stopped")
     super.postStop()
   }
 
@@ -140,7 +139,7 @@ private final class CommittingFlowStageLogic(
   private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
 }
 
-private[akka] object CommittingFlowStage {
+private[akka] object BatchingFlowStage {
   val CommitNow = "flowStageCommit"
 
   final case class FlushableOffsetBatch(batch: CommittableOffsetBatch, flush: Boolean)
