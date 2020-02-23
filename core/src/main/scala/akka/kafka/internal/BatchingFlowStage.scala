@@ -5,13 +5,10 @@
 
 package akka.kafka.internal
 
-import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.internal.BatchingFlowStage.FlushableOffsetBatch
-import akka.stream.ActorAttributes.SupervisionStrategy
-import akka.stream.Supervision.Decider
 import akka.stream._
 import akka.stream.stage._
 
@@ -43,8 +40,8 @@ private final class BatchingFlowStageLogic(
 ) extends TimerGraphStageLogic(stage.shape)
     with StageIdLogging {
 
-  import CommitTrigger._
   import BatchingFlowStage._
+  import CommitTrigger._
 
   override protected def logSource: Class[_] = classOf[BatchingFlowStageLogic]
 
