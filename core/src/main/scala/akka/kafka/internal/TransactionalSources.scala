@@ -163,13 +163,15 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
       // This is invoked in the KafkaConsumerActor thread when doing poll.
-      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
+        filterRevokedPartitionsCB.invoke(revokedTps)
         if (waitForDraining(revokedTps)) {
           sourceActor.ref.tell(Revoked(revokedTps.toList), consumerActor)
         } else {
           sourceActor.ref.tell(Failure(new Error("Timeout while draining")), consumerActor)
           consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), consumerActor)
         }
+      }
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         onRevoke(lostTps, consumer)
