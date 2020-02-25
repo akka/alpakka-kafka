@@ -45,7 +45,7 @@ class TransactionsSourceSpec extends SpecBase
       val sinkTopic = createTopic(2, destinationPartitions, replication)
       val group = createGroupId(1)
 
-      val elements = 100 * 1000
+      val elements = 100 * 100000 // TODO: revert before merge
       val restartAfter = 10 * 1000
 
       val partitionSize = elements / sourcePartitions
