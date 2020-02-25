@@ -20,12 +20,12 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object CommittingWithMockSpec {
@@ -52,12 +52,12 @@ class CommittingWithMockSpec(_system: ActorSystem)
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
+    with Eventually
     with ScalaFutures
+    with IntegrationPatience
     with LogCapturing {
 
   import CommittingWithMockSpec._
-
-  implicit val patience: PatienceConfig = PatienceConfig(15.seconds, 1.second)
 
   def this() = this(ActorSystem())
 
@@ -224,10 +224,21 @@ class CommittingWithMockSpec(_system: ActorSystem)
       }
     }
 
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+    // Await until every message is committed
+    var lastOffsetObserved = -1L
+    eventually {
+      //emulate commit
+      commitLog.calls.foreach {
+        case (offsets, callback) =>
+          // What is the highest offset recorded in this callback?
+          val max = offsets.map { case (key, value) => value.offset() }.max
+          // update lastOffsetObserved
+          lastOffsetObserved = Math.max(lastOffsetObserved, max)
+          callback.onComplete(offsets.asJava, null)
+      }
+      lastOffsetObserved should be >= count.toLong
     }
+
     allCommits.futureValue should have size (count.toLong)
     control.shutdown().futureValue shouldBe Done
   }

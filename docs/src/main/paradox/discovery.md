@@ -12,9 +12,11 @@ Akka Discovery supports Configuration (HOCON), DNS (SRV records), and aggregatio
 The Akka Discovery version must match the Akka version used in your build. To use the implementations provided by Akka Management, you need to add the desired dependency.
 
 @@dependency [Maven,sbt,Gradle] {
+  symbol=AkkaVersion
+  value=$akka.version$
   group=com.typesafe.akka
   artifact=akka-discovery_$scala.binary.version$
-  version=$akka.version$
+  version=AkkaVersion
 }
 
 ## Configure consumer settings

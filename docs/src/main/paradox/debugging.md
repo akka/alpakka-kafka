@@ -9,9 +9,11 @@ Akka, Akka Streams and thus the Alpakka Kafka Connector support [SLF4J logging A
 The Kafka client library used by the Alpakka Kafka connector uses SLF4J, as well.
 
 @@dependency [Maven,sbt,Gradle] {
+  symbol=AkkaVersion
+  value="$akka.version$"
   group=com.typesafe.akka
   artifact=akka-slf4j_$scala.binary.version$
-  version=$akka.version$
+  version=AkkaVersion
   group2=ch.qos.logback
   artifact2=logback-classic
   version2=1.2.3

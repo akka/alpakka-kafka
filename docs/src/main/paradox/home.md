@@ -37,6 +37,11 @@ These client can communicate with brokers that are version 0.10.0 or newer. Olde
   group=com.typesafe.akka
   artifact=akka-stream-kafka_$scala.binary.version$
   version=$project.version$
+  symbol2=AkkaVersion
+  value2="$akka.version$"
+  group2=com.typesafe.akka
+  artifact2=akka-stream_$scala.binary.version$
+  version2=AkkaVersion
 }
 
 This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.

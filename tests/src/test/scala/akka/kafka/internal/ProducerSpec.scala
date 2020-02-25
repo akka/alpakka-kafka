@@ -376,6 +376,31 @@ class ProducerSpec(_system: ActorSystem)
     }
   }
 
+  it should "not close the producer on failure if closeProducerOnStop is false" in {
+    assertAllStagesStopped {
+      val input = 1 to 3 map recordAndMetadata
+      val error = new Exception("Something wrong in kafka")
+
+      val client = new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis) { _ =>
+        Failure(error)
+      })
+
+      val (source, sink) = TestSource
+        .probe[Msg]
+        .via(testProducerFlow(client, closeOnStop = false))
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      sink.request(100)
+      input.map(toMessage).foreach(source.sendNext)
+
+      source.expectCancellation()
+
+      client.verifySend(atLeastOnce())
+      client.verifyNoMoreInteractions()
+    }
+  }
+
   it should "not initialize and begin transaction when there are no messages" in {
     assertAllStagesStopped {
       val client = new ProducerMock[K, V](ProducerMock.handlers.fail)

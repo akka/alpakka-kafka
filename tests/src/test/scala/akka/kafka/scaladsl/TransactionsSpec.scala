@@ -25,8 +25,6 @@ import scala.concurrent.{Await, Future}
 
 class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with TransactionsOps {
 
-  implicit val patience = PatienceConfig(5.seconds, 15.millis)
-
   "A consume-transform-produce cycle" must {
 
     "complete in happy-path scenario" in {

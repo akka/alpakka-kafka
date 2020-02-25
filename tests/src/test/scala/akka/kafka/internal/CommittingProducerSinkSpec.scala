@@ -214,6 +214,49 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     control.drainAndShutdown().futureValue shouldBe Done
   }
 
+  it should "produce, and commit when batch size is reached with multi-messages" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producerRecordsPerInput = 2
+    val totalProducerRecords = elements.size * producerRecordsPerInput
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(elements.size.longValue())
+
+    val control = Source(elements)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.multi(
+          (1 to producerRecordsPerInput)
+            .map(n => new ProducerRecord("targetTopic", msg.record.key, msg.record.value)),
+          msg.committableOffset
+        )
+      }
+      .toMat(
+        Producer.committableSink(producerSettings, committerSettings)
+      )(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + elements.size)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (totalProducerRecords.longValue())
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
   it should "produce, and commit on completion" in assertAllStagesStopped {
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
 
@@ -414,6 +457,56 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     // second message succeeds and its offset gets committed
     while (!producer.completeNext()) {}
     val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (2)
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
+  it should "choose to ignore producer errors and shut down cleanly" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    // choose a large commit interval so that completion happens before
+    val largeCommitInterval = 30.seconds
+    val committerSettings = CommitterSettings(system).withMaxInterval(largeCommitInterval)
+
+    val control = Source(elements)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(
+        Producer
+          .committableSink(producerSettings, committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+      )(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    // fail the first message
+    while (!producer.errorNext(new RuntimeException("let producing fail"))) {}
+    consumer.actor.expectNoMessage(100.millis)
+
+    // second message succeeds and its offset gets committed
+    while (!producer.completeNext()) {}
+
+    // expect the commit to reach the actor within 1 second because the source completed, which should trigger commit
+    val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.Commit])
     commitMsg.tp shouldBe new TopicPartition(topic, partition)
     commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
     consumer.actor.reply(Done)

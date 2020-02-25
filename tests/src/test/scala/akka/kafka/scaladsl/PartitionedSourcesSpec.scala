@@ -5,7 +5,9 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+import java.util.function.LongBinaryOperator
 
 import akka.Done
 import akka.kafka._
@@ -16,7 +18,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
-import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
@@ -27,7 +29,6 @@ import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues {
 
-  implicit val patience = PatienceConfig(15.seconds, 500.millis)
   override def sleepAfterProduce: FiniteDuration = 500.millis
 
   "Partitioned source" must {
@@ -411,6 +412,119 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       accumulator.futureValue shouldBe totalMessages
       killSwitch.shutdown()
       consumerCompletion.futureValue
+    }
+
+    "not leave gaps after a rebalance with manual offsets" in assertAllStagesStopped {
+      val partitions = 2
+      val messagesPerPartition = 100L
+      val totalMessages = messagesPerPartition * partitions
+
+      val topic = createTopic(1, partitions)
+      val group = createGroupId()
+      val sourceSettings = consumerDefaults
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
+        .withGroupId(group)
+
+      val maxEncounteredOffsets = (0 until partitions).map(_ -> new AtomicLong()).toMap
+
+      def externalCommitOffset(partitionId: Int, offset: Long): Future[Unit] = {
+        log.info(s"Commit $partitionId at $offset")
+        maxEncounteredOffsets(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
+          override def applyAsLong(left: Long, right: Long): Long = left.max(right)
+        })
+        Future.successful(())
+      }
+
+      val receivedMessages = new AtomicLong(0)
+
+      val producer = Source(1L to totalMessages)
+        .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
+
+      producer.futureValue shouldBe Done
+
+      def createAndRunConsumer(
+          recordProcessor: ConsumerRecord[String, String] => Future[ConsumerRecord[String, String]]
+      ) =
+        Consumer
+          .plainPartitionedManualOffsetSource(
+            sourceSettings,
+            Subscriptions.topics(topic),
+            topicPartitions => {
+              Future.successful(topicPartitions.map(tp => tp -> maxEncounteredOffsets(tp.partition()).get()).toMap)
+            }
+          )
+          .groupBy(partitions, _._1)
+          .mapAsync(8) {
+            case (tp, source) =>
+              log.info(s"Sub-source for $tp")
+              source
+                .mapAsync(1)(recordProcessor)
+                .runWith(Sink.ignore)
+                .map { res =>
+                  log.info(s"Sub-source for $tp completed")
+                  res
+                }
+          }
+          .mergeSubstreams
+          .toMat(Sink.ignore)(Keep.both)
+          .mapMaterializedValue(DrainingControl.apply)
+          .run()
+
+      val firstHalfLatch = new CountDownLatch(1)
+      val latch = new CountDownLatch(1)
+
+      val control1 = createAndRunConsumer(r => {
+        log.debug(s"control1 got ${r.partition()} at offset ${r.offset()}")
+        val f = if (r.offset() <= messagesPerPartition / 2) {
+          Future.successful(r)
+        } else {
+          firstHalfLatch.countDown()
+          Future {
+            latch.await(20, TimeUnit.SECONDS)
+            r
+          }
+        }
+        f.andThen {
+          case Success(_) =>
+            receivedMessages.incrementAndGet()
+            externalCommitOffset(r.partition(), r.offset())
+        }
+      })
+
+      firstHalfLatch.await(30, TimeUnit.SECONDS) should be(true)
+      log.debug("First half latch counted down")
+
+      val control2 = createAndRunConsumer(r => {
+        log.debug(s"control2 got ${r.partition()} at offset ${r.offset()}")
+        Future
+          .successful {
+            latch.await(30, TimeUnit.SECONDS)
+            r
+          }
+          .andThen {
+            case Success(_) =>
+              receivedMessages.incrementAndGet()
+              externalCommitOffset(r.partition(), r.offset())
+          }
+      })
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
+      }
+
+      log.debug("Now there are 2 consumers, going to continue")
+      latch.countDown()
+
+      eventually {
+        receivedMessages.get() should be >= totalMessages
+      }
+      control1.drainAndShutdown().futureValue should be(Done)
+      control2.drainAndShutdown().futureValue should be(Done)
     }
 
     "handle exceptions in stream without commit failures" in assertAllStagesStopped {

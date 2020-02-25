@@ -83,7 +83,7 @@ private[kafka] trait DeferredProducer[K, V] {
   }
 
   protected def closeProducerImmediately(): Unit =
-    if (producer != null) {
+    if (producer != null && producerSettings.closeProducerOnStop) {
       // Discard unsent ProducerRecords after encountering a send-failure in ProducerStage
       // https://github.com/akka/alpakka-kafka/pull/318
       producer.close(java.time.Duration.ZERO)

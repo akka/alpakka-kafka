@@ -11,7 +11,7 @@ import akka.kafka.ConsumerMessage._
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
+import akka.kafka.{CommitTimeoutException, ConsumerSettings, Repeated, Subscriptions}
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -20,6 +20,7 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito.Mockito._
+import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.jdk.CollectionConverters._
@@ -51,7 +52,9 @@ class ConsumerSpec(_system: ActorSystem)
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with LogCapturing {
+    with LogCapturing
+    with Eventually
+    with Repeated {
 
   import ConsumerSpec._
 
@@ -260,7 +263,9 @@ class ConsumerSpec(_system: ActorSystem)
 
     Await.result(done, remainingOrDefault)
     Await.result(stopped, remainingOrDefault)
-    mock.verifyClosed()
+    eventually {
+      mock.verifyClosed()
+    }
   }
 
   it should "complete futures with failure when commit after stop" in assertAllStagesStopped {

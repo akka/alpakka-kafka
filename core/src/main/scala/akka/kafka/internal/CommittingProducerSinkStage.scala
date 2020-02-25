@@ -101,7 +101,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       case multiMsg: MultiMessage[K, V, Committable] =>
         val size = multiMsg.records.size
         awaitingProduceResult += size
-        awaitingCommitResult += size
+        awaitingCommitResult += 1
         val cb = new SendMultiCallback(size, multiMsg.passThrough)
         for {
           record <- multiMsg.records
@@ -112,11 +112,12 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         collectOffset(0, msg.passThrough)
     }
 
-  private val sendFailureCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable] { exception =>
-    decider(exception) match {
-      case Supervision.Stop => closeAndFailStage(exception)
-      case _ => collectOffsetIgnore(exception)
-    }
+  private val sendFailureCb: AsyncCallback[(Int, Throwable)] = getAsyncCallback[(Int, Throwable)] {
+    case (count, exception) =>
+      decider(exception) match {
+        case Supervision.Stop => closeAndFailStage(exception)
+        case _ => collectOffsetIgnore(count, exception)
+      }
   }
 
   /** send-callback for a single message. */
@@ -124,7 +125,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
       if (exception == null) collectOffsetCb.invoke(offset)
-      else sendFailureCb.invoke(exception)
+      else sendFailureCb.invoke(1 -> exception)
   }
 
   /** send-callback for a multi-message. */
@@ -134,7 +135,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit =
       if (exception == null) {
         if (counter.decrementAndGet() == 0) collectOffsetMultiCb.invoke(count -> offset)
-      } else sendFailureCb.invoke(exception)
+      } else sendFailureCb.invoke(count -> exception)
   }
 
   // ---- Committing
@@ -150,9 +151,10 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       collectOffset(count, offset)
   }
 
-  private def collectOffsetIgnore(exception: Throwable): Unit = {
+  private def collectOffsetIgnore(count: Int, exception: Throwable): Unit = {
     log.warning("ignoring send failure {}", exception)
     awaitingCommitResult -= 1
+    awaitingProduceResult -= count
   }
 
   private def scheduleCommit(): Unit =

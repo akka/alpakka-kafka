@@ -16,7 +16,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
-  implicit val pc = PatienceConfig(45.seconds, 1.second)
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(45.seconds, 1.second)
 
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
     .withNumBrokers(3)
