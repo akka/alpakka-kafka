@@ -142,8 +142,8 @@ private[kafka] trait OffsetContextBuilder[K, V]
 )(
     val committer: KafkaAsyncConsumerCommitterRef
 ) extends CommittableOffsetMetadata {
-  override def commitScaladsl(): Future[Done] = commitInternal(flush = false)
-  override def commitJavadsl(): CompletionStage[Done] = commitInternal(flush = false).toJava
+  override def commitScaladsl(): Future[Done] = commitInternal()
+  override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
   override def commitInternal(flush: Boolean): Future[Done] = committer.commitSingle(this, flush)
   override val batchSize: Long = 1
 }
@@ -226,7 +226,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
   override def toString: String =
     s"CommittableOffsetBatch(batchSize=$batchSize, ${offsets.mkString(", ")})"
 
-  override def commitScaladsl(): Future[Done] = commitInternal(flush = false)
+  override def commitScaladsl(): Future[Done] = commitInternal()
 
   override def commitInternal(flush: Boolean): Future[Done] =
     if (batchSize == 0L)
@@ -242,6 +242,6 @@ private[kafka] final class CommittableOffsetBatchImpl(
     this
   }
 
-  override def commitJavadsl(): CompletionStage[Done] = commitInternal(flush = false).toJava
+  override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
 
 }

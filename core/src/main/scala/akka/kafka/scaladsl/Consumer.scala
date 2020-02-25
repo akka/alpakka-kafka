@@ -246,7 +246,7 @@ object Consumer {
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
-      m.committableOffset.commitInternal(flush = false).map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
+      m.committableOffset.commitInternal().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
     }
 
   /**
