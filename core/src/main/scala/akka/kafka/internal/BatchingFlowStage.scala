@@ -17,7 +17,8 @@ import scala.util.{Failure, Success, Try}
 /**
  * INTERNAL API.
  *
- * Combined stage for producing, batching commits and committing.
+ * Combined stage for committing incoming offsets in batches. Capable of emitting dynamic (reduced) size batch in case of
+ * upstream failures. Support flushing on failure (for downstreams).
  */
 @InternalApi
 private[kafka] final class BatchingFlowStage(val committerSettings: CommitterSettings)
