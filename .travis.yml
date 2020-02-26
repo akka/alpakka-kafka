@@ -16,7 +16,7 @@ before_install:
 script:
   - jabba use ${JDK:=adopt@~1.8.0-222}
   - java -version
-  - sbt -jvm-opts .jvmopts-travis "$CMD"
+  - travis_wait 60 sbt -jvm-opts .jvmopts-travis "$CMD"
 
 jobs:
   include:
