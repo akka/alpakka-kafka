@@ -54,7 +54,7 @@ class TransactionsSourceSpec extends SpecBase
           part => produce(sourceTopic, ((part * partitionSize) + 1) to (partitionSize * (part + 1)), part)
         )
 
-      Await.result(Future.sequence(producers), 1.minute)
+      Await.result(Future.sequence(producers), 10.minutes)
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
@@ -110,7 +110,7 @@ class TransactionsSourceSpec extends SpecBase
         .filter(_._2 != "no-more-elements")
         .runWith(Sink.seq)
 
-      val values = Await.result(consumer, 10.minutes)
+      val values = Await.result(consumer, 30.minutes)
 
       val expected = (1 to elements).map(_.toString)
 
