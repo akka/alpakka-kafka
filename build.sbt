@@ -224,10 +224,10 @@ lazy val core = project
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.2"
       ) ++ silencer ++ {
-      if (BuildAkka26) {
-        Seq("com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % Provided)
-      } else Seq.empty
-    },
+        if (BuildAkka26) {
+          Seq("com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % Provided)
+        } else Seq.empty
+      },
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
     Compile / unmanagedSources / excludeFilter := {
       if (!BuildAkka26) {
