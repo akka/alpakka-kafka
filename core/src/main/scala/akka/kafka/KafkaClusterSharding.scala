@@ -21,7 +21,7 @@ import akka.util.Timeout._
 import org.apache.kafka.common.utils.Utils
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -29,9 +29,6 @@ import scala.util.{Failure, Success}
  */
 class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   import KafkaClusterSharding._
-
-  private val _messageExtractor: Promise[KafkaShardingMessageExtractor[_]] = Promise()
-  private val _messageExtractorNoEnvelope: Promise[KafkaShardingNoEnvelopeExtractor[_]] = Promise()
 
   /**
    * API MAY CHANGE
@@ -41,7 +38,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    *
    * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
-   * the Kafka Consumer connection required to retrieve the number of partitions.
+   * the Kafka Consumer connection required to retrieve the number of partitions. Each call to this method will result
+   * in a round trip to Kafka.
    *
    * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
@@ -50,16 +48,7 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   def messageExtractor[M](topic: String,
                           timeout: FiniteDuration,
                           settings: ConsumerSettings[_, _]): Future[KafkaShardingMessageExtractor[M]] =
-    if (_messageExtractor.isCompleted)
-      _messageExtractor.future.asInstanceOf[Future[KafkaShardingMessageExtractor[M]]]
-    else {
-      _messageExtractor
-        .tryCompleteWith(
-          getPartitionCount(topic, timeout, settings).map(new KafkaShardingMessageExtractor[M](_))(system.dispatcher)
-        )
-        .future
-        .asInstanceOf[Future[KafkaShardingMessageExtractor[M]]]
-    }
+    getPartitionCount(topic, timeout, settings).map(new KafkaShardingMessageExtractor[M](_))(system.dispatcher)
 
   /**
    * API MAY CHANGE
@@ -85,7 +74,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
    * the Kafka Consumer connection required to retrieve the number of partitions. Use the [[entityIdExtractor]] to pick
-   * a field from the Entity to use as the entity id for the hashing strategy.
+   * a field from the Entity to use as the entity id for the hashing strategy. Each call to this method will result
+   * in a round trip to Kafka.
    *
    * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
@@ -95,19 +85,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
                                     timeout: FiniteDuration,
                                     entityIdExtractor: M => String,
                                     settings: ConsumerSettings[_, _]): Future[KafkaShardingNoEnvelopeExtractor[M]] =
-    if (_messageExtractorNoEnvelope.isCompleted)
-      _messageExtractorNoEnvelope.future.asInstanceOf[Future[KafkaShardingNoEnvelopeExtractor[M]]]
-    else {
-      _messageExtractorNoEnvelope
-        .tryCompleteWith(
-          getPartitionCount(topic, timeout, settings)
-            .map(partitions => new KafkaShardingNoEnvelopeExtractor[M](partitions, entityIdExtractor))(
-              system.dispatcher
-            )
-        )
-        .future
-        .asInstanceOf[Future[KafkaShardingNoEnvelopeExtractor[M]]]
-    }
+    getPartitionCount(topic, timeout, settings)
+      .map(partitions => new KafkaShardingNoEnvelopeExtractor[M](partitions, entityIdExtractor))(system.dispatcher)
 
   /**
    * API MAY CHANGE
@@ -225,8 +204,8 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
                  partitionsList)
         val updates = partitions.map { tp =>
           val shardId = tp.partition().toString
-          // Kafka partition number becomes the akka shard id
-          // TODO: support assigning more than 1 shard id at once?
+          // the Kafka partition number becomes the akka shard id
+          // TODO: Should the shard allocation client support assigning more than 1 shard id at once?
           shardAllocationClient.updateShardLocation(shardId, address)
         }
         Future

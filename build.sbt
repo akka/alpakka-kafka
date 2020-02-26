@@ -5,6 +5,7 @@ enablePlugins(AutomateHeaderPlugin)
 name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
+// TODO: revert for merge. this feature is only available when we publish Alpakka Kafka with akka 2.6 support
 val BuildAkka26 = true // Nightly || sys.env.get("AKKA_VERSION").contains("2.6")
 
 val Scala211 = "2.11.12"
