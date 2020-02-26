@@ -152,6 +152,9 @@ class BatchingFlowStageSpec(_system: ActorSystem)
       }
 
       "batch commit all buffered elements if upstream has suddenly failed" in assertAllStagesStopped {
+        val settings = // special config to have more than one batch before failure
+          DefaultCommitterSettings.withMaxBatch(3).withMaxInterval(10.hours).withParallelism(100)
+
         val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
 
         sinkProbe.request(100)
@@ -163,20 +166,36 @@ class BatchingFlowStageSpec(_system: ActorSystem)
         val testError = new IllegalStateException("BOOM")
         sourceProbe.sendError(testError)
 
-        val committedBatch = sinkProbe.expectNext()
-        committedBatch.batchSize shouldBe 10
-        committedBatch.offsets.values should have size 1
-        committedBatch.offsets.values.last shouldBe msgs.last.partitionOffset.offset
-        factory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
+        val receivedError = pullTillFailure(sinkProbe, maxEvents = 4)
 
-        sinkProbe.request(1)
-        sinkProbe.expectError(testError)
+        receivedError shouldBe testError
+
+        val commits = factory.committer.commits
+
+        commits.last.offset shouldBe 10 withClue "last offset commit should be exactly the one preceeding the error"
 
         control.shutdown().futureValue shouldBe Done
       }
-
     }
+  }
 
+  @scala.annotation.tailrec
+  private def pullTillFailure(
+      sinkProbe: TestSubscriber.Probe[CommittableOffsetBatch],
+      maxEvents: Int
+  ): Throwable = {
+    val nextOrError = sinkProbe.expectNextOrError()
+    if (maxEvents < 0) {
+      fail("Max number events has been read, no error encountered.")
+    }
+    nextOrError match {
+      case Left(ex) =>
+        log.debug("Received failure")
+        ex
+      case Right(_) =>
+        log.debug("Received batch {}")
+        pullTillFailure(sinkProbe, maxEvents - 1)
+    }
   }
 
   private def streamProbes(

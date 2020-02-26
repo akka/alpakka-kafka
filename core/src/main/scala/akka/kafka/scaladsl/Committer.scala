@@ -10,7 +10,6 @@ import akka.dispatch.ExecutionContexts
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.internal.BatchingFlowStage
-import akka.kafka.internal.BatchingFlowStage.FlushableOffsetBatch
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 
@@ -29,8 +28,9 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
-    val offsetBatches: Flow[Committable, Try[FlushableOffsetBatch], NotUsed] =
-      Flow.fromGraph(new BatchingFlowStage(settings))
+    val offsetBatches: Flow[Committable, Try[CommittableOffsetBatch], NotUsed] =
+      Flow
+        .fromGraph(new BatchingFlowStage(settings))
 
     // See https://github.com/akka/alpakka-kafka/issues/882
     import akka.kafka.CommitDelivery._
@@ -38,14 +38,14 @@ object Committer {
       case WaitForAck =>
         offsetBatches
           .mapAsyncUnordered(settings.parallelism) {
-            case Success(b) =>
-              b.batch.commitInternal(b.flush).map(_ => b.batch)(ExecutionContexts.sameThreadExecutionContext)
+            case Success(batch) =>
+              batch.commitInternal().map(_ => batch)(ExecutionContexts.sameThreadExecutionContext)
             case Failure(ex) => throw ex // re-failing the stream
           }
       case SendAndForget =>
         offsetBatches.map {
-          case Success(b) =>
-            b.batch.tellCommit(b.flush)
+          case Success(batch) =>
+            batch.tellCommit()
           case Failure(ex) => throw ex // re-failing the stream
         }
     }
