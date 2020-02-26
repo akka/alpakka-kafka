@@ -39,7 +39,7 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
    * the Kafka Consumer connection required to retrieve the number of partitions. Each call to this method will result
-   * in a round trip to Kafka.
+   * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
    *
    * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
@@ -75,7 +75,7 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
    * the Kafka Consumer connection required to retrieve the number of partitions. Use the [[entityIdExtractor]] to pick
    * a field from the Entity to use as the entity id for the hashing strategy. Each call to this method will result
-   * in a round trip to Kafka.
+   * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
    *
    * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.

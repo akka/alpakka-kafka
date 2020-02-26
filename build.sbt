@@ -220,12 +220,12 @@ lazy val core = project
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-        "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % Provided,
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.2"
       ) ++ silencer ++ {
       if (BuildAkka26) {
-        Seq("com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided)
+        Seq("com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % Provided)
       } else Seq.empty
     },
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
