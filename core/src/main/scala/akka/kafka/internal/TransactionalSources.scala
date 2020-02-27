@@ -164,7 +164,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
       // This is invoked in the KafkaConsumerActor thread when doing poll.
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
-        filterRevokedPartitionsCB.invoke(revokedTps)
+//        filterRevokedPartitionsCB.invoke(revokedTps)
         if (waitForDraining(revokedTps)) {
           sourceActor.ref.tell(Revoked(revokedTps.toList), consumerActor)
         } else {
