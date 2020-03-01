@@ -11,8 +11,6 @@ import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream._
 import akka.stream.stage._
 
-import scala.util.{Failure, Success, Try}
-
 /**
  * INTERNAL API.
  *
@@ -21,11 +19,11 @@ import scala.util.{Failure, Success, Try}
  */
 @InternalApi
 private[kafka] final class BatchingFlowStage(val committerSettings: CommitterSettings)
-    extends GraphStage[FlowShape[Committable, Try[CommittableOffsetBatch]]] {
+    extends GraphStage[FlowShape[Committable, CommittableOffsetBatch]] {
 
   val in: Inlet[Committable] = Inlet[Committable]("FlowIn")
-  val out: Outlet[Try[CommittableOffsetBatch]] = Outlet[Try[CommittableOffsetBatch]]("FlowOut")
-  val shape: FlowShape[Committable, Try[CommittableOffsetBatch]] = FlowShape(in, out)
+  val out: Outlet[CommittableOffsetBatch] = Outlet[CommittableOffsetBatch]("FlowOut")
+  val shape: FlowShape[Committable, CommittableOffsetBatch] = FlowShape(in, out)
 
   override def createLogic(
       inheritedAttributes: Attributes
@@ -71,12 +69,11 @@ private final class BatchingFlowStageLogic(
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy)(
-      emission: (Outlet[Try[CommittableOffsetBatch]], Try[CommittableOffsetBatch]) => Unit
+      emission: (Outlet[CommittableOffsetBatch], CommittableOffsetBatch) => Unit
   ): Unit = {
     if (activeBatchInProgress) {
       log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
-      val outBatch = Success(offsetBatch)
-      emission(stage.out, outBatch)
+      emission(stage.out, offsetBatch)
       offsetBatch = CommittableOffsetBatch.empty
     }
     scheduleCommit()
@@ -93,8 +90,7 @@ private final class BatchingFlowStageLogic(
         if (noActiveBatchInProgress) {
           completeStage()
         } else {
-          val flush = false
-          pushDownStream(UpstreamFinish)(emit[Try[CommittableOffsetBatch]])
+          pushDownStream(UpstreamFinish)(emit[CommittableOffsetBatch])
           completeStage()
         }
       }
@@ -132,15 +128,10 @@ private final class BatchingFlowStageLogic(
     }
   }
 
-  def emissionWithException(ex: Throwable)(outlet: Outlet[Try[CommittableOffsetBatch]],
-                                           elem: Try[CommittableOffsetBatch]): Unit = {
-    emitMultiple(outlet, List(elem, Failure(ex)))
-  }
-
   private val commitResultOnFailureCallback: AsyncCallback[Throwable] = {
     getAsyncCallback[Throwable] { ex =>
-      pushDownStream(UpstreamFailure)(emissionWithException(ex))
       offsetBatch = CommittableOffsetBatch.empty
+      failStage(ex)
     }
   }
 

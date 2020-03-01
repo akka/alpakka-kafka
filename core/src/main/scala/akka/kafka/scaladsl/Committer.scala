@@ -14,7 +14,6 @@ import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
 import akka.{Done, NotUsed}
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
 
 object Committer {
 
@@ -28,7 +27,7 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
-    val offsetBatches: Flow[Committable, Try[CommittableOffsetBatch], NotUsed] =
+    val offsetBatches: Flow[Committable, CommittableOffsetBatch, NotUsed] =
       Flow
         .fromGraph(new BatchingFlowStage(settings))
 
@@ -37,17 +36,11 @@ object Committer {
     settings.delivery match {
       case WaitForAck =>
         offsetBatches
-          .mapAsyncUnordered(settings.parallelism) {
-            case Success(batch) =>
-              batch.commitInternal().map(_ => batch)(ExecutionContexts.sameThreadExecutionContext)
-            case Failure(ex) => throw ex // re-failing the stream
+          .mapAsyncUnordered(settings.parallelism) { batch =>
+            batch.commitInternal().map(_ => batch)(ExecutionContexts.sameThreadExecutionContext)
           }
       case SendAndForget =>
-        offsetBatches.map {
-          case Success(batch) =>
-            batch.tellCommit()
-          case Failure(ex) => throw ex // re-failing the stream
-        }
+        offsetBatches.map(_.tellCommit())
     }
   }
 
