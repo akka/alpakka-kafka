@@ -147,7 +147,7 @@ Scala
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #atLeastOnce }
 
-Committing the offset for each message (`withMaxBatch(1)`) as illustrated above is rather slow. It is recommended to batch the commits for better throughput, with the trade-off that more messages may be re-delivered in case of failures.
+Committing the offset for each message (`withMaxBatch(1)`) as illustrated above is rather slow. It is recommended to batch the commits for better throughput, in such cases when upstream fails partial batches are committed thus significantly reducing number of re-deliveries in case of failures.
 
 
 ### Committer sink
