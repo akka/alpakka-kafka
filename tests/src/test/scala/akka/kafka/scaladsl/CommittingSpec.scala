@@ -387,7 +387,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       consumeAndCommitUntil(topic, failAt.toString).failed.futureValue shouldBe an[Exception]
 
       val element1 = consumeFirstElement(topic, consumerSettings)
-      assert(element1.toInt == failAt,
+      assert(element1.toInt == failAt - 1,
              "Should re-process exactly the last committed element from batch-in-flight in case of upstream failure")
     }
 
