@@ -125,6 +125,8 @@ private final class BatchingFlowStageLogic(
         .onComplete { t =>
           commitResultOnFailureCallback.invoke(ex)
         }(materializer.executionContext)
+    } else {
+      failStage(ex)
     }
   }
 
