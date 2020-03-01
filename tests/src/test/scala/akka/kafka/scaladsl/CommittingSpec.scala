@@ -359,6 +359,38 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       assert(element1.toInt >= failAt - committerSettings.maxBatch, "Should re-process at most maxBatch elements")
     }
 
+    "work with a committer batch flow even with upstream failure" in assertAllStagesStopped {
+      val topic = createTopic()
+      val group = createGroupId()
+
+      awaitProduce(produce(topic, 1 to 100))
+      val consumerSettings = consumerDefaults.withGroupId(group)
+      val committerSettings = committerDefaults.withMaxBatch(5)
+
+      def consumeAndCommitUntil(topic: String, failAt: String) =
+        Consumer
+          .committableSource(
+            consumerSettings,
+            Subscriptions.topics(topic)
+          )
+          .map {
+            case msg if msg.record.value() == failAt => throw new Exception
+            case other => other
+          }
+          .map(_.committableOffset)
+          .via(Committer.batchFlow(committerSettings))
+          .toMat(Sink.ignore)(Keep.right)
+          .run()
+
+      // Consume and fail in the middle of the commit batch
+      val failAt = 32
+      consumeAndCommitUntil(topic, failAt.toString).failed.futureValue shouldBe an[Exception]
+
+      val element1 = consumeFirstElement(topic, consumerSettings)
+      assert(element1.toInt == failAt,
+             "Should re-process exactly the last committed element from batch-in-flight in case of upstream failure")
+    }
+
   }
 
   "Multiple consumers to one committer" must {
