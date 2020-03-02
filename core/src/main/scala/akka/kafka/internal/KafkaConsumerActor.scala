@@ -5,6 +5,7 @@
 
 package akka.kafka.internal
 
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
@@ -686,6 +687,12 @@ import scala.util.control.NonFatal
             .toMap
         }
       )
+
+    case Metadata.GetCommittedOffset(partition) =>
+      Metadata.CommittedOffset(
+        Try { consumer.committed(Collections.singleton(partition), settings.getMetadataRequestTimeout).get(partition) }
+      )
+
   }
 
   private def stopFromMessage(msg: StopLike) = msg match {

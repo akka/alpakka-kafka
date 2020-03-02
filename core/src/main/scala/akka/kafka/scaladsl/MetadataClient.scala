@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+import java.util.Collections
+
 import akka.actor.{ActorRef, ActorSystem}
 import akka.dispatch.ExecutionContexts
 import akka.kafka.Metadata.{
@@ -75,6 +77,10 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
       }(ExecutionContexts.sameThreadExecutionContext)
+
+  @deprecated("use `getCommittedOffsets`", "2.0.3")
+  def getCommittedOffset(partition: TopicPartition): Future[OffsetAndMetadata] =
+    getCommittedOffsets(Set(partition)).map(map => map.getOrElse(partition, null))
 
   def getCommittedOffsets(partitions: Set[TopicPartition]): Future[Map[TopicPartition, OffsetAndMetadata]] =
     (consumerActor ? GetCommittedOffsets(partitions))(timeout)

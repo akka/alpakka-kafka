@@ -309,6 +309,12 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         }
 
         // GetCommittedOffset
+        inside(Await.result(consumer ? GetCommittedOffset(partition0), 10.seconds)) {
+          case CommittedOffset(Success(offsetMeta)) =>
+            assert(offsetMeta == null, "Wrong offsets in GetCommittedOffset")
+        }
+
+        // GetCommittedOffsets
         inside(Await.result(consumer ? GetCommittedOffsets(Set(partition0)), 10.seconds)) {
           case CommittedOffsets(Success(offsetMeta)) =>
             assert(offsetMeta.isEmpty, "Wrong offsets in GetCommittedOffset")
