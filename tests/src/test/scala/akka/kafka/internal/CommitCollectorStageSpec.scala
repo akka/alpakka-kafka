@@ -29,7 +29,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class BatchingFlowStageSpec(_system: ActorSystem)
+class CommitCollectorStageSpec(_system: ActorSystem)
     extends TestKit(_system)
     with WordSpecLike
     with Matchers
@@ -54,7 +54,7 @@ class BatchingFlowStageSpec(_system: ActorSystem)
 
   override def afterAll(): Unit = shutdown(system)
 
-  "The BatchingFlowStage" when {
+  "The CommitCollectorStage" when {
     "the batch is full" should {
       val settings = DefaultCommitterSettings.withMaxBatch(2).withMaxInterval(10.hours)
       "batch commit without errors" in assertAllStagesStopped {

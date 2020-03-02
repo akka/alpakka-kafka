@@ -6,7 +6,7 @@
 package akka.kafka.internal
 
 import akka.annotation.InternalApi
-import akka.kafka.CommitterSettings
+import akka.kafka.{CommitDelivery, CommitterSettings}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream._
 import akka.stream.stage._
@@ -18,7 +18,7 @@ import akka.stream.stage._
  * upstream failures. Support flushing on failure (for downstreams).
  */
 @InternalApi
-private[kafka] final class BatchingFlowStage(val committerSettings: CommitterSettings)
+private[kafka] final class CommitCollectorStage(val committerSettings: CommitterSettings)
     extends GraphStage[FlowShape[Committable, CommittableOffsetBatch]] {
 
   val in: Inlet[Committable] = Inlet[Committable]("FlowIn")
@@ -28,26 +28,26 @@ private[kafka] final class BatchingFlowStage(val committerSettings: CommitterSet
   override def createLogic(
       inheritedAttributes: Attributes
   ): GraphStageLogic = {
-    new BatchingFlowStageLogic(this, inheritedAttributes)
+    new CommitCollectorStageLogic(this, inheritedAttributes)
   }
 }
 
-private final class BatchingFlowStageLogic(
-    stage: BatchingFlowStage,
+private final class CommitCollectorStageLogic(
+    stage: CommitCollectorStage,
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with StageIdLogging {
 
-  import BatchingFlowStage._
+  import CommitCollectorStage._
   import CommitTrigger._
 
-  override protected def logSource: Class[_] = classOf[BatchingFlowStageLogic]
+  override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
     scheduleCommit()
-    log.debug("BatchingFlowStage initialized")
+    log.debug("CommitCollectorStage initialized")
   }
 
   /** Batches offsets until a commit is triggered. */
@@ -65,7 +65,7 @@ private final class BatchingFlowStageLogic(
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case BatchingFlowStage.CommitNow => pushDownStream(Interval)(push)
+    case CommitCollectorStage.CommitNow => pushDownStream(Interval)(push)
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy)(
@@ -120,11 +120,17 @@ private final class BatchingFlowStageLogic(
     if (offsetBatch.batchSize != 0) {
       log.debug("committing batch in flight on failure {}", offsetBatch)
       val batchInFlight = offsetBatch
-      offsetBatch
-        .commitInternal(flush = true)
-        .onComplete { t =>
+      stage.committerSettings.delivery match {
+        case CommitDelivery.WaitForAck =>
+          offsetBatch
+            .commitInternal(flush = true)
+            .onComplete { _ =>
+              commitResultOnFailureCallback.invoke(ex)
+            }(materializer.executionContext)
+        case CommitDelivery.SendAndForget =>
+          offsetBatch.tellCommit(flush = true)
           commitResultOnFailureCallback.invoke(ex)
-        }(materializer.executionContext)
+      }
     } else {
       failStage(ex)
     }
@@ -138,7 +144,7 @@ private final class BatchingFlowStageLogic(
   }
 
   override def postStop(): Unit = {
-    log.debug("BatchingFlowStage stopped")
+    log.debug("CommitCollectorStage stopped")
     super.postStop()
   }
 
@@ -146,6 +152,6 @@ private final class BatchingFlowStageLogic(
   private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
 }
 
-private[akka] object BatchingFlowStage {
+private[akka] object CommitCollectorStage {
   val CommitNow = "flowStageCommit"
 }
