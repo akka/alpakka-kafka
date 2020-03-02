@@ -204,7 +204,7 @@ object ProducerMessage {
    * Includes the original message, metadata returned from `KafkaProducer` and the
    * `offset` of the produced message.
    */
-  final case class Result[K, V, PassThrough] private (
+  final case class Result[K, V, PassThrough] private[kafka] (
       metadata: RecordMetadata,
       message: Message[K, V, PassThrough]
   ) extends Results[K, V, PassThrough] {
@@ -212,7 +212,7 @@ object ProducerMessage {
     def passThrough: PassThrough = message.passThrough
   }
 
-  final case class MultiResultPart[K, V] private (
+  final case class MultiResultPart[K, V] private[kafka] (
       metadata: RecordMetadata,
       record: ProducerRecord[K, V]
   )
@@ -221,7 +221,7 @@ object ProducerMessage {
    * [[Results]] implementation emitted when all messages in a [[MultiMessage]] have been
    * successfully published.
    */
-  final case class MultiResult[K, V, PassThrough] private (
+  final case class MultiResult[K, V, PassThrough] private[kafka] (
       parts: immutable.Seq[MultiResultPart[K, V]],
       passThrough: PassThrough
   ) extends Results[K, V, PassThrough] {
@@ -237,7 +237,7 @@ object ProducerMessage {
    * [[Results]] implementation emitted when a [[PassThroughMessage]] has passed
    * through the flow.
    */
-  final case class PassThroughResult[K, V, PassThrough] private (passThrough: PassThrough)
+  final case class PassThroughResult[K, V, PassThrough] private[kafka] (passThrough: PassThrough)
       extends Results[K, V, PassThrough]
 
 }
