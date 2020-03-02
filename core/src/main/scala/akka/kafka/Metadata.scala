@@ -170,20 +170,28 @@ object Metadata {
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
-  final case class GetCommittedOffset(partition: TopicPartition) extends Request with NoSerializationVerificationNeeded
-  final case class CommittedOffset(response: Try[OffsetAndMetadata], requestedPartition: TopicPartition)
+  final case class GetCommittedOffsets(partitions: Set[TopicPartition])
+      extends Request
+      with NoSerializationVerificationNeeded
+  final case class CommittedOffsets(response: Try[Map[TopicPartition, OffsetAndMetadata]])
       extends Response
       with NoSerializationVerificationNeeded {
 
     /**
      * Java API
      */
-    def getResponse: Optional[OffsetAndMetadata] = Optional.ofNullable(response.toOption.orNull)
+    def getResponse: Optional[java.util.Map[TopicPartition, OffsetAndMetadata]] =
+      response
+        .map { m =>
+          Optional.of(m.asJava)
+        }
+        .getOrElse(Optional.empty())
   }
 
   /**
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
-  def createGetCommittedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
+  def createGetCommittedOffsets(partitions: java.util.Set[TopicPartition]): GetCommittedOffsets =
+    GetCommittedOffsets(partitions.asScala.toSet)
 }

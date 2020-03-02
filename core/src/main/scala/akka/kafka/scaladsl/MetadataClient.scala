@@ -9,10 +9,10 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.dispatch.ExecutionContexts
 import akka.kafka.Metadata.{
   BeginningOffsets,
-  CommittedOffset,
+  CommittedOffsets,
   EndOffsets,
   GetBeginningOffsets,
-  GetCommittedOffset,
+  GetCommittedOffsets,
   GetEndOffsets,
   GetPartitionsFor,
   ListTopics,
@@ -76,9 +76,9 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
         case Failure(e) => Future.failed(e)
       }(ExecutionContexts.sameThreadExecutionContext)
 
-  def getCommittedOffset(partition: TopicPartition): Future[OffsetAndMetadata] =
-    (consumerActor ? GetCommittedOffset(partition))(timeout)
-      .mapTo[CommittedOffset]
+  def getCommittedOffsets(partitions: Set[TopicPartition]): Future[Map[TopicPartition, OffsetAndMetadata]] =
+    (consumerActor ? GetCommittedOffsets(partitions))(timeout)
+      .mapTo[CommittedOffsets]
       .map(_.response)
       .flatMap {
         case Success(res) => Future.successful(res)
