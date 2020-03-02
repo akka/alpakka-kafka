@@ -149,9 +149,9 @@ val commonSettings = Def.settings(
   scalafmtOnCompile := true,
   headerLicense := Some(
       HeaderLicense.Custom(
-        """|Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
-         |Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
-         |""".stripMargin
+        """|Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
+           |Copyright (C) 2016 - 2020 Lightbend Inc. <https://www.lightbend.com>
+           |""".stripMargin
       )
     ),
   bintrayOrganization := Some("akka"),
@@ -262,7 +262,7 @@ lazy val tests = project
   .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
   .settings(Defaults.itSettings)
-  .settings(automateHeaderSettings(IntegrationTest))
+  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
@@ -383,7 +383,7 @@ lazy val benchmarks = project
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
-  .settings(automateHeaderSettings(IntegrationTest))
+  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
