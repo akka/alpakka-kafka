@@ -308,10 +308,10 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
             assert(offsetAndTs.offset() == 0, "Wrong offset in OffsetsForTimes (beginning)")
         }
 
-        // GetCommittedOffset
-        inside(Await.result(consumer ? GetCommittedOffset(partition0), 10.seconds)) {
-          case CommittedOffset(Success(offsetMeta), _) =>
-            assert(offsetMeta == null, "Wrong offset in GetCommittedOffset")
+        // GetCommittedOffsets
+        inside(Await.result(consumer ? GetCommittedOffsets(Set(partition0)), 10.seconds)) {
+          case CommittedOffsets(Success(offsetMeta)) =>
+            assert(offsetMeta.isEmpty, "Wrong offsets in GetCommittedOffsets")
         }
 
         // verify that consumption still works

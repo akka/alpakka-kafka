@@ -676,6 +676,17 @@ import scala.util.control.NonFatal
         consumer.offsetsForTimes(search, settings.getMetadataRequestTimeout).asScala.toMap
       })
 
+    case Metadata.GetCommittedOffsets(partitions) =>
+      Metadata.CommittedOffsets(
+        Try {
+          consumer
+            .committed(partitions.asJava, settings.getMetadataRequestTimeout)
+            .asScala
+            .filterNot(_._2 == null)
+            .toMap
+        }
+      )
+
     case Metadata.GetCommittedOffset(partition) =>
       Metadata.CommittedOffset(
         Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },

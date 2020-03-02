@@ -170,7 +170,10 @@ object Metadata {
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
+  @deprecated("use `GetCommittedOffsets`", "2.0.3")
   final case class GetCommittedOffset(partition: TopicPartition) extends Request with NoSerializationVerificationNeeded
+
+  @deprecated("use `CommittedOffsets`", "2.0.3")
   final case class CommittedOffset(response: Try[OffsetAndMetadata], requestedPartition: TopicPartition)
       extends Response
       with NoSerializationVerificationNeeded {
@@ -185,5 +188,34 @@ object Metadata {
    * Java API:
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
+  @deprecated("use `createGetCommittedOffsets`", "2.0.3")
   def createGetCommittedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
+
+  /**
+   * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
+   */
+  final case class GetCommittedOffsets(partitions: Set[TopicPartition])
+      extends Request
+      with NoSerializationVerificationNeeded
+  final case class CommittedOffsets(response: Try[Map[TopicPartition, OffsetAndMetadata]])
+      extends Response
+      with NoSerializationVerificationNeeded {
+
+    /**
+     * Java API
+     */
+    def getResponse: Optional[java.util.Map[TopicPartition, OffsetAndMetadata]] =
+      response
+        .map { m =>
+          Optional.of(m.asJava)
+        }
+        .getOrElse(Optional.empty())
+  }
+
+  /**
+   * Java API:
+   * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
+   */
+  def createGetCommittedOffsets(partitions: java.util.Set[TopicPartition]): GetCommittedOffsets =
+    GetCommittedOffsets(partitions.asScala.toSet)
 }
