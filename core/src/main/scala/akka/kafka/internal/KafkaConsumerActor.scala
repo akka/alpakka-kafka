@@ -690,7 +690,8 @@ import scala.util.control.NonFatal
 
     case Metadata.GetCommittedOffset(partition) =>
       Metadata.CommittedOffset(
-        Try { consumer.committed(Collections.singleton(partition), settings.getMetadataRequestTimeout).get(partition) }
+        Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },
+        partition
       )
 
   }

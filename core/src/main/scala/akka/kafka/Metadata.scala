@@ -174,7 +174,7 @@ object Metadata {
   final case class GetCommittedOffset(partition: TopicPartition) extends Request with NoSerializationVerificationNeeded
 
   @deprecated("use `CommittedOffsets`", "2.0.3")
-  final case class CommittedOffset(response: Try[OffsetAndMetadata])
+  final case class CommittedOffset(response: Try[OffsetAndMetadata], requestedPartition: TopicPartition)
       extends Response
       with NoSerializationVerificationNeeded {
 
@@ -189,8 +189,7 @@ object Metadata {
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
    */
   @deprecated("use `getCommittedOffsets`", "2.0.3")
-  def createGetCommittedOffset(partition: TopicPartition): GetCommittedOffset =
-    GetCommittedOffset(partition)
+  def createGetCommittedOffset(partition: TopicPartition): GetCommittedOffset = GetCommittedOffset(partition)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]
