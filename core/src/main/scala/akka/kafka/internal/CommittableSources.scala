@@ -166,13 +166,13 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
     case _ => failForUnexpectedImplementation(batch)
   }
 
-  def tellCommit(batch: CommittableOffsetBatch, flush: Boolean): Unit = batch match {
+  def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = batch match {
     case b: CommittableOffsetBatchImpl =>
       b.offsetsAndMetadata.foreach {
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
           b.committerFor(groupTopicPartition)
-            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset, flush))
+            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset, emergency))
       }
 
     case _ => failForUnexpectedImplementation(batch)

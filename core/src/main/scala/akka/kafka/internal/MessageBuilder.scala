@@ -246,7 +246,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
 
   private def tellCommitWithPriority(emergency: Boolean): CommittableOffsetBatch = {
     if (batchSize != 0L) {
-      committers.head._2.tellCommit(this, flush = emergency)
+      committers.head._2.tellCommit(this, emergency = emergency)
     }
     this
   }

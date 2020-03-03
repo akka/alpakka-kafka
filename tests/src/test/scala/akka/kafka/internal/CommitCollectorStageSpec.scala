@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2014 - 2016 Softwaremill <http://softwaremill.com>
- * Copyright (C) 2016 - 2019 Lightbend Inc. <http://www.lightbend.com>
+ * Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
+ * Copyright (C) 2016 - 2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.kafka.internal
@@ -277,10 +277,12 @@ class TestBatchCommitter(
       completeCommit()
     }
 
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch, emergency: Boolean): Future[Done] = {
+    override def commit(batch: CommittableOffsetBatch, emergency: Boolean): Future[Done] = {
       val offsets = batch.offsets.toList.map { case (partition, offset) => PartitionOffset(partition, offset) }
       commits = commits ++ offsets
       completeCommit()
     }
+
+    override def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = commit(batch, emergency)
   }
 }
