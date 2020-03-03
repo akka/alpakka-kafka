@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
+ * Copyright (C) 2016 - 2020 Lightbend Inc. <https://www.lightbend.com>
+ */
+
 package akka.kafka.benchmarks
 
 import akka.kafka.benchmarks.BenchmarksBase.{topic_100_100, topic_100_5000}
