@@ -65,7 +65,7 @@ import scala.util.control.NonFatal
     final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, emergency: Boolean)
         extends NoSerializationVerificationNeeded
-    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, flush: Boolean)
+    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, emergency: Boolean)
         extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
@@ -266,7 +266,7 @@ import scala.util.control.NonFatal
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
       if (flush) {
-        requestDelayedPoll()
+        emergencyPoll()
       }
 
     case CommitSingle(tp, offset) =>
