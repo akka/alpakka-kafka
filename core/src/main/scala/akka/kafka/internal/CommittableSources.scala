@@ -154,12 +154,12 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
       )
     )
 
-  def commit(batch: CommittableOffsetBatch, flush: Boolean): Future[Done] = batch match {
+  def commit(batch: CommittableOffsetBatch, emergency: Boolean): Future[Done] = batch match {
     case b: CommittableOffsetBatchImpl =>
       val futures = b.offsetsAndMetadata.map {
         case (groupTopicPartition, offset) =>
           // sends one message per partition, they are aggregated in the KafkaConsumerActor
-          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset, flush))
+          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset, emergency))
       }
       Future.sequence(futures).map(_ => Done)
 

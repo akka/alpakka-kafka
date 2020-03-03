@@ -277,7 +277,7 @@ class TestBatchCommitter(
       completeCommit()
     }
 
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch, flush: Boolean): Future[Done] = {
+    override def commit(batch: ConsumerMessage.CommittableOffsetBatch, emergency: Boolean): Future[Done] = {
       val offsets = batch.offsets.toList.map { case (partition, offset) => PartitionOffset(partition, offset) }
       commits = commits ++ offsets
       completeCommit()

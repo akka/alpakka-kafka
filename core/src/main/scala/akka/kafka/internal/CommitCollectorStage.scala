@@ -117,27 +117,12 @@ private final class CommitCollectorStageLogic(
 
   private def commitAndPushWithFailure(ex: Throwable): Unit = {
     setKeepGoing(true)
-    if (offsetBatch.batchSize != 0) {
+    if (offsetBatch.isEmpty) {
+      failStage(ex)
+    } else {
       log.debug("committing batch in flight on failure {}", offsetBatch)
       val batchInFlight = offsetBatch
-      stage.committerSettings.delivery match {
-        case CommitDelivery.WaitForAck =>
-          offsetBatch
-            .commitEmergency()
-            .onComplete { _ =>
-              commitResultOnFailureCallback.invoke(ex)
-            }(materializer.executionContext)
-        case CommitDelivery.SendAndForget =>
-          offsetBatch.tellCommit(flush = true)
-          commitResultOnFailureCallback.invoke(ex)
-      }
-    } else {
-      failStage(ex)
-    }
-  }
-
-  private val commitResultOnFailureCallback: AsyncCallback[Throwable] = {
-    getAsyncCallback[Throwable] { ex =>
+      offsetBatch.commitEmergency()
       offsetBatch = CommittableOffsetBatch.empty
       failStage(ex)
     }
@@ -149,7 +134,7 @@ private final class CommitCollectorStageLogic(
   }
 
   private def noActiveBatchInProgress: Boolean = offsetBatch.isEmpty
-  private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
+  private def activeBatchInProgress: Boolean = !offsetBatch.isEmpty
 }
 
 private[akka] object CommitCollectorStage {
