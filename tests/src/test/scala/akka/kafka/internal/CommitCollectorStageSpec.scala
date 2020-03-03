@@ -272,7 +272,7 @@ class TestBatchCommitter(
   }
 
   private[akka] val underlying = new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval) {
-    override def commitSingle(offset: CommittableOffsetImpl, flush: Boolean): Future[Done] = {
+    override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = {
       commits = commits :+ offset.partitionOffset
       completeCommit()
     }

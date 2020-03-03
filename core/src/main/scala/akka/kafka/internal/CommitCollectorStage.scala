@@ -123,7 +123,7 @@ private final class CommitCollectorStageLogic(
       stage.committerSettings.delivery match {
         case CommitDelivery.WaitForAck =>
           offsetBatch
-            .commitInternal(flush = true)
+            .commitEmergency()
             .onComplete { _ =>
               commitResultOnFailureCallback.invoke(ex)
             }(materializer.executionContext)
@@ -148,7 +148,7 @@ private final class CommitCollectorStageLogic(
     super.postStop()
   }
 
-  private def noActiveBatchInProgress: Boolean = offsetBatch.batchSize == 0
+  private def noActiveBatchInProgress: Boolean = offsetBatch.isEmpty
   private def activeBatchInProgress: Boolean = !noActiveBatchInProgress
 }
 

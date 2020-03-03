@@ -21,7 +21,7 @@ import scala.concurrent.Future
 object ConsumerResultFactory {
 
   val fakeCommitter: KafkaAsyncConsumerCommitterRef = new KafkaAsyncConsumerCommitterRef(null, null)(ec = null) {
-    override def commitSingle(offset: CommittableOffsetImpl, flush: Boolean): Future[Done] = Future.successful(Done)
+    override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = Future.successful(Done)
     override def commit(batch: ConsumerMessage.CommittableOffsetBatch, flush: Boolean): Future[Done] =
       Future.successful(Done)
   }

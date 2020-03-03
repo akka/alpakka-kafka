@@ -178,9 +178,14 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
                 awaitingProduceResult,
                 awaitingCommitResult)
       val batchSize = offsetBatch.batchSize
-      offsetBatch
-        .commitInternal(flush = triggeredBy == UpstreamFailure)
-        .onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
+
+      val commitResult = if (triggeredBy == UpstreamFailure) {
+        offsetBatch.commitEmergency()
+      } else {
+        offsetBatch.commitInternal()
+      }
+
+      commitResult.onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
       offsetBatch = CommittableOffsetBatch.empty
     }
     scheduleCommit()

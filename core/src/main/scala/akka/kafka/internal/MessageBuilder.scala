@@ -144,7 +144,8 @@ private[kafka] trait OffsetContextBuilder[K, V]
 ) extends CommittableOffsetMetadata {
   override def commitScaladsl(): Future[Done] = commitInternal()
   override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
-  override def commitInternal(flush: Boolean): Future[Done] = committer.commitSingle(this, flush)
+  override def commitInternal(): Future[Done] = committer.commitSingle(this)
+  override def commitEmergency(): Future[Done] = commitInternal()
   override val batchSize: Long = 1
 }
 
@@ -228,11 +229,15 @@ private[kafka] final class CommittableOffsetBatchImpl(
 
   override def commitScaladsl(): Future[Done] = commitInternal()
 
-  override def commitInternal(flush: Boolean): Future[Done] =
+  override def commitInternal(): Future[Done] = commitWithPriority(emergency = false)
+
+  override def commitEmergency(): Future[Done] = commitWithPriority(emergency = true)
+
+  private def commitWithPriority(emergency: Boolean): Future[Done] =
     if (batchSize == 0L)
       Future.successful(Done)
     else {
-      committers.head._2.commit(this, flush)
+      committers.head._2.commit(this, flush = emergency)
     }
 
   override def tellCommit(flush: Boolean): CommittableOffsetBatch = {
@@ -244,4 +249,8 @@ private[kafka] final class CommittableOffsetBatchImpl(
 
   override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
 
+  /**
+   * @return true if the batch contains no commits.
+   */
+  def isEmpty: Boolean = batchSize == 0
 }

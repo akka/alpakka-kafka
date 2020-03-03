@@ -146,12 +146,11 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
     implicit ec: ExecutionContext
 ) {
 
-  def commitSingle(offset: CommittableOffsetImpl, flush: Boolean): Future[Done] =
+  def commitSingle(offset: CommittableOffsetImpl): Future[Done] =
     sendCommit(
       CommitSingle(
         new TopicPartition(offset.partitionOffset.key.topic, offset.partitionOffset.key.partition),
-        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata),
-        flush
+        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata)
       )
     )
 

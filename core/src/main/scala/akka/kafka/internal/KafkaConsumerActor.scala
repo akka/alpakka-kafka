@@ -69,7 +69,7 @@ import scala.util.control.NonFatal
         extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
-    final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, flush: Boolean)
+    final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -269,7 +269,7 @@ import scala.util.control.NonFatal
         requestDelayedPoll()
       }
 
-    case CommitSingle(tp, offset, _) =>
+    case CommitSingle(tp, offset) =>
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
       requestDelayedPoll()

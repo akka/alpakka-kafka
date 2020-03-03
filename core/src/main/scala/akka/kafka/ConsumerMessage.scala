@@ -60,7 +60,10 @@ object ConsumerMessage {
     def commitJavadsl(): CompletionStage[Done]
 
     @InternalApi
-    private[kafka] def commitInternal(flush: Boolean = false): Future[Done]
+    private[kafka] def commitInternal(): Future[Done]
+
+    @InternalApi
+    private[kafka] def commitEmergency(): Future[Done]
 
     /**
      * Get a number of processed messages this committable contains
@@ -215,6 +218,11 @@ object ConsumerMessage {
      */
     @InternalApi
     private[kafka] def tellCommit(flush: Boolean = false): CommittableOffsetBatch
+
+    /**
+     * @return true if the batch contains no commits.
+     */
+    def isEmpty: Boolean
   }
 
 }
