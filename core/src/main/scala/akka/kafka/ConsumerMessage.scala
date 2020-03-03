@@ -217,7 +217,10 @@ object ConsumerMessage {
      * Sends this offset batch to the consumer actor without expecting an answer.
      */
     @InternalApi
-    private[kafka] def tellCommit(flush: Boolean = false): CommittableOffsetBatch
+    private[kafka] def tellCommit(): CommittableOffsetBatch
+
+    @InternalApi
+    private[kafka] def tellCommitEmergency(): CommittableOffsetBatch
 
     /**
      * @return true if the batch contains no commits.

@@ -6,3 +6,4 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerMessage#C
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.commitInternal")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.isEmpty")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.commitEmergency")
+ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommitEmergency")

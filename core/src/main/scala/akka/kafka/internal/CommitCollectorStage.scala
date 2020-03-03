@@ -121,8 +121,7 @@ private final class CommitCollectorStageLogic(
       failStage(ex)
     } else {
       log.debug("committing batch in flight on failure {}", offsetBatch)
-      val batchInFlight = offsetBatch
-      offsetBatch.commitEmergency()
+      offsetBatch.tellCommitEmergency()
       offsetBatch = CommittableOffsetBatch.empty
       failStage(ex)
     }
