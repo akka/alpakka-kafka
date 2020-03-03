@@ -5,14 +5,12 @@ enablePlugins(AutomateHeaderPlugin)
 name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
-// TODO: revert for merge. this feature is only available when we publish Alpakka Kafka with akka 2.6 support
-val BuildAkka26 = true // Nightly || sys.env.get("AKKA_VERSION").contains("2.6")
-
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
-val akkaVersion = if (Nightly || BuildAkka26) "2.6.3" else "2.5.23"
-val AkkaBinaryVersion = if (Nightly || BuildAkka26) "2.6" else "2.5"
+val akkaVersion26 = "2.6.3"
+val akkaVersion = if (Nightly) akkaVersion26 else "2.5.23"
+val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
 val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
@@ -209,7 +207,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, tests, benchmarks, docs)
+    .aggregate(core, testkit, clustersharding, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -223,17 +221,8 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.2"
-      ) ++ silencer ++ {
-        if (BuildAkka26) {
-          Seq("com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % Provided)
-        } else Seq.empty
-      },
+      ) ++ silencer,
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
-    Compile / unmanagedSources / excludeFilter := {
-      if (!BuildAkka26) {
-        HiddenFileFilter || "KafkaClusterSharding.scala"
-      } else HiddenFileFilter
-    },
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -264,6 +253,22 @@ lazy val testkit = project
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
       )
+  )
+
+lazy val clustersharding = project
+  .dependsOn(core, testkit)
+  .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-cluster-sharding",
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
+    ) ++ silencer,
+    mimaPreviousArtifacts := Set(
+      organization.value %% name.value % previousStableVersion.value
+        .getOrElse(throw new Error("Unable to determine previous version"))
+    )
   )
 
 lazy val tests = project

@@ -33,8 +33,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   /**
    * API MAY CHANGE
    *
-   * Asynchronously return a [[ShardingMessageExtractor]] with a default hashing strategy based on Apache Kafka's
-   * [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
    *
    * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
@@ -53,8 +53,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   /**
    * API MAY CHANGE
    *
-   * Asynchronously return a [[ShardingMessageExtractor]] with a default hashing strategy based on Apache Kafka's
-   * [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
    *
    * The number of partitions to use with the hashing strategy is provided explicitly with [[kafkaPartitions]].
    *
@@ -68,8 +68,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   /**
    * API MAY CHANGE
    *
-   * Asynchronously return a [[ShardingMessageExtractor]] with a default hashing strategy based on Apache Kafka's
-   * [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
    *
    * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
    * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
@@ -91,8 +91,8 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   /**
    * API MAY CHANGE
    *
-   * Asynchronously return a [[ShardingMessageExtractor]] with a default hashing strategy based on Apache Kafka's
-   * [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
    *
    * The number of partitions to use with the hashing strategy is provided explicitly with [[kafkaPartitions]].
    *
