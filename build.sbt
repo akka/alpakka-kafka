@@ -86,7 +86,7 @@ val commonSettings = Def.settings(
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq(Scala212, Scala211, Scala213).filterNot(_ == Scala211 && Nightly),
+  crossScalaVersions := Seq(Scala212, Scala213),
   scalaVersion := Scala212,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -216,6 +216,7 @@ lazy val core = project
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
+    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
@@ -238,6 +239,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
+    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
     JupiterKeys.junitJupiterVersion := "5.5.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
@@ -258,17 +260,17 @@ lazy val testkit = project
 lazy val clustersharding = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, SitePlugin)
+  .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-cluster-sharding",
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
-    ) ++ silencer,
+        "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
+      ) ++ silencer,
     mimaPreviousArtifacts := Set(
-      organization.value %% name.value % previousStableVersion.value
-        .getOrElse(throw new Error("Unable to determine previous version"))
-    )
+        organization.value %% name.value % previousStableVersion.value
+          .getOrElse(throw new Error("Unable to determine previous version"))
+      )
   )
 
 lazy val tests = project
@@ -281,6 +283,7 @@ lazy val tests = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
+    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
@@ -341,6 +344,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
+    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
@@ -402,6 +406,7 @@ lazy val benchmarks = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
+    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
     publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,

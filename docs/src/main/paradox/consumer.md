@@ -267,7 +267,7 @@ Java
 
 ## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) instance. It is shared by creating a @apidoc[akka.kafka.KafkaConsumerActor$]. You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the @apidoc[ActorRef] as a parameter to the @apidoc[Consumer](Consumer$)
+If you have many streams it can be more efficient to share the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) instance. It is shared by creating a @apidoc[akka.kafka.KafkaConsumerActor$]. You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the @apidoc[akka.actor.ActorRef] as a parameter to the @apidoc[Consumer](Consumer$)
  factory methods.
 
 Scala
