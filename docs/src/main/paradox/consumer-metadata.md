@@ -23,7 +23,7 @@ The supported metadata are
 | Partitions | @scala[Future[List[PartitionInfo]]]@java[CompletionStage[java.util.List[PartitionInfo]]] |
 | Beginning offsets | @scala[Future[Map[TopicPartition, Long]]]@java[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]] |
 | End offsets | @scala[Future[Map[TopicPartition, Long]]]@java[CompletionStage[java.util.Map[TopicPartition, java.lang.Long]]] |
-| Committed offset | @scala[Future[OffsetAndMetadata]]@java[CompletionStage[OffsetAndMetadata]] |
+| Committed offset | @scala[Future[Map[TopicPartition, OffsetAndMetadata]]]@java[CompletionStage[java.util.Map[TopicPartition, OffsetAndMetadata]]] |
    
 @@@ warning
 
@@ -59,7 +59,7 @@ The supported metadata are
 | GetBeginningOffsets | BeginningOffsets |
 | GetEndOffsets | EndOffsets |
 | GetOffsetsForTimes | OffsetsForTimes |
-| GetCommittedOffset | CommittedOffset |
+| GetCommittedOffsets | CommittedOffsets |
 
 These requests are blocking within the Kafka client library up to a timeout configured by `metadata-request-timeout` or `ConsumerSettings.withMetadataRequestTimeout` respectively.
 
