@@ -22,7 +22,7 @@ object ConsumerResultFactory {
 
   val fakeCommitter: KafkaAsyncConsumerCommitterRef = new KafkaAsyncConsumerCommitterRef(null, null)(ec = null) {
     override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = Future.successful(Done)
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch, emergency: Boolean): Future[Done] =
+    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] =
       Future.successful(Done)
   }
 

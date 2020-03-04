@@ -178,14 +178,9 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
                 awaitingProduceResult,
                 awaitingCommitResult)
       val batchSize = offsetBatch.batchSize
-
-      val commitResult = if (triggeredBy == UpstreamFailure) {
-        offsetBatch.commitEmergency()
-      } else {
-        offsetBatch.commitInternal()
-      }
-
-      commitResult.onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
+      offsetBatch
+        .commitInternal()
+        .onComplete(t => commitResultCB.invoke(batchSize -> t))(materializer.executionContext)
       offsetBatch = CommittableOffsetBatch.empty
     }
     scheduleCommit()
@@ -205,6 +200,18 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
           log.warning("ignored commit failure {}", exception)
       }
       checkForCompletion()
+  }
+
+  private def emergencyShutdown(ex: Throwable): Unit = {
+    log.debug("Emergency shutdown triggered by {} (awaitingProduceResult={} awaitingCommitResult={})",
+              ex,
+              awaitingProduceResult,
+              awaitingCommitResult)
+
+    offsetBatch.tellCommitEmergency()
+    upstreamCompletionState = Some(Failure(ex))
+    offsetBatch = CommittableOffsetBatch.empty
+    closeAndFailStage(ex)
   }
 
   // ---- handler and completion
@@ -233,9 +240,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         if (awaitingCommitResult == 0) {
           closeAndFailStage(ex)
         } else {
-          commit(UpstreamFailure)
-          setKeepGoing(true)
-          upstreamCompletionState = Some(Failure(ex))
+          emergencyShutdown(ex)
         }
     }
   )

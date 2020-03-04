@@ -100,7 +100,7 @@ private final class CommitCollectorStageLogic(
         if (noActiveBatchInProgress) {
           failStage(ex)
         } else {
-          commitAndPushWithFailure(ex)
+          commitAndFail(ex)
         }
       }
     }
@@ -115,7 +115,7 @@ private final class CommitCollectorStageLogic(
     }
   )
 
-  private def commitAndPushWithFailure(ex: Throwable): Unit = {
+  private def commitAndFail(ex: Throwable): Unit = {
     setKeepGoing(true)
     if (offsetBatch.isEmpty) {
       failStage(ex)

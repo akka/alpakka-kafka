@@ -62,9 +62,6 @@ object ConsumerMessage {
     @InternalApi
     private[kafka] def commitInternal(): Future[Done]
 
-    @InternalApi
-    private[kafka] def commitEmergency(): Future[Done]
-
     /**
      * Get a number of processed messages this committable contains
      */

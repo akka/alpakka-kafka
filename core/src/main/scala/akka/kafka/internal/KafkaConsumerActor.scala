@@ -63,7 +63,7 @@ import scala.util.control.NonFatal
         extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
     final case class StopFromStage(stageId: String) extends StopLike
-    final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, emergency: Boolean)
+    final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
     final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, emergency: Boolean)
         extends NoSerializationVerificationNeeded
@@ -254,18 +254,15 @@ import scala.util.control.NonFatal
   override val receive: Receive = regularReceive
 
   def regularReceive: Receive = LoggingReceive {
-    case Commit(tp, offset, emergency) =>
+    case Commit(tp, offset) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
-      if (emergency) {
-        emergencyPoll()
-      }
 
-    case CommitWithoutReply(tp, offset, flush) =>
+    case CommitWithoutReply(tp, offset, emergency) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
-      if (flush) {
+      if (emergency) {
         emergencyPoll()
       }
 
