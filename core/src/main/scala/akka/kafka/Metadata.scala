@@ -205,11 +205,7 @@ object Metadata {
      * Java API
      */
     def getResponse: Optional[java.util.Map[TopicPartition, OffsetAndMetadata]] =
-      response
-        .map { m =>
-          Optional.of(m.asJava)
-        }
-        .getOrElse(Optional.empty())
+      Optional.ofNullable(response.toOption.map(_.asJava).orNull)
   }
 
   /**
