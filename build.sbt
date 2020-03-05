@@ -10,7 +10,9 @@ val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion26 = "2.6.3"
 val akkaVersion = if (Nightly) akkaVersion26 else "2.5.23"
-val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
+val AkkaBinaryVersion25 = "2.5"
+val AkkaBinaryVersion26 = "2.6"
+val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
@@ -168,6 +170,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
+      // TODO: how do we add clusterSharding to unidoc and only build it with Akka 2.6?
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
         """
@@ -259,12 +262,13 @@ lazy val testkit = project
 
 lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
-  .dependsOn(core, testkit)
+  .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-cluster-sharding",
+    AutomaticModuleName.settings("akka.stream.alpakka.kafka.cluster.sharding"),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
       ) ++ silencer,
@@ -275,7 +279,7 @@ lazy val clusterSharding = project
   )
 
 lazy val tests = project
-  .dependsOn(core, testkit)
+  .dependsOn(core, clusterSharding, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest.extend(Test))
@@ -326,7 +330,10 @@ lazy val tests = project
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
       scalaBinaryVersion.value match {
-        case "2.12" | "2.11" =>
+        case "2.11" =>
+          HiddenFileFilter ||
+          "ClusterShardingExample.scala"
+        case "2.12" =>
           HiddenFileFilter
         case "2.13" =>
           HiddenFileFilter ||
@@ -365,11 +372,14 @@ lazy val docs = project
         "javadoc.akka.kafka.base_url" -> "",
         // Akka
         "akka.version" -> akkaVersion,
+        "akka.version26" -> akkaVersion26,
         "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
         "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
         "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
+        "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs%s",
