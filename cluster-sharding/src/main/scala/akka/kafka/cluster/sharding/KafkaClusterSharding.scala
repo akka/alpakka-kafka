@@ -3,7 +3,7 @@
  * Copyright (C) 2016 - 2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
-package akka.kafka
+package akka.kafka.cluster.sharding
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -11,12 +11,11 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{Actor, ActorRef, ActorSystem, Address, ExtendedActorSystem, Extension, ExtensionId, Props}
 import akka.annotation.{ApiMayChange, InternalApi}
 import akka.cluster.sharding.external.ExternalShardAllocation
-import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.cluster.sharding.typed.{ShardingEnvelope, ShardingMessageExtractor}
 import akka.cluster.typed.Cluster
 import akka.event.Logging
-import akka.kafka
 import akka.kafka.scaladsl.MetadataClient
+import akka.kafka.{ConsumerSettings, KafkaConsumerActor, TopicPartitionsAssigned}
 import akka.util.Timeout._
 import org.apache.kafka.common.utils.Utils
 
@@ -25,9 +24,12 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 /**
+ * API MAY CHANGE
+ *
  * Akka Extension to enable Akka Cluster External Sharding with Alpakka Kafka.
  */
-class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
   import KafkaClusterSharding._
 
   /**
@@ -41,10 +43,10 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    * the Kafka Consumer connection required to retrieve the number of partitions. Each call to this method will result
    * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
    *
-   * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
    */
-  @ApiMayChange
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
   def messageExtractor[M](topic: String,
                           timeout: FiniteDuration,
                           settings: ConsumerSettings[_, _]): Future[KafkaShardingMessageExtractor[M]] =
@@ -58,12 +60,12 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    *
    * The number of partitions to use with the hashing strategy is provided explicitly with [[kafkaPartitions]].
    *
-   * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
    */
-  @ApiMayChange
-  def messageExtractor[M](kafkaPartitions: Int): Future[KafkaShardingMessageExtractor[M]] =
-    Future.successful(new KafkaShardingMessageExtractor[M](kafkaPartitions))
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def messageExtractor[M](kafkaPartitions: Int): KafkaShardingMessageExtractor[M] =
+    new KafkaShardingMessageExtractor[M](kafkaPartitions)
 
   /**
    * API MAY CHANGE
@@ -77,10 +79,10 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    * a field from the Entity to use as the entity id for the hashing strategy. Each call to this method will result
    * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
    *
-   * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
    */
-  @ApiMayChange
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
   def messageExtractorNoEnvelope[M](topic: String,
                                     timeout: FiniteDuration,
                                     entityIdExtractor: M => String,
@@ -96,13 +98,13 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
    *
    * The number of partitions to use with the hashing strategy is provided explicitly with [[kafkaPartitions]].
    *
-   * All topics used in a Consumer [[Subscription]] must contain the same number of partitions to ensure
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
    * that entities are routed to the same Entity type.
    */
-  @ApiMayChange
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
   def messageExtractorNoEnvelope[M](kafkaPartitions: Int,
-                                    entityIdExtractor: M => String): Future[KafkaShardingNoEnvelopeExtractor[M]] =
-    Future.successful(new KafkaShardingNoEnvelopeExtractor[M](kafkaPartitions, entityIdExtractor))
+                                    entityIdExtractor: M => String): KafkaShardingNoEnvelopeExtractor[M] =
+    new KafkaShardingNoEnvelopeExtractor[M](kafkaPartitions, entityIdExtractor)
 
   private val metadataConsumerActorNum = new AtomicInteger
   private def getPartitionCount[M](topic: String,
@@ -121,40 +123,40 @@ class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension {
     }
   }
 
-  private val shadingRebalanceListenerActorNum = new AtomicInteger
+  private val shardingRebalanceListenerActorNum = new AtomicInteger
 
   /**
    * API MAY CHANGE
    *
-   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKey]] is used
-   * to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member the
-   * rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
+   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKeyName]] is
+   * used to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member
+   * the rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
    * accordingly so that entities are (eventually) routed to the local Akka cluster member.
    *
-   * Returns an Akka classic [[ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
+   * Returns an Akka classic [[akka.actor.ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
    */
-  @ApiMayChange
-  def rebalanceListener(typeKey: EntityTypeKey[_]): ActorRef = {
-    val num = shadingRebalanceListenerActorNum.getAndIncrement()
-    system.systemActorOf(Props(new RebalanceListener(typeKey)), s"kafka-cluster-sharding-rebalance-listener-$num")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def rebalanceListener(typeKeyName: String): ActorRef = {
+    val num = shardingRebalanceListenerActorNum.getAndIncrement()
+    system.systemActorOf(Props(new RebalanceListener(typeKeyName)), s"kafka-cluster-sharding-rebalance-listener-$num")
   }
 
   /**
    * API MAY CHANGE
    *
-   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKey]] is used
-   * to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member the
-   * rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
+   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKeyName]] is
+   * used to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member
+   * the rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
    * accordingly so that entities are (eventually) routed to the local Akka cluster member.
    *
-   * Returns an Akka classic [[ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
+   * Returns an Akka classic [[akka.actor.ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
    */
-  @ApiMayChange
-  def rebalanceListener(otherSystem: ActorSystem, typeKey: EntityTypeKey[_]): ActorRef = {
-    val num = shadingRebalanceListenerActorNum.getAndIncrement()
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def rebalanceListener(otherSystem: ActorSystem, typeKeyName: String): ActorRef = {
+    val num = shardingRebalanceListenerActorNum.getAndIncrement()
     otherSystem
       .asInstanceOf[ExtendedActorSystem]
-      .systemActorOf(Props(new RebalanceListener(typeKey)), s"kafka-cluster-sharding-rebalance-listener-$num")
+      .systemActorOf(Props(new RebalanceListener(typeKeyName)), s"kafka-cluster-sharding-rebalance-listener-$num")
   }
 }
 
@@ -188,9 +190,8 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
   }
 
   @InternalApi
-  private[kafka] final class RebalanceListener(typeKey: EntityTypeKey[_]) extends Actor {
+  private[kafka] final class RebalanceListener(typeKeyName: String) extends Actor {
     private val log = Logging(context.system, this)
-    private val typeKeyName = typeKey.name
     private val shardAllocationClient = ExternalShardAllocation(context.system).clientFor(typeKeyName)
     private val address: Address = Cluster(context.system.toTyped).selfMember.address
 
@@ -225,6 +226,6 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
     }
   }
 
-  override def createExtension(system: ExtendedActorSystem): kafka.KafkaClusterSharding =
+  override def createExtension(system: ExtendedActorSystem): KafkaClusterSharding =
     new KafkaClusterSharding(system)
 }

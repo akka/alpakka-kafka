@@ -207,7 +207,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clustersharding, tests, benchmarks, docs)
+    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -257,7 +257,8 @@ lazy val testkit = project
       )
   )
 
-lazy val clustersharding = project
+lazy val clusterSharding = project
+  .in(file("./cluster-sharding"))
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
