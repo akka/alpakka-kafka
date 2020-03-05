@@ -1,9 +1,3 @@
 # Internal API
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommit")
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommit")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.commitInternal")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.commitInternal")
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.commitInternal")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.isEmpty")
-ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#Committable.commitEmergency")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommitEmergency")

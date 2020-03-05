@@ -224,65 +224,68 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     val factory = TestOffsetFactory(new TestBatchCommitter(committerSettings))
     (source, control, sink, factory)
   }
-}
 
-object TestCommittableOffset {
+  object TestCommittableOffset {
 
-  def apply(offsetCounter: AtomicLong,
-            committer: TestBatchCommitter,
-            failWith: Option[Throwable] = None): CommittableOffset = {
-    CommittableOffsetImpl(
-      ConsumerResultFactory
-        .partitionOffset(groupId = "group1", topic = "topic1", partition = 1, offset = offsetCounter.incrementAndGet()),
-      "metadata1"
-    )(committer.underlying)
-  }
-}
-
-class TestOffsetFactory(val committer: TestBatchCommitter) {
-  private val offsetCounter = new AtomicLong(0L)
-
-  def makeOffset(failWith: Option[Throwable] = None): CommittableOffset = {
-    TestCommittableOffset(offsetCounter, committer, failWith)
-  }
-}
-
-object TestOffsetFactory {
-
-  def apply(committer: TestBatchCommitter): TestOffsetFactory =
-    new TestOffsetFactory(committer)
-}
-
-class TestBatchCommitter(
-    commitSettings: CommitterSettings,
-    commitDelay: () => FiniteDuration = () => Duration.Zero
-)(
-    implicit ec: ExecutionContext,
-    system: ActorSystem
-) {
-
-  var commits = List.empty[PartitionOffset]
-
-  private def completeCommit(): Future[Done] = {
-    val promisedCommit = Promise[Done]
-    system.scheduler.scheduleOnce(commitDelay()) {
-      promisedCommit.success(Done)
+    def apply(offsetCounter: AtomicLong,
+              committer: TestBatchCommitter,
+              failWith: Option[Throwable] = None): CommittableOffset = {
+      CommittableOffsetImpl(
+        ConsumerResultFactory
+          .partitionOffset(groupId = "group1",
+                           topic = "topic1",
+                           partition = 1,
+                           offset = offsetCounter.incrementAndGet()),
+        "metadata1"
+      )(committer.underlying)
     }
-    promisedCommit.future
   }
 
-  private[akka] val underlying = new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval) {
-    override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = {
-      commits = commits :+ offset.partitionOffset
-      completeCommit()
+  class TestOffsetFactory(val committer: TestBatchCommitter) {
+    private val offsetCounter = new AtomicLong(0L)
+
+    def makeOffset(failWith: Option[Throwable] = None): CommittableOffset = {
+      TestCommittableOffset(offsetCounter, committer, failWith)
+    }
+  }
+
+  object TestOffsetFactory {
+
+    def apply(committer: TestBatchCommitter): TestOffsetFactory =
+      new TestOffsetFactory(committer)
+  }
+
+  class TestBatchCommitter(
+      commitSettings: CommitterSettings,
+      commitDelay: () => FiniteDuration = () => Duration.Zero
+  )(
+      implicit system: ActorSystem
+  ) {
+
+    var commits = List.empty[PartitionOffset]
+
+    private def completeCommit(): Future[Done] = {
+      val promisedCommit = Promise[Done]
+      system.scheduler.scheduleOnce(commitDelay()) {
+        promisedCommit.success(Done)
+      }
+      promisedCommit.future
     }
 
-    override def commit(batch: CommittableOffsetBatch): Future[Done] = {
-      val offsets = batch.offsets.toList.map { case (partition, offset) => PartitionOffset(partition, offset) }
-      commits = commits ++ offsets
-      completeCommit()
-    }
+    private[akka] val underlying =
+      new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval) {
+        override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = {
+          commits = commits :+ offset.partitionOffset
+          completeCommit()
+        }
 
-    override def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = commit(batch)
+        override def commit(batch: CommittableOffsetBatch): Future[Done] = {
+          val offsets = batch.offsets.toList.map { case (partition, offset) => PartitionOffset(partition, offset) }
+          commits = commits ++ offsets
+          completeCommit()
+        }
+
+        override def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = commit(batch)
+      }
   }
 }
