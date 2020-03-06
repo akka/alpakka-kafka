@@ -5,7 +5,6 @@
 
 package docs.scaladsl
 
-import akka.actor.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorSystem, Behavior}
@@ -21,8 +20,14 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
+/**
+ * This is compile-only code meant for documentation purposes.
+ * A full sample application exists in the akka-samples repository:
+ *
+ * https://github.com/akka/akka-samples/tree/2.6/akka-sample-kafka-to-sharding-scala
+ */
 object ClusterShardingExample {
-  val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty[Nothing], "ClusterShardingExample")
+  val typedSystem = ActorSystem(Behaviors.empty, "ClusterShardingExample")
   val classicSystem = typedSystem.toClassic
   val kafkaBootstrapServers = "localhost:9092"
 
