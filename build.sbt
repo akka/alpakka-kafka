@@ -331,7 +331,7 @@ lazy val tests = project
             )
         }
       },
-    scalacOptions += "-P:silencer:globalFilters=ActorMaterializer",
+    Compile / scalacOptions += "-P:silencer:globalFilters=ActorMaterializer",
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
