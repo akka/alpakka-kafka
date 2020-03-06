@@ -23,24 +23,18 @@ jobs:
     - stage: check
       env: CMD="verifyCodeStyle"
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
-    - env:
-      - CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
-      - BUILD_SCALA_211="true"
+    - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
       if: type != cron
     - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
-    - env:
-      - CMD="verifyDocs"
-      - BUILD_SCALA_211="true"
+    - env: CMD="verifyDocs"
       name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
     - env: CMD="mimaReportBinaryIssues"
       name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
     - stage: test
-      env:
-      - CMD="++2.11.12 test"
-      - BUILD_SCALA_211="true"
+      env: CMD="++2.11.12 test"
       name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
       if: type != cron
     - env: CMD="++2.12.10 test"
@@ -52,7 +46,6 @@ jobs:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
       - CMD="++2.11.12 test"
-      - BUILD_SCALA_211="true"
       name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
       if: type != cron
     - env:
@@ -79,7 +72,7 @@ jobs:
       env: CMD="+publish"
       name: "Publish artifacts for all Scala versions"
     - env: CMD="+clusterShading/publish"
-      name: "Publish alpakka-kafka-cluster-sharding for all its Scala versions"
+      name: "Publish akka-stream-kafka-cluster-sharding for all its supported Scala versions"
     - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.1 docs/publishRsync'
       name: "Publish API and reference documentation"
 
