@@ -331,6 +331,7 @@ lazy val tests = project
             )
         }
       },
+    Compile / compile / scalacOptions += "-P:silencer:globalFilters=ActorMaterializer",
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -352,8 +353,7 @@ lazy val tests = project
           "SerializationSpec.scala" ||
           "EmbeddedKafkaWithSchemaRegistryTest.java"
       }
-    },
-    Compile / compile / scalacOptions += "-P:silencer:globalFilters=since 2\\.6\\.0"
+    }
   )
 
 lazy val docs = project
