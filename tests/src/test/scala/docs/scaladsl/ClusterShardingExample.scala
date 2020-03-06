@@ -32,13 +32,13 @@ object ClusterShardingExample {
   // #message-extractor
   // automatically retrieving the number of partitions requires a round trip to a Kafka broker
   val messageExtractor: Future[KafkaClusterSharding.KafkaShardingNoEnvelopeExtractor[User]] =
-      KafkaClusterSharding(typedSystem.toClassic).messageExtractorNoEnvelope(
+    KafkaClusterSharding(typedSystem.toClassic).messageExtractorNoEnvelope(
       timeout = 10.seconds,
       topic = "user-topic",
       entityIdExtractor = (msg: User) => msg.id,
       settings = ConsumerSettings(classicSystem, new StringDeserializer, new StringDeserializer)
         .withBootstrapServers(kafkaBootstrapServers)
-      )
+    )
   // #message-extractor
 
   // #setup-cluster-sharding
@@ -52,7 +52,8 @@ object ClusterShardingExample {
         Entity(typeKey)(createBehavior = _ => userBehaviour())
           .withAllocationStrategy(new ExternalShardAllocationStrategy(typedSystem, typeKey.name))
           .withMessageExtractor(extractor)
-          .withSettings(ClusterShardingSettings(typedSystem)))
+          .withSettings(ClusterShardingSettings(typedSystem))
+      )
     case Failure(ex) => typedSystem.log.error("An error occurred while obtaining the message extractor", ex)
   }
   // #setup-cluster-sharding
