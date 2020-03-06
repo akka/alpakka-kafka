@@ -100,15 +100,13 @@ private final class CommitCollectorStageLogic(
         if (noActiveBatchInProgress) {
           failStage(ex)
         } else {
-          {
-            if (offsetBatch.isEmpty) {
-              failStage(ex)
-            } else {
-              log.debug("committing batch in flight on failure {}", offsetBatch)
-              offsetBatch.tellCommitEmergency()
-              offsetBatch = CommittableOffsetBatch.empty
-              failStage(ex)
-            }
+          if (offsetBatch.isEmpty) {
+            failStage(ex)
+          } else {
+            log.debug("committing batch in flight on failure {}", offsetBatch)
+            offsetBatch.tellCommitEmergency()
+            offsetBatch = CommittableOffsetBatch.empty
+            failStage(ex)
           }
         }
       }
