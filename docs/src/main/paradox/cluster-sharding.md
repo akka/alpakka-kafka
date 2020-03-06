@@ -48,17 +48,17 @@ In the following example we asynchronously request an extractor that does not us
 Given a user entity.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #user-entity }
+: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #user-entity }
 
 Create a `MessageExtractor`.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #message-extractor }
+: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #message-extractor }
 
 Setup Akka Typed Cluster Sharding.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #setup-cluster-sharding }
+: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #setup-cluster-sharding }
 
 ## Rebalance Listener
 
@@ -80,4 +80,4 @@ The same message type is used by separate Alpakka Kafka consumers, but the messa
 Create the rebalance listener using the extension and pass it into an Alpakka Kafka @scaladoc[Subscription](akka.kafka.Subscription).
 
 Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #rebalance-listener }
+: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #rebalance-listener }

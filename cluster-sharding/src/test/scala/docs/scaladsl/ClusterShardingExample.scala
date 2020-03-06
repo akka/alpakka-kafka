@@ -1,13 +1,8 @@
-/*
- * Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
- * Copyright (C) 2016 - 2020 Lightbend Inc. <https://www.lightbend.com>
- */
-
 package docs.scaladsl
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorSystem, Behavior}
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.external.ExternalShardAllocationStrategy
 import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
@@ -21,7 +16,8 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /**
- * This is compile-only code meant for documentation purposes.
+ * This is compile-only code meant for documentation purposes.  This file can't be in the tests project while we still
+ * build with Akka 2.5.
  * A full sample application exists in the akka-samples repository:
  *
  * https://github.com/akka/akka-samples/tree/2.6/akka-sample-kafka-to-sharding-scala

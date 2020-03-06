@@ -5,7 +5,6 @@ enablePlugins(AutomateHeaderPlugin)
 name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
-val Build211 = sys.env.get("BUILD_SCALA_211").contains("true")
 
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
@@ -26,13 +25,6 @@ val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.4"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.0"
-
-// don't include clusterSharding project when building Scala 2.11
-lazy val testProjects: Seq[ClasspathDep[ProjectReference]] =
-  if (Build211) Seq(core, testkit) else Seq(core, clusterSharding, testkit)
-lazy val aggregateProjects: Seq[ProjectReference] =
-  if (Build211) List(core, testkit, tests, benchmarks, docs)
-  else List(core, clusterSharding, testkit, tests, benchmarks, docs)
 
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
@@ -219,7 +211,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(aggregateProjects: _*)
+    .aggregate(core, testkit, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -228,7 +220,7 @@ lazy val core = project
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
-    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
@@ -251,7 +243,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     JupiterKeys.junitJupiterVersion := "5.5.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
@@ -269,6 +261,12 @@ lazy val testkit = project
       )
   )
 
+/**
+ * TODO: Once Akka 2.5 is dropped:
+ * - add to `alpakka-kafka` aggregate project
+ * - move `ClusterShardingExample` to `tests` project
+ * - remove all akka26 paradox properties
+ */
 lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
   .dependsOn(core)
@@ -288,7 +286,7 @@ lazy val clusterSharding = project
   )
 
 lazy val tests = project
-  .dependsOn(testProjects: _*)
+  .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest.extend(Test))
@@ -297,7 +295,7 @@ lazy val tests = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
-    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
@@ -331,7 +329,6 @@ lazy val tests = project
             )
         }
       },
-    Compile / scalacOptions += "-P:silencer:globalFilters=ActorMaterializer",
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
     publish / skip := true,
     whitesourceIgnore := true,
@@ -340,10 +337,7 @@ lazy val tests = project
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
       scalaBinaryVersion.value match {
-        case "2.11" =>
-          HiddenFileFilter ||
-          "ClusterShardingExample.scala"
-        case "2.12" =>
+        case "2.11" | "2.12" =>
           HiddenFileFilter
         case "2.13" =>
           HiddenFileFilter ||
@@ -362,7 +356,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
-    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
@@ -431,7 +425,7 @@ lazy val benchmarks = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
-    crossScalaVersions := { if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213) },
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
