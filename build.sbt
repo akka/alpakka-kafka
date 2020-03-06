@@ -9,8 +9,11 @@ val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
-val akkaVersion = if (Nightly) "2.6.0" else "2.5.23"
-val AkkaBinaryVersion = if (Nightly) "2.6" else "2.5"
+val akkaVersion26 = "2.6.3"
+val akkaVersion = if (Nightly) akkaVersion26 else "2.5.23"
+val AkkaBinaryVersion25 = "2.5"
+val AkkaBinaryVersion26 = "2.6"
+val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 val kafkaVersion = "2.4.0"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
@@ -86,7 +89,7 @@ val commonSettings = Def.settings(
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq(Scala212, Scala211, Scala213).filterNot(_ == Scala211 && Nightly),
+  crossScalaVersions := Seq(Scala212, Scala213),
   scalaVersion := Scala212,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -168,6 +171,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
+      // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
         """
@@ -216,6 +220,7 @@ lazy val core = project
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
@@ -238,6 +243,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     JupiterKeys.junitJupiterVersion := "5.5.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
@@ -255,6 +261,30 @@ lazy val testkit = project
       )
   )
 
+/**
+ * TODO: Once Akka 2.5 is dropped:
+ * - add to `alpakka-kafka` aggregate project
+ * - move `ClusterShardingExample` to `tests` project
+ * - remove all akka26 paradox properties
+ */
+lazy val clusterSharding = project
+  .in(file("./cluster-sharding"))
+  .dependsOn(core)
+  .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-cluster-sharding",
+    AutomaticModuleName.settings("akka.stream.alpakka.kafka.cluster.sharding"),
+    libraryDependencies ++= Seq(
+        "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
+      ) ++ silencer,
+    mimaPreviousArtifacts := Set(
+        organization.value %% name.value % previousStableVersion.value
+          .getOrElse(throw new Error("Unable to determine previous version"))
+      )
+  )
+
 lazy val tests = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
@@ -265,6 +295,7 @@ lazy val tests = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
@@ -306,7 +337,7 @@ lazy val tests = project
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
       scalaBinaryVersion.value match {
-        case "2.12" | "2.11" =>
+        case "2.11" | "2.12" =>
           HiddenFileFilter
         case "2.13" =>
           HiddenFileFilter ||
@@ -325,6 +356,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
@@ -349,6 +381,13 @@ lazy val docs = project
         "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
         "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        // Akka 2.6. These can be removed when we drop Akka 2.5 support.
+        "akka.version26" -> akkaVersion26,
+        "extref.akka26.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
+        "scaladoc.akka.actor.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
+        "extref.akka.actor.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
+        "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
+        "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs%s",
@@ -386,6 +425,7 @@ lazy val benchmarks = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
+    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
