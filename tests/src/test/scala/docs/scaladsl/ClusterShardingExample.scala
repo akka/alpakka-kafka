@@ -9,7 +9,7 @@ import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import akka.kafka.cluster.sharding.KafkaClusterSharding
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerSettings, Subscriptions}
+import akka.kafka.{ConsumerRebalanceEvent, ConsumerSettings, Subscriptions}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.concurrent.Future
@@ -30,9 +30,6 @@ object ClusterShardingExample {
   // #user-entity
 
   // #message-extractor
-  // create an Akka Cluster Sharding `EntityTypeKey` for `User` for this Kafka Consumer Group
-  val typeKey = EntityTypeKey[User]("user-topic-group-id")
-
   // automatically retrieving the number of partitions requires a round trip to a Kafka broker
   val messageExtractor: Future[KafkaClusterSharding.KafkaShardingNoEnvelopeExtractor[User]] =
       KafkaClusterSharding(typedSystem.toClassic).messageExtractorNoEnvelope(
@@ -45,6 +42,10 @@ object ClusterShardingExample {
   // #message-extractor
 
   // #setup-cluster-sharding
+  // create an Akka Cluster Sharding `EntityTypeKey` for `User` for this Kafka Consumer Group
+  val groupId = "user-topic-group-id"
+  val typeKey = EntityTypeKey[User](groupId)
+
   messageExtractor.onComplete {
     case Success(extractor) =>
       ClusterSharding(typedSystem).init(
@@ -58,17 +59,22 @@ object ClusterShardingExample {
 
   // #rebalance-listener
   // obtain an Akka classic ActorRef that will handle consumer group rebalance events
-  val rebalanceListener: ActorRef = KafkaClusterSharding(classicSystem).rebalanceListener(classicSystem, typeKey.name)
+  val rebalanceListener: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
+    KafkaClusterSharding(classicSystem).rebalanceListener(typeKey)
+
+  // convert the rebalance listener to a classic ActorRef
+  import akka.actor.typed.scaladsl.adapter._
+  val rebalanceListenerClassic: akka.actor.ActorRef = rebalanceListener.toClassic
 
   val consumerSettings =
     ConsumerSettings(classicSystem, new StringDeserializer, new ByteArrayDeserializer)
       .withBootstrapServers(kafkaBootstrapServers)
-      .withGroupId("user-topic-group-id") // use the same group id as we used in the `EntityTypeKey` for `User`
+      .withGroupId(typeKey.name) // use the same group id as we used in the `EntityTypeKey` for `User`
 
   // pass the rebalance listener to the topic subscription
   val subscription = Subscriptions
     .topics("user-topic")
-    .withRebalanceListener(rebalanceListener)
+    .withRebalanceListener(rebalanceListenerClassic)
 
   val consumer = Consumer.plainSource(consumerSettings, subscription)
   // #rebalance-listener

@@ -7,15 +7,17 @@ package akka.kafka.cluster.sharding
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{Actor, ActorRef, ActorSystem, Address, ExtendedActorSystem, Extension, ExtensionId, Props}
+import akka.actor.{ExtendedActorSystem, Extension, ExtensionId}
 import akka.annotation.{ApiMayChange, InternalApi}
 import akka.cluster.sharding.external.ExternalShardAllocation
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.cluster.sharding.typed.{ShardingEnvelope, ShardingMessageExtractor}
 import akka.cluster.typed.Cluster
-import akka.event.Logging
 import akka.kafka.scaladsl.MetadataClient
-import akka.kafka.{ConsumerSettings, KafkaConsumerActor, TopicPartitionsAssigned}
+import akka.kafka._
 import akka.util.Timeout._
 import org.apache.kafka.common.utils.Utils
 
@@ -128,35 +130,44 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
   /**
    * API MAY CHANGE
    *
-   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKeyName]] is
+   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKey]] is
    * used to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member
    * the rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
    * accordingly so that entities are (eventually) routed to the local Akka cluster member.
    *
-   * Returns an Akka classic [[akka.actor.ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
+   * Returns an Akka typed [[akka.actor.typed.ActorRef]]. This must be converted to a classic actor before it can be
+   * passed to an Alpakka Kafka [[ConsumerSettings]].
+   *
+   * {{{
+   * import akka.actor.typed.scaladsl.adapter._
+   * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
+   * }}}
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
-  def rebalanceListener(typeKeyName: String): ActorRef = {
-    val num = shardingRebalanceListenerActorNum.getAndIncrement()
-    system.systemActorOf(Props(new RebalanceListener(typeKeyName)), s"kafka-cluster-sharding-rebalance-listener-$num")
-  }
+  def rebalanceListener(typeKey: EntityTypeKey[_]): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
+    rebalanceListener(system.toTyped, typeKey)
 
   /**
    * API MAY CHANGE
    *
-   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKeyName]] is
+   * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKey]] is
    * used to create the [[ExternalShardAllocation]] client. When partitions are assigned to this consumer group member
    * the rebalance listener will use the [[ExternalShardAllocation]] client to update the External Sharding strategy
    * accordingly so that entities are (eventually) routed to the local Akka cluster member.
    *
-   * Returns an Akka classic [[akka.actor.ActorRef]] that can be passed to an Alpakka Kafka [[ConsumerSettings]].
+   * Returns an Akka typed [[akka.actor.typed.ActorRef]]. This must be converted to a classic actor before it can be
+   * passed to an Alpakka Kafka [[ConsumerSettings]].
+   *
+   * {{{
+   * import akka.actor.typed.scaladsl.adapter._
+   * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
+   * }}}
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
-  def rebalanceListener(otherSystem: ActorSystem, typeKeyName: String): ActorRef = {
+  def rebalanceListener(otherSystem: ActorSystem[_], typeKey: EntityTypeKey[_]): ActorRef[ConsumerRebalanceEvent] = {
     val num = shardingRebalanceListenerActorNum.getAndIncrement()
     otherSystem
-      .asInstanceOf[ExtendedActorSystem]
-      .systemActorOf(Props(new RebalanceListener(typeKeyName)), s"kafka-cluster-sharding-rebalance-listener-$num")
+      .systemActorOf(RebalanceListener(typeKey), s"kafka-cluster-sharding-rebalance-listener-$num")
   }
 }
 
@@ -190,40 +201,51 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
   }
 
   @InternalApi
-  private[kafka] final class RebalanceListener(typeKeyName: String) extends Actor {
-    private val log = Logging(context.system, this)
-    private val shardAllocationClient = ExternalShardAllocation(context.system).clientFor(typeKeyName)
-    private val address: Address = Cluster(context.system.toTyped).selfMember.address
-
-    override def receive: Receive = {
-      case TopicPartitionsAssigned(_, partitions) =>
-        implicit val ec: ExecutionContextExecutor = context.classicActorContext.dispatcher
-        val partitionsList = partitions.mkString(",")
-        log.info("Consumer group '{}' is assigning topic partitions to cluster member '{}': [{}]",
-                 typeKeyName,
-                 address,
-                 partitionsList)
-        val updates = partitions.map { tp =>
-          val shardId = tp.partition().toString
-          // the Kafka partition number becomes the akka shard id
-          // TODO: Should the shard allocation client support assigning more than 1 shard id at once?
-          shardAllocationClient.updateShardLocation(shardId, address)
+  private[kafka] object RebalanceListener {
+    def apply(typeKey: EntityTypeKey[_]): Behavior[ConsumerRebalanceEvent] =
+      Behaviors.setup { ctx =>
+        import ctx.executionContext
+        val shardAllocationClient = ExternalShardAllocation(ctx.system).clientFor(typeKey.name)
+        val address = Cluster(ctx.system).selfMember.address
+        Behaviors.receiveMessage[ConsumerRebalanceEvent] {
+          case TopicPartitionsAssigned(_, partitions) =>
+            val partitionsList = partitions.mkString(",")
+            ctx.log.info("Consumer group '{}' assigned topic partitions to cluster member '{}': [{}]",
+                         typeKey.name,
+                         address,
+                         partitionsList)
+            val updates = partitions.map { tp =>
+              val shardId = tp.partition().toString
+              // the Kafka partition number becomes the akka shard id
+              // TODO: use batch update when it's available: https://github.com/akka/akka/issues/28696
+              shardAllocationClient.updateShardLocation(shardId, address)
+            }
+            Future
+              .sequence(updates)
+              // Each Future returns successfully once a majority of cluster nodes receive the update. There's no point
+              // blocking here because the rebalance listener is triggered asynchronously. If we want to block during
+              // rebalance then we should provide an implementation using the `PartitionAssignmentHandler` instead
+              .onComplete {
+                case Success(_) =>
+                  ctx.log.info(
+                    "Completed consumer group '{}' assignment of topic partitions to cluster member '{}': [{}]",
+                    typeKey.name,
+                    address,
+                    partitionsList
+                  )
+                case Failure(ex) =>
+                  ctx.log.error("A failure occurred while updating cluster shards", ex)
+              }
+            Behaviors.same
+          case TopicPartitionsRevoked(_, partitions) =>
+            val partitionsList = partitions.mkString(",")
+            ctx.log.info("Consumer group '{}' revoked topic partitions from cluster member '{}': [{}]",
+                         typeKey.name,
+                         address,
+                         partitionsList)
+            Behaviors.same
         }
-        Future
-          .sequence(updates)
-          // Each Future returns successfully once a majority of cluster nodes receive the update. There's no point
-          // blocking here because the rebalance listener is triggered asynchronously. If we want to block during
-          // rebalance then we should provide an implementation using the `PartitionAssignmentHandler` instead
-          .onComplete {
-            case Success(_) =>
-              log.info("Completed consumer group '{}' assignment of topic partitions to cluster member '{}': [{}]",
-                       typeKeyName,
-                       address,
-                       partitionsList)
-            case Failure(ex) =>
-              log.error("A failure occurred while updating cluster shards", ex)
-          }
-    }
+      }
   }
 
   override def createExtension(system: ExtendedActorSystem): KafkaClusterSharding =

@@ -170,7 +170,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       skip in publish := true,
-      // TODO: how do we add clusterSharding to unidoc and only build it with Akka 2.6?
+      // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
         """
@@ -372,12 +372,16 @@ lazy val docs = project
         "javadoc.akka.kafka.base_url" -> "",
         // Akka
         "akka.version" -> akkaVersion,
-        "akka.version26" -> akkaVersion26,
         "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
         "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
         "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        // Akka 2.6. These can be removed when we drop Akka 2.5 support.
+        "akka.version26" -> akkaVersion26,
+        "extref.akka26.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
+        "scaladoc.akka.actor.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
+        "extref.akka.actor.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
         "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
