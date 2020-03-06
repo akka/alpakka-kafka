@@ -5,6 +5,8 @@ enablePlugins(AutomateHeaderPlugin)
 name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
+val Build211 = sys.env.get("BUILD_SCALA_211").contains("true")
+
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
@@ -24,6 +26,13 @@ val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.4"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.0"
+
+// don't include clusterSharding project when building Scala 2.11
+lazy val testProjects: Seq[ClasspathDep[ProjectReference]] =
+  if (Build211) Seq(core, testkit) else Seq(core, clusterSharding, testkit)
+lazy val aggregateProjects: Seq[ProjectReference] =
+  if (Build211) List(core, testkit, tests, benchmarks, docs)
+  else List(core, clusterSharding, testkit, tests, benchmarks, docs)
 
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
@@ -210,7 +219,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
+    .aggregate(aggregateProjects: _*)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -279,7 +288,7 @@ lazy val clusterSharding = project
   )
 
 lazy val tests = project
-  .dependsOn(core, clusterSharding, testkit)
+  .dependsOn(testProjects: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest.extend(Test))
