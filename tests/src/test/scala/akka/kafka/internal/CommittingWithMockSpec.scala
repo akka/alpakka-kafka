@@ -213,7 +213,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.enqueue(msgs.map(toRecord))
 
     probe.request(count.toLong)
-    val allCommits = Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitInternal()))
+    val allCommits =
+      Future.sequence(probe.expectNextN(count.toLong).map(_.committableOffset.commitInternal()))
 
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {

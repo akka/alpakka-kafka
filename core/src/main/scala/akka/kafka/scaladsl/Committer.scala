@@ -5,12 +5,13 @@
 
 package akka.kafka.scaladsl
 
-import akka.dispatch.ExecutionContexts
 import akka.annotation.ApiMayChange
-import akka.{Done, NotUsed}
+import akka.dispatch.ExecutionContexts
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
+import akka.kafka.internal.CommitCollectorStage
 import akka.stream.scaladsl.{Flow, FlowWithContext, Keep, Sink}
+import akka.{Done, NotUsed}
 
 import scala.concurrent.Future
 
@@ -26,20 +27,20 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
-    val offsetBatches = Flow[Committable]
-      .groupedWeightedWithin(settings.maxBatch, settings.maxInterval)(_.batchSize)
-      .map(CommittableOffsetBatch.apply)
+    val offsetBatches: Flow[Committable, CommittableOffsetBatch, NotUsed] =
+      Flow
+        .fromGraph(new CommitCollectorStage(settings))
+
     // See https://github.com/akka/alpakka-kafka/issues/882
     import akka.kafka.CommitDelivery._
     settings.delivery match {
       case WaitForAck =>
         offsetBatches
-          .mapAsyncUnordered(settings.parallelism) { b =>
-            b.commitInternal().map(_ => b)(ExecutionContexts.sameThreadExecutionContext)
+          .mapAsyncUnordered(settings.parallelism) { batch =>
+            batch.commitInternal().map(_ => batch)(ExecutionContexts.sameThreadExecutionContext)
           }
       case SendAndForget =>
-        offsetBatches
-          .map(_.tellCommit())
+        offsetBatches.map(_.tellCommit())
     }
   }
 

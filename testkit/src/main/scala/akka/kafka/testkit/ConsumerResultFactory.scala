@@ -22,7 +22,8 @@ object ConsumerResultFactory {
 
   val fakeCommitter: KafkaAsyncConsumerCommitterRef = new KafkaAsyncConsumerCommitterRef(null, null)(ec = null) {
     override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = Future.successful(Done)
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] = Future.successful(Done)
+    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] =
+      Future.successful(Done)
   }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =

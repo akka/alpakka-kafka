@@ -215,6 +215,14 @@ object ConsumerMessage {
      */
     @InternalApi
     private[kafka] def tellCommit(): CommittableOffsetBatch
+
+    @InternalApi
+    private[kafka] def tellCommitEmergency(): CommittableOffsetBatch
+
+    /**
+     * @return true if the batch contains no commits.
+     */
+    def isEmpty: Boolean
   }
 
 }

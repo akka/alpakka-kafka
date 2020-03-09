@@ -366,7 +366,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       .mapMaterializedValue(DrainingControl.apply)
       .run()
 
-    val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.Commit])
+    val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.CommitWithoutReply])
     commitMsg.tp shouldBe new TopicPartition(topic, partition)
     commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 2)
     consumer.actor.reply(Done)

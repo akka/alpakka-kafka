@@ -65,7 +65,7 @@ import scala.util.control.NonFatal
     final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
-    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
+    final case class CommitWithoutReply(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata, emergency: Boolean)
         extends NoSerializationVerificationNeeded
 
     /** Special case commit for non-batched committing. */
@@ -259,9 +259,12 @@ import scala.util.control.NonFatal
       commitMaps = tp -> offset :: commitMaps
       commitSenders = commitSenders :+ sender()
 
-    case CommitWithoutReply(tp, offset) =>
+    case CommitWithoutReply(tp, offset, emergency) =>
       // prepending, as later received offsets most likely are higher
       commitMaps = tp -> offset :: commitMaps
+      if (emergency) {
+        emergencyPoll()
+      }
 
     case CommitSingle(tp, offset) =>
       commitMaps = tp -> offset :: commitMaps
@@ -486,14 +489,14 @@ import scala.util.control.NonFatal
       self ! delayedPollMsg
     }
 
+  private def emergencyPoll(): Unit = {
+    log.debug("Performing emergency poll")
+    commitAndPoll()
+  }
+
   private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
-      val refreshOffsets = commitRefreshing.refreshOffsets
-      if (refreshOffsets.nonEmpty) {
-        log.debug("Refreshing committed offsets: {}", refreshOffsets)
-        commit(refreshOffsets, _ => ())
-      }
-      poll()
+      commitAndPoll()
       if (p.periodic)
         schedulePollTask()
       else
@@ -502,6 +505,15 @@ import scala.util.control.NonFatal
       // Message was enqueued before a restart - can be ignored
       log.debug("Ignoring Poll message with stale target ref")
     }
+
+  private def commitAndPoll(): Unit = {
+    val refreshOffsets = commitRefreshing.refreshOffsets
+    if (refreshOffsets.nonEmpty) {
+      log.debug("Refreshing committed offsets: {}", refreshOffsets)
+      commit(refreshOffsets, _ => ())
+    }
+    poll()
+  }
 
   def poll(): Unit = {
     try {

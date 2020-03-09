@@ -51,6 +51,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     with DeferredProducer[K, V] {
 
   import CommittingProducerSinkStage._
+  import CommitTrigger._
 
   /** The promise behind the materialized future. */
   final val streamCompletion = Promise[Done]
@@ -201,6 +202,18 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       checkForCompletion()
   }
 
+  private def emergencyShutdown(ex: Throwable): Unit = {
+    log.debug("Emergency shutdown triggered by {} (awaitingProduceResult={} awaitingCommitResult={})",
+              ex,
+              awaitingProduceResult,
+              awaitingCommitResult)
+
+    offsetBatch.tellCommitEmergency()
+    upstreamCompletionState = Some(Failure(ex))
+    offsetBatch = CommittableOffsetBatch.empty
+    closeAndFailStage(ex)
+  }
+
   // ---- handler and completion
   /** Keeps track of upstream completion signals until this stage shuts down. */
   private var upstreamCompletionState: Option[Try[Done]] = None
@@ -227,9 +240,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         if (awaitingCommitResult == 0) {
           closeAndFailStage(ex)
         } else {
-          commit(UpstreamFailure)
-          setKeepGoing(true)
-          upstreamCompletionState = Some(Failure(ex))
+          emergencyShutdown(ex)
         }
     }
   )
@@ -261,21 +272,4 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
 private object CommittingProducerSinkStage {
   val CommitNow = "commit"
-
-  sealed trait TriggerdBy
-  case object BatchSize extends TriggerdBy {
-    override def toString: String = "batch size"
-  }
-  case object Interval extends TriggerdBy {
-    override def toString: String = "interval"
-  }
-  case object UpstreamClosed extends TriggerdBy {
-    override def toString: String = "upstream closed"
-  }
-  case object UpstreamFinish extends TriggerdBy {
-    override def toString: String = "upstream finish"
-  }
-  case object UpstreamFailure extends TriggerdBy {
-    override def toString: String = "upstream failure"
-  }
 }
