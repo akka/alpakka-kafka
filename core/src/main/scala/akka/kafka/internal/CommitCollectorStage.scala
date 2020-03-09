@@ -96,18 +96,14 @@ private final class CommitCollectorStageLogic(
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        log.debug("Received onUpstreamFailure with exception {}", ex)
         if (noActiveBatchInProgress) {
+          log.debug("onUpstreamFailure with exception {} with empty offset batch", ex)
           failStage(ex)
         } else {
-          if (offsetBatch.isEmpty) {
-            failStage(ex)
-          } else {
-            log.debug("committing batch in flight on failure {}", offsetBatch)
-            offsetBatch.tellCommitEmergency()
-            offsetBatch = CommittableOffsetBatch.empty
-            failStage(ex)
-          }
+          log.debug("onUpstreamFailure with exception {} with {}", ex, offsetBatch)
+          offsetBatch.tellCommitEmergency()
+          offsetBatch = CommittableOffsetBatch.empty
+          failStage(ex)
         }
       }
     }

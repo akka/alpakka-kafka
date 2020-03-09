@@ -229,7 +229,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
   override def commitScaladsl(): Future[Done] = commitInternal()
 
   override def commitInternal(): Future[Done] =
-    if (batchSize == 0L)
+    if (isEmpty)
       Future.successful(Done)
     else {
       committers.head._2.commit(this)
