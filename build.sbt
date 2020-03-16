@@ -119,7 +119,7 @@ val commonSettings = Def.settings(
       "-sourcepath",
       (baseDirectory in ThisBuild).value.toString,
       "-skip-packages",
-      "akka.pattern" // for some reason Scaladoc creates this
+      "akka.pattern:scala" // for some reason Scaladoc creates this
     ) ++ {
       scalaBinaryVersion.value match {
         case "2.12" | "2.13" =>
