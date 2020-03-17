@@ -221,6 +221,7 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
    * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
    * }}}
    */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
   def rebalanceListener(typeKey: EntityTypeKey[_]): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] = {
     rebalanceListeners.computeIfAbsent(typeKey, _ => {
       system.toTyped
@@ -246,6 +247,7 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
    * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
    * }}}
    */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
   def rebalanceListener(
       typeKey: akka.cluster.sharding.typed.javadsl.EntityTypeKey[_]
   ): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] = {
