@@ -5,12 +5,13 @@
 
 package akka.kafka.cluster.sharding
 
+import java.util.concurrent.{CompletionStage, ConcurrentHashMap}
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{ExtendedActorSystem, Extension, ExtensionId}
+import akka.actor.{ActorSystem, ClassicActorSystemProvider, ExtendedActorSystem, Extension, ExtensionId}
 import akka.annotation.{ApiMayChange, InternalApi}
 import akka.cluster.sharding.external.ExternalShardAllocation
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
@@ -24,6 +25,8 @@ import org.apache.kafka.common.utils.Utils
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
+import akka.util.JavaDurationConverters._
+import scala.compat.java8.FutureConverters._
 
 /**
  * API MAY CHANGE
@@ -53,6 +56,32 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
                           timeout: FiniteDuration,
                           settings: ConsumerSettings[_, _]): Future[KafkaShardingMessageExtractor[M]] =
     getPartitionCount(topic, timeout, settings).map(new KafkaShardingMessageExtractor[M](_))(system.dispatcher)
+
+  /**
+   *
+   * Java API
+   *
+   * API MAY CHANGE
+   *
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   *
+   * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
+   * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
+   * the Kafka Consumer connection required to retrieve the number of partitions. Each call to this method will result
+   * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
+   *
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
+   * that entities are routed to the same Entity type.
+   *
+   */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def messageExtractor[M](topic: String,
+                          timeout: java.time.Duration,
+                          settings: ConsumerSettings[_, _]): CompletionStage[KafkaShardingMessageExtractor[M]] =
+    getPartitionCount(topic, timeout.asScala, settings)
+      .map(new KafkaShardingMessageExtractor[M](_))(system.dispatcher)
+      .toJava
 
   /**
    * API MAY CHANGE
@@ -93,6 +122,36 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
       .map(partitions => new KafkaShardingNoEnvelopeExtractor[M](partitions, entityIdExtractor))(system.dispatcher)
 
   /**
+   * Java API
+   *
+   * API MAY CHANGE
+   *
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   *
+   * The number of partitions to use with the hashing strategy will be automatically determined by querying the Kafka
+   * cluster for the number of partitions of a user provided [[topic]]. Use the [[settings]] parameter to configure
+   * the Kafka Consumer connection required to retrieve the number of partitions. Use the [[entityIdExtractor]] to pick
+   * a field from the Entity to use as the entity id for the hashing strategy. Each call to this method will result
+   * in a round trip to Kafka. This method should only be called once per entity type [[M]], per local actor system.
+   *
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
+   * that entities are routed to the same Entity type.
+   */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def messageExtractorNoEnvelope[M](
+      topic: String,
+      timeout: java.time.Duration,
+      entityIdExtractor: java.util.function.Function[M, String],
+      settings: ConsumerSettings[_, _]
+  ): CompletionStage[KafkaShardingNoEnvelopeExtractor[M]] =
+    getPartitionCount(topic, timeout.asScala, settings)
+      .map(partitions => new KafkaShardingNoEnvelopeExtractor[M](partitions, e => entityIdExtractor.apply(e)))(
+        system.dispatcher
+      )
+      .toJava
+
+  /**
    * API MAY CHANGE
    *
    * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
@@ -107,6 +166,24 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
   def messageExtractorNoEnvelope[M](kafkaPartitions: Int,
                                     entityIdExtractor: M => String): KafkaShardingNoEnvelopeExtractor[M] =
     new KafkaShardingNoEnvelopeExtractor[M](kafkaPartitions, entityIdExtractor)
+
+  /**
+   * API MAY CHANGE
+   *
+   * Asynchronously return a [[akka.cluster.sharding.typed.ShardingMessageExtractor]] with a default hashing strategy
+   * based on Apache Kafka's [[org.apache.kafka.clients.producer.internals.DefaultPartitioner]].
+   *
+   * The number of partitions to use with the hashing strategy is provided explicitly with [[kafkaPartitions]].
+   *
+   * All topics used in a Consumer [[akka.kafka.Subscription]] must contain the same number of partitions to ensure
+   * that entities are routed to the same Entity type.
+   */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
+  def messageExtractorNoEnvelope[M](
+      kafkaPartitions: Int,
+      entityIdExtractor: java.util.function.Function[M, String]
+  ): KafkaShardingNoEnvelopeExtractor[M] =
+    new KafkaShardingNoEnvelopeExtractor[M](kafkaPartitions, e => entityIdExtractor.apply(e))
 
   private val metadataConsumerActorNum = new AtomicInteger
   private def getPartitionCount[M](topic: String,
@@ -125,7 +202,8 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
     }
   }
 
-  private val shardingRebalanceListenerActorNum = new AtomicInteger
+  private val rebalanceListeners =
+    new ConcurrentHashMap[EntityTypeKey[_], akka.actor.typed.ActorRef[ConsumerRebalanceEvent]]()
 
   /**
    * API MAY CHANGE
@@ -143,11 +221,16 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
    * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
    * }}}
    */
-  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
-  def rebalanceListener(typeKey: EntityTypeKey[_]): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
-    rebalanceListener(system.toTyped, typeKey)
+  def rebalanceListener(typeKey: EntityTypeKey[_]): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] = {
+    rebalanceListeners.computeIfAbsent(typeKey, _ => {
+      system.toTyped
+        .systemActorOf(RebalanceListener(typeKey), s"kafka-cluster-sharding-rebalance-listener-${typeKey.name}")
+    })
+  }
 
   /**
+   * Java API
+   *
    * API MAY CHANGE
    *
    * Create an Alpakka Kafka rebalance listener that handles [[TopicPartitionsAssigned]] events. The [[typeKey]] is
@@ -163,11 +246,10 @@ final class KafkaClusterSharding(system: ExtendedActorSystem) extends Extension 
    * val listenerClassicActorRef: akka.actor.ActorRef = listenerTypedActorRef.toClassic
    * }}}
    */
-  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1074")
-  def rebalanceListener(otherSystem: ActorSystem[_], typeKey: EntityTypeKey[_]): ActorRef[ConsumerRebalanceEvent] = {
-    val num = shardingRebalanceListenerActorNum.getAndIncrement()
-    otherSystem
-      .systemActorOf(RebalanceListener(typeKey), s"kafka-cluster-sharding-rebalance-listener-$num")
+  def rebalanceListener(
+      typeKey: akka.cluster.sharding.typed.javadsl.EntityTypeKey[_]
+  ): akka.actor.typed.ActorRef[ConsumerRebalanceEvent] = {
+    rebalanceListener(typeKey.asScala)
   }
 }
 
@@ -250,4 +332,14 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
 
   override def createExtension(system: ExtendedActorSystem): KafkaClusterSharding =
     new KafkaClusterSharding(system)
+
+  /**
+   * Java API
+   */
+  override def get(system: ClassicActorSystemProvider): KafkaClusterSharding = super.get(system)
+
+  /**
+   * Java API
+   */
+  override def get(system: ActorSystem): KafkaClusterSharding = super.get(system)
 }
