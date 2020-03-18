@@ -50,15 +50,24 @@ Given a user entity.
 Scala
 : @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #user-entity }
 
+Java
+: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #user-entity }
+
 Create a `MessageExtractor`.
 
 Scala
 : @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #message-extractor }
 
+Java
+: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #message-extractor }
+
 Setup Akka Typed Cluster Sharding.
 
 Scala
 : @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #setup-cluster-sharding }
+
+Java
+: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #setup-cluster-sharding }
 
 ## Rebalance Listener
 
@@ -81,3 +90,6 @@ Create the rebalance listener using the extension and pass it into an Alpakka Ka
 
 Scala
 : @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #rebalance-listener }
+
+Java
+: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #rebalance-listener }

@@ -68,9 +68,12 @@ sealed trait AutoSubscription extends Subscription {
     }
 }
 
+@ApiMayChange
 sealed trait ConsumerRebalanceEvent
+@ApiMayChange
 final case class TopicPartitionsAssigned(sub: Subscription, topicPartitions: Set[TopicPartition])
     extends ConsumerRebalanceEvent
+@ApiMayChange
 final case class TopicPartitionsRevoked(sub: Subscription, topicPartitions: Set[TopicPartition])
     extends ConsumerRebalanceEvent
 
