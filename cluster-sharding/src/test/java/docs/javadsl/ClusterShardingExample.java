@@ -23,63 +23,73 @@ import java.util.concurrent.CompletionStage;
 
 public class ClusterShardingExample {
 
-    // #user-entity
-    final static class User {
-        public final String id;
-        public final String mame;
+  // #user-entity
+  static final class User {
+    public final String id;
+    public final String mame;
 
-        User(String id, String mame) {
-            this.id = id;
-            this.mame = mame;
-        }
+    User(String id, String mame) {
+      this.id = id;
+      this.mame = mame;
     }
-    // #user-entity
+  }
+  // #user-entity
 
-    public static Behavior<User> userBehaviour() {
-        return Behaviors.empty();
-    }
+  public static Behavior<User> userBehaviour() {
+    return Behaviors.empty();
+  }
 
-    public static void example() {
-        ActorSystem<Void> typedSystem = ActorSystem.create(Behaviors.empty(), "ClusterShardingExample");
-        String kafkaBootstrapServers = "localhost:9092";
+  public static void example() {
+    ActorSystem<Void> system = ActorSystem.create(Behaviors.empty(), "ClusterShardingExample");
+    String kafkaBootstrapServers = "localhost:9092";
 
-
-        // #message-extractor
-        // automatically retrieving the number of partitions requires a round trip to a Kafka broker
-        CompletionStage<KafkaClusterSharding.KafkaShardingNoEnvelopeExtractor<User>> messageExtractor = KafkaClusterSharding.get(typedSystem).messageExtractorNoEnvelope(
+    // #message-extractor
+    // automatically retrieving the number of partitions requires a round trip to a Kafka broker
+    CompletionStage<KafkaClusterSharding.KafkaShardingNoEnvelopeExtractor<User>> messageExtractor =
+        KafkaClusterSharding.get(system)
+            .messageExtractorNoEnvelope(
                 "user-topic",
                 Duration.ofSeconds(10),
                 (User msg) -> msg.id,
-                ConsumerSettings.create(Adapter.toClassic(typedSystem), new StringDeserializer(), new StringDeserializer())
-        );
-        // #message-extractor
+                ConsumerSettings.create(
+                    Adapter.toClassic(system), new StringDeserializer(), new StringDeserializer()));
+    // #message-extractor
 
-        // #setup-cluster-sharding
+    // #setup-cluster-sharding
 
-        String groupId = "user-topic-group-id";
-        EntityTypeKey<User> typeKey = EntityTypeKey.create(User.class, groupId);
+    String groupId = "user-topic-group-id";
+    EntityTypeKey<User> typeKey = EntityTypeKey.create(User.class, groupId);
 
-        messageExtractor.thenAccept(extractor -> ClusterSharding.get(typedSystem).init(
+    messageExtractor.thenAccept(
+        extractor ->
+            ClusterSharding.get(system)
+                .init(
                     Entity.of(typeKey, ctx -> userBehaviour())
-                    .withAllocationStrategy(new ExternalShardAllocationStrategy(typedSystem, typeKey.name(), Timeout.create(Duration.ofSeconds(5))))
-                    .withMessageExtractor(extractor)));
-        // #setup-cluster-sharding
+                        .withAllocationStrategy(
+                            new ExternalShardAllocationStrategy(
+                                system, typeKey.name(), Timeout.create(Duration.ofSeconds(5))))
+                        .withMessageExtractor(extractor)));
+    // #setup-cluster-sharding
 
-        // #rebalance-listener
-        akka.actor.typed.ActorRef<ConsumerRebalanceEvent> rebalanceListener = KafkaClusterSharding.get(typedSystem).rebalanceListener(typeKey);
+    // #rebalance-listener
+    akka.actor.typed.ActorRef<ConsumerRebalanceEvent> rebalanceListener =
+        KafkaClusterSharding.get(system).rebalanceListener(typeKey);
 
-        ConsumerSettings<String, byte[]> consumerSettings = ConsumerSettings.create(Adapter.toClassic(typedSystem), new StringDeserializer(), new ByteArrayDeserializer())
-                .withBootstrapServers(kafkaBootstrapServers)
-                .withGroupId(typeKey.name());// use the same group id as we used in the `EntityTypeKey` for `User`
+    ConsumerSettings<String, byte[]> consumerSettings =
+        ConsumerSettings.create(
+                Adapter.toClassic(system), new StringDeserializer(), new ByteArrayDeserializer())
+            .withBootstrapServers(kafkaBootstrapServers)
+            .withGroupId(
+                typeKey
+                    .name()); // use the same group id as we used in the `EntityTypeKey` for `User`
 
-        // pass the rebalance listener to the topic subscription
-        AutoSubscription subscription = Subscriptions
-                .topics("user-topic")
-                .withRebalanceListener(Adapter.toClassic(rebalanceListener));
+    // pass the rebalance listener to the topic subscription
+    AutoSubscription subscription =
+        Subscriptions.topics("user-topic")
+            .withRebalanceListener(Adapter.toClassic(rebalanceListener));
 
-        Consumer.plainSource(consumerSettings, subscription);
-        // #rebalance-listener
+    Consumer.plainSource(consumerSettings, subscription);
+    // #rebalance-listener
 
-
-    }
+  }
 }

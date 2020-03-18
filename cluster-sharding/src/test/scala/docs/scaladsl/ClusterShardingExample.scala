@@ -28,11 +28,10 @@ import scala.util.{Failure, Success}
  * https://github.com/akka/akka-samples/tree/2.6/akka-sample-kafka-to-sharding-scala
  */
 object ClusterShardingExample {
-  val typedSystem = ActorSystem(Behaviors.empty, "ClusterShardingExample")
-  val classicSystem = typedSystem.toClassic
+  val system = ActorSystem(Behaviors.empty, "ClusterShardingExample")
   val kafkaBootstrapServers = "localhost:9092"
 
-  implicit val ec = typedSystem.executionContext
+  implicit val ec = system.executionContext
 
   def userBehaviour(): Behavior[User] = Behaviors.empty[User]
 
@@ -43,11 +42,11 @@ object ClusterShardingExample {
   // #message-extractor
   // automatically retrieving the number of partitions requires a round trip to a Kafka broker
   val messageExtractor: Future[KafkaClusterSharding.KafkaShardingNoEnvelopeExtractor[User]] =
-    KafkaClusterSharding(typedSystem.toClassic).messageExtractorNoEnvelope(
+    KafkaClusterSharding(system.toClassic).messageExtractorNoEnvelope(
       timeout = 10.seconds,
       topic = "user-topic",
       entityIdExtractor = (msg: User) => msg.id,
-      settings = ConsumerSettings(classicSystem, new StringDeserializer, new StringDeserializer)
+      settings = ConsumerSettings(system.toClassic, new StringDeserializer, new StringDeserializer)
         .withBootstrapServers(kafkaBootstrapServers)
     )
   // #message-extractor
@@ -59,27 +58,27 @@ object ClusterShardingExample {
 
   messageExtractor.onComplete {
     case Success(extractor) =>
-      ClusterSharding(typedSystem).init(
+      ClusterSharding(system).init(
         Entity(typeKey)(createBehavior = _ => userBehaviour())
-          .withAllocationStrategy(new ExternalShardAllocationStrategy(typedSystem, typeKey.name))
+          .withAllocationStrategy(new ExternalShardAllocationStrategy(system, typeKey.name))
           .withMessageExtractor(extractor)
-          .withSettings(ClusterShardingSettings(typedSystem))
+          .withSettings(ClusterShardingSettings(system))
       )
-    case Failure(ex) => typedSystem.log.error("An error occurred while obtaining the message extractor", ex)
+    case Failure(ex) => system.log.error("An error occurred while obtaining the message extractor", ex)
   }
   // #setup-cluster-sharding
 
   // #rebalance-listener
   // obtain an Akka classic ActorRef that will handle consumer group rebalance events
   val rebalanceListener: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
-    KafkaClusterSharding(classicSystem).rebalanceListener(typeKey)
+    KafkaClusterSharding(system.toClassic).rebalanceListener(typeKey)
 
-  // convert the rebalance listener to a classic ActorRef
+  // convert the rebalance listener to a classic ActorRef until Alpakka Kafka supports Akka Typed
   import akka.actor.typed.scaladsl.adapter._
   val rebalanceListenerClassic: akka.actor.ActorRef = rebalanceListener.toClassic
 
   val consumerSettings =
-    ConsumerSettings(classicSystem, new StringDeserializer, new ByteArrayDeserializer)
+    ConsumerSettings(system.toClassic, new StringDeserializer, new ByteArrayDeserializer)
       .withBootstrapServers(kafkaBootstrapServers)
       .withGroupId(typeKey.name) // use the same group id as we used in the `EntityTypeKey` for `User`
 
