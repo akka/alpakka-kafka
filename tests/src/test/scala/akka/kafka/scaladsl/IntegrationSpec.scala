@@ -191,7 +191,9 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         // effectively failing the production of the first messages
         val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
 
-        Await.ready(produce(topic1, 1 to 100, failFirstMessagesProducerSettings), remainingOrDefault)
+        val producer = produce(topic1, 1 to 100, failFirstMessagesProducerSettings)
+        // assure the producer fails as expected
+        producer.failed.futureValue shouldBe a[org.apache.kafka.common.errors.TimeoutException]
 
         val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
