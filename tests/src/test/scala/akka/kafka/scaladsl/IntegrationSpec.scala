@@ -7,8 +7,9 @@ package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
+import akka.kafka.ProducerMessage.Results
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
@@ -20,6 +21,8 @@ import akka.testkit.TestProbe
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.common.errors.SerializationException
+import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
@@ -183,17 +186,29 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       }
     }
 
+    class FailingStringSerializer extends StringSerializer {
+      override def serialize(topic: String, data: String): Array[Byte] =
+        throw new SerializationException()
+    }
+
     "not produce any records after send-failure if stage is stopped" in {
       assertAllStagesStopped {
         val topic1 = createTopic(1)
         val group1 = createGroupId(1)
         // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
         // effectively failing the production of the first messages
-        val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
+        val failFirstMessagesProducerSettings =
+          ProducerSettings(system, new FailingStringSerializer, new FailingStringSerializer)
+            .withBootstrapServers(bootstrapServers)
 
+//        val producer: Future[Option[Results[String, String, NotUsed]]] = Source(1 to 100)
+//          .map(n => ProducerMessage.single(new ProducerRecord(topic1, partition0, DefaultKey, n.toString)))
+//          .via(Producer.flexiFlow(failFirstMessagesProducerSettings))
+//          .runWith(Sink.headOption)
         val producer = produce(topic1, 1 to 100, failFirstMessagesProducerSettings)
         // assure the producer fails as expected
-        producer.failed.futureValue shouldBe a[org.apache.kafka.common.errors.TimeoutException]
+        producer.failed.futureValue shouldBe a[SerializationException]
+        //producer.futureValue shouldBe None
 
         val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
 

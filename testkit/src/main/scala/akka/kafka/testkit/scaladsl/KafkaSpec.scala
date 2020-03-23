@@ -196,6 +196,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
       .map(_.value)
+      .log("msg")
       .toMat(TestSink.probe)(Keep.both)
       .run()
 
