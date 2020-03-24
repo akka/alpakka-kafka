@@ -141,6 +141,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         val r = Promise[Result[K, V, P]]
         awaitingConfirmation += 1
         producer.send(msg.record, new SendCallback(msg, r))
+        log.info("A record was sent! msg: {}", msg)
         postSend(msg)
         val future = r.future.asInstanceOf[Future[OUT]]
         push(stage.out, future)
