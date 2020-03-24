@@ -7,22 +7,19 @@ package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.Done
 import akka.kafka.ConsumerMessage.CommittableOffsetBatch
-import akka.kafka.ProducerMessage.Results
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.pattern.ask
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.util.Timeout
-import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
@@ -213,7 +210,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .via(Producer.flexiFlow(failFirstMessagesProducerSettings))
           .toMat(TestSink.probe)(Keep.right)
           .run()
-
         producerProbe.request(100)
         // expect failure to kill stage before any successfully produced messages have callbacks executed
         // this runs locally after 100x test runs, but it may be possible for a callback to emit an element before
@@ -223,11 +219,10 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         producerProbe.expectNoMessage(1.second)
 
         val (_, consumerProbe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
-
         consumerProbe
           .request(100)
           // expect first n messages to have been produced, even when callbacks never returned in producer stream
-          .expectNextN(numMessagesBeforeFailure)
+          .expectNextN(numMessagesBeforeFailure.toLong)
         consumerProbe.expectNoMessage(1.second)
         consumerProbe.cancel()
       }

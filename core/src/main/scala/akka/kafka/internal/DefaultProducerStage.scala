@@ -141,7 +141,6 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         val r = Promise[Result[K, V, P]]
         awaitingConfirmation += 1
         producer.send(msg.record, new SendCallback(msg, r))
-        log.info("A record was sent! msg: {}", msg)
         postSend(msg)
         val future = r.future.asInstanceOf[Future[OUT]]
         push(stage.out, future)
@@ -189,10 +188,8 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   /** send-callback for a single message. */
   private final class SendCallback(msg: Message[K, V, P], promise: Promise[Result[K, V, P]])
       extends CallbackBase(promise) {
-    override protected def emitElement(metadata: RecordMetadata): Unit = {
-      log.info("A record was emitted! msg: {}, metadata: {}", msg, metadata)
+    override protected def emitElement(metadata: RecordMetadata): Unit =
       promise.success(Result(metadata, msg))
-    }
   }
 
   /** send-callback for a multi-message. */

@@ -36,7 +36,6 @@
     <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
     <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="INFO"/>
     -->
-    <logger name="org.apache.kafka.clients.producer.KafkaProducer" level="TRACE"/>
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
     <logger name="org.eclipse.jetty" level="WARN"/>
