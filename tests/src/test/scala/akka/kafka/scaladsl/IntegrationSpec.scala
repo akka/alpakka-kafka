@@ -204,6 +204,8 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
                            new FailingStringSerializer)
             .withBootstrapServers(bootstrapServers)
             .withProperty(ProducerConfig.BATCH_SIZE_CONFIG, numMessagesBeforeFailure.toString)
+            .withProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1.toString)
+            .withProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
 
         val producerProbe = Source(1 to 100)
           .map(n => ProducerMessage.single(new ProducerRecord(topic1, partition0, DefaultKey, n.toString)))
