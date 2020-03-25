@@ -146,10 +146,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
       .toMat(
         Committer
           .sink(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize.toLong))
-      )(
-        Keep.both
-      )
-      .mapMaterializedValue(DrainingControl.apply)
+      )(DrainingControl.form)
       .run()
 
     Await.result(promise.future, streamingTimeout)

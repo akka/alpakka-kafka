@@ -119,8 +119,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
             // #jackson-deserializer
             .take(samples.size())
             // #jackson-deserializer
-            .toMat(Sink.seq(), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+            .toMat(Sink.seq(), Consumer::formDrainingControl)
             .run(mat);
     // #jackson-deserializer
 
@@ -184,8 +183,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
     Consumer.DrainingControl<List<ConsumerRecord<String, Object>>> controlCompletionStagePair =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
             .take(samples.size())
-            .toMat(Sink.seq(), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+            .toMat(Sink.seq(), Consumer::formDrainingControl)
             .run(mat);
     // #de-serializer
 

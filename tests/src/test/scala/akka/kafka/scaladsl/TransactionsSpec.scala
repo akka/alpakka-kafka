@@ -462,8 +462,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                 .to(Transactional.sink(producerDefaults, transactionalId))
                 .run()
           }
-          .toMat(Sink.ignore)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.ignore)(DrainingControl.form)
           .run()
 
       def createAndRunProducer(elements: immutable.Iterable[Long]) =
@@ -508,8 +507,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                      Subscriptions.topics(outTopic))
         .mapAsync(1)(el => counterQueue.offer(el.value()).map(_ => el))
         .scan(0L)((c, _) => c + 1)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.last)(DrainingControl.form)
         .run()
 
       counterCompletion.futureValue shouldBe totalMessages

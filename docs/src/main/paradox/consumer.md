@@ -313,7 +313,7 @@ When you are using offset storage in Kafka, the shutdown process involves severa
 ### Draining control
 
 To manage this shutdown process, use the @apidoc[Consumer.DrainingControl]
-by combining the `Consumer.Control` with the sink's materialized completion future in `mapMaterializedValue`. That control offers the method `drainAndShutdown` which implements the process descibed above.
+by combining the @apidoc[Consumer.Control] with the sink's materialized completion future in `toMat` with @scala[`DrainingControl.form`]@java[`Consumer::formDrainingControl`], or from a tuple in `mapMaterializedValue` with @scala[`DrainingControl.apply`]@java[`Consumer::createDrainingControl`]. That control offers the method `drainAndShutdown` which implements the process described above.
 
 Note: The @apidoc[ConsumerSettings] `stop-timeout` delays stopping the Kafka Consumer and the stream, but when using `drainAndShutdown` that delay is not required and can be set to zero (as below).
 

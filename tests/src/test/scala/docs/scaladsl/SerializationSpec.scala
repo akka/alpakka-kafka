@@ -130,8 +130,7 @@ class SerializationSpec
       // #spray-deser
       .take(samples.size.toLong)
       // #spray-deser
-      .toMat(Sink.seq)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Sink.seq)(DrainingControl.form)
       .run()
     // #spray-deser
 

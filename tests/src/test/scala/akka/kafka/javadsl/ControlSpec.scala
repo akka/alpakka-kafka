@@ -46,7 +46,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to stream result" in {
       val control = createControl()
       val drainingControl =
-        Consumer.createDrainingControl(akka.japi.Pair(control, Future.successful("expected").toJava))
+        Consumer.formDrainingControl(control, Future.successful("expected").toJava)
       drainingControl.drainAndShutdown(ec).toScala.futureValue should be("expected")
       control.shutdownCalled.get() should be(true)
     }
@@ -54,8 +54,9 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to stream failure" in {
       val control = createControl()
 
-      val drainingControl = Consumer.createDrainingControl(
-        akka.japi.Pair(control, Future.failed[String](new RuntimeException("expected")).toJava)
+      val drainingControl = Consumer.formDrainingControl(
+        control,
+        Future.failed[String](new RuntimeException("expected")).toJava
       )
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
@@ -67,8 +68,9 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to stream failure even if shutdown fails" in {
       val control = createControl(shutdownFuture = Future.failed(new RuntimeException("not this")))
 
-      val drainingControl = Consumer.createDrainingControl(
-        akka.japi.Pair(control, Future.failed[String](new RuntimeException("expected")).toJava)
+      val drainingControl = Consumer.formDrainingControl(
+        control,
+        Future.failed[String](new RuntimeException("expected")).toJava
       )
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
@@ -80,7 +82,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to shutdown failure when stream succeeds" in {
       val control = createControl(shutdownFuture = Future.failed(new RuntimeException("expected")))
 
-      val drainingControl = Consumer.createDrainingControl(akka.japi.Pair(control, Future.successful(Done).toJava))
+      val drainingControl = Consumer.formDrainingControl(control, Future.successful(Done).toJava)
       val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12

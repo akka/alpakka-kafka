@@ -98,12 +98,23 @@ object Consumer {
   }
 
   /**
-   * Combine control and a stream completion signal materialized values into
+   * Combine the consumer control and a stream completion signal materialized values into
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
+   *
+   * For use in `mapMaterializedValue`.
    */
   def createDrainingControl[T](pair: Pair[Control, CompletionStage[T]]) =
     new DrainingControl[T](pair.first, pair.second)
+
+  /**
+   * Combine the consumer control and a stream completion signal materialized values into
+   * one, so that the stream can be stopped in a controlled way without losing
+   * commits.
+   *
+   * For use in the `toMat` combination of materialized values.
+   */
+  def formDrainingControl[T](c: Control, mat: CompletionStage[T]): DrainingControl[T] = new DrainingControl[T](c, mat)
 
   /**
    * An implementation of Control to be used as an empty value, all methods return
