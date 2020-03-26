@@ -16,7 +16,7 @@ import akka.util.JavaDurationConverters._
  * Utility class for producing to Kafka without using Akka Streams.
  * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
  */
-final class ElementProducer[K, V](val settings: ProducerSettings[K, V])(implicit ec: ExecutionContext)
+final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit ec: ExecutionContext)
     extends AutoCloseable {
   private final val producerFuture = settings.createKafkaProducerAsync()(ec)
 
@@ -98,4 +98,11 @@ final class ElementProducer[K, V](val settings: ProducerSettings[K, V])(implicit
       producer.close(settings.closeTimeout.asJava)
     }
   }
+
+  override def toString: String = s"ElementProducer($settings)"
+}
+
+object ElementProducer {
+  def apply[K, V](settings: ProducerSettings[K, V])(implicit ec: ExecutionContext): ElementProducer[K, V] =
+    new ElementProducer(settings)
 }

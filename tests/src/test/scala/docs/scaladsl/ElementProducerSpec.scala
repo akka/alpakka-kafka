@@ -17,15 +17,14 @@ import scala.collection.immutable
 class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
 
   "Simple producer" should "send producer records" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic1 = createTopic(1)
 
-    val elementProducer = new ElementProducer(producerDefaults)
+    val elementProducer = ElementProducer(producerDefaults)
     try {
       val send = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
       send.futureValue.topic() shouldBe topic1
 
-      val read = consumeHead(consumerSettings, topic1)
+      val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
     } finally {
       elementProducer.close()
@@ -33,10 +32,9 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
   }
 
   it should "send a single messages" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic1 = createTopic(1)
 
-    val elementProducer = new ElementProducer(producerDefaults)
+    val elementProducer = ElementProducer(producerDefaults)
     try {
       val message = ProducerMessage.Message(new ProducerRecord(topic1, "key", "value"), "context")
       val send = elementProducer.sendMessage(message)
@@ -44,7 +42,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       result.message shouldBe message
       result.metadata.topic() shouldBe topic1
 
-      val read = consumeHead(consumerSettings, topic1)
+      val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
     } finally {
       elementProducer.close()
@@ -52,10 +50,9 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
   }
 
   it should "send a multi-message (with one record)" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic1 = createTopic(1)
 
-    val elementProducer = new ElementProducer(producerDefaults)
+    val elementProducer = ElementProducer(producerDefaults)
     try {
       val message = ProducerMessage.multi(immutable.Seq(new ProducerRecord(topic1, "key", "value")), "context")
       val send = elementProducer.sendEnvelope(message)
@@ -66,7 +63,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
         case other => fail(s"unexpected result $other")
       }
 
-      val read = consumeHead(consumerSettings, topic1)
+      val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
     } finally {
       elementProducer.close()
@@ -74,10 +71,9 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
   }
 
   it should "send a multi-message (with multiple records)" in {
-    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic1 = createTopic(1)
 
-    val elementProducer = new ElementProducer(producerDefaults)
+    val elementProducer = ElementProducer(producerDefaults)
     try {
       val message = ProducerMessage.multi(immutable.Seq(
                                             new ProducerRecord(topic1, "key", "value1"),
@@ -93,16 +89,16 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
         case other => fail(s"unexpected result $other")
       }
 
-      val read = consume(consumerSettings, topic1, elements = 3)
+      val read = consume(consumerDefaults.withGroupId(createGroupId()), topic1, elements = 3)
       read.futureValue should contain theSameElementsInOrderAs Seq("value1", "value2", "value3")
     } finally {
       elementProducer.close()
     }
   }
 
-  "Misconfigured producer" should "fail the send future" in {
+  "Mis-configured producer" should "fail the send future" in {
     val topic1 = createTopic(1)
-    val elementProducer = new ElementProducer(producerDefaults.withBootstrapServers("unkownhost"))
+    val elementProducer = ElementProducer(producerDefaults.withBootstrapServers("unkownhost"))
     try {
       val send = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
       send.failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
@@ -111,7 +107,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
     }
   }
 
-  private def consume(consumerSettings: ConsumerSettings[String, String], topic: String, elements: Int) = {
+  private def consume(consumerSettings: ConsumerSettings[String, String], topic: String, elements: Long) = {
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic))
       .map(_.value)
