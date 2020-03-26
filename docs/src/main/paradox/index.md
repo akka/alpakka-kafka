@@ -16,6 +16,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 * [Error Handling](errorhandling.md)
 * [At-Least-Once Delivery](atleastonce.md)
 * [Transactions](transactions.md)
+* [ElementProducer](element-producer.md)
 * [deser](serialization.md)
 * [debug](debugging.md)
 * [test](testing.md)

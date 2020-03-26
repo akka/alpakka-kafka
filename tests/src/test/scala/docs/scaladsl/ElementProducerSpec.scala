@@ -10,43 +10,52 @@ import akka.kafka.scaladsl.{Consumer, ElementProducer}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ConsumerSettings, ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.collection.immutable
+import scala.concurrent.Future
 
 class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
 
   "Simple producer" should "send producer records" in {
     val topic1 = createTopic(1)
 
+    // #record
     val elementProducer = ElementProducer(producerDefaults)
     try {
-      val send = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
+      val send: Future[RecordMetadata] = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
+      // #record
       send.futureValue.topic() shouldBe topic1
 
       val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
+      // #record
     } finally {
       elementProducer.close()
     }
+    // #record
   }
 
   it should "send a single messages" in {
     val topic1 = createTopic(1)
 
+    // #message
     val elementProducer = ElementProducer(producerDefaults)
     try {
       val message = ProducerMessage.Message(new ProducerRecord(topic1, "key", "value"), "context")
-      val send = elementProducer.sendMessage(message)
+      val send: Future[ProducerMessage.Result[String, String, String]] = elementProducer.sendMessage(message)
+      // #message
       val result = send.futureValue
       result.message shouldBe message
       result.metadata.topic() shouldBe topic1
 
       val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
+      // #message
     } finally {
       elementProducer.close()
     }
+    // #message
   }
 
   it should "send a multi-message (with one record)" in {
@@ -54,8 +63,10 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
 
     val elementProducer = ElementProducer(producerDefaults)
     try {
+      // #envelope
       val message = ProducerMessage.multi(immutable.Seq(new ProducerRecord(topic1, "key", "value")), "context")
-      val send = elementProducer.sendEnvelope(message)
+      val send: Future[ProducerMessage.Results[String, String, String]] = elementProducer.sendEnvelope(message)
+      // #envelope
       val result = send.futureValue
       result match {
         case MultiResult(immutable.Seq(part), "context") =>
@@ -73,15 +84,18 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
   it should "send a multi-message (with multiple records)" in {
     val topic1 = createTopic(1)
 
+    // #multiMessage
     val elementProducer = ElementProducer(producerDefaults)
     try {
-      val message = ProducerMessage.multi(immutable.Seq(
-                                            new ProducerRecord(topic1, "key", "value1"),
-                                            new ProducerRecord(topic1, "key", "value2"),
-                                            new ProducerRecord(topic1, "key", "value3")
-                                          ),
-                                          "context")
-      val send = elementProducer.sendEnvelope(message)
+      val envelope: ProducerMessage.Envelope[String, String, String] =
+        ProducerMessage.multi(immutable.Seq(
+                                new ProducerRecord(topic1, "key", "value1"),
+                                new ProducerRecord(topic1, "key", "value2"),
+                                new ProducerRecord(topic1, "key", "value3")
+                              ),
+                              "context")
+      val send: Future[ProducerMessage.Results[String, String, String]] = elementProducer.sendEnvelope(envelope)
+      // #multiMessage
       val result = send.futureValue
       result match {
         case MultiResult(immutable.Seq(part1, part2, part3), "context") =>
@@ -91,9 +105,11 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
 
       val read = consume(consumerDefaults.withGroupId(createGroupId()), topic1, elements = 3)
       read.futureValue should contain theSameElementsInOrderAs Seq("value1", "value2", "value3")
+      // #multiMessage
     } finally {
       elementProducer.close()
     }
+    // #multiMessage
   }
 
   "Mis-configured producer" should "fail the send future" in {
