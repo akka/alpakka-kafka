@@ -19,7 +19,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import org.scalatest._
 
@@ -178,28 +178,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         val probe = source.runWith(TestSink.probe)
 
         probe.request(1).expectNext()
-
-        probe.cancel()
-      }
-    }
-
-    "not produce any records after send-failure if stage is stopped" in {
-      assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val group1 = createGroupId(1)
-        // we use a 'max.block.ms' setting that will cause the metadata-retrieval to fail
-        // effectively failing the production of the first messages
-        val failFirstMessagesProducerSettings = producerDefaults.withProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "1")
-
-        val producer = produce(topic1, 1 to 100, failFirstMessagesProducerSettings)
-        // assure the producer fails as expected
-        producer.failed.futureValue shouldBe a[org.apache.kafka.common.errors.TimeoutException]
-
-        val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
-
-        probe
-          .request(100)
-          .expectNoMessage(1.second)
 
         probe.cancel()
       }
