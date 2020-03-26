@@ -183,53 +183,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       }
     }
 
-    "not produce or emit records downstream after send-failure and producer stage is stopped" in {
-      assertAllStagesStopped {
-        val numMessagesBeforeFailure = 5
-        final class FailingStringSerializer extends org.apache.kafka.common.serialization.StringSerializer {
-          override def serialize(topic: String, data: String): Array[Byte] = {
-            if (data.toInt > numMessagesBeforeFailure)
-              throw new org.apache.kafka.common.errors.SerializationException()
-            else
-              super.serialize(topic, data)
-          }
-        }
-
-        val topic1 = createTopic(1)
-        val group1 = createGroupId(1)
-
-        val failFirstMessagesProducerSettings =
-          ProducerSettings(system,
-                           new org.apache.kafka.common.serialization.StringSerializer,
-                           new FailingStringSerializer)
-            .withBootstrapServers(bootstrapServers)
-            .withProperty(ProducerConfig.BATCH_SIZE_CONFIG, numMessagesBeforeFailure.toString)
-            .withProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1.toString)
-            .withProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
-
-        val producerProbe = Source(1 to 100)
-          .map(n => ProducerMessage.single(new ProducerRecord(topic1, partition0, DefaultKey, n.toString)))
-          .via(Producer.flexiFlow(failFirstMessagesProducerSettings))
-          .toMat(TestSink.probe)(Keep.right)
-          .run()
-        producerProbe.request(100)
-        // expect failure to kill stage before any successfully produced messages have callbacks executed
-        // this runs locally after 100x test runs, but it may be possible for a callback to emit an element before
-        // the stage shutdown.  in my tests the callbacks for the first `numMessagesBeforeFailure` messages were executed
-        // about 100ms after the stage shutdown
-        producerProbe.expectError() shouldBe a[org.apache.kafka.common.errors.SerializationException]
-        producerProbe.expectNoMessage(1.second)
-
-        val (_, consumerProbe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
-        consumerProbe
-          .request(100)
-          // expect first n messages to have been produced, even when callbacks never returned in producer stream
-          .expectNextN(numMessagesBeforeFailure.toLong)
-        consumerProbe.expectNoMessage(1.second)
-        consumerProbe.cancel()
-      }
-    }
-
     "stop and shut down KafkaConsumerActor for committableSource used with take" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroupId(1)
