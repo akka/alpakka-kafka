@@ -364,7 +364,11 @@ lazy val docs = project
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
-        ("\\.java\\.scala".r, _ => ".java")
+        ("\\.java\\.scala".r, _ => ".java"),
+        ("https://javadoc\\.io/page/".r, _ => "https://javadoc\\.io/static/"),
+        // Add Java module name https://github.com/ThoughtWorksInc/sbt-api-mappings/issues/58
+        ("https://docs\\.oracle\\.com/en/java/javase/11/docs/api/".r,
+         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/")
       ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
@@ -390,7 +394,7 @@ lazy val docs = project
         "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
-        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs%s",
+        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "frames",
         // Java
@@ -401,9 +405,7 @@ lazy val docs = project
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         // Testcontainers
-        "testcontainers.version" -> testcontainersVersion,
-        "javadoc.org.testcontainers.base_url" -> s"https://javadoc.jitpack.io/com/github/testcontainers/testcontainers-java/testcontainers/$testcontainersVersion/javadoc/",
-        "javadoc.org.testcontainers.link_style" -> "frames"
+        "testcontainers.version" -> testcontainersVersion
       ),
     apidocRootPackage := "akka",
     paradoxRoots := List("index.html",
