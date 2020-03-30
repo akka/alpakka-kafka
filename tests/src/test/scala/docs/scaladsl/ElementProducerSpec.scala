@@ -36,28 +36,6 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
     // #record
   }
 
-  it should "send a single messages" in {
-    val topic1 = createTopic(1)
-
-    // #message
-    val elementProducer = ElementProducer(producerDefaults)
-    try {
-      val message = ProducerMessage.Message(new ProducerRecord(topic1, "key", "value"), "context")
-      val send: Future[ProducerMessage.Result[String, String, String]] = elementProducer.sendMessage(message)
-      // #message
-      val result = send.futureValue
-      result.message shouldBe message
-      result.metadata.topic() shouldBe topic1
-
-      val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
-      read.futureValue shouldBe "value"
-      // #message
-    } finally {
-      elementProducer.close()
-    }
-    // #message
-  }
-
   it should "send a multi-message (with one record)" in {
     val topic1 = createTopic(1)
 

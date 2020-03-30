@@ -50,14 +50,6 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
     underlying.sendEnvelope(envelope).toJava
 
   /**
-   * Send records to Kafka topics and complete a future with the result.
-   *
-   * The message supports passing through arbitrary data.
-   */
-  def sendMessage[PT](message: Message[K, V, PT]): CompletionStage[Result[K, V, PT]] =
-    underlying.sendMessage(message).toJava
-
-  /**
    * Send a raw Kafka [[org.apache.kafka.clients.producer.ProducerRecord]] and complete a future with the resulting metadata.
    */
   def send(record: ProducerRecord[K, V]): CompletionStage[RecordMetadata] =

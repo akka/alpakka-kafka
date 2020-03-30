@@ -14,7 +14,6 @@ It supports the same @ref[settings](producer.md#settings) as @apidoc[Producer] a
 The Element Producer offers methods for sending
 
 * @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord) with `send`
-* @apidoc[ProducerMessage.Message] with `sendMessage`
 * @apidoc[ProducerMessage.Envelope] with `sendEnvelope` (similar to `Producer.flexiFlow`)
 
 After use, the Element Producer should be closed with `close()`.
@@ -30,24 +29,7 @@ Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ElementProducerTest.java) { #record }
 
 
-### Message
-
-Produce a @apidoc[ProducerMessage.Message] to a topic. 
-
-Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ElementProducerSpec.scala) { #message }
-
-Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/ElementProducerTest.java) { #message }
-
-
-After successful sending, the future completes with @apidoc[akka.kafka.ProducerMessage.Result] containing: 
- 
- 1. the original input message,
- 1. the record metadata (Kafka @javadoc[RecordMetadata](org.apache.kafka.clients.producer.RecordMetadata) API), and
- 1. access to the `passThrough` within the message.  
-
-### MultiMessage
+### Envelope
 
 The @apidoc[ProducerMessage.MultiMessage] contains a list of @javadoc[ProducerRecord](org.apache.kafka.clients.producer.ProducerRecord)s to produce multiple messages to Kafka topics.
 

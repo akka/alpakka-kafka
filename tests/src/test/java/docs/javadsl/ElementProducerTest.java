@@ -72,29 +72,6 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
   }
 
   @Test
-  public void message() throws Exception {
-    String topic = createTopic();
-
-    ProducerSettings<String, String> producerSettings = producerDefaults();
-    // #message
-    try (ElementProducer<String, String> producer =
-        new ElementProducer<>(producerSettings, executor)) {
-      CompletionStage<ProducerMessage.Result<String, String, String>> send =
-          producer.sendMessage(
-              new ProducerMessage.Message<>(
-                  new ProducerRecord<>(topic, "key", "value"), "context"));
-      // #message
-      ProducerMessage.Result<String, String, String> result = resultOf(send);
-      assertThat(result.metadata().topic(), is(topic));
-      // #message
-    }
-    // #message
-    ConsumerRecord<String, String> consumed =
-        resultOf(consumeString(topic, 1).streamCompletion().thenApply(list -> list.get(0)));
-    assertThat(consumed.value(), is("value"));
-  }
-
-  @Test
   public void multiMessage() throws Exception {
     String topic = createTopic();
 

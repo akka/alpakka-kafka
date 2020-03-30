@@ -51,17 +51,6 @@ final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])
   }
 
   /**
-   * Send records to Kafka topics and complete a future with the result.
-   *
-   * The message supports passing through arbitrary data.
-   */
-  def sendMessage[PT](message: Message[K, V, PT]): Future[Result[K, V, PT]] = {
-    producerFuture.flatMap { producer =>
-      sendSingle(producer, message.record, meta => Result(meta, message))
-    }
-  }
-
-  /**
    * Send a raw Kafka [[org.apache.kafka.clients.producer.ProducerRecord]] and complete a future with the resulting metadata.
    */
   def send(record: ProducerRecord[K, V]): Future[RecordMetadata] = {
