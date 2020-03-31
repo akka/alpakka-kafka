@@ -8,7 +8,6 @@ package akka.kafka
 import java.util.Optional
 import java.util.concurrent.{CompletionStage, Executor}
 
-import akka.actor.ActorSystem
 import akka.annotation.InternalApi
 import akka.kafka.internal._
 import akka.util.JavaDurationConverters._
@@ -32,13 +31,27 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def apply[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
       keyDeserializer: Option[Deserializer[K]],
       valueDeserializer: Option[Deserializer[V]]
   ): ConsumerSettings[K, V] = {
     val config = system.settings.config.getConfig(configPath)
     apply(config, keyDeserializer, valueDeserializer)
   }
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def apply[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
+      keyDeserializer: Option[Deserializer[K]],
+      valueDeserializer: Option[Deserializer[V]]
+  ): ConsumerSettings[K, V] =
+    apply(system.classicSystem, keyDeserializer, valueDeserializer)
 
   /**
    * Create settings from a configuration with the same layout as
@@ -107,7 +120,21 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def apply[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] =
+    apply(system, Option(keyDeserializer), Option(valueDeserializer))
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def apply[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keyDeserializer: Deserializer[K],
       valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
@@ -131,7 +158,21 @@ object ConsumerSettings {
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
    */
   def create[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keyDeserializer: Optional[Deserializer[K]],
+      valueDeserializer: Optional[Deserializer[V]]
+  ): ConsumerSettings[K, V] =
+    apply(system, keyDeserializer.asScala, valueDeserializer.asScala)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def create[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keyDeserializer: Optional[Deserializer[K]],
       valueDeserializer: Optional[Deserializer[V]]
   ): ConsumerSettings[K, V] =
@@ -155,7 +196,21 @@ object ConsumerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def create[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] =
+    apply(system, keyDeserializer, valueDeserializer)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def create[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keyDeserializer: Deserializer[K],
       valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
