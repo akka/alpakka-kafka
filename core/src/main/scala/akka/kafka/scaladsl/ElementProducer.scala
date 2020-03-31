@@ -79,6 +79,7 @@ final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])
 
   /**
    * Close the underlying producer (depending on the "close producer on stop" setting).
+   * This method waits up to `settings.closeTimeout` for the producer to complete the sending of all incomplete requests.
    */
   def close(): Unit = {
     if (settings.closeProducerOnStop) producerFuture.foreach { producer =>

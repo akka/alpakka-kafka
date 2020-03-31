@@ -22,16 +22,11 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
   /**
    * Utility class for producing to Kafka without using Akka Streams.
    * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
+   *
+   * The internal asynchronous operations run on the provided `Executor` (which may be an `ActorSystem`'s dispatcher).
    */
   def this(settings: ProducerSettings[K, V], ec: Executor) =
     this(scaladsl.ElementProducer(settings)(ExecutionContext.fromExecutor(ec)))
-
-  /**
-   * Utility class for producing to Kafka without using Akka Streams.
-   * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
-   */
-  def this(settings: ProducerSettings[K, V], ec: ExecutionContext) =
-    this(scaladsl.ElementProducer(settings)(ec))
 
   /**
    * Send records to Kafka topics and complete a future with the result.

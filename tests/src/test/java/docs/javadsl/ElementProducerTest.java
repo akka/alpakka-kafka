@@ -25,8 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,7 +37,6 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ElementProducerTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
-  private static final Executor executor = Executors.newSingleThreadExecutor();
 
   public ElementProducerTest() {
     super(system, materializer);
@@ -57,7 +54,7 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #record
     try (ElementProducer<String, String> producer =
-        new ElementProducer<>(producerSettings, executor)) {
+        new ElementProducer<>(producerSettings, system.dispatcher())) {
       CompletionStage<RecordMetadata> result =
           producer.send(new ProducerRecord<>(topic, "key", "value"));
       // #record
@@ -78,7 +75,7 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #multiMessage
     try (ElementProducer<String, String> producer =
-        new ElementProducer<>(producerSettings, executor)) {
+        new ElementProducer<>(producerSettings, system.dispatcher())) {
       ProducerMessage.Envelope<String, String, String> envelope =
           ProducerMessage.multi(
               Arrays.asList(
