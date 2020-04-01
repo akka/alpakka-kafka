@@ -5,6 +5,7 @@
 
 package akka.kafka.scaladsl
 
+import akka.Done
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
 import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
@@ -81,12 +82,20 @@ final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])
    * Close the underlying producer (depending on the "close producer on stop" setting).
    * This method waits up to `settings.closeTimeout` for the producer to complete the sending of all incomplete requests.
    */
-  def close(): Unit = {
-    if (settings.closeProducerOnStop) producerFuture.foreach { producer =>
-      // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
-      producer.flush()
-      producer.close(settings.closeTimeout.asJava)
-    }
+  override def close(): Unit = {
+    if (settings.closeProducerOnStop) producerFuture.foreach(closeInternal)
+  }
+
+  /**
+   * Close the underlying producer (depending on the "close producer on stop" setting).
+   * The future completes once closed.
+   */
+  def closeAsync(): Future[Done] = Future(close()).map(_ => Done)
+
+  private def closeInternal(producer: Producer[_, _]) = {
+    // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
+    producer.flush()
+    producer.close(settings.closeTimeout.asJava)
   }
 
   override def toString: String = s"ElementProducer($settings)"

@@ -7,6 +7,7 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.{CompletionStage, Executor}
 
+import akka.Done
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, ProducerSettings}
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
@@ -52,8 +53,15 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
 
   /**
    * Close the underlying producer (depending on the "close producer on stop" setting).
+   * This method waits up to `settings.closeTimeout` for the producer to complete the sending of all incomplete requests.
    */
-  def close(): Unit = underlying.close()
+  override def close(): Unit = underlying.close()
+
+  /**
+   * Close the underlying producer (depending on the "close producer on stop" setting).
+   * The future completes once closed.
+   */
+  def closeAsync(): CompletionStage[Done] = underlying.closeAsync().toJava
 
   override def toString: String = s"ElementProducer(${underlying.settings})"
 }
