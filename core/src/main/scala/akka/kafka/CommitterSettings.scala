@@ -6,7 +6,6 @@
 package akka.kafka
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
 import akka.annotation.ApiMayChange
 import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
@@ -63,8 +62,17 @@ object CommitterSettings {
    * Create settings from the default configuration
    * `akka.kafka.committer`.
    */
-  def apply(actorSystem: ActorSystem): CommitterSettings =
+  def apply(actorSystem: akka.actor.ActorSystem): CommitterSettings =
     apply(actorSystem.settings.config.getConfig(configPath))
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.committer`.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def apply(actorSystem: akka.actor.ClassicActorSystemProvider): CommitterSettings =
+    apply(actorSystem.classicSystem.settings.config.getConfig(configPath))
 
   /**
    * Create settings from a configuration with the same layout as
@@ -82,7 +90,16 @@ object CommitterSettings {
    * Java API: Create settings from the default configuration
    * `akka.kafka.committer`.
    */
-  def create(actorSystem: ActorSystem): CommitterSettings =
+  def create(actorSystem: akka.actor.ActorSystem): CommitterSettings =
+    apply(actorSystem)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.committer`.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def create(actorSystem: akka.actor.ClassicActorSystemProvider): CommitterSettings =
     apply(actorSystem)
 
   /**

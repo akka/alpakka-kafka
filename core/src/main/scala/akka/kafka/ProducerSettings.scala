@@ -8,7 +8,6 @@ package akka.kafka
 import java.util.Optional
 import java.util.concurrent.{CompletionStage, Executor}
 
-import akka.actor.ActorSystem
 import akka.annotation.InternalApi
 import akka.kafka.internal.ConfigSettings
 import com.typesafe.config.Config
@@ -33,11 +32,25 @@ object ProducerSettings {
    * Key or value serializer can be passed explicitly or retrieved from configuration.
    */
   def apply[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
       keySerializer: Option[Serializer[K]],
       valueSerializer: Option[Serializer[V]]
   ): ProducerSettings[K, V] =
     apply(system.settings.config.getConfig(configPath), keySerializer, valueSerializer)
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key or value serializer can be passed explicitly or retrieved from configuration.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def apply[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
+      keySerializer: Option[Serializer[K]],
+      valueSerializer: Option[Serializer[V]]
+  ): ProducerSettings[K, V] =
+    apply(system.classicSystem, keySerializer, valueSerializer)
 
   /**
    * Create settings from a configuration with the same layout as
@@ -85,7 +98,21 @@ object ProducerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def apply[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keySerializer: Serializer[K],
+      valueSerializer: Serializer[V]
+  ): ProducerSettings[K, V] =
+    apply(system, Option(keySerializer), Option(valueSerializer))
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def apply[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keySerializer: Serializer[K],
       valueSerializer: Serializer[V]
   ): ProducerSettings[K, V] =
@@ -109,7 +136,21 @@ object ProducerSettings {
    * Key or value serializer can be passed explicitly or retrieved from configuration.
    */
   def create[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keySerializer: Optional[Serializer[K]],
+      valueSerializer: Optional[Serializer[V]]
+  ): ProducerSettings[K, V] =
+    apply(system, keySerializer.asScala, valueSerializer.asScala)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key or value serializer can be passed explicitly or retrieved from configuration.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def create[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keySerializer: Optional[Serializer[K]],
       valueSerializer: Optional[Serializer[V]]
   ): ProducerSettings[K, V] =
@@ -133,7 +174,21 @@ object ProducerSettings {
    * Key and value serializer must be passed explicitly.
    */
   def create[K, V](
-      system: ActorSystem,
+      system: akka.actor.ActorSystem,
+      keySerializer: Serializer[K],
+      valueSerializer: Serializer[V]
+  ): ProducerSettings[K, V] =
+    apply(system, keySerializer, valueSerializer)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.producer`.
+   * Key and value serializer must be passed explicitly.
+   *
+   * For use with the `akka.actor.typed` API.
+   */
+  def create[K, V](
+      system: akka.actor.ClassicActorSystemProvider,
       keySerializer: Serializer[K],
       valueSerializer: Serializer[V]
   ): ProducerSettings[K, V] =
