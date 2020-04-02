@@ -39,6 +39,7 @@ trait KafkaTestKit {
   private lazy val consumerDefaultsInstance: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers(bootstrapServers)
+      .withCloseTimeout(Duration.ZERO)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
 
   def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
@@ -91,8 +92,10 @@ trait KafkaTestKit {
    * Access to the Kafka AdminClient which life
    */
   def adminClient: AdminClient = {
-    assert(adminClientVar != null,
-           "admin client not created, be sure to call setupAdminClient() and cleanupAdminClient()")
+    assert(
+      adminClientVar != null,
+      "admin client not created, be sure to call setupAdminClient() and cleanupAdminClient()"
+    )
     adminClientVar
   }
 
@@ -150,10 +153,12 @@ trait KafkaTestKit {
    *
    * This method will block and return only when the topic has been successfully created.
    */
-  def createTopic(suffix: Int,
-                  partitions: Int,
-                  replication: Int,
-                  config: scala.collection.Map[String, String]): String =
+  def createTopic(
+      suffix: Int,
+      partitions: Int,
+      replication: Int,
+      config: scala.collection.Map[String, String]
+  ): String =
     createTopic(suffix, partitions, replication, config.asJava)
 
   /**
