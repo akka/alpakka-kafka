@@ -54,37 +54,37 @@ object CommitDelivery {
   }
 }
 
-@ApiMayChange(issue = "")
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
 sealed trait CommitTrigger
 
 /**
  * Selects when the stream will commit an offset.
  */
-@ApiMayChange(issue = "")
+@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
 object CommitTrigger {
 
   /**
    * Commit as soon as a [[Committable]] is observed.
    */
-  @ApiMayChange(issue = "")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
   case object FirstObserved extends CommitTrigger
 
   /**
    * Commit once a new [[Committable]] is observed
    */
-  @ApiMayChange(issue = "")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
   case object DeferToNextCommit extends CommitTrigger
 
   /**
    * Java API.
    */
-  @ApiMayChange(issue = "")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
   val firstObserved: CommitTrigger = FirstObserved
 
   /**
    * Java API.
    */
-  @ApiMayChange(issue = "")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
   val deferToNextCommit: CommitTrigger = DeferToNextCommit
 
   def valueOf(s: String): CommitTrigger = s match {
@@ -183,7 +183,7 @@ class CommitterSettings private (
   def withDelivery(value: CommitDelivery): CommitterSettings =
     copy(delivery = value)
 
-  @ApiMayChange(issue = "")
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
   def withTrigger(value: CommitTrigger): CommitterSettings =
     copy(trigger = value)
 
