@@ -13,7 +13,8 @@ import akka.stream.scaladsl.{Keep, Sink}
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.collection.immutable
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
 
@@ -31,7 +32,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       read.futureValue shouldBe "value"
       // #record
     } finally {
-      elementProducer.close()
+      Await.result(elementProducer.close(), 1.minute)
     }
     // #record
   }
@@ -55,7 +56,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
     } finally {
-      elementProducer.close()
+      Await.result(elementProducer.close(), 1.minute)
     }
   }
 
@@ -85,7 +86,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       read.futureValue should contain theSameElementsInOrderAs Seq("value1", "value2", "value3")
       // #multiMessage
     } finally {
-      elementProducer.close()
+      Await.result(elementProducer.close(), 1.minute)
     }
     // #multiMessage
   }
@@ -97,7 +98,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       val send = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
       send.failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
     } finally {
-      elementProducer.close()
+      Await.result(elementProducer.close(), 1.minute)
     }
   }
 

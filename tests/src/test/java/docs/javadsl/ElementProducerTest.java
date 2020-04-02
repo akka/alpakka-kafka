@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -53,14 +54,16 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
 
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #record
-    try (ElementProducer<String, String> producer =
-        new ElementProducer<>(producerSettings, system.dispatcher())) {
+    ElementProducer<String, String> producer = new ElementProducer<>(producerSettings, system);
+    try {
       CompletionStage<RecordMetadata> result =
           producer.send(new ProducerRecord<>(topic, "key", "value"));
       // #record
       RecordMetadata recordMetadata = resultOf(result);
       assertThat(recordMetadata.topic(), is(topic));
       // #record
+    } finally {
+      producer.close().toCompletableFuture().get(1, TimeUnit.MINUTES);
     }
     // #record
     ConsumerRecord<String, String> consumed =
@@ -74,8 +77,8 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
 
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #multiMessage
-    try (ElementProducer<String, String> producer =
-        new ElementProducer<>(producerSettings, system.dispatcher())) {
+    ElementProducer<String, String> producer = new ElementProducer<>(producerSettings, system);
+    try {
       ProducerMessage.Envelope<String, String, String> envelope =
           ProducerMessage.multi(
               Arrays.asList(
@@ -92,6 +95,8 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
           (ProducerMessage.MultiResult<String, String, String>) result;
       assertThat(result1.getParts(), hasSize(3));
       // #multiMessage
+    } finally {
+      producer.close().toCompletableFuture().get(1, TimeUnit.MINUTES);
     }
     // #multiMessage
     List<ConsumerRecord<String, String>> consumed =

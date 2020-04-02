@@ -5,20 +5,20 @@
 
 package akka.kafka.javadsl
 
-import java.util.concurrent.{CompletionStage, Executor}
+import java.util.concurrent.CompletionStage
 
 import akka.Done
+import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, ProducerSettings}
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.ExecutionContext
 
 /**
  * Utility class for producing to Kafka without using Akka Streams.
  */
-final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[K, V]) extends AutoCloseable {
+final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[K, V]) {
 
   /**
    * Utility class for producing to Kafka without using Akka Streams.
@@ -26,8 +26,8 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
    *
    * The internal asynchronous operations run on the provided `Executor` (which may be an `ActorSystem`'s dispatcher).
    */
-  def this(settings: ProducerSettings[K, V], ec: Executor) =
-    this(scaladsl.ElementProducer(settings)(ExecutionContext.fromExecutor(ec)))
+  def this(settings: ProducerSettings[K, V], system: ActorSystem) =
+    this(scaladsl.ElementProducer(settings)(system))
 
   /**
    * Send records to Kafka topics and complete a future with the result.
@@ -53,15 +53,8 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
 
   /**
    * Close the underlying producer (depending on the "close producer on stop" setting).
-   * This method waits up to `settings.closeTimeout` for the producer to complete the sending of all incomplete requests.
    */
-  override def close(): Unit = underlying.close()
-
-  /**
-   * Close the underlying producer (depending on the "close producer on stop" setting).
-   * The future completes once closed.
-   */
-  def closeAsync(): CompletionStage[Done] = underlying.closeAsync().toJava
+  def close(): CompletionStage[Done] = underlying.close().toJava
 
   override def toString: String = s"ElementProducer(${underlying.settings})"
 }

@@ -6,19 +6,21 @@
 package akka.kafka.scaladsl
 
 import akka.Done
+import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
+import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import akka.util.JavaDurationConverters._
 
 /**
  * Utility class for producing to Kafka without using Akka Streams.
  * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
  */
-final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit ec: ExecutionContext)
-    extends AutoCloseable {
+final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit system: ActorSystem) {
+
+  private implicit val ec: ExecutionContext = system.dispatchers.lookup(settings.dispatcher)
   private final val producerFuture = settings.createKafkaProducerAsync()(ec)
 
   /**
@@ -80,28 +82,20 @@ final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])
 
   /**
    * Close the underlying producer (depending on the "close producer on stop" setting).
-   * This method waits up to `settings.closeTimeout` for the producer to complete the sending of all incomplete requests.
    */
-  override def close(): Unit = {
-    if (settings.closeProducerOnStop) producerFuture.foreach(closeInternal)
-  }
-
-  /**
-   * Close the underlying producer (depending on the "close producer on stop" setting).
-   * The future completes once closed.
-   */
-  def closeAsync(): Future[Done] = Future(close()).map(_ => Done)
-
-  private def closeInternal(producer: Producer[_, _]) = {
-    // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
-    producer.flush()
-    producer.close(settings.closeTimeout.asJava)
+  def close(): Future[Done] = {
+    if (settings.closeProducerOnStop) producerFuture.map { producer =>
+      // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
+      producer.flush()
+      producer.close(settings.closeTimeout.asJava)
+      Done
+    } else Future.successful(Done)
   }
 
   override def toString: String = s"ElementProducer($settings)"
 }
 
 object ElementProducer {
-  def apply[K, V](settings: ProducerSettings[K, V])(implicit ec: ExecutionContext): ElementProducer[K, V] =
+  def apply[K, V](settings: ProducerSettings[K, V])(implicit system: ActorSystem): ElementProducer[K, V] =
     new ElementProducer(settings)
 }
