@@ -54,6 +54,47 @@ object CommitDelivery {
   }
 }
 
+@ApiMayChange(issue = "")
+sealed trait CommitTrigger
+
+/**
+ * Selects when the stream will commit an offset.
+ */
+@ApiMayChange(issue = "")
+object CommitTrigger {
+
+  /**
+   * Commit as soon as a [[Committable]] is observed.
+   */
+  @ApiMayChange(issue = "")
+  case object FirstObserved extends CommitTrigger
+
+  /**
+   * Commit once a new [[Committable]] is observed
+   */
+  @ApiMayChange(issue = "")
+  case object DeferToNextCommit extends CommitTrigger
+
+  /**
+   * Java API.
+   */
+  @ApiMayChange(issue = "")
+  val firstObserved: CommitTrigger = FirstObserved
+
+  /**
+   * Java API.
+   */
+  @ApiMayChange(issue = "")
+  val deferToNextCommit: CommitTrigger = DeferToNextCommit
+
+  def valueOf(s: String): CommitTrigger = s match {
+    case "FirstObserved" => FirstObserved
+    case "DeferToNextCommit" => DeferToNextCommit
+    case other =>
+      throw new IllegalArgumentException(s"allowed values are: FirstObserved, DeferToNextCommit. Received: $other")
+  }
+}
+
 object CommitterSettings {
 
   val configPath = "akka.kafka.committer"
@@ -83,7 +124,8 @@ object CommitterSettings {
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
     val delivery = CommitDelivery.valueOf(config.getString("delivery"))
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
+    val trigger = CommitTrigger.valueOf(config.getString("trigger"))
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, trigger)
   }
 
   /**
@@ -121,7 +163,8 @@ class CommitterSettings private (
     val maxBatch: Long,
     val maxInterval: FiniteDuration,
     val parallelism: Int,
-    val delivery: CommitDelivery
+    val delivery: CommitDelivery,
+    val trigger: CommitTrigger
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -140,16 +183,22 @@ class CommitterSettings private (
   def withDelivery(value: CommitDelivery): CommitterSettings =
     copy(delivery = value)
 
+  @ApiMayChange(issue = "")
+  def withTrigger(value: CommitTrigger): CommitterSettings =
+    copy(trigger = value)
+
   private def copy(maxBatch: Long = maxBatch,
                    maxInterval: FiniteDuration = maxInterval,
                    parallelism: Int = parallelism,
-                   delivery: CommitDelivery = delivery): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery)
+                   delivery: CommitDelivery = delivery,
+                   trigger: CommitTrigger = trigger): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, trigger)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
     s"maxBatch=$maxBatch," +
     s"maxInterval=${maxInterval.toCoarsest}," +
     s"parallelism=$parallelism," +
-    s"delivery=$delivery)"
+    s"delivery=$delivery," +
+    s"trigger=$trigger)"
 }

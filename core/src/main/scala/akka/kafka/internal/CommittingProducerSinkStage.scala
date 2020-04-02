@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
+import akka.kafka.CommitTrigger.{DeferToNextCommit, FirstObserved}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -18,6 +19,7 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, SinkShape, Supervision}
 import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
 
+import scala.collection.immutable.Queue
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -142,6 +144,8 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
+  private var deferredOffset: Option[DeferredOffset] = None
+
   private val collectOffsetCb: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
     collectOffset(1, offset)
   }
@@ -164,7 +168,18 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     case CommittingProducerSinkStage.CommitNow => commit(Interval)
   }
 
-  private def collectOffset(count: Int, offset: Committable): Unit = {
+  private def collectOffset(count: Int, offset: Committable): Unit =
+    (stage.committerSettings.trigger, deferredOffset) match {
+      case (FirstObserved, _) =>
+        addToBatch(count, offset)
+      case (DeferToNextCommit, None) =>
+        deferredOffset = Some(DeferredOffset(offset, count))
+      case (DeferToNextCommit, Some(DeferredOffset(dOffset, dCount))) if dOffset != offset =>
+        deferredOffset = Some(DeferredOffset(offset, count))
+        addToBatch(dCount, dOffset)
+    }
+
+  private def addToBatch(count: Int, offset: Committable): Unit = {
     awaitingProduceResult -= count
     offsetBatch = offsetBatch.updated(offset)
     if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize)
@@ -271,5 +286,6 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 }
 
 private object CommittingProducerSinkStage {
+  final case class DeferredOffset(offset: Committable, count: Int)
   val CommitNow = "commit"
 }
