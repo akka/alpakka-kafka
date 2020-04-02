@@ -9,6 +9,8 @@ The Alpakka Kafka @apidoc[ElementProducer] does not integrate with Akka Streams.
 
 It supports the same @ref[settings](producer.md#settings) as @apidoc[Producer] and supports @ref[service discovery](discovery.md).
 
+After use, the `Producer` needs to be properly closed via the `close()` method.
+
 ## Producing
 
 The Element Producer offers methods for sending

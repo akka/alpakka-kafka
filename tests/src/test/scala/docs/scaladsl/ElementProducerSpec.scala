@@ -5,6 +5,7 @@
 
 package docs.scaladsl
 
+import akka.Done
 import akka.kafka.ProducerMessage.MultiResult
 import akka.kafka.scaladsl.{Consumer, ElementProducer}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
@@ -56,7 +57,7 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
       val read = consumeHead(consumerDefaults.withGroupId(createGroupId()), topic1)
       read.futureValue shouldBe "value"
     } finally {
-      Await.result(elementProducer.close(), 1.minute)
+      elementProducer.close().futureValue shouldBe Done
     }
   }
 
@@ -97,8 +98,9 @@ class ElementProducerSpec extends DocsSpecBase with TestcontainersKafkaLike {
     try {
       val send = elementProducer.send(new ProducerRecord(topic1, "key", "value"))
       send.failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
+      send.failed.futureValue.getCause shouldBe a[org.apache.kafka.common.config.ConfigException]
     } finally {
-      Await.result(elementProducer.close(), 1.minute)
+      elementProducer.close().failed.futureValue shouldBe a[org.apache.kafka.common.KafkaException]
     }
   }
 
