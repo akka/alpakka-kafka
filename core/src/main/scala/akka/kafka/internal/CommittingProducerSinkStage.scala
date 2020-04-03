@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
-import akka.kafka.CommitTrigger.{DeferToNextCommit, FirstObserved}
+import akka.kafka.CommitWhen.{DeferToNextOffset, FirstObserved}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -19,7 +19,6 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, SinkShape, Supervision}
 import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
 
-import scala.collection.immutable.Queue
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -111,7 +110,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
       case msg: PassThroughMessage[K, V, Committable] =>
         awaitingCommitResult += 1
-        collectOffset(0, msg.passThrough)
+        collectOffset(msg.passThrough)
     }
 
   private val sendFailureCb: AsyncCallback[(Int, Throwable)] = getAsyncCallback[(Int, Throwable)] {
@@ -144,15 +143,17 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
-  private var deferredOffset: Option[DeferredOffset] = None
+  private var deferredOffset: Option[Committable] = None
 
   private val collectOffsetCb: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
-    collectOffset(1, offset)
+    awaitingProduceResult -= 1
+    collectOffset(offset)
   }
 
   private val collectOffsetMultiCb: AsyncCallback[(Int, Committable)] = getAsyncCallback[(Int, Committable)] {
     case (count, offset) =>
-      collectOffset(count, offset)
+      awaitingProduceResult -= count
+      collectOffset(offset)
   }
 
   private def collectOffsetIgnore(count: Int, exception: Throwable): Unit = {
@@ -168,20 +169,17 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     case CommittingProducerSinkStage.CommitNow => commit(Interval)
   }
 
-  private def collectOffset(count: Int, offset: Committable): Unit =
-    (stage.committerSettings.trigger, deferredOffset) match {
+  private def collectOffset(offset: Committable): Unit = {
+    (stage.committerSettings.when, deferredOffset) match {
       case (FirstObserved, _) =>
-        addToBatch(count, offset)
-      case (DeferToNextCommit, None) =>
-        deferredOffset = Some(DeferredOffset(offset, count))
-      case (DeferToNextCommit, Some(DeferredOffset(dOffset, dCount))) if dOffset != offset =>
-        deferredOffset = Some(DeferredOffset(offset, count))
-        addToBatch(dCount, dOffset)
+        offsetBatch = offsetBatch.updated(offset)
+      case (DeferToNextOffset, None) =>
+        deferredOffset = Some(offset)
+      case (DeferToNextOffset, Some(dOffset)) if dOffset != offset =>
+        deferredOffset = Some(offset)
+        offsetBatch = offsetBatch.updated(dOffset)
     }
 
-  private def addToBatch(count: Int, offset: Committable): Unit = {
-    awaitingProduceResult -= count
-    offsetBatch = offsetBatch.updated(offset)
     if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize)
     else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed)
   }
@@ -242,7 +240,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       }
 
       override def onUpstreamFinish(): Unit =
-        if (awaitingCommitResult == 0) {
+        if (awaitingCommitsBeforeShutdown()) {
           completeStage()
           streamCompletion.success(Done)
         } else {
@@ -252,7 +250,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         }
 
       override def onUpstreamFailure(ex: Throwable): Unit =
-        if (awaitingCommitResult == 0) {
+        if (awaitingCommitsBeforeShutdown()) {
           closeAndFailStage(ex)
         } else {
           emergencyShutdown(ex)
@@ -260,9 +258,17 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     }
   )
 
+  private def awaitingCommitsBeforeShutdown(): Boolean = {
+    for (_ <- deferredOffset) {
+      deferredOffset = None
+      awaitingCommitResult -= 1
+    }
+    awaitingCommitResult == 0
+  }
+
   private def checkForCompletion(): Unit =
     if (isClosed(stage.in))
-      if (awaitingCommitResult == 0) {
+      if (awaitingCommitsBeforeShutdown()) {
         upstreamCompletionState match {
           case Some(Success(_)) =>
             completeStage()
@@ -286,6 +292,5 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 }
 
 private object CommittingProducerSinkStage {
-  final case class DeferredOffset(offset: Committable, count: Int)
   val CommitNow = "commit"
 }

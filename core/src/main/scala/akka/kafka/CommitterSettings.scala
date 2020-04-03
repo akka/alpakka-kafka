@@ -55,43 +55,43 @@ object CommitDelivery {
 }
 
 @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-sealed trait CommitTrigger
+sealed trait CommitWhen
 
 /**
  * Selects when the stream will commit an offset.
  */
 @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-object CommitTrigger {
+object CommitWhen {
 
   /**
    * Commit as soon as a [[Committable]] is observed.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  case object FirstObserved extends CommitTrigger
+  case object FirstObserved extends CommitWhen
 
   /**
    * Commit once a new [[Committable]] is observed
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  case object DeferToNextCommit extends CommitTrigger
+  case object DeferToNextOffset extends CommitWhen
 
   /**
    * Java API.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  val firstObserved: CommitTrigger = FirstObserved
+  val firstObserved: CommitWhen = FirstObserved
 
   /**
    * Java API.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  val deferToNextCommit: CommitTrigger = DeferToNextCommit
+  val deferToNextOffset: CommitWhen = DeferToNextOffset
 
-  def valueOf(s: String): CommitTrigger = s match {
+  def valueOf(s: String): CommitWhen = s match {
     case "FirstObserved" => FirstObserved
-    case "DeferToNextCommit" => DeferToNextCommit
+    case "DeferToNextOffset" => DeferToNextOffset
     case other =>
-      throw new IllegalArgumentException(s"allowed values are: FirstObserved, DeferToNextCommit. Received: $other")
+      throw new IllegalArgumentException(s"allowed values are: FirstObserved, DeferToNextOffset. Received: $other")
   }
 }
 
@@ -124,8 +124,8 @@ object CommitterSettings {
     val maxInterval = config.getDuration("max-interval", TimeUnit.MILLISECONDS).millis
     val parallelism = config.getInt("parallelism")
     val delivery = CommitDelivery.valueOf(config.getString("delivery"))
-    val trigger = CommitTrigger.valueOf(config.getString("trigger"))
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, trigger)
+    val when = CommitWhen.valueOf(config.getString("when"))
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, when)
   }
 
   /**
@@ -164,7 +164,7 @@ class CommitterSettings private (
     val maxInterval: FiniteDuration,
     val parallelism: Int,
     val delivery: CommitDelivery,
-    val trigger: CommitTrigger
+    val when: CommitWhen
 ) {
 
   def withMaxBatch(maxBatch: Long): CommitterSettings =
@@ -184,15 +184,15 @@ class CommitterSettings private (
     copy(delivery = value)
 
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  def withTrigger(value: CommitTrigger): CommitterSettings =
-    copy(trigger = value)
+  def withCommitWhen(value: CommitWhen): CommitterSettings =
+    copy(when = value)
 
   private def copy(maxBatch: Long = maxBatch,
                    maxInterval: FiniteDuration = maxInterval,
                    parallelism: Int = parallelism,
                    delivery: CommitDelivery = delivery,
-                   trigger: CommitTrigger = trigger): CommitterSettings =
-    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, trigger)
+                   when: CommitWhen = when): CommitterSettings =
+    new CommitterSettings(maxBatch, maxInterval, parallelism, delivery, when)
 
   override def toString: String =
     "akka.kafka.CommitterSettings(" +
@@ -200,5 +200,5 @@ class CommitterSettings private (
     s"maxInterval=${maxInterval.toCoarsest}," +
     s"parallelism=$parallelism," +
     s"delivery=$delivery," +
-    s"trigger=$trigger)"
+    s"when=$when)"
 }
