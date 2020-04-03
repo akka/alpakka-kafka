@@ -45,8 +45,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           )
         )
         .mapAsync(1)(db.businessLogicAndStoreOffset)
-        .toMat(Sink.seq)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     }
     // #plainSource
@@ -127,8 +126,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       Consumer
         .atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
         .mapAsync(1)(record => business(record.key, record.value()))
-        .toMat(Sink.seq)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     // #atMostOnce
 
@@ -156,8 +154,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
         .via(Committer.flow(committerDefaults.withMaxBatch(1)))
-        .toMat(Sink.seq)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     // #atLeastOnce
     awaitProduce(produce(topic, 1 to 10))
@@ -182,8 +179,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           business(record.key, record.value)
         }
         .via(Committer.flowWithOffsetContext(committerDefaults))
-        .toMat(Sink.seq)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     awaitProduce(produce(topic, 1 to 10))
     control.drainAndShutdown().futureValue.map { case (_, b) => b.batchSize }.sum shouldBe 10
@@ -203,8 +199,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           business(msg.record.key, msg.record.value)
             .map(_ => msg.committableOffset)
         }
-        .toMat(Committer.sink(committerDefaults))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Committer.sink(committerDefaults))(DrainingControl.apply)
         .run()
     // #commitWithMetadata
     awaitProduce(produce(topic, 1 to 10))
@@ -224,8 +219,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
           business(msg.record.key, msg.record.value)
             .map(_ => msg.committableOffset)
         }
-        .toMat(Committer.sink(committerSettings))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Committer.sink(committerSettings))(DrainingControl.apply)
         .run()
     // #committerSink
     awaitProduce(produce(topic, 1 to 10))
@@ -250,8 +244,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
             msg.committableOffset
           )
         }
-        .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
         .run()
     // #consumerToProducerSink
     //format: on
@@ -260,8 +253,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
-      .toMat(Sink.seq)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Sink.seq)(DrainingControl.apply)
       .run()
     waitBeforeValidation()
     Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (20)
@@ -281,8 +273,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .map { record =>
           ProducerMessage.single(new ProducerRecord(targetTopic, record.key, record.value))
         }
-        .toMat(Producer.committableSinkWithOffsetContext(producerSettings, committerSettings))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Producer.committableSinkWithOffsetContext(producerSettings, committerSettings))(DrainingControl.apply)
         .run()
     // #consumerToProducerWithContext
     awaitProduce(produce(topic1, 1 to 10), produce(topic2, 1 to 10))
@@ -290,8 +281,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val consumerSettings2 = consumerDefaults.withGroupId("consumer to producer validation")
     val receiveControl = Consumer
       .plainSource(consumerSettings2, Subscriptions.topics(targetTopic))
-      .toMat(Sink.seq)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Sink.seq)(DrainingControl.apply)
       .run()
     waitBeforeValidation()
     Await.result(receiveControl.drainAndShutdown(), 5.seconds) should have size (20)
@@ -307,8 +297,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       .flatMapMerge(maxPartitions, _._2)
       .via(businessFlow)
       .map(_.committableOffset)
-      .toMat(Committer.sink(committerDefaults))(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Committer.sink(committerDefaults))(DrainingControl.apply)
       .run()
     // #committablePartitionedSource
     awaitProduce(produce(topic, 1 to 10))
@@ -330,8 +319,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
             .map(_.committableOffset)
             .runWith(Committer.sink(committerSettings))
       }
-      .toMat(Sink.ignore)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Sink.ignore)(DrainingControl.apply)
       .run()
     // #committablePartitionedSource-stream-per-partition
     awaitProduce(produce(topic, 1 to 10))
@@ -468,8 +456,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .mapAsync(1) { msg =>
           business(msg.record).map(_ => msg.committableOffset)
         }
-        .toMat(Committer.sink(committerSettings))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Committer.sink(committerSettings))(DrainingControl.apply)
         .run()
 
     val streamComplete = drainingControl.drainAndShutdown()
@@ -530,7 +517,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       .runWith(Sink.ignore)
     awaitProduce(produce(topic, 1 to 10))
     // when shut down is desired
-    val drainingControl = DrainingControl(Tuple2(control.get(), result))
+    val drainingControl = DrainingControl.apply(control.get(), result)
     drainingControl.drainAndShutdown().futureValue shouldBe Done
   }
 }

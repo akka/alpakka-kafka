@@ -79,8 +79,9 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.partitionOffset()))
-            .toMat(Transactional.sink(producerSettings, transactionalId), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+            .toMat(
+                Transactional.sink(producerSettings, transactionalId),
+                Consumer::createDrainingControl)
             .run(materializer);
 
     // ...
@@ -113,8 +114,8 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, record.key(), record.value())))
             .toMat(
-                Transactional.sinkWithOffsetContext(producerSettings, transactionalId), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+                Transactional.sinkWithOffsetContext(producerSettings, transactionalId),
+                Consumer::createDrainingControl)
             .run(materializer);
 
     String testConsumerGroup = createGroupId(2);
@@ -227,8 +228,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
       ConsumerSettings<String, String> settings, String topic, long take) {
     return Consumer.plainSource(settings, Subscriptions.topics(topic))
         .take(take)
-        .toMat(Sink.seq(), Keep.both())
-        .mapMaterializedValue(Consumer::createDrainingControl)
+        .toMat(Sink.seq(), Consumer::createDrainingControl)
         .run(materializer);
   }
 

@@ -15,7 +15,6 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.EmbeddedKafkaWithSchemaRegistryTest;
 import akka.kafka.javadsl.Producer;
 import akka.stream.*;
-import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.testkit.javadsl.TestKit;
@@ -119,8 +118,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
             // #jackson-deserializer
             .take(samples.size())
             // #jackson-deserializer
-            .toMat(Sink.seq(), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+            .toMat(Sink.seq(), Consumer::createDrainingControl)
             .run(mat);
     // #jackson-deserializer
 
@@ -184,8 +182,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
     Consumer.DrainingControl<List<ConsumerRecord<String, Object>>> controlCompletionStagePair =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
             .take(samples.size())
-            .toMat(Sink.seq(), Keep.both())
-            .mapMaterializedValue(Consumer::createDrainingControl)
+            .toMat(Sink.seq(), Consumer::createDrainingControl)
             .run(mat);
     // #de-serializer
 

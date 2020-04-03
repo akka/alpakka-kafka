@@ -131,8 +131,7 @@ object AlpakkaCommittableSinkBenchmarks extends LazyLogging {
           promise.complete(Success(()))
         msg
       }
-      .toMat(fixture.sink)(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(fixture.sink)(DrainingControl.apply)
       .run()
 
     Await.result(promise.future, streamingTimeout)

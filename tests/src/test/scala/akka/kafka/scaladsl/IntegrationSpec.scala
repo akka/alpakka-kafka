@@ -78,8 +78,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
             Done
           }
           .scan(0L)((c, _) => c + 1)
-          .toMat(Sink.last)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.last)(DrainingControl.apply)
           .run()
 
       def createAndRunProducer(elements: immutable.Iterable[Long]) =
@@ -207,8 +206,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val control =
         Consumer
           .committableSource(consumerDefaults, Subscriptions.topics(topic1))
-          .toMat(Sink.seq)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.seq)(DrainingControl.apply)
           .run()
 
       control.isShutdown.failed.futureValue shouldBe a[org.apache.kafka.common.errors.InvalidGroupIdException]

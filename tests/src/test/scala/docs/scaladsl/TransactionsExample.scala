@@ -37,8 +37,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
         .map { msg =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
         }
-        .toMat(Transactional.sink(producerSettings, transactionalId))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Transactional.sink(producerSettings, transactionalId))(DrainingControl.apply)
         .run()
 
     // ...
@@ -71,8 +70,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithOffsetContext(producerSettings, createTransactionalId()))(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Transactional.sinkWithOffsetContext(producerSettings, createTransactionalId()))(DrainingControl.apply)
         .run()
 
     val testConsumerGroup = createGroupId(2)
@@ -152,8 +150,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
 //              }
 //              .runWith(Transactional.sink(producerSettings, transactionalId))
 //        }
-//        .toMat(Sink.ignore)(Keep.both)
-//        .mapMaterializedValue(DrainingControl.apply)
+//        .toMat(Sink.ignore)(DrainingControl.form)
 //        .run()
 //    // ...
 //

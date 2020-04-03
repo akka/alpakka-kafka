@@ -11,7 +11,7 @@ import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.internal._
-import akka.stream.scaladsl.{Source, SourceWithContext}
+import akka.stream.scaladsl.{Keep, Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
@@ -128,11 +128,22 @@ object Consumer {
   object DrainingControl {
 
     /**
-     * Combine control and a stream completion signal materialized values into
+     * Combine the consumer control and a stream completion signal materialized values into
      * one, so that the stream can be stopped in a controlled way without losing
      * commits.
+     *
+     * For use in `mapMaterializedValue`.
      */
     def apply[T](tuple: (Control, Future[T])) = new DrainingControl[T](tuple._1, tuple._2)
+
+    /**
+     * Combine the consumer control and a stream completion signal materialized values into
+     * one, so that the stream can be stopped in a controlled way without losing
+     * commits.
+     *
+     * For use in the `toMat` combination of materialized values.
+     */
+    def apply[T]: (Control, Future[T]) => DrainingControl[T] = new DrainingControl[T](_, _)
   }
 
   /**

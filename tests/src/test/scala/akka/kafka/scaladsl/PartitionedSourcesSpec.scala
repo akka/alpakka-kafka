@@ -105,8 +105,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         }
         .mergeSubstreams
         .scan(0L)((c, subValue) => c + subValue)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.last)(DrainingControl.apply)
         .run()
 
       // waits until all partitions are assigned to the single consumer
@@ -166,8 +165,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           }
           .mergeSubstreams
           .scan(0L)((c, subValue) => c + subValue)
-          .toMat(Sink.last)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.last)(DrainingControl.apply)
           .run()
 
       val control = createAndRunConsumer()
@@ -252,8 +250,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
             v
           }
           .scan(0L)((c, _) => c + 1)
-          .toMat(Sink.last)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.last)(DrainingControl.apply)
           .run()
 
       val control = createAndRunConsumer(subscription1)
@@ -468,8 +465,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                 }
           }
           .mergeSubstreams
-          .toMat(Sink.ignore)(Keep.both)
-          .mapMaterializedValue(DrainingControl.apply)
+          .toMat(Sink.ignore)(DrainingControl.apply)
           .run()
 
       val firstHalfLatch = new CountDownLatch(1)
@@ -577,8 +573,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         }
         .mergeSubstreams
         .scan(0L)((c, n) => c + n)
-        .toMat(Sink.last)(Keep.both)
-        .mapMaterializedValue(DrainingControl.apply)
+        .toMat(Sink.last)(DrainingControl.apply)
         .run()
 
       // waits until all partitions are assigned to the single consumer
