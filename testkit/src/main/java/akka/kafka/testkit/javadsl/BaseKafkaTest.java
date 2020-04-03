@@ -71,7 +71,8 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
   protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
       String topic, long take) {
     return Consumer.plainSource(
-            consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
+            consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ZERO),
+            Subscriptions.topics(topic))
         .take(take)
         .toMat(Sink.seq(), Keep.both())
         .mapMaterializedValue(Consumer::createDrainingControl)
