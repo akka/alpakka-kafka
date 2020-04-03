@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
-import akka.kafka.CommitWhen.{DeferToNextOffset, FirstObserved}
+import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -171,11 +171,11 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   private def collectOffset(offset: Committable): Unit = {
     (stage.committerSettings.when, deferredOffset) match {
-      case (FirstObserved, _) =>
+      case (OffsetFirstObserved, _) =>
         offsetBatch = offsetBatch.updated(offset)
-      case (DeferToNextOffset, None) =>
+      case (NextOffsetObserved, None) =>
         deferredOffset = Some(offset)
-      case (DeferToNextOffset, Some(dOffset)) if dOffset != offset =>
+      case (NextOffsetObserved, Some(dOffset)) if dOffset != offset =>
         deferredOffset = Some(offset)
         offsetBatch = offsetBatch.updated(dOffset)
     }

@@ -64,34 +64,36 @@ sealed trait CommitWhen
 object CommitWhen {
 
   /**
-   * Commit as soon as a [[Committable]] is observed.
+   * Commit as soon as a [[Committable]] offset is observed.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  case object FirstObserved extends CommitWhen
+  case object OffsetFirstObserved extends CommitWhen
 
   /**
-   * Commit once a new [[Committable]] is observed
+   * Commit once the next [[Committable]] offset is observed
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  case object DeferToNextOffset extends CommitWhen
-
-  /**
-   * Java API.
-   */
-  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  val firstObserved: CommitWhen = FirstObserved
+  case object NextOffsetObserved extends CommitWhen
 
   /**
    * Java API.
    */
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
-  val deferToNextOffset: CommitWhen = DeferToNextOffset
+  val offsetFirstObserved: CommitWhen = OffsetFirstObserved
+
+  /**
+   * Java API.
+   */
+  @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/1092")
+  val nextOffsetObserved: CommitWhen = NextOffsetObserved
 
   def valueOf(s: String): CommitWhen = s match {
-    case "FirstObserved" => FirstObserved
-    case "DeferToNextOffset" => DeferToNextOffset
+    case "OffsetFirstObserved" => OffsetFirstObserved
+    case "NextOffsetObserved" => NextOffsetObserved
     case other =>
-      throw new IllegalArgumentException(s"allowed values are: FirstObserved, DeferToNextOffset. Received: $other")
+      throw new IllegalArgumentException(
+        s"allowed values are: OffsetFirstObserved, NextOffsetObserved. Received: $other"
+      )
   }
 }
 

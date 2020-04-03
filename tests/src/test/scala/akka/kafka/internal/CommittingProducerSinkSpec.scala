@@ -16,7 +16,7 @@ import akka.kafka.scaladsl.Producer
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings}
+import akka.kafka.{CommitWhen, CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings, Repeated}
 import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -41,6 +41,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     with ScalaFutures
     with IntegrationPatience
     with Eventually
+    with Repeated
     with LogCapturing {
 
   import CommittingProducerSinkSpec.FakeConsumer
@@ -248,6 +249,45 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
 
     eventually {
       producer.history.asScala should have size (totalProducerRecords.longValue())
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
+  it should "produce, and commit when the next offset is observed" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system)
+      .withMaxBatch(1L)
+      .withCommitWhen(CommitWhen.NextOffsetObserved)
+
+    val control = Source(elements)
+      .concat(Source.maybe) // keep the source alive
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 1)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (2)
     }
     control.drainAndShutdown().futureValue shouldBe Done
   }
@@ -582,6 +622,50 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     control.drainAndShutdown().futureValue shouldBe Done
   }
 
+  it should "not commit next offset after failure if it hasn't been observed" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system)
+      .withMaxBatch(1L)
+      .withCommitWhen(CommitWhen.NextOffsetObserved)
+
+    val control = Source(elements)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        if (msg eq elements(1)) throw new RuntimeException("error")
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(
+        Producer
+          .committableSink(producerSettings, committerSettings)
+          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+      )(Keep.both)
+      .mapMaterializedValue(DrainingControl.apply)
+      .run()
+
+    consumer.actor.expectNoMessage(50.millis)
+
+    eventually {
+      producer.history.asScala should have size (1)
+    }
+
+    ScalaFutures.whenReady(control.drainAndShutdown().failed) { e =>
+      e shouldBe a[RuntimeException]
+    }
+  }
+
   it should "shut down without elements" in assertAllStagesStopped {
     val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
@@ -602,7 +686,6 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
 
     control.drainAndShutdown().futureValue shouldBe Done
   }
-
 }
 
 object CommittingProducerSinkSpec {
