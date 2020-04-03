@@ -12,9 +12,7 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.internal.KafkaTestKitChecks;
 import akka.kafka.testkit.internal.KafkaTestKitClass;
-import akka.kafka.testkit.internal.KafkaTestKit;
 import akka.stream.Materializer;
-import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
@@ -73,7 +71,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
     return Consumer.plainSource(
             consumerDefaults().withGroupId(createGroupId(1)), Subscriptions.topics(topic))
         .take(take)
-        .toMat(Sink.seq(), Consumer::formDrainingControl)
+        .toMat(Sink.seq(), Consumer::createDrainingControl)
         .run(materializer);
   }
 

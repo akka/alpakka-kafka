@@ -82,7 +82,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                 })
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
-            .toMat(Committer.sink(committerSettings), Consumer::formDrainingControl)
+            .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
             .run(materializer);
     // #oneToMany
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
@@ -122,7 +122,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                 })
             .via(Producer.flowWithContext(producerSettings))
             .toMat(
-                Committer.sinkWithOffsetContext(committerSettings), Consumer::formDrainingControl)
+                Committer.sinkWithOffsetContext(committerSettings), Consumer::createDrainingControl)
             .run(materializer);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
@@ -182,7 +182,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                 })
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
-            .toMat(Committer.sink(committerSettings), Consumer::formDrainingControl)
+            .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
             .run(materializer);
     // #oneToConditional
 
@@ -220,7 +220,8 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .mapContext(ConsumerMessage::createCommittableOffsetBatch)
             .via(Producer.flowWithContext(producerDefaults()))
             .toMat(
-                Committer.sinkWithOffsetContext(committerDefaults()), Consumer::formDrainingControl)
+                Committer.sinkWithOffsetContext(committerDefaults()),
+                Consumer::createDrainingControl)
             .run(materializer);
 
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> pair =

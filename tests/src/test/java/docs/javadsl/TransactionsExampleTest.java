@@ -81,7 +81,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                         msg.partitionOffset()))
             .toMat(
                 Transactional.sink(producerSettings, transactionalId),
-                Consumer::formDrainingControl)
+                Consumer::createDrainingControl)
             .run(materializer);
 
     // ...
@@ -115,7 +115,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                         new ProducerRecord<>(targetTopic, record.key(), record.value())))
             .toMat(
                 Transactional.sinkWithOffsetContext(producerSettings, transactionalId),
-                Consumer::formDrainingControl)
+                Consumer::createDrainingControl)
             .run(materializer);
 
     String testConsumerGroup = createGroupId(2);
@@ -228,7 +228,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
       ConsumerSettings<String, String> settings, String topic, long take) {
     return Consumer.plainSource(settings, Subscriptions.topics(topic))
         .take(take)
-        .toMat(Sink.seq(), Consumer::formDrainingControl)
+        .toMat(Sink.seq(), Consumer::createDrainingControl)
         .run(materializer);
   }
 

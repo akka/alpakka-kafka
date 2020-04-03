@@ -50,7 +50,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
         )
         .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
-        .toMat(Committer.sink(committerSettings))(DrainingControl.form)
+        .toMat(Committer.sink(committerSettings))(DrainingControl.apply)
         .run()
     // #oneToMany
     val (control2, result) = Consumer
@@ -101,7 +101,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
         })
         .via(Producer.flexiFlow(producerSettings))
         .map(_.passThrough)
-        .toMat(Committer.sink(committerSettings))(DrainingControl.form)
+        .toMat(Committer.sink(committerSettings))(DrainingControl.apply)
         .run()
     // #oneToConditional
 
@@ -149,7 +149,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
           out
         })
         .via(Producer.flowWithContext(producerSettings))
-        .toMat(Committer.sinkWithOffsetContext(committerSettings))(DrainingControl.form)
+        .toMat(Committer.sinkWithOffsetContext(committerSettings))(DrainingControl.apply)
         .run()
 
     val (control2, result) = Consumer
@@ -180,7 +180,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
         }
         .mapContext(CommittableOffsetBatch(_))
         .via(Producer.flowWithContext(producerDefaults))
-        .toMat(Committer.sinkWithOffsetContext(committerDefaults))(DrainingControl.form)
+        .toMat(Committer.sinkWithOffsetContext(committerDefaults))(DrainingControl.apply)
         .run()
 
     val (control2, result) = Consumer

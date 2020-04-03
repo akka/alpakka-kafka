@@ -143,7 +143,7 @@ object Consumer {
      *
      * For use in the `toMat` combination of materialized values.
      */
-    def form[T]: (Control, Future[T]) => DrainingControl[T] = new DrainingControl[T](_, _)
+    def apply[T]: (Control, Future[T]) => DrainingControl[T] = new DrainingControl[T](_, _)
   }
 
   /**

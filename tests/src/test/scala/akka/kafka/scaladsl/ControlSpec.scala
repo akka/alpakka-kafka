@@ -39,7 +39,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
   "Control" should {
     "drain to stream result" in {
       val control = new ControlImpl
-      val drainingControl = DrainingControl.form(control, Future.successful("expected"))
+      val drainingControl = DrainingControl.apply(control, Future.successful("expected"))
       drainingControl.drainAndShutdown().futureValue should be("expected")
       control.shutdownCalled.get() should be(true)
     }
@@ -47,7 +47,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to stream failure" in {
       val control = new ControlImpl
 
-      val drainingControl = DrainingControl.form(control, Future.failed(new RuntimeException("expected")))
+      val drainingControl = DrainingControl.apply(control, Future.failed(new RuntimeException("expected")))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12
@@ -58,7 +58,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to stream failure even if shutdown fails" in {
       val control = new ControlImpl(shutdownFuture = Future.failed(new RuntimeException("not this")))
 
-      val drainingControl = DrainingControl.form(control, Future.failed(new RuntimeException("expected")))
+      val drainingControl = DrainingControl.apply(control, Future.failed(new RuntimeException("expected")))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12
@@ -69,7 +69,7 @@ class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogC
     "drain to shutdown failure when stream succeeds" in {
       val control = new ControlImpl(shutdownFuture = Future.failed(new RuntimeException("expected")))
 
-      val drainingControl = DrainingControl.form(control, Future.successful(Done))
+      val drainingControl = DrainingControl.apply(control, Future.successful(Done))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
       // endWith to accustom Scala 2.11 and 2.12

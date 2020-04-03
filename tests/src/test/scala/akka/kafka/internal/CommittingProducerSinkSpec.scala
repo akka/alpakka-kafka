@@ -84,7 +84,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     consumer.actor.expectNoMessage(commitInterval)
@@ -126,7 +126,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           )
         }
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     consumer.actor.expectNoMessage(commitInterval)
@@ -163,7 +163,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
@@ -196,7 +196,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       .map { msg =>
         ProducerMessage.passThrough[String, String, ConsumerMessage.CommittableOffset](msg.committableOffset)
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
@@ -238,7 +238,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       }
       .toMat(
         Producer.committableSink(producerSettings, committerSettings)
-      )(DrainingControl.form)
+      )(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
@@ -275,7 +275,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     // expect the commit to reach the actor within 1 second
@@ -317,7 +317,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.Commit])
@@ -355,7 +355,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(1.second, classOf[Internal.CommitWithoutReply])
@@ -392,7 +392,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     while (!producer.completeNext()) {}
@@ -437,7 +437,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
         Producer
           .committableSink(producerSettings, committerSettings)
           .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-      )(DrainingControl.form)
+      )(DrainingControl.apply)
       .run()
 
     // fail the first message
@@ -484,7 +484,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
         Producer
           .committableSink(producerSettings, committerSettings)
           .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-      )(DrainingControl.form)
+      )(DrainingControl.apply)
       .run()
 
     // fail the first message
@@ -528,7 +528,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
@@ -567,7 +567,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
         Producer
           .committableSink(producerSettings, committerSettings)
           .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-      )(DrainingControl.form)
+      )(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
@@ -597,7 +597,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.form)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     control.drainAndShutdown().futureValue shouldBe Done

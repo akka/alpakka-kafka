@@ -39,7 +39,7 @@ class CommittableSinkSpec extends SpecBase with TestcontainersKafkaLike {
         .map { record =>
           ProducerMessage.single(new ProducerRecord(targetTopic, record.key(), record.value()))
         }
-        .toMat(Producer.committableSinkWithOffsetContext(producerDefaults, committerDefaults))(DrainingControl.form)
+        .toMat(Producer.committableSinkWithOffsetContext(producerDefaults, committerDefaults))(DrainingControl.apply)
         .run()
 
       // read copied messages

@@ -114,7 +114,7 @@ object Consumer {
    *
    * For use in the `toMat` combination of materialized values.
    */
-  def formDrainingControl[T](c: Control, mat: CompletionStage[T]): DrainingControl[T] = new DrainingControl[T](c, mat)
+  def createDrainingControl[T](c: Control, mat: CompletionStage[T]): DrainingControl[T] = new DrainingControl[T](c, mat)
 
   /**
    * An implementation of Control to be used as an empty value, all methods return
