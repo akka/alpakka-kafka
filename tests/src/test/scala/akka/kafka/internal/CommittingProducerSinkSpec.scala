@@ -653,7 +653,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       )(DrainingControl.apply)
       .run()
 
-    consumer.actor.expectNoMessage(50.millis)
+    consumer.actor.expectNoMessage(10.millis)
 
     eventually {
       producer.history.asScala should have size (1)

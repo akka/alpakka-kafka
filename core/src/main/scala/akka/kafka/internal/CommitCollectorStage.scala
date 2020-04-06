@@ -6,6 +6,7 @@
 package akka.kafka.internal
 
 import akka.annotation.InternalApi
+import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream._
@@ -53,11 +54,29 @@ private final class CommitCollectorStageLogic(
   /** Batches offsets until a commit is triggered. */
   private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
+  /** Deferred offset when `CommitterSetting.when == CommitWhen.NextOffsetObserved` **/
+  private var deferredOffset: Option[Committable] = None
+
   // ---- Consuming
   private def consume(offset: Committable): Unit = {
     log.debug("Consuming offset {}", offset)
-    offsetBatch = offsetBatch.updated(offset)
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) pushDownStream(BatchSize)(push)
+
+    // TODO: duplicate code with CommittingProducerSinkStage.collectOffset
+    val updateOffsetBatch = (stage.committerSettings.when, deferredOffset) match {
+      case (OffsetFirstObserved, _) =>
+        Some(offset)
+      case (NextOffsetObserved, None) =>
+        deferredOffset = Some(offset)
+        None
+      case (NextOffsetObserved, deferred @ Some(dOffset)) if dOffset != offset =>
+        deferredOffset = Some(offset)
+        deferred
+    }
+
+    for (offset <- updateOffsetBatch) offsetBatch = offsetBatch.updated(offset)
+
+    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch && updateOffsetBatch.isDefined)
+      pushDownStream(BatchSize)(push)
     else tryPull(stage.in) // accumulating the batch
   }
 

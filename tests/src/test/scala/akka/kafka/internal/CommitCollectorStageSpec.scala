@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.CommitterSettings
+import akka.kafka.{CommitWhen, CommitterSettings}
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch, PartitionOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
@@ -173,6 +173,32 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         val commits = factory.committer.commits
 
         commits.last.offset shouldBe 10 withClue "last offset commit should be exactly the one preceeding the error"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+    }
+
+    "using next observed offset" should {
+      val settings = DefaultCommitterSettings.withMaxBatch(1).withCommitWhen(CommitWhen.NextOffsetObserved)
+      "only commit when the next offset is observed" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe) = streamProbes(settings)
+        val committer = new TestBatchCommitter(settings)
+        val offsetFactory = TestOffsetFactory(committer)
+        val (msg1, msg2, msg3) = (offsetFactory.makeOffset(), offsetFactory.makeOffset(), offsetFactory.makeOffset())
+
+        sinkProbe.request(100)
+
+        // first message should not be committed but 'batched-up'
+        sourceProbe.sendNext(msg1)
+        sourceProbe.sendNext(msg2)
+        sourceProbe.sendNext(msg3)
+
+        sinkProbe.expectNext()
+        val lastBatch = sinkProbe.expectNext()
+        sinkProbe.expectNoMessage(10.millis)
+
+        lastBatch.offsets.values.last shouldBe msg2.partitionOffset.offset withClue "expect only the second offset to be committed"
+        committer.commits.size shouldBe 2 withClue "expected only two commits"
 
         control.shutdown().futureValue shouldBe Done
       }
