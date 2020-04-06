@@ -277,8 +277,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
           msg.committableOffset
         )
       }
-      .toMat(Producer.committableSink(producerSettings, committerSettings))(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
       .run()
 
     val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
@@ -651,8 +650,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
         Producer
           .committableSink(producerSettings, committerSettings)
           .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-      )(Keep.both)
-      .mapMaterializedValue(DrainingControl.apply)
+      )(DrainingControl.apply)
       .run()
 
     consumer.actor.expectNoMessage(50.millis)
