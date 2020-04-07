@@ -510,7 +510,7 @@ import scala.util.control.NonFatal
     val refreshOffsets = commitRefreshing.refreshOffsets
     if (refreshOffsets.nonEmpty) {
       log.debug("Refreshing committed offsets: {}", refreshOffsets)
-      commit(refreshOffsets, _ => ())
+      commit(refreshOffsets, Vector.empty)
     }
     poll()
   }
@@ -564,15 +564,14 @@ import scala.util.control.NonFatal
   }
 
   private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
-    val replyTo = commitSenders
     val aggregatedOffsets = aggregateOffsets(commitMaps)
     commitRefreshing.add(aggregatedOffsets)
-    commit(aggregatedOffsets, msg => replyTo.foreach(_ ! msg))
+    commit(aggregatedOffsets, commitSenders)
     commitMaps = List.empty
     commitSenders = Vector.empty
   }
 
-  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], sendReply: AnyRef => Unit): Unit = {
+  private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]): Unit = {
     commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
     val startTime = System.nanoTime()
@@ -584,13 +583,17 @@ import scala.util.control.NonFatal
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
           if (duration > settings.commitTimeWarning.toNanos) {
-            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms", duration / 1000000L)
+            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms, commitsInProgress={}",
+                        duration / 1000000L,
+                        commitsInProgress)
           }
           commitsInProgress -= 1
-          if (exception != null) sendReply(Status.Failure(exception))
-          else {
+          if (exception != null) {
+            val failure = Status.Failure(exception)
+            replyTo.foreach(_ ! failure)
+          } else {
             commitRefreshing.committed(offsets)
-            sendReply(Done)
+            replyTo.foreach(_ ! Done)
           }
         }
       }
