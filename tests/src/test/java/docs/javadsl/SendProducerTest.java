@@ -90,7 +90,8 @@ public class SendProducerTest extends TestcontainersKafkaTest {
       CompletionStage<ProducerMessage.Results<String, String, String>> send =
           producer.sendEnvelope(envelope);
       // Blocking here for illustration only, you need to handle the future result
-      ProducerMessage.Results<String, String, String> result = send.toCompletableFuture().get(2, TimeUnit.SECONDS);
+      ProducerMessage.Results<String, String, String> result =
+          send.toCompletableFuture().get(2, TimeUnit.SECONDS);
       // #multiMessage
       assertThat(result, isA(ProducerMessage.MultiResult.class));
       ProducerMessage.MultiResult<String, String, String> result1 =
