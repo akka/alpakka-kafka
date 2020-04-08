@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.{CommitWhen, CommitterSettings}
+import akka.kafka.{CommitWhen, CommitterSettings, Repeated}
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch, PartitionOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
@@ -38,6 +38,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     with IntegrationPatience
     with AppendedClues
     with ScalaFutures
+    with Repeated
     with LogCapturing {
 
   implicit lazy val materializer: ActorMaterializer = ActorMaterializer()
@@ -193,9 +194,12 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         sourceProbe.sendNext(msg2)
         sourceProbe.sendNext(msg3)
 
-        sinkProbe.expectNext()
-        val lastBatch = sinkProbe.expectNext()
+        val batches = sinkProbe.expectNextN(2)
         sinkProbe.expectNoMessage(10.millis)
+
+        // batches are committed within a mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // downstream out of order
+        val lastBatch = batches.maxBy(_.offsets.values.last)
 
         lastBatch.offsets.values.last shouldBe msg2.partitionOffset.offset withClue "expect only the second offset to be committed"
         committer.commits.size shouldBe 2 withClue "expected only two commits"
