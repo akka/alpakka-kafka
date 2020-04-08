@@ -18,7 +18,7 @@ import scala.compat.java8.FutureConverters._
 /**
  * Utility class for producing to Kafka without using Akka Streams.
  */
-final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[K, V]) {
+final class SendProducer[K, V] private (underlying: scaladsl.SendProducer[K, V]) {
 
   /**
    * Utility class for producing to Kafka without using Akka Streams.
@@ -27,7 +27,7 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
    * The internal asynchronous operations run on the provided `Executor` (which may be an `ActorSystem`'s dispatcher).
    */
   def this(settings: ProducerSettings[K, V], system: ActorSystem) =
-    this(scaladsl.ElementProducer(settings)(system))
+    this(scaladsl.SendProducer(settings)(system))
 
   /**
    * Send records to Kafka topics and complete a future with the result.
@@ -56,5 +56,5 @@ final class ElementProducer[K, V] private (underlying: scaladsl.ElementProducer[
    */
   def close(): CompletionStage[Done] = underlying.close().toJava
 
-  override def toString: String = s"ElementProducer(${underlying.settings})"
+  override def toString: String = s"SendProducer(${underlying.settings})"
 }

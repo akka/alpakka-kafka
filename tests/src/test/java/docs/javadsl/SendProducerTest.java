@@ -8,7 +8,7 @@ package docs.javadsl;
 import akka.actor.ActorSystem;
 import akka.kafka.ProducerMessage;
 import akka.kafka.ProducerSettings;
-import akka.kafka.javadsl.ElementProducer;
+import akka.kafka.javadsl.SendProducer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.kafka.tests.javadsl.LogCapturingExtension;
 import akka.stream.ActorMaterializer;
@@ -34,12 +34,12 @@ import static org.hamcrest.Matchers.isA;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(LogCapturingExtension.class)
-public class ElementProducerTest extends TestcontainersKafkaTest {
+public class SendProducerTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ElementProducerTest");
   private static final Materializer materializer = ActorMaterializer.create(system);
 
-  public ElementProducerTest() {
+  public SendProducerTest() {
     super(system, materializer);
   }
 
@@ -54,12 +54,13 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
 
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #record
-    ElementProducer<String, String> producer = new ElementProducer<>(producerSettings, system);
+    SendProducer<String, String> producer = new SendProducer<>(producerSettings, system);
     try {
       CompletionStage<RecordMetadata> result =
           producer.send(new ProducerRecord<>(topic, "key", "value"));
+      // Blocking here for illustration only, you need to handle the future result
+      RecordMetadata recordMetadata = result.toCompletableFuture().get(2, TimeUnit.SECONDS);
       // #record
-      RecordMetadata recordMetadata = resultOf(result);
       assertThat(recordMetadata.topic(), is(topic));
       // #record
     } finally {
@@ -77,7 +78,7 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
 
     ProducerSettings<String, String> producerSettings = producerDefaults();
     // #multiMessage
-    ElementProducer<String, String> producer = new ElementProducer<>(producerSettings, system);
+    SendProducer<String, String> producer = new SendProducer<>(producerSettings, system);
     try {
       ProducerMessage.Envelope<String, String, String> envelope =
           ProducerMessage.multi(
@@ -88,8 +89,9 @@ public class ElementProducerTest extends TestcontainersKafkaTest {
               "context");
       CompletionStage<ProducerMessage.Results<String, String, String>> send =
           producer.sendEnvelope(envelope);
+      // Blocking here for illustration only, you need to handle the future result
+      ProducerMessage.Results<String, String, String> result = send.toCompletableFuture().get(2, TimeUnit.SECONDS);
       // #multiMessage
-      ProducerMessage.Results<String, String, String> result = resultOf(send);
       assertThat(result, isA(ProducerMessage.MultiResult.class));
       ProducerMessage.MultiResult<String, String, String> result1 =
           (ProducerMessage.MultiResult<String, String, String>) result;

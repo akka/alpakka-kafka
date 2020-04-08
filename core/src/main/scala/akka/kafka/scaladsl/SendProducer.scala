@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
  * Utility class for producing to Kafka without using Akka Streams.
  * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
  */
-final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit system: ActorSystem) {
+final class SendProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit system: ActorSystem) {
 
   private implicit val ec: ExecutionContext = system.dispatchers.lookup(settings.dispatcher)
   private final val producerFuture = settings.createKafkaProducerAsync()(ec)
@@ -92,10 +92,10 @@ final class ElementProducer[K, V] private (val settings: ProducerSettings[K, V])
     } else Future.successful(Done)
   }
 
-  override def toString: String = s"ElementProducer($settings)"
+  override def toString: String = s"SendProducer($settings)"
 }
 
-object ElementProducer {
-  def apply[K, V](settings: ProducerSettings[K, V])(implicit system: ActorSystem): ElementProducer[K, V] =
-    new ElementProducer(settings)
+object SendProducer {
+  def apply[K, V](settings: ProducerSettings[K, V])(implicit system: ActorSystem): SendProducer[K, V] =
+    new SendProducer(settings)
 }
