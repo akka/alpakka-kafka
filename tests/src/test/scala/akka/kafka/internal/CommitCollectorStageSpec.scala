@@ -197,7 +197,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         val batches = sinkProbe.expectNextN(2)
         sinkProbe.expectNoMessage(10.millis)
 
-        // batches are committed within a mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
         // downstream out of order
         val lastBatch = batches.maxBy(_.offsets.values.last)
 

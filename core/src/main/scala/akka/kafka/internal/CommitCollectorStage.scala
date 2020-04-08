@@ -6,7 +6,6 @@
 package akka.kafka.internal
 
 import akka.annotation.InternalApi
-import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream._
@@ -37,10 +36,13 @@ private final class CommitCollectorStageLogic(
     stage: CommitCollectorStage,
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
+    with CommitObservationLogic
     with StageIdLogging {
 
   import CommitCollectorStage._
   import CommitTrigger._
+
+  final val settings: CommitterSettings = stage.committerSettings
 
   override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
@@ -51,31 +53,11 @@ private final class CommitCollectorStageLogic(
     log.debug("CommitCollectorStage initialized")
   }
 
-  /** Batches offsets until a commit is triggered. */
-  private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
-
-  /** Deferred offset when `CommitterSetting.when == CommitWhen.NextOffsetObserved` **/
-  private var deferredOffset: Option[Committable] = None
-
   // ---- Consuming
   private def consume(offset: Committable): Unit = {
     log.debug("Consuming offset {}", offset)
 
-    // TODO: duplicate code with CommittingProducerSinkStage.collectOffset
-    val updateOffsetBatch = (stage.committerSettings.when, deferredOffset) match {
-      case (OffsetFirstObserved, _) =>
-        Some(offset)
-      case (NextOffsetObserved, None) =>
-        deferredOffset = Some(offset)
-        None
-      case (NextOffsetObserved, deferred @ Some(dOffset)) if dOffset != offset =>
-        deferredOffset = Some(offset)
-        deferred
-    }
-
-    for (offset <- updateOffsetBatch) offsetBatch = offsetBatch.updated(offset)
-
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch && updateOffsetBatch.isDefined)
+    if (updateBatch(offset))
       pushDownStream(BatchSize)(push)
     else tryPull(stage.in) // accumulating the batch
   }

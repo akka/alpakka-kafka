@@ -48,6 +48,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     stage: CommittingProducerSinkStage[K, V, IN],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
+    with CommitObservationLogic
     with StageIdLogging
     with DeferredProducer[K, V] {
 
@@ -56,6 +57,8 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   /** The promise behind the materialized future. */
   final val streamCompletion = Promise[Done]
+
+  final val settings: CommitterSettings = stage.committerSettings
 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
@@ -140,12 +143,6 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   }
 
   // ---- Committing
-  /** Batches offsets until a commit is triggered. */
-  private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
-
-  /** Deferred offset when `CommitterSetting.when == CommitWhen.NextOffsetObserved` **/
-  private var deferredOffset: Option[Committable] = None
-
   private val collectOffsetCb: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
     awaitingProduceResult -= 1
     collectOffset(offset)
@@ -170,24 +167,9 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     case CommittingProducerSinkStage.CommitNow => commit(Interval)
   }
 
-  private def collectOffset(offset: Committable): Unit = {
-    // TODO: duplicate code
-    val updateOffsetBatch = (stage.committerSettings.when, deferredOffset) match {
-      case (OffsetFirstObserved, _) =>
-        Some(offset)
-      case (NextOffsetObserved, None) =>
-        deferredOffset = Some(offset)
-        None
-      case (NextOffsetObserved, deferred @ Some(dOffset)) if dOffset != offset =>
-        deferredOffset = Some(offset)
-        deferred
-    }
-
-    for (offset <- updateOffsetBatch) offsetBatch = offsetBatch.updated(offset)
-
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch && updateOffsetBatch.isDefined) commit(BatchSize)
+  private def collectOffset(offset: Committable): Unit =
+    if (updateBatch(offset)) commit(BatchSize)
     else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed)
-  }
 
   private def commit(triggeredBy: TriggerdBy): Unit = {
     if (offsetBatch.batchSize != 0) {
