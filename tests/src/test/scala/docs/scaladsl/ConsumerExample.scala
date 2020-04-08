@@ -13,12 +13,13 @@ import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
-import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
+import org.scalatest.concurrent.PatienceConfiguration
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -145,6 +146,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
 
   "Consume messages at-least-once" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val committerSettings = committerDefaults.withMaxBatch(1)
     val topic = createTopic()
     // #atLeastOnce
     val control =
@@ -153,7 +155,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .mapAsync(10) { msg =>
           business(msg.record.key, msg.record.value).map(_ => msg.committableOffset)
         }
-        .via(Committer.flow(committerDefaults.withMaxBatch(1)))
+        .via(Committer.flow(committerSettings))
         .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     // #atLeastOnce
@@ -520,4 +522,50 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val drainingControl = DrainingControl.apply(control.get(), result)
     drainingControl.drainAndShutdown().futureValue shouldBe Done
   }
+
+  "Convenience wrappers" should "work" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val committerSettings = committerDefaults.withMaxBatch(1)
+    val topic = createTopic()
+    val control =
+      Processor
+        .atLeastOnceSource(consumerSettings, Subscriptions.topics(topic), committerSettings) { record =>
+          business(record.key, record.value)
+        }
+        .toMat(Sink.seq)(DrainingControl.apply)
+        .run()
+    awaitProduce(produce(topic, 1 to 10))
+    control.drainAndShutdown().futureValue.map { _.batchSize }.sum shouldBe 10
+  }
+
+  it should "allow parallel processing of partitions" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val committerSettings = committerDefaults.withMaxBatch(1)
+    val partitions = 53
+    val promises = Seq.fill(partitions)((Promise[Done], Promise[Done]))
+    val topic = createTopic(1, partitions)
+    val control =
+      Processor
+        .atLeastOncePerPartitionSource(consumerSettings, Subscriptions.topics(topic), partitions, committerSettings) {
+          record =>
+            promises(record.partition)._2.success(Done)
+            promises(record.partition)._1.future
+        }
+        .toMat(Sink.seq)(DrainingControl.apply)
+        .run()
+
+    awaitProduce(
+      Source(0 until partitions)
+        .map(n => new ProducerRecord(topic, n, DefaultKey, "value"))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
+    )
+
+    // expect all subflows to reach the user function
+    promises.map(_._2.future.futureValue) shouldBe Seq.fill(partitions)(Done)
+    // complete all user functions
+    promises.foreach(_._1.success(Done))
+
+    control.drainAndShutdown().futureValue.map { _.batchSize }.sum shouldBe partitions
+  }
+
 }
