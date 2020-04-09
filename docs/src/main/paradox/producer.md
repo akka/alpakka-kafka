@@ -11,6 +11,8 @@ The underlying implementation is using the `KafkaProducer`, see the @javadoc[Kaf
 
 Alpakka Kafka offers producer flows and sinks that connect to Kafka and write data. The tables below may help you to find the producer best suited for your use-case.
 
+For use-cases that don't benefit form Akka Streams, the @ref[Send Producer](send-producer.md) offers a @scala[`Future`-based]@java[`CompletionStage`-based] send API.
+
 ### Producers
 
 These factory methods are part of the @apidoc[Producer$] API.
@@ -200,3 +202,9 @@ Scala
 
 Java
 : @@ snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #producerMetrics }
+
+@@@ index
+
+* [SendProducer](send-producer.md)
+
+@@@
