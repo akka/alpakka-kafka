@@ -9,17 +9,18 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.Done
 import akka.actor.{Actor, ActorLogging, Props}
+import akka.kafka.ConsumerMessage.CommittableOffsetBatch
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
-import org.scalatest.concurrent.PatienceConfiguration
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -523,7 +524,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     drainingControl.drainAndShutdown().futureValue shouldBe Done
   }
 
-  "Convenience wrappers" should "work" in assertAllStagesStopped {
+  "atLeastOnce source" should "process elements" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val committerSettings = committerDefaults.withMaxBatch(1)
     val topic = createTopic()
@@ -538,18 +539,22 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     control.drainAndShutdown().futureValue.map { _.batchSize }.sum shouldBe 10
   }
 
-  it should "allow parallel processing of partitions" in assertAllStagesStopped {
+  it should "process partitions in parallel" in assertAllStagesStopped {
+    case class WaitForIt(release: Promise[Done] = Promise[Done], reached: Promise[Done] = Promise[Done]) {
+      def reachedIt(): Unit = reached.success(Done)
+      def releaseIt(): Unit = release.success(Done)
+    }
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val committerSettings = committerDefaults.withMaxBatch(1)
     val partitions = 53
-    val promises = Seq.fill(partitions)((Promise[Done], Promise[Done]))
+    val promises = Seq.fill(partitions)(WaitForIt())
     val topic = createTopic(1, partitions)
     val control =
       Processor
         .atLeastOncePerPartitionSource(consumerSettings, Subscriptions.topics(topic), partitions, committerSettings) {
           record =>
-            promises(record.partition)._2.success(Done)
-            promises(record.partition)._1.future
+            promises(record.partition).reachedIt()
+            promises(record.partition).release.future
         }
         .toMat(Sink.seq)(DrainingControl.apply)
         .run()
@@ -561,11 +566,39 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     )
 
     // expect all subflows to reach the user function
-    promises.map(_._2.future.futureValue) shouldBe Seq.fill(partitions)(Done)
+    promises.map(_.reached.future.futureValue) shouldBe Seq.fill(partitions)(Done)
     // complete all user functions
-    promises.foreach(_._1.success(Done))
+    promises.foreach(_.releaseIt())
 
     control.drainAndShutdown().futureValue.map { _.batchSize }.sum shouldBe partitions
+  }
+
+  "atLeastOnceConsumeAndProduce source" should "process and produce elements" in assertAllStagesStopped {
+    val sourceTopic = createTopic(1)
+    val targetTopic = createTopic(2)
+    val count = 10
+    val (control, probe1) =
+      Processor
+        .atLeastOnceConsumeAndProduceSource(consumerDefaults.withGroupId(createGroupId()),
+                                            Subscriptions.topics(sourceTopic),
+                                            producerDefaults,
+                                            committerDefaults) { record =>
+          Future.successful(
+            ProducerMessage.single(
+              new ProducerRecord(targetTopic, record.key, record.value)
+            )
+          )
+        }
+        .toMat(TestSink.probe[CommittableOffsetBatch])(Keep.both)
+        .run()
+    awaitProduce(produce(sourceTopic, 1 to count))
+    probe1.requestNext().batchSize shouldBe 10
+    control.shutdown().futureValue shouldBe Done
+    // check produced messages
+    val (control2, probe2) = createProbe(consumerDefaults.withGroupId(createGroupId()), targetTopic)
+    probe2.request(count.toLong)
+    probe2.expectNextN(count.toLong) should contain theSameElementsInOrderAs (1 to count).map(_.toString)
+    control2.shutdown().futureValue shouldBe Done
   }
 
 }

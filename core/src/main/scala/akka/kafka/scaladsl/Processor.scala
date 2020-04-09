@@ -5,11 +5,11 @@
 
 package akka.kafka.scaladsl
 
+import akka.NotUsed
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerMessage.Envelope
 import akka.kafka._
 import akka.stream.scaladsl.{Keep, Source}
-import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import scala.concurrent.Future
@@ -43,22 +43,27 @@ object Processor {
    *
    * The `process` function will be called in parallel across Kafka partitions, two records for the same partition will
    * not be processed in parallel.
+   *
+   * This is similar to a [[Consumer.committablePartitionedSource]].
+   *
+   * @param parallelism number of parallel "lanes" to distribute messages from the partitions over, the number
+   *                    of partitions of the subscribed topic is a good value
    */
   def atLeastOncePerPartitionSource[K, V](
       consumerSettings: ConsumerSettings[K, V],
       subscription: Subscription,
-      maxPartitions: Int,
+      parallelism: Int,
       committerSettings: CommitterSettings
   )(
       process: ConsumerRecord[K, V] => Future[_]
   ): Source[ConsumerMessage.CommittableOffsetBatch, Consumer.Control] = {
     Consumer
       .committableSource(consumerSettings, subscription)
-      .groupBy(maxPartitions, _.record.partition() % maxPartitions)
+      .groupBy(parallelism, _.record.partition() % parallelism)
       .mapAsync(1) { message =>
         process(message.record).map(_ => message.committableOffset)(ExecutionContexts.sameThreadExecutionContext)
       }
-      .mergeSubstreamsWithParallelism(maxPartitions)
+      .mergeSubstreamsWithParallelism(parallelism)
       .viaMat(Committer.batchFlow(committerSettings))(Keep.left)
   }
 
