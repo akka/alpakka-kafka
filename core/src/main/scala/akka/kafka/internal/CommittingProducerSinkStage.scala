@@ -227,7 +227,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       }
 
       override def onUpstreamFinish(): Unit =
-        if (awaitingCommitsBeforeShutdown) {
+        if (awaitingCommitsBeforeShutdown()) {
           completeStage()
           streamCompletion.success(Done)
         } else {
@@ -237,7 +237,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         }
 
       override def onUpstreamFailure(ex: Throwable): Unit =
-        if (awaitingCommitsBeforeShutdown) {
+        if (awaitingCommitsBeforeShutdown()) {
           closeAndFailStage(ex)
         } else {
           emergencyShutdown(ex)
@@ -245,17 +245,14 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     }
   )
 
-  private def awaitingCommitsBeforeShutdown: Boolean = {
-    for (_ <- deferredOffset) {
-      deferredOffset = None
-      awaitingCommitResult -= 1
-    }
+  private def awaitingCommitsBeforeShutdown(): Boolean = {
+    awaitingCommitResult -= clearDeferredOffsets()
     awaitingCommitResult == 0
   }
 
   private def checkForCompletion(): Unit =
     if (isClosed(stage.in))
-      if (awaitingCommitsBeforeShutdown) {
+      if (awaitingCommitsBeforeShutdown()) {
         upstreamCompletionState match {
           case Some(Success(_)) =>
             completeStage()

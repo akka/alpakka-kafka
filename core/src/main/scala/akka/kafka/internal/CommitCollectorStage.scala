@@ -56,7 +56,6 @@ private final class CommitCollectorStageLogic(
   // ---- Consuming
   private def consume(offset: Committable): Unit = {
     log.debug("Consuming offset {}", offset)
-
     if (updateBatch(offset))
       pushDownStream(BatchSize)(push)
     else tryPull(stage.in) // accumulating the batch

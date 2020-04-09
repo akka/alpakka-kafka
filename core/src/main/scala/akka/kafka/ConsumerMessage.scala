@@ -10,9 +10,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.annotation.{DoNotInherit, InternalApi}
-import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.internal.{CommittableOffsetBatchImpl, CommittedMarker}
-import akka.stream.stage.GraphStageLogic
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
@@ -226,4 +224,5 @@ object ConsumerMessage {
      */
     def isEmpty: Boolean
   }
+
 }

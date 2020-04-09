@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.CommitterSettings
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch, GroupTopicPartition}
 import akka.stream.stage.GraphStageLogic
 
 /**
@@ -21,28 +21,37 @@ private[internal] trait CommitObservationLogic { self: GraphStageLogic =>
   /** Batches offsets until a commit is triggered. */
   protected var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
 
-  /** Deferred offset when `CommitterSetting.when == CommitWhen.NextOffsetObserved` **/
-  protected var deferredOffset: Option[Committable] = None
+  /** Deferred offsets when `CommitterSetting.when == CommitWhen.NextOffsetObserved` **/
+  private var deferredOffsets: Map[GroupTopicPartition, Committable] = Map.empty
 
   /**
-   * Update the offset batch when applicable given `CommitWhen` settings.
-   *
-   * Returns true if the batch is ready to be committed.
+   * Update the offset batch when applicable given `CommitWhen` settings. Returns true if the
+   * batch is ready to be committed.
    */
   def updateBatch(offset: Committable): Boolean = {
-    val updateOffsetBatch = (settings.when, deferredOffset) match {
+    val gtp = offset.asInstanceOf[CommittableOffset].partitionOffset.key
+    val updateOffsetBatch = (settings.when, deferredOffsets.get(gtp)) match {
       case (OffsetFirstObserved, _) =>
         Some(offset)
       case (NextOffsetObserved, None) =>
-        deferredOffset = Some(offset)
+        deferredOffsets = deferredOffsets + (gtp -> offset)
         None
       case (NextOffsetObserved, deferred @ Some(dOffset)) if dOffset != offset =>
-        deferredOffset = Some(offset)
+        deferredOffsets = deferredOffsets + (gtp -> offset)
         deferred
+      case _ => None
     }
-
     for (offset <- updateOffsetBatch) offsetBatch = offsetBatch.updated(offset)
+    offsetBatch.batchSize >= settings.maxBatch
+  }
 
-    offsetBatch.batchSize >= settings.maxBatch && updateOffsetBatch.isDefined
+  /**
+   * Clear any deferred offsets and return the count before emptied. This should only be called
+   * once when a committing stages is shutting down.
+   */
+  def clearDeferredOffsets(): Int = {
+    val size = deferredOffsets.size
+    deferredOffsets = Map.empty
+    size
   }
 }

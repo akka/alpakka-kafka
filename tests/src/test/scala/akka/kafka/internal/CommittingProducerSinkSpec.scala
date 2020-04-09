@@ -61,6 +61,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
   val groupId = "group1"
   val topic = "topic1"
   val partition = 1
+  val partition2 = 2
 
   "committable producer sink" should "produce, and commit after interval" in assertAllStagesStopped {
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
@@ -259,6 +260,45 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     val elements = immutable.Seq(
       consumer.message(partition, "value 1"),
       consumer.message(partition, "value 2")
+    )
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system)
+      .withMaxBatch(1L)
+      .withCommitWhen(CommitWhen.NextOffsetObserved)
+
+    val control = Source(elements)
+      .concat(Source.maybe) // keep the source alive
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.single(
+          new ProducerRecord("targetTopic", msg.record.key, msg.record.value),
+          msg.committableOffset
+        )
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(500.millis, classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 1)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size (2)
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
+  it should "produce, and commit when the next offset is observed for the same partition" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+
+    val elements = immutable.Seq(
+      consumer.message(partition, "value 1"),
+      consumer.message(partition2, "value 2"),
+      consumer.message(partition, "value 3")
     )
 
     val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
