@@ -206,6 +206,32 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
+      "only commit when the next offset is observed for the correct partitions" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe) = streamProbes(settings)
+        val committer = new TestBatchCommitter(settings)
+        val offsetFactory = TestOffsetFactory(committer)
+        val (msg1, msg2, msg3, msg4, msg5) = (offsetFactory.makeOffset(partitionNum = 1),
+                                              offsetFactory.makeOffset(partitionNum = 2),
+                                              offsetFactory.makeOffset(partitionNum = 1),
+                                              offsetFactory.makeOffset(partitionNum = 2),
+                                              offsetFactory.makeOffset(partitionNum = 1))
+        val all = Seq(msg1, msg2, msg3, msg4, msg5)
+
+        sinkProbe.request(100)
+        all.foreach(sourceProbe.sendNext)
+        val batches = sinkProbe.expectNextN(3)
+        sinkProbe.expectNoMessage(10.millis)
+
+        // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // downstream out of order.  get the last 2 batches.
+        val lastBatch :: secondLastBatch :: Nil = batches.sortBy(_.offsets.values.last).takeRight(2).reverse
+
+        lastBatch.offsets(msg3.partitionOffset.key) shouldBe msg3.partitionOffset.offset withClue "expect the second offset of partition 1"
+        secondLastBatch.offsets(msg2.partitionOffset.key) shouldBe msg2.partitionOffset.offset withClue "expect the first offset of partition 2"
+        committer.commits.size shouldBe 3 withClue "expected only three commits"
+
+        control.shutdown().futureValue shouldBe Done
+      }
     }
   }
 
@@ -259,12 +285,13 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
     def apply(offsetCounter: AtomicLong,
               committer: TestBatchCommitter,
-              failWith: Option[Throwable] = None): CommittableOffset = {
+              failWith: Option[Throwable] = None,
+              partitionNum: Int = 1): CommittableOffset = {
       CommittableOffsetImpl(
         ConsumerResultFactory
           .partitionOffset(groupId = "group1",
                            topic = "topic1",
-                           partition = 1,
+                           partition = partitionNum,
                            offset = offsetCounter.incrementAndGet()),
         "metadata1"
       )(committer.underlying)
@@ -274,8 +301,8 @@ class CommitCollectorStageSpec(_system: ActorSystem)
   class TestOffsetFactory(val committer: TestBatchCommitter) {
     private val offsetCounter = new AtomicLong(0L)
 
-    def makeOffset(failWith: Option[Throwable] = None): CommittableOffset = {
-      TestCommittableOffset(offsetCounter, committer, failWith)
+    def makeOffset(failWith: Option[Throwable] = None, partitionNum: Int = 1): CommittableOffset = {
+      TestCommittableOffset(offsetCounter, committer, failWith, partitionNum)
     }
   }
 
