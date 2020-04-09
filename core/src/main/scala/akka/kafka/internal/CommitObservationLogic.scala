@@ -5,7 +5,7 @@
 
 package akka.kafka.internal
 
-import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
+import akka.kafka.CommitWhen.OffsetFirstObserved
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch, GroupTopicPartition}
 import akka.stream.stage.GraphStageLogic
@@ -28,26 +28,27 @@ private[internal] trait CommitObservationLogic { self: GraphStageLogic =>
    * Update the offset batch when applicable given `CommitWhen` settings. Returns true if the
    * batch is ready to be committed.
    */
-  def updateBatch(offset: Committable): Boolean = {
-    val gtp = offset.asInstanceOf[CommittableOffset].partitionOffset.key
-    val updateOffsetBatch = (settings.when, deferredOffsets.get(gtp)) match {
-      case (OffsetFirstObserved, _) =>
-        Some(offset)
-      case (NextOffsetObserved, None) =>
-        deferredOffsets = deferredOffsets + (gtp -> offset)
-        None
-      case (NextOffsetObserved, deferred @ Some(dOffset)) if dOffset != offset =>
-        deferredOffsets = deferredOffsets + (gtp -> offset)
-        deferred
-      case _ => None
+  def updateBatch(committable: Committable): Boolean = {
+    if (settings.when == OffsetFirstObserved) {
+      offsetBatch = offsetBatch.updated(committable)
+    } else { // CommitWhen.NextOffsetObserved
+      val offset = committable.asInstanceOf[CommittableOffset]
+      val gtp = offset.partitionOffset.key
+      deferredOffsets.get(gtp) match {
+        case Some(dOffset: CommittableOffset) if dOffset.partitionOffset.offset < offset.partitionOffset.offset =>
+          deferredOffsets = deferredOffsets + (gtp -> offset)
+          offsetBatch = offsetBatch.updated(dOffset)
+        case None =>
+          deferredOffsets = deferredOffsets + (gtp -> offset)
+        case _ => ()
+      }
     }
-    for (offset <- updateOffsetBatch) offsetBatch = offsetBatch.updated(offset)
     offsetBatch.batchSize >= settings.maxBatch
   }
 
   /**
    * Clear any deferred offsets and return the count before emptied. This should only be called
-   * once when a committing stages is shutting down.
+   * once when a committing stage is shutting down.
    */
   def clearDeferredOffsets(): Int = {
     val size = deferredOffsets.size
