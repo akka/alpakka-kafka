@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
+import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -47,6 +48,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     stage: CommittingProducerSinkStage[K, V, IN],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
+    with CommitObservationLogic
     with StageIdLogging
     with DeferredProducer[K, V] {
 
@@ -55,6 +57,8 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   /** The promise behind the materialized future. */
   final val streamCompletion = Promise[Done]
+
+  final val settings: CommitterSettings = stage.committerSettings
 
   private lazy val decider: Decider =
     inheritedAttributes.get[SupervisionStrategy].map(_.decider).getOrElse(Supervision.stoppingDecider)
@@ -109,7 +113,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
       case msg: PassThroughMessage[K, V, Committable] =>
         awaitingCommitResult += 1
-        collectOffset(0, msg.passThrough)
+        collectOffset(msg.passThrough)
     }
 
   private val sendFailureCb: AsyncCallback[(Int, Throwable)] = getAsyncCallback[(Int, Throwable)] {
@@ -139,16 +143,15 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   }
 
   // ---- Committing
-  /** Batches offsets until a commit is triggered. */
-  private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
-
   private val collectOffsetCb: AsyncCallback[Committable] = getAsyncCallback[Committable] { offset =>
-    collectOffset(1, offset)
+    awaitingProduceResult -= 1
+    collectOffset(offset)
   }
 
   private val collectOffsetMultiCb: AsyncCallback[(Int, Committable)] = getAsyncCallback[(Int, Committable)] {
     case (count, offset) =>
-      collectOffset(count, offset)
+      awaitingProduceResult -= count
+      collectOffset(offset)
   }
 
   private def collectOffsetIgnore(count: Int, exception: Throwable): Unit = {
@@ -164,12 +167,9 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     case CommittingProducerSinkStage.CommitNow => commit(Interval)
   }
 
-  private def collectOffset(count: Int, offset: Committable): Unit = {
-    awaitingProduceResult -= count
-    offsetBatch = offsetBatch.updated(offset)
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) commit(BatchSize)
+  private def collectOffset(offset: Committable): Unit =
+    if (updateBatch(offset)) commit(BatchSize)
     else if (isClosed(stage.in) && awaitingProduceResult == 0L) commit(UpstreamClosed)
-  }
 
   private def commit(triggeredBy: TriggerdBy): Unit = {
     if (offsetBatch.batchSize != 0) {
@@ -227,7 +227,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
       }
 
       override def onUpstreamFinish(): Unit =
-        if (awaitingCommitResult == 0) {
+        if (awaitingCommitsBeforeShutdown()) {
           completeStage()
           streamCompletion.success(Done)
         } else {
@@ -237,7 +237,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         }
 
       override def onUpstreamFailure(ex: Throwable): Unit =
-        if (awaitingCommitResult == 0) {
+        if (awaitingCommitsBeforeShutdown()) {
           closeAndFailStage(ex)
         } else {
           emergencyShutdown(ex)
@@ -245,9 +245,14 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     }
   )
 
+  private def awaitingCommitsBeforeShutdown(): Boolean = {
+    awaitingCommitResult -= clearDeferredOffsets()
+    awaitingCommitResult == 0
+  }
+
   private def checkForCompletion(): Unit =
     if (isClosed(stage.in))
-      if (awaitingCommitResult == 0) {
+      if (awaitingCommitsBeforeShutdown()) {
         upstreamCompletionState match {
           case Some(Success(_)) =>
             completeStage()
