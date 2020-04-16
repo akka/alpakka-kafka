@@ -25,8 +25,8 @@ import org.apache.kafka.common.TopicPartition
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 /**
  * Internal API.
@@ -102,16 +102,8 @@ private class SubSourceLogic[K, V, Msg](
     failStage(ex)
   }
 
-  private val onOffsetsFromExternalResponseCB = getAsyncCallback[(Set[TopicPartition], Map[TopicPartition, Long])] {
-    case (formerlyUnknown, offsetMap) =>
-      val updatedFormerlyUnknown = formerlyUnknown -- (partitionsToRevoke ++ partitionsInStartup ++ pendingPartitions)
-      // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
-      seekAndEmitSubSources(updatedFormerlyUnknown, offsetMap.filterKeys(k => !partitionsToRevoke.contains(k)).toMap)
-  }
-
   private val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
     val formerlyUnknown = assigned -- partitionsToRevoke
-
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
       log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
     }
@@ -122,21 +114,7 @@ private class SubSourceLogic[K, V, Msg](
     getOffsetsOnAssign match {
       case None =>
         updatePendingPartitionsAndEmitSubSources(formerlyUnknown)
-
-      case Some(getOffsetsFromExternal) =>
-        implicit val ec: ExecutionContext = materializer.executionContext
-        getOffsetsFromExternal(assigned)
-          .onComplete {
-            case Failure(ex) =>
-              stageFailCB.invoke(
-                new ConsumerFailed(
-                  s"$idLogPrefix Failed to fetch offset for partitions: ${formerlyUnknown.mkString(", ")}.",
-                  ex
-                )
-              )
-            case Success(offsets) =>
-              onOffsetsFromExternalResponseCB.invoke((formerlyUnknown, offsets))
-          }
+      case _ => ()
     }
   }
 
@@ -295,11 +273,37 @@ private class SubSourceLogic[K, V, Msg](
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         lastRevoked = revokedTps
 
-      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
+      override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = {
         for {
           tp <- lastRevoked -- assignedTps
           control <- subSources.get(tp)
         } control.filterRevokedPartitionsCB.invoke(Set(tp))
+
+        val formerlyUnknown = assignedTps -- partitionsToRevoke
+
+        if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
+          log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
+        }
+
+        getOffsetsOnAssign match {
+          case Some(getOffsetsFromExternal) =>
+            implicit val ec: ExecutionContext = materializer.executionContext
+            // TODO: new timeout config? :(
+            Try(Await.result(getOffsetsFromExternal(assignedTps), 10.seconds)) match {
+              case Success(offsets) =>
+                val updatedFormerlyUnknown = formerlyUnknown -- (partitionsToRevoke ++ partitionsInStartup ++ pendingPartitions)
+                // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
+                val filteredOffsets = offsets.filterKeys(k => !partitionsToRevoke.contains(k)).toMap
+                log.debug(s"Seeking to offsets: $filteredOffsets")
+                filteredOffsets.foreach {
+                  case (tp, offset) => consumer.seek(tp, offset)
+                }
+                seekAndEmitSubSources(updatedFormerlyUnknown, filteredOffsets)
+              case _ => ()
+            }
+          case _ => ()
+        }
+      }
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         for {

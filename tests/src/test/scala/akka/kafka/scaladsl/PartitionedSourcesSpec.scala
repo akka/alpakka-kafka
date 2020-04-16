@@ -10,9 +10,11 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.function.LongBinaryOperator
 
 import akka.Done
+import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.kafka.tests.AlpakkaAssignor
 import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -423,11 +425,18 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
         .withGroupId(group)
 
-      val maxEncounteredOffsets = (0 until partitions).map(_ -> new AtomicLong()).toMap
+      val partitionsOffsetCommitMap: Map[Int, AtomicLong] = (0 until partitions).map(_ -> new AtomicLong()).toMap
+
+      def getOffsetsOnAssign(topicPartitions: Set[TopicPartition]): Future[Map[TopicPartition, Long]] =
+        Future.successful {
+          val offsets = topicPartitions.map(tp => tp -> partitionsOffsetCommitMap(tp.partition()).get()).toMap
+          log.debug(s"getOffsetsOnAssign for topicPartitions $topicPartitions, offsets returned: $offsets")
+          offsets
+        }
 
       def externalCommitOffset(partitionId: Int, offset: Long): Future[Unit] = {
         log.info(s"Commit $partitionId at $offset")
-        maxEncounteredOffsets(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
+        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
           override def applyAsLong(left: Long, right: Long): Long = left.max(right)
         })
         Future.successful(())
@@ -448,9 +457,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           .plainPartitionedManualOffsetSource(
             sourceSettings,
             Subscriptions.topics(topic),
-            topicPartitions => {
-              Future.successful(topicPartitions.map(tp => tp -> maxEncounteredOffsets(tp.partition()).get()).toMap)
-            }
+            getOffsetsOnAssign
           )
           .groupBy(partitions, _._1)
           .mapAsync(8) {
@@ -505,6 +512,174 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
               externalCommitOffset(r.partition(), r.offset())
           }
       })
+
+      // waits until partitions are assigned across both consumers
+      waitUntilConsumerSummary(group) {
+        case consumer1 :: consumer2 :: Nil =>
+          val half = partitions / 2
+          consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
+      }
+
+      log.debug("Now there are 2 consumers, going to continue")
+      latch.countDown()
+
+      eventually {
+        receivedMessages.get() should be >= totalMessages
+      }
+      control1.drainAndShutdown().futureValue should be(Done)
+      control2.drainAndShutdown().futureValue should be(Done)
+    }
+
+    "not leave gaps after a rebalance with committable & manual offsets" in assertAllStagesStopped {
+      val partitions = 2
+      val messagesPerPartition = 100L
+      val totalMessages = messagesPerPartition * partitions
+      val topic = createTopic(1, partitions)
+      val group = createGroupId()
+      val tp0 :: tp1 :: Nil = (0 until partitions).toList.map(new TopicPartition(topic, _))
+      val consumerClientId1 = "consumer-1"
+      val consumerClientId2 = "consumer-2"
+
+      val sourceSettings = consumerDefaults
+        .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
+        .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest")
+        .withGroupId(group)
+
+      val partitionsOffsetCommitMap: Map[Int, AtomicLong] = (0 until partitions).map(_ -> new AtomicLong()).toMap
+
+      def getOffsetsOnAssign(topicPartitions: Set[TopicPartition]): Future[Map[TopicPartition, Long]] =
+        Future.successful {
+          val offsets = topicPartitions.map { tp =>
+            tp -> partitionsOffsetCommitMap(tp.partition()).get()
+          }.toMap
+          log.debug(s"getOffsetsOnAssign for topicPartitions $topicPartitions, offsets returned: $offsets")
+          Thread.sleep(100)
+          offsets
+        }
+
+      def externalCommitOffset(partitionId: Int, offset: Long): Future[Unit] = {
+        log.info(s"Commit $partitionId at $offset")
+        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
+          override def applyAsLong(left: Long, right: Long): Long = left.max(right)
+        })
+        Future.successful(())
+      }
+
+      val receivedMessages = new AtomicLong(0)
+
+      Source(1L to totalMessages)
+        .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
+        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
+        .futureValue shouldBe Done
+
+      AlpakkaAssignor.clientIdToPartitionMap.set(
+        Map(
+          consumerClientId1 -> Set(tp0, tp1)
+        )
+      )
+
+      def createAndRunConsumer(
+          consumerClientId: String,
+          recordProcessor: CommittableMessage[String, String] => Future[CommittableMessage[String, String]]
+      ) =
+        Consumer
+          .committablePartitionedManualOffsetSource(
+            sourceSettings.withClientId(consumerClientId),
+            Subscriptions.topics(topic),
+            getOffsetsOnAssign
+          )
+          .groupBy(partitions, _._1)
+          .mapAsync(8) {
+            case (tp, source) =>
+              log.info(s"Sub-source for $tp")
+              source
+                .mapAsync(1)(recordProcessor)
+                .runWith(Sink.ignore)
+                .map { res =>
+                  log.info(s"Sub-source for $tp completed")
+                  res
+                }
+          }
+          .mergeSubstreams
+          .toMat(Sink.ignore)(DrainingControl.apply)
+          .run()
+
+      val firstHalfLatch = new CountDownLatch(1)
+      val latch = new CountDownLatch(1)
+
+      val control1 = createAndRunConsumer(
+        consumerClientId1,
+        msg => {
+          val r = msg.record
+          val internalCommitF = msg.committableOffset.commitInternal()
+          internalCommitF.andThen {
+            case Success(_) => log.debug(s"Kafka commit ${r.partition()} at offset ${r.offset()}")
+          }
+          log.debug(s"control1 got ${r.partition()} at offset ${r.offset()}")
+          val f = if (r.offset() <= messagesPerPartition / 2) {
+            Future.successful(msg)
+          } else {
+            // let control2 join the group
+            firstHalfLatch.countDown()
+            Future {
+              // wait for control2 to join the group before returning this message
+              latch.await(20, TimeUnit.SECONDS)
+              msg
+            }
+          }
+
+          val externalCommitF = f.andThen {
+            // do not externally commit tp0 offset 51 so that
+            // after rebalance we should revert to last Kafka commit of 51 anyway
+            case Success(_) if r.offset() == 51 && r.partition() == tp0.partition() =>
+              receivedMessages.incrementAndGet()
+              Future.successful(())
+            case Success(_) =>
+              receivedMessages.incrementAndGet()
+              externalCommitOffset(r.partition(), r.offset())
+          }
+
+          for {
+            _ <- internalCommitF
+            externalCommit <- externalCommitF
+          } yield externalCommit
+        }
+      )
+
+      firstHalfLatch.await(30, TimeUnit.SECONDS) should be(true)
+      log.debug("First half latch counted down")
+
+      AlpakkaAssignor.clientIdToPartitionMap.set(
+        Map(
+          consumerClientId1 -> Set(tp0),
+          consumerClientId2 -> Set(tp1)
+        )
+      )
+
+      val control2 = createAndRunConsumer(
+        consumerClientId2,
+        msg => {
+          val internalCommitF = msg.committableOffset.commitInternal()
+          val r = msg.record
+          log.debug(s"control2 got ${r.partition()} at offset ${r.offset()}")
+          val externalCommitF = Future
+            .successful {
+              latch.await(30, TimeUnit.SECONDS)
+              msg
+            }
+            .andThen {
+              case Success(_) =>
+                receivedMessages.incrementAndGet()
+                externalCommitOffset(r.partition(), r.offset())
+            }
+
+          for {
+            _ <- internalCommitF
+            externalCommit <- externalCommitF
+          } yield externalCommit
+        }
+      )
 
       // waits until partitions are assigned across both consumers
       waitUntilConsumerSummary(group) {

@@ -279,6 +279,7 @@ import scala.util.control.NonFatal
 
     case Seek(offsets) =>
       try {
+        log.debug(s"Seeking offsets: $offsets")
         offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
         sender() ! Done
       } catch {
@@ -403,7 +404,7 @@ import scala.util.control.NonFatal
     if (requests.nonEmpty) requests.foreach {
       case (ref, r) =>
         if (ref != fromStage && r.topics.exists(topics.apply)) {
-          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
+          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, fromStage)
           ref ! Messages(r.requestId, Iterator.empty)
           requests -= ref
         }
