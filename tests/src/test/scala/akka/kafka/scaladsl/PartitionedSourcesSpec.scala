@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
-class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues {
+class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues with Repeated {
 
   override def sleepAfterProduce: FiniteDuration = 500.millis
 

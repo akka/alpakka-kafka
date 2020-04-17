@@ -111,11 +111,7 @@ private class SubSourceLogic[K, V, Msg](
     // make sure re-assigned partitions don't get closed on CloseRevokedPartitions timer
     partitionsToRevoke = partitionsToRevoke -- assigned
 
-    getOffsetsOnAssign match {
-      case None =>
-        updatePendingPartitionsAndEmitSubSources(formerlyUnknown)
-      case _ => ()
-    }
+    updatePendingPartitionsAndEmitSubSources(formerlyUnknown)
   }
 
   private val partitionRevokedCB = getAsyncCallback[Set[TopicPartition]] { revoked =>
@@ -167,6 +163,7 @@ private class SubSourceLogic[K, V, Msg](
             if (log.isDebugEnabled) {
               log.debug("Seeking {} to {} after partition SubSource cancelled", tp, offset)
             }
+            //updatePendingPartitionsAndEmitSubSourcesCb.invoke(Set.empty)
             seekAndEmitSubSources(formerlyUnknown = Set.empty, Map(tp -> offset))
           case ReEmit =>
             // re-add this partition to pending partitions so it can be re-emitted
@@ -279,29 +276,25 @@ private class SubSourceLogic[K, V, Msg](
           control <- subSources.get(tp)
         } control.filterRevokedPartitionsCB.invoke(Set(tp))
 
-        val formerlyUnknown = assignedTps -- partitionsToRevoke
-
-        if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
-          log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
-        }
-
-        getOffsetsOnAssign match {
-          case Some(getOffsetsFromExternal) =>
-            implicit val ec: ExecutionContext = materializer.executionContext
-            // TODO: new timeout config? :(
-            Try(Await.result(getOffsetsFromExternal(assignedTps), 10.seconds)) match {
-              case Success(offsets) =>
-                val updatedFormerlyUnknown = formerlyUnknown -- (partitionsToRevoke ++ partitionsInStartup ++ pendingPartitions)
-                // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
-                val filteredOffsets = offsets.filterKeys(k => !partitionsToRevoke.contains(k)).toMap
-                log.debug(s"Seeking to offsets: $filteredOffsets")
-                filteredOffsets.foreach {
-                  case (tp, offset) => consumer.seek(tp, offset)
-                }
-                seekAndEmitSubSources(updatedFormerlyUnknown, filteredOffsets)
-              case _ => ()
-            }
-          case _ => ()
+        getOffsetsOnAssign.foreach { getOffsetsFromExternal =>
+          implicit val ec: ExecutionContext = materializer.executionContext
+          // TODO: new timeout config? :(
+          Try(Await.result(getOffsetsFromExternal(assignedTps), 10.seconds)) match {
+            case Success(offsets) =>
+              // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
+              val filteredOffsets = offsets.filterKeys(assignedTps.contains).toMap
+              log.debug(s"Synchronously seeking to offsets during rebalance: $filteredOffsets")
+              filteredOffsets.foreach {
+                case (tp, offset) => consumer.seek(tp, offset)
+              }
+            case Failure(ex) =>
+              stageFailCB.invoke(
+                new ConsumerFailed(
+                  s"$idLogPrefix Failed to fetch offset for partitions: ${assignedTps.mkString(", ")}.",
+                  ex
+                )
+              )
+          }
         }
       }
 
@@ -471,6 +464,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
         pump()
       } else if (!requested) {
         requested = true
+        log.debug("Requesting messages")
         consumerActor.tell(requestMessages, subSourceActor.ref)
       }
     }

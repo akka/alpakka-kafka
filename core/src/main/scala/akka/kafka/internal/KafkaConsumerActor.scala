@@ -279,7 +279,7 @@ import scala.util.control.NonFatal
 
     case Seek(offsets) =>
       try {
-        log.debug(s"Seeking offsets: $offsets")
+        log.debug(s"Seeking to offsets: $offsets")
         offsets.foreach { case (tp, offset) => consumer.seek(tp, offset) }
         sender() ! Done
       } catch {
