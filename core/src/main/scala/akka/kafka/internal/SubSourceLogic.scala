@@ -107,10 +107,8 @@ private class SubSourceLogic[K, V, Msg](
     if (log.isDebugEnabled && formerlyUnknown.nonEmpty) {
       log.debug("Assigning new partitions: {}", formerlyUnknown.mkString(", "))
     }
-
     // make sure re-assigned partitions don't get closed on CloseRevokedPartitions timer
     partitionsToRevoke = partitionsToRevoke -- assigned
-
     updatePendingPartitionsAndEmitSubSources(formerlyUnknown)
   }
 
@@ -163,7 +161,6 @@ private class SubSourceLogic[K, V, Msg](
             if (log.isDebugEnabled) {
               log.debug("Seeking {} to {} after partition SubSource cancelled", tp, offset)
             }
-            //updatePendingPartitionsAndEmitSubSourcesCb.invoke(Set.empty)
             seekAndEmitSubSources(formerlyUnknown = Set.empty, Map(tp -> offset))
           case ReEmit =>
             // re-add this partition to pending partitions so it can be re-emitted
@@ -259,13 +256,22 @@ private class SubSourceLogic[K, V, Msg](
   }
 
   /**
-   * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
+   * Opportunity for subclasses to add a different logic to the blocking partition assignment callbacks.
    */
   override protected def addToPartitionAssignmentHandler(
       handler: PartitionAssignmentHandler
   ): PartitionAssignmentHandler = {
     val flushMessagesOfRevokedPartitions: PartitionAssignmentHandler = new PartitionAssignmentHandler {
       private var lastRevoked = Set.empty[TopicPartition]
+
+      private def seekToOffsets(assignedTps: Set[TopicPartition],
+                                consumer: RestrictedConsumer,
+                                offsets: Map[TopicPartition, Long]) = {
+        // Filter out the offsetMap so that we only seek for partitions that have been assigned
+        val filteredOffsets = offsets.filterKeys(assignedTps.contains).toMap
+        log.debug(s"Synchronously seeking to offsets during rebalance: $filteredOffsets")
+        for ((tp, offset) <- filteredOffsets) consumer.seek(tp, offset)
+      }
 
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         lastRevoked = revokedTps
@@ -276,24 +282,13 @@ private class SubSourceLogic[K, V, Msg](
           control <- subSources.get(tp)
         } control.filterRevokedPartitionsCB.invoke(Set(tp))
 
-        getOffsetsOnAssign.foreach { getOffsetsFromExternal =>
+        for (getOffsetsOnAssignF <- getOffsetsOnAssign) {
           implicit val ec: ExecutionContext = materializer.executionContext
-          // TODO: new timeout config? :(
-          Try(Await.result(getOffsetsFromExternal(assignedTps), 10.seconds)) match {
-            case Success(offsets) =>
-              // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
-              val filteredOffsets = offsets.filterKeys(assignedTps.contains).toMap
-              log.debug(s"Synchronously seeking to offsets during rebalance: $filteredOffsets")
-              filteredOffsets.foreach {
-                case (tp, offset) => consumer.seek(tp, offset)
-              }
+          Try(Await.result(getOffsetsOnAssignF(assignedTps), settings.getOffsetsOnAssignTimeout)) match {
+            case Success(offsets) => seekToOffsets(assignedTps, consumer, offsets)
             case Failure(ex) =>
-              stageFailCB.invoke(
-                new ConsumerFailed(
-                  s"$idLogPrefix Failed to fetch offset for partitions: ${assignedTps.mkString(", ")}.",
-                  ex
-                )
-              )
+              val msg = s"$idLogPrefix Failed to fetch offset for partitions: ${assignedTps.mkString(", ")}."
+              stageFailCB.invoke(new ConsumerFailed(msg, ex))
           }
         }
       }

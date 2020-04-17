@@ -79,6 +79,7 @@ object ConsumerSettings {
     val stopTimeout = config.getDuration("stop-timeout").asScala
     val closeTimeout = config.getDuration("close-timeout").asScala
     val commitTimeout = config.getDuration("commit-timeout").asScala
+    val getOffsetsOnAssignTimeout = config.getDuration("get-offsets-on-assign-timeout").asScala
     val commitTimeWarning = config.getDuration("commit-time-warning").asScala
     val commitRefreshInterval = ConfigSettings.getPotentiallyInfiniteDuration(config, "commit-refresh-interval")
     val dispatcher = config.getString("use-dispatcher")
@@ -99,6 +100,7 @@ object ConsumerSettings {
       stopTimeout,
       closeTimeout,
       commitTimeout,
+      getOffsetsOnAssignTimeout,
       commitRefreshInterval,
       dispatcher,
       commitTimeWarning,
@@ -255,6 +257,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val stopTimeout: FiniteDuration,
     val closeTimeout: FiniteDuration,
     val commitTimeout: FiniteDuration,
+    val getOffsetsOnAssignTimeout: FiniteDuration,
     val commitRefreshInterval: Duration,
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration,
@@ -402,6 +405,19 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(commitTimeout = commitTimeout.asScala)
 
   /**
+   * Set duration to wait for manual (external) offset source requests to finish.
+   */
+  def withGetOffsetsOnAssignTimeout(getOffsetsOnAssignTimeout: FiniteDuration): ConsumerSettings[K, V] =
+    copy(getOffsetsOnAssignTimeout = getOffsetsOnAssignTimeout)
+
+  /**
+   * Java API:
+   * Set duration to wait for manual (external) offset source requests to finish.
+   */
+  def withGetOffsetsOnAssignTimeout(getOffsetsOnAssignTimeout: java.time.Duration): ConsumerSettings[K, V] =
+    copy(getOffsetsOnAssignTimeout = getOffsetsOnAssignTimeout.asScala)
+
+  /**
    * If commits take longer than this time a warning is logged
    */
   def withCommitWarning(commitTimeWarning: FiniteDuration): ConsumerSettings[K, V] =
@@ -547,6 +563,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       stopTimeout: FiniteDuration = stopTimeout,
       closeTimeout: FiniteDuration = closeTimeout,
       commitTimeout: FiniteDuration = commitTimeout,
+      getOffsetsOnAssignTimeout: FiniteDuration = getOffsetsOnAssignTimeout,
       commitTimeWarning: FiniteDuration = commitTimeWarning,
       commitRefreshInterval: Duration = commitRefreshInterval,
       dispatcher: String = dispatcher,
@@ -569,6 +586,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       stopTimeout,
       closeTimeout,
       commitTimeout,
+      getOffsetsOnAssignTimeout,
       commitRefreshInterval,
       dispatcher,
       commitTimeWarning,
@@ -633,6 +651,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"stopTimeout=${stopTimeout.toCoarsest}," +
     s"closeTimeout=${closeTimeout.toCoarsest}," +
     s"commitTimeout=${commitTimeout.toCoarsest}," +
+    s"getOffsetsOnAssignTimeout=${getOffsetsOnAssignTimeout.toCoarsest}," +
     s"commitRefreshInterval=${commitRefreshInterval.toCoarsest}," +
     s"dispatcher=$dispatcher," +
     s"commitTimeWarning=${commitTimeWarning.toCoarsest}," +
