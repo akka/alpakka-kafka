@@ -10,14 +10,15 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Arrays, Properties}
 
-import scala.jdk.CollectionConverters._
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+import org.apache.kafka.common.serialization.{Deserializer, Serializer, StringDeserializer, StringSerializer}
 import org.slf4j.Logger
+
+import scala.jdk.CollectionConverters._
 
 /**
  * Common functions for scaladsl and javadsl Testkit.
@@ -30,19 +31,22 @@ trait KafkaTestKit {
 
   val DefaultKey = "key"
 
-  private lazy val producerDefaultsInstance: ProducerSettings[String, String] =
-    ProducerSettings(system, new StringSerializer, new StringSerializer)
+  val StringSerializer = new StringSerializer
+  val StringDeserializer = new StringDeserializer
+
+  def producerDefaults: ProducerSettings[String, String] = producerDefaults(StringSerializer, StringSerializer)
+
+  def producerDefaults[K, V](keySerializer: Serializer[K], valueSerializer: Serializer[V]): ProducerSettings[K, V] =
+    ProducerSettings(system, keySerializer, valueSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  def producerDefaults: ProducerSettings[String, String] = producerDefaultsInstance
+  def consumerDefaults(): ConsumerSettings[String, String] = consumerDefaults(StringDeserializer, StringDeserializer)
 
-  private lazy val consumerDefaultsInstance: ConsumerSettings[String, String] =
-    ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
+  def consumerDefaults[K, V](keyDeserializer: Deserializer[K],
+                             valueDeserializer: Deserializer[V]): ConsumerSettings[K, V] =
+    ConsumerSettings(system, keyDeserializer, valueDeserializer)
       .withBootstrapServers(bootstrapServers)
-      .withCloseTimeout(Duration.ZERO)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-
-  def consumerDefaults: ConsumerSettings[String, String] = consumerDefaultsInstance
 
   private lazy val committerDefaultsInstance = CommitterSettings(system)
 

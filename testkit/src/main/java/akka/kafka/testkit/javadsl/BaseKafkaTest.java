@@ -7,6 +7,7 @@ package akka.kafka.testkit.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
+import akka.japi.Pair;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
@@ -21,11 +22,14 @@ import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.ConsumerGroupState;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.compat.java8.functionConverterImpls.FromJavaPredicate;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
@@ -66,10 +70,33 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         .runWith(Producer.plainSink(producerDefaults()), materializer);
   }
 
+  protected CompletionStage<Done> produceString(String topic, String message) {
+    return produce(
+        topic, StringSerializer(), StringSerializer(), Pair.create(DefaultKey(), message));
+  }
+
+  protected <K, V> CompletionStage<Done> produce(
+      String topic,
+      Serializer<K> keySerializer,
+      Serializer<V> valueSerializer,
+      Pair<K, V>... messages) {
+    return Source.from(Arrays.asList(messages))
+        .map(pair -> new ProducerRecord<>(topic, pair.first(), pair.second()))
+        .runWith(
+            Producer.plainSink(producerDefaults(keySerializer, valueSerializer)), materializer);
+  }
+
   protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
       String topic, long take) {
+    return consume(topic, take, StringDeserializer(), StringDeserializer());
+  }
+
+  protected <K, V> Consumer.DrainingControl<List<ConsumerRecord<K, V>>> consume(
+      String topic, long take, Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer) {
     return Consumer.plainSource(
-            consumerDefaults().withGroupId(createGroupId(1)).withStopTimeout(Duration.ZERO),
+            consumerDefaults(keyDeserializer, valueDeserializer)
+                .withGroupId(createGroupId(1))
+                .withStopTimeout(Duration.ZERO),
             Subscriptions.topics(topic))
         .take(take)
         .toMat(Sink.seq(), Consumer::createDrainingControl)
