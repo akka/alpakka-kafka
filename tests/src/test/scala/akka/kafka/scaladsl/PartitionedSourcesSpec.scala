@@ -9,7 +9,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.function.LongBinaryOperator
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -17,6 +17,8 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.tests.AlpakkaAssignor
 import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.TestSubscriber
+import akka.stream.testkit.TestSubscriber.OnComplete
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
@@ -25,6 +27,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -530,7 +533,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       control2.drainAndShutdown().futureValue should be(Done)
     }
 
-    "not leave gaps after a rebalance with committable & manual offsets" in assertAllStagesStopped {
+    "seek back to last externally committed offset when partition assigned back to same consumer group member" in assertAllStagesStopped {
       val partitions = 2
       val messagesPerPartition = 100L
       val totalMessages = messagesPerPartition * partitions
@@ -539,6 +542,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val tp0 :: tp1 :: Nil = (0 until partitions).toList.map(new TopicPartition(topic, _))
       val consumerClientId1 = "consumer-1"
       val consumerClientId2 = "consumer-2"
+
+      case class CommitInfo(offset: Long, partition: Int, externalCommit: Boolean, kafkaCommit: Boolean)
 
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
@@ -558,12 +563,22 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           offsets
         }
 
-      def externalCommitOffset(partitionId: Int, offset: Long): Future[Unit] = {
-        log.info(s"Commit $partitionId at $offset")
+      def externalCommit(partitionId: Int, offset: Long): Future[Unit] = {
         partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
           override def applyAsLong(left: Long, right: Long): Long = left.max(right)
         })
+        log.info(s"External commit complete. Partition: $partitionId, Offset: $offset")
         Future.successful(())
+      }
+
+      def kafkaCommit(msg: CommittableMessage[_, _]): Future[Unit] = {
+        msg.committableOffset
+          .commitInternal()
+          .map(_ => ())
+          .andThen {
+            case Success(_) =>
+              log.info(s"Kafka commit complete. Partition: ${msg.record.partition()}, Offset: ${msg.record.offset()}")
+          }
       }
 
       val receivedMessages = new AtomicLong(0)
@@ -581,7 +596,11 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
       def createAndRunConsumer(
           consumerClientId: String,
-          recordProcessor: CommittableMessage[String, String] => Future[CommittableMessage[String, String]]
+          recordProcessor: CommittableMessage[String, String] => Future[CommitInfo] = { msg =>
+            Future.successful(
+              CommitInfo(msg.record.offset(), msg.record.partition(), externalCommit = false, kafkaCommit = false)
+            )
+          }
       ) =
         Consumer
           .committablePartitionedManualOffsetSource(
@@ -590,66 +609,73 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
             getOffsetsOnAssign
           )
           .groupBy(partitions, _._1)
-          .mapAsync(8) {
+          .map {
             case (tp, source) =>
               log.info(s"Sub-source for $tp")
-              source
+              val probe = source
                 .mapAsync(1)(recordProcessor)
-                .runWith(Sink.ignore)
-                .map { res =>
-                  log.info(s"Sub-source for $tp completed")
-                  res
-                }
+                .runWith(TestSink.probe)
+              (tp, probe)
           }
           .mergeSubstreams
-          .toMat(Sink.ignore)(DrainingControl.apply)
+          .toMat(TestSink.probe)(Keep.both)
           .run()
 
-      val firstHalfLatch = new CountDownLatch(1)
+      val runConsumer2 = new CountDownLatch(1)
       val latch = new CountDownLatch(1)
 
-      val control1 = createAndRunConsumer(
+      log.debug("Running {}", consumerClientId1)
+      val (control1, probe1) = createAndRunConsumer(
         consumerClientId1,
         msg => {
           val r = msg.record
-          val internalCommitF = msg.committableOffset.commitInternal()
-          internalCommitF.andThen {
-            case Success(_) => log.debug(s"Kafka commit ${r.partition()} at offset ${r.offset()}")
-          }
-          log.debug(s"control1 got ${r.partition()} at offset ${r.offset()}")
-          val f = if (r.offset() <= messagesPerPartition / 2) {
-            Future.successful(msg)
-          } else {
-            // let control2 join the group
-            firstHalfLatch.countDown()
-            Future {
-              // wait for control2 to join the group before returning this message
-              latch.await(20, TimeUnit.SECONDS)
-              msg
-            }
-          }
+          log.debug(s"$consumerClientId1 got ${r.partition()} at offset ${r.offset()}")
 
-          val externalCommitF = f.andThen {
-            // do not externally commit tp0 offset 51 so that
-            // after rebalance we should revert to last Kafka commit of 51 anyway
-            case Success(_) if r.offset() == 51 && r.partition() == tp0.partition() =>
-              receivedMessages.incrementAndGet()
-              Future.successful(())
-            case Success(_) =>
-              receivedMessages.incrementAndGet()
-              externalCommitOffset(r.partition(), r.offset())
+          if (r.offset() <= messagesPerPartition / 2)
+            for (_ <- kafkaCommit(msg); _ <- externalCommit(r.partition(), r.offset()))
+              yield CommitInfo(r.offset(), r.partition(), externalCommit = true, kafkaCommit = true)
+          else {
+            for (_ <- kafkaCommit(msg))
+              yield {
+                runConsumer2.countDown() // let consumer-2 join the group
+                CommitInfo(r.offset(), r.partition(), externalCommit = false, kafkaCommit = true)
+              }
           }
-
-          for {
-            _ <- internalCommitF
-            externalCommit <- externalCommitF
-          } yield externalCommit
         }
       )
 
-      firstHalfLatch.await(30, TimeUnit.SECONDS) should be(true)
-      log.debug("First half latch counted down")
+      // test name "seek to last externally committed offset when partition assigned back to same consumer group member"
 
+      // request 2 sub sources (tp0, tp1) from consumer-1
+      // sub sources are emitted out of order, so request all of them and pick out partition 0
+      probe1.request(2)
+      val subSourceTp0Probe = probe1
+        .expectNextN(2)
+        .find {
+          case (tp, probe) if tp.partition() == 0 => true
+          case _ => false
+        }
+        .map { case (_, probe) => probe }
+        .get
+
+      // request 51 msgs from tp0 sub source
+      // message 51 will only commit to Kafka, keeping the last external commit at offset 50
+      // the next message emitted from tp0 after rebalance should be at offset 51
+      subSourceTp0Probe.request(52)
+      subSourceTp0Probe.expectNextN(51) foreach { commit =>
+        commit.externalCommit shouldBe true
+      }
+      subSourceTp0Probe.expectNext() shouldEqual CommitInfo(
+        offset = 51,
+        partition = 0,
+        externalCommit = false,
+        kafkaCommit = true
+      )
+
+      runConsumer2.await(30, TimeUnit.SECONDS) should be(true)
+      log.debug("Running {}", consumerClientId2)
+
+      // rebalance partitions, but keep tp0 on consumer-1 group member
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
           consumerClientId1 -> Set(tp0),
@@ -657,30 +683,11 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         )
       )
 
-      val control2 = createAndRunConsumer(
-        consumerClientId2,
-        msg => {
-          val internalCommitF = msg.committableOffset.commitInternal()
-          val r = msg.record
-          log.debug(s"control2 got ${r.partition()} at offset ${r.offset()}")
-          val externalCommitF = Future
-            .successful {
-              latch.await(30, TimeUnit.SECONDS)
-              msg
-            }
-            .andThen {
-              case Success(_) =>
-                receivedMessages.incrementAndGet()
-                externalCommitOffset(r.partition(), r.offset())
-            }
+      // start consumer-2
+      // TODO: this doesn't need to do anything, just trigger rebalance, can we remove this code?
+      val (control2, probe2) = createAndRunConsumer(consumerClientId2)
 
-          for {
-            _ <- internalCommitF
-            externalCommit <- externalCommitF
-          } yield externalCommit
-        }
-      )
-
+      //probe2.request(1)
       // waits until partitions are assigned across both consumers
       waitUntilConsumerSummary(group) {
         case consumer1 :: consumer2 :: Nil =>
@@ -688,14 +695,70 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
       }
 
-      log.debug("Now there are 2 consumers, going to continue")
-      latch.countDown()
+//      log.debug("Now there are 2 consumers, going to continue")
+      //latch.countDown()
 
+      // process OnComplete from tp0 sub source getting revoked on consumer-1 from rebalance
+//      @tailrec
+//      def waitForOnComplete(probe: TestSubscriber.Probe[_]): Unit = {
+//        probe.request(1)
+//        probe.expectNextOrComplete() match {
+//          case Left(OnComplete) =>
+//            log.debug("Found OnComplete")
+//            ()
+//          case _ =>
+//            log.debug("Found OnNext, waiting..")
+//            waitForOnComplete(probe)
+//        }
+//      }
+
+//      waitForOnComplete(subSourceTp1Probe)
+//      waitForOnComplete(subSourceTp0Probe)
+
+      // process OnComplete from tp0 sub source getting revoked on consumer-1 from rebalance
+//      subSourceTp0Probe.request(1)
+//      subSourceTp0Probe.expectNext()
+//      subSourceTp0Probe.expectComplete()
+
+      // request 1 sub source (tp0) from consumer-1
+//      probe1.request(1)
+//      val subSourceTp0Probe2 = probe1.expectNext() // tp0 is re-emitted
+
+//      @tailrec
+//      def waitForOffset(probe: TestSubscriber.Probe[_], offset: Long): Unit = {
+//        probe.request(1)
+//        probe.expectNext() match {
+//          case CommitInfo(`offset`, 0, true, true) => ()
+//          case _ => waitForOffset(probe, offset)
+//        }
+//      }
+
+      // wait for tp0 sub source to eventually re-seek back to last externally committed offset 50
       eventually {
-        receivedMessages.get() should be >= totalMessages
+        subSourceTp0Probe.request(1)
+        subSourceTp0Probe.expectNext() shouldEqual CommitInfo(offset = 50,
+                                                              partition = 0,
+                                                              externalCommit = true,
+                                                              kafkaCommit = true)
       }
-      control1.drainAndShutdown().futureValue should be(Done)
-      control2.drainAndShutdown().futureValue should be(Done)
+
+      //waitForOffset(subSourceTp0Probe, offset = 50)
+
+      // assert first element from new tp0 source has offset is 50 (last externally committed offset)
+      //subSourceTp0Probe.request(10)
+      //val next50 = subSourceTp0Probe.expectNextN(10)
+      //subSourceTp0Probe.expectNext().committableOffset.partitionOffset.offset shouldBe 50
+
+      //Failed
+      subSourceTp0Probe.cancel()
+
+      control1.shutdown().futureValue
+      control2.shutdown().futureValue
+//      eventually {
+//        receivedMessages.get() should be >= totalMessages
+//      }
+//      control1.drainAndShutdown().futureValue should be(Done)
+//      control2.drainAndShutdown().futureValue should be(Done)
     }
 
     "handle exceptions in stream without commit failures" in assertAllStagesStopped {
