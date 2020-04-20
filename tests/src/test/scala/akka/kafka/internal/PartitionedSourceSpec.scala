@@ -262,7 +262,6 @@ class PartitionedSourceSpec(_system: ActorSystem)
       tps should contain allOf (tp0, tp1)
     }
 
-    log.debug("assigning partitions")
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued

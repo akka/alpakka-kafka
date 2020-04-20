@@ -26,7 +26,7 @@ import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues with Repeated {
@@ -530,7 +530,9 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       control2.drainAndShutdown().futureValue should be(Done)
     }
 
+    // bugfix for https://github.com/akka/alpakka-kafka/issues/1086
     "seek back to last externally committed offset when partition assigned back to same consumer group member" in assertAllStagesStopped {
+      case class CommitInfo(offset: Long, partition: Int, externalCommit: Boolean, kafkaCommit: Boolean)
       val partitions = 2
       val messagesPerPartition = 100
       val topic = createTopic(1, partitions)
@@ -538,8 +540,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val tp0 :: tp1 :: Nil = (0 until partitions).toList.map(new TopicPartition(topic, _))
       val consumerClientId1 = "consumer-1"
       val consumerClientId2 = "consumer-2"
-
-      case class CommitInfo(offset: Long, partition: Int, externalCommit: Boolean, kafkaCommit: Boolean)
+      val runConsumer2 = Promise[Done]()
 
       val sourceSettings = consumerDefaults
         .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
@@ -555,27 +556,23 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
             tp -> partitionsOffsetCommitMap(tp.partition()).get()
           }.toMap
           log.debug(s"getOffsetsOnAssign for topicPartitions $topicPartitions, offsets returned: $offsets")
-          Thread.sleep(100)
           offsets
         }
 
       def externalCommit(partitionId: Int, offset: Long): Future[Unit] = {
-        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
-          override def applyAsLong(left: Long, right: Long): Long = left.max(right)
-        })
+        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, (left: Long, right: Long) => left.max(right))
         log.info(s"External commit complete. Partition: $partitionId, Offset: $offset")
         Future.successful(())
       }
 
-      def kafkaCommit(msg: CommittableMessage[_, _]): Future[Unit] = {
+      def kafkaCommit(msg: CommittableMessage[_, _]): Future[Unit] =
         msg.committableOffset
           .commitInternal()
           .map(_ => ())
           .andThen {
             case Success(_) =>
-              log.info(s"Kafka commit complete. Partition: ${msg.record.partition()}, Offset: ${msg.record.offset()}")
+              log.info(s"Kafka commit complete. Partition: {}, Offset: {}", msg.record.partition(), msg.record.offset())
           }
-      }
 
       produce(topic, range = 1 to messagesPerPartition, partition = tp0.partition())
 
@@ -602,7 +599,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           .groupBy(partitions, _._1)
           .map {
             case (tp, source) =>
-              log.info(s"Sub-source for $tp emitted")
+              log.info("Sub-source for {} emitted", tp)
               val probe = source
                 .mapAsync(1)(recordProcessor)
                 .runWith(TestSink.probe)
@@ -612,9 +609,6 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
-      val runConsumer2 = Promise[Done]()
-      //val runConsumer2 = new CountDownLatch(1)
-
       log.debug("Running {}", consumerClientId1)
       val (control1, probe1) = createAndRunConsumer(
         consumerClientId1,
@@ -622,14 +616,15 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           val r = msg.record
           log.debug(s"$consumerClientId1 got ${r.partition()} at offset ${r.offset()}")
 
+          // commit kafka and externally when offset <= messagesPerPartition / 2 (50)
           if (r.offset() <= messagesPerPartition / 2)
             for (_ <- kafkaCommit(msg); _ <- externalCommit(r.partition(), r.offset()))
               yield CommitInfo(r.offset(), r.partition(), externalCommit = true, kafkaCommit = true)
+          // only commit to Kafka and signal consumer-2 to join
           else {
             for (_ <- kafkaCommit(msg))
               yield {
-                runConsumer2.trySuccess(Done)
-                //runConsumer2.countDown() // let consumer-2 join the group
+                runConsumer2.trySuccess(Done) // let consumer-2 join the group
                 CommitInfo(r.offset(), r.partition(), externalCommit = false, kafkaCommit = true)
               }
           }
@@ -642,7 +637,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val subSourceTp0Probe = probe1
         .expectNextN(2)
         .find {
-          case (tp, _) if tp.partition() == 0 => true
+          case (tp, _) if tp == tp0 => true
           case _ => false
         }
         .map { case (_, probe) => probe }
@@ -663,7 +658,6 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       )
 
       runConsumer2.future.futureValue
-      //runConsumer2.await(30, TimeUnit.SECONDS) should be(true)
 
       // rebalance partitions, but keep tp0 on consumer-1 group member
       AlpakkaAssignor.clientIdToPartitionMap.set(

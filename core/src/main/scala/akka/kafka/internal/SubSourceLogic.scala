@@ -459,7 +459,6 @@ private abstract class SubSourceStageLogic[K, V, Msg](
         pump()
       } else if (!requested) {
         requested = true
-        log.debug("Requesting messages")
         consumerActor.tell(requestMessages, subSourceActor.ref)
       }
     }
