@@ -5,31 +5,28 @@
 
 package akka.kafka.scaladsl
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.function.LongBinaryOperator
 
-import akka.{Done, NotUsed}
+import akka.Done
 import akka.kafka.ConsumerMessage.CommittableMessage
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.tests.AlpakkaAssignor
-import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.testkit.TestSubscriber
-import akka.stream.testkit.TestSubscriber.OnComplete
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
+import akka.stream.{KillSwitches, OverflowStrategy}
 import akka.testkit.TestProbe
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.scalatest._
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success}
 
 class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with Inside with OptionValues with Repeated {
@@ -535,8 +532,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
 
     "seek back to last externally committed offset when partition assigned back to same consumer group member" in assertAllStagesStopped {
       val partitions = 2
-      val messagesPerPartition = 100L
-      val totalMessages = messagesPerPartition * partitions
+      val messagesPerPartition = 100
       val topic = createTopic(1, partitions)
       val group = createGroupId()
       val tp0 :: tp1 :: Nil = (0 until partitions).toList.map(new TopicPartition(topic, _))
@@ -581,12 +577,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           }
       }
 
-      val receivedMessages = new AtomicLong(0)
-
-      Source(1L to totalMessages)
-        .map(n => new ProducerRecord(topic, (n % partitions).toInt, DefaultKey, n.toString))
-        .runWith(Producer.plainSink(producerDefaults.withProducer(testProducer)))
-        .futureValue shouldBe Done
+      produce(topic, range = 1 to messagesPerPartition, partition = tp0.partition())
 
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
@@ -611,7 +602,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           .groupBy(partitions, _._1)
           .map {
             case (tp, source) =>
-              log.info(s"Sub-source for $tp")
+              log.info(s"Sub-source for $tp emitted")
               val probe = source
                 .mapAsync(1)(recordProcessor)
                 .runWith(TestSink.probe)
@@ -621,8 +612,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
-      val runConsumer2 = new CountDownLatch(1)
-      val latch = new CountDownLatch(1)
+      val runConsumer2 = Promise[Done]()
+      //val runConsumer2 = new CountDownLatch(1)
 
       log.debug("Running {}", consumerClientId1)
       val (control1, probe1) = createAndRunConsumer(
@@ -637,14 +628,13 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           else {
             for (_ <- kafkaCommit(msg))
               yield {
-                runConsumer2.countDown() // let consumer-2 join the group
+                runConsumer2.trySuccess(Done)
+                //runConsumer2.countDown() // let consumer-2 join the group
                 CommitInfo(r.offset(), r.partition(), externalCommit = false, kafkaCommit = true)
               }
           }
         }
       )
-
-      // test name "seek to last externally committed offset when partition assigned back to same consumer group member"
 
       // request 2 sub sources (tp0, tp1) from consumer-1
       // sub sources are emitted out of order, so request all of them and pick out partition 0
@@ -652,19 +642,19 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val subSourceTp0Probe = probe1
         .expectNextN(2)
         .find {
-          case (tp, probe) if tp.partition() == 0 => true
+          case (tp, _) if tp.partition() == 0 => true
           case _ => false
         }
         .map { case (_, probe) => probe }
         .get
 
-      // request 51 msgs from tp0 sub source
-      // message 51 will only commit to Kafka, keeping the last external commit at offset 50
-      // the next message emitted from tp0 after rebalance should be at offset 51
+      // request 52 msgs from tp0 sub source
       subSourceTp0Probe.request(52)
+      // messages 0 to 50 will be externally committed
       subSourceTp0Probe.expectNextN(51) foreach { commit =>
         commit.externalCommit shouldBe true
       }
+      // message 52 (offset = 51) will only commit to Kafka, maintaining the last external commit at offset 50
       subSourceTp0Probe.expectNext() shouldEqual CommitInfo(
         offset = 51,
         partition = 0,
@@ -672,8 +662,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         kafkaCommit = true
       )
 
-      runConsumer2.await(30, TimeUnit.SECONDS) should be(true)
-      log.debug("Running {}", consumerClientId2)
+      runConsumer2.future.futureValue
+      //runConsumer2.await(30, TimeUnit.SECONDS) should be(true)
 
       // rebalance partitions, but keep tp0 on consumer-1 group member
       AlpakkaAssignor.clientIdToPartitionMap.set(
@@ -683,11 +673,9 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         )
       )
 
-      // start consumer-2
-      // TODO: this doesn't need to do anything, just trigger rebalance, can we remove this code?
-      val (control2, probe2) = createAndRunConsumer(consumerClientId2)
+      log.debug("Running {}", consumerClientId2)
+      val (control2, _) = createAndRunConsumer(consumerClientId2)
 
-      //probe2.request(1)
       // waits until partitions are assigned across both consumers
       waitUntilConsumerSummary(group) {
         case consumer1 :: consumer2 :: Nil =>
@@ -695,45 +683,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
           consumer1.assignment.topicPartitions.size == half && consumer2.assignment.topicPartitions.size == half
       }
 
-//      log.debug("Now there are 2 consumers, going to continue")
-      //latch.countDown()
-
-      // process OnComplete from tp0 sub source getting revoked on consumer-1 from rebalance
-//      @tailrec
-//      def waitForOnComplete(probe: TestSubscriber.Probe[_]): Unit = {
-//        probe.request(1)
-//        probe.expectNextOrComplete() match {
-//          case Left(OnComplete) =>
-//            log.debug("Found OnComplete")
-//            ()
-//          case _ =>
-//            log.debug("Found OnNext, waiting..")
-//            waitForOnComplete(probe)
-//        }
-//      }
-
-//      waitForOnComplete(subSourceTp1Probe)
-//      waitForOnComplete(subSourceTp0Probe)
-
-      // process OnComplete from tp0 sub source getting revoked on consumer-1 from rebalance
-//      subSourceTp0Probe.request(1)
-//      subSourceTp0Probe.expectNext()
-//      subSourceTp0Probe.expectComplete()
-
-      // request 1 sub source (tp0) from consumer-1
-//      probe1.request(1)
-//      val subSourceTp0Probe2 = probe1.expectNext() // tp0 is re-emitted
-
-//      @tailrec
-//      def waitForOffset(probe: TestSubscriber.Probe[_], offset: Long): Unit = {
-//        probe.request(1)
-//        probe.expectNext() match {
-//          case CommitInfo(`offset`, 0, true, true) => ()
-//          case _ => waitForOffset(probe, offset)
-//        }
-//      }
-
-      // wait for tp0 sub source to eventually re-seek back to last externally committed offset 50
+      // wait for tp0 sub source to eventually re-seek back to last externally committed offset 50, but there might
+      // still be some messages to drain first that were in-flight before and during rebalance
       eventually {
         subSourceTp0Probe.request(1)
         subSourceTp0Probe.expectNext() shouldEqual CommitInfo(offset = 50,
@@ -742,23 +693,9 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                                                               kafkaCommit = true)
       }
 
-      //waitForOffset(subSourceTp0Probe, offset = 50)
-
-      // assert first element from new tp0 source has offset is 50 (last externally committed offset)
-      //subSourceTp0Probe.request(10)
-      //val next50 = subSourceTp0Probe.expectNextN(10)
-      //subSourceTp0Probe.expectNext().committableOffset.partitionOffset.offset shouldBe 50
-
-      //Failed
       subSourceTp0Probe.cancel()
-
       control1.shutdown().futureValue
       control2.shutdown().futureValue
-//      eventually {
-//        receivedMessages.get() should be >= totalMessages
-//      }
-//      control1.drainAndShutdown().futureValue should be(Done)
-//      control2.drainAndShutdown().futureValue should be(Done)
     }
 
     "handle exceptions in stream without commit failures" in assertAllStagesStopped {
