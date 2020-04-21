@@ -638,8 +638,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       // request 2 sub sources (tp0, tp1) from consumer-1
       // sub sources are emitted out of order, so request all of them and pick out partition 0
       probe1.request(2)
-      val subSourceTp0Probe = probe1
-        .expectNextN(2)
+      val probe1SubSources = probe1.expectNextN(2)
+      val subSourceTp0Probe = probe1SubSources
         .find {
           case (tp, _) if tp == tp0 => true
           case _ => false
@@ -672,7 +672,9 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       )
 
       log.debug("Running {}", consumerClientId2)
-      val (control2, _) = createAndRunConsumer(consumerClientId2)
+      val (control2, probe2) = createAndRunConsumer(consumerClientId2)
+      probe2.request(1)
+      val probe2SubSources = probe2.expectNextN(1)
 
       // waits until partitions are assigned across both consumers
       waitUntilConsumerSummary(group) {
@@ -691,9 +693,12 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                                                               kafkaCommit = true)
       }
 
-      subSourceTp0Probe.cancel()
-      control1.shutdown().futureValue
-      control2.shutdown().futureValue
+      probe1.cancel()
+      probe2.cancel()
+      probe1SubSources.foreach(_._2.cancel())
+      probe2SubSources.foreach(_._2.cancel())
+      control1.isShutdown.futureValue should be(Done)
+      control2.isShutdown.futureValue should be(Done)
     }
 
     "handle exceptions in stream without commit failures" in assertAllStagesStopped {
