@@ -16,6 +16,7 @@ import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.tests.AlpakkaAssignor
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{KillSwitches, OverflowStrategy}
@@ -537,7 +538,8 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val messagesPerPartition = 100
       val topic = createTopic(1, partitions)
       val group = createGroupId()
-      val tp0 :: tp1 :: Nil = (0 until partitions).toList.map(new TopicPartition(topic, _))
+      val tp0 = new TopicPartition(topic, 0)
+      val tp1 = new TopicPartition(topic, 1)
       val consumerClientId1 = "consumer-1"
       val consumerClientId2 = "consumer-2"
       val runConsumer2 = Promise[Done]()
@@ -560,7 +562,9 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         }
 
       def externalCommit(partitionId: Int, offset: Long): Future[Unit] = {
-        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, (left: Long, right: Long) => left.max(right))
+        partitionsOffsetCommitMap(partitionId).accumulateAndGet(offset, new LongBinaryOperator {
+          override def applyAsLong(left: Long, right: Long): Long = left.max(right)
+        })
         log.info(s"External commit complete. Partition: $partitionId, Offset: $offset")
         Future.successful(())
       }
@@ -589,7 +593,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
               CommitInfo(msg.record.offset(), msg.record.partition(), externalCommit = false, kafkaCommit = false)
             )
           }
-      ) =
+      ): (Consumer.Control, TestSubscriber.Probe[(TopicPartition, TestSubscriber.Probe[CommitInfo])]) =
         Consumer
           .committablePartitionedManualOffsetSource(
             sourceSettings.withClientId(consumerClientId),
