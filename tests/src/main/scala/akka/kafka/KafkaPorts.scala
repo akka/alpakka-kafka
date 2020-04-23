@@ -12,7 +12,6 @@ package akka.kafka
 object KafkaPorts {
 
   val RetentionPeriodSpec = 9012
-  val ReconnectSpec = 9032
   val ReconnectSpecProxy = 9034
   val MultiConsumerSpec = 9042
   val ScalaPartitionExamples = 9052

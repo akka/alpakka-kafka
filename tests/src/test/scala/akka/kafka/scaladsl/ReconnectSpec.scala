@@ -7,7 +7,7 @@ package akka.kafka.scaladsl
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
@@ -17,7 +17,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafkaLike {
+class ReconnectSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
   val proxyPort = KafkaPorts.ReconnectSpecProxy
 
@@ -28,7 +28,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       val group1 = createGroupId(1)
 
       // start a TCP proxy forwarding to Kafka
-      val (proxyBinding, proxyKillSwtich) = createProxy()
+      val (proxyBinding, proxyKillSwitch) = createProxy()
       Await.ready(proxyBinding, remainingOrDefault)
 
       val messagesProduced = 100
@@ -52,7 +52,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
       probe.request(messagesProduced.toLong)
       probe.expectNextN(messages.take(firstBatch))
-      val proxyConnection = proxyKillSwtich.futureValue
+      val proxyConnection = proxyKillSwitch.futureValue
       proxyConnection.shutdown()
 
       probe.expectNoMessage(500.millis)
@@ -209,7 +209,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
     val proxyKsFut = connection.map(
       _.handleWith(
         Tcp()
-          .outgoingConnection("localhost", kafkaPort)
+          .outgoingConnection(brokerContainers.head.getContainerIpAddress, kafkaPort)
           .viaMat(KillSwitches.single)(Keep.right)
       )
     )
