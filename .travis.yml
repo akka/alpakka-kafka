@@ -33,11 +33,10 @@ jobs:
       name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
     - stage: test
-    - env: CMD="++2.12.10 test"
+      env: CMD="++2.12.10 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
     - env: CMD="++2.13.1 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
-
     - env:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
