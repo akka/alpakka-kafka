@@ -111,21 +111,21 @@ val commonSettings = Def.settings(
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
-    "-doc-title",
-    "Alpakka Kafka",
-    "-doc-version",
-    version.value,
-    "-sourcepath",
-    (baseDirectory in ThisBuild).value.toString,
-    "-skip-packages",
-    "akka.pattern:scala", // for some reason Scaladoc creates this
-    "-doc-source-url", {
-      val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-      s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
-    },
-    "-doc-canonical-base-url",
-    "https://doc.akka.io/api/alpakka-kafka/current/"
-  ),
+      "-doc-title",
+      "Alpakka Kafka",
+      "-doc-version",
+      version.value,
+      "-sourcepath",
+      (baseDirectory in ThisBuild).value.toString,
+      "-skip-packages",
+      "akka.pattern:scala", // for some reason Scaladoc creates this
+      "-doc-source-url", {
+        val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+        s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
+      },
+      "-doc-canonical-base-url",
+      "https://doc.akka.io/api/alpakka-kafka/current/"
+    ),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
