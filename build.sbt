@@ -6,7 +6,6 @@ name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 
-val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion26 = "2.6.3"
@@ -19,7 +18,7 @@ val embeddedKafkaVersion = "2.4.1" //kafkaVersion // TODO: revert when embedded-
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.4.0"
+val embeddedKafkaSchemaRegistry = "5.4.1.2"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.4"
@@ -112,34 +111,21 @@ val commonSettings = Def.settings(
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
-      "-doc-title",
-      "Alpakka Kafka",
-      "-doc-version",
-      version.value,
-      "-sourcepath",
-      (baseDirectory in ThisBuild).value.toString,
-      "-skip-packages",
-      "akka.pattern:scala" // for some reason Scaladoc creates this
-    ) ++ {
-      scalaBinaryVersion.value match {
-        case "2.12" | "2.13" =>
-          Seq(
-            "-doc-source-url", {
-              val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-              s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
-            },
-            "-doc-canonical-base-url",
-            "https://doc.akka.io/api/alpakka-kafka/current/"
-          )
-        case "2.11" =>
-          Seq(
-            "-doc-source-url", {
-              val branch = if (isSnapshot.value) "master" else s"v${version.value}"
-              s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH}.scala#L1"
-            }
-          )
-      }
+    "-doc-title",
+    "Alpakka Kafka",
+    "-doc-version",
+    version.value,
+    "-sourcepath",
+    (baseDirectory in ThisBuild).value.toString,
+    "-skip-packages",
+    "akka.pattern:scala", // for some reason Scaladoc creates this
+    "-doc-source-url", {
+      val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+      s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
     },
+    "-doc-canonical-base-url",
+    "https://doc.akka.io/api/alpakka-kafka/current/"
+  ),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
@@ -220,7 +206,6 @@ lazy val core = project
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
-    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
@@ -243,7 +228,6 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     JupiterKeys.junitJupiterVersion := "5.5.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
@@ -295,7 +279,6 @@ lazy val tests = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
-    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
@@ -321,7 +304,7 @@ lazy val tests = project
         scalaBinaryVersion.value match {
           case "2.13" =>
             Seq()
-          case "2.12" | "2.11" =>
+          case "2.12" =>
             Seq(
               "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
               // sbt 1.3.x reports: Conflicting cross-version suffixes in: org.apache.kafka:kafka, com.typesafe.scala-logging:scala-logging
@@ -337,11 +320,11 @@ lazy val tests = project
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
       scalaBinaryVersion.value match {
-        case "2.11" | "2.12" =>
+        case "2.12" =>
           HiddenFileFilter
         case "2.13" =>
           HiddenFileFilter ||
-          // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
+          // TODO: Remove Scala 2.13 from filter once/if `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
           // https://github.com/embeddedkafka/embedded-kafka-schema-registry/issues/78
           "SerializationTest.java" ||
           "SerializationSpec.scala" ||
@@ -356,7 +339,6 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
-    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
@@ -427,7 +409,6 @@ lazy val benchmarks = project
   .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
-    crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     publish / skip := true,
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,

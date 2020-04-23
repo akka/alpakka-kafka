@@ -138,11 +138,10 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       if (stream1messages + stream2messages != totalMessages)
         log.warn(
           "The consumers counted {} + {} = {} messages, not the total of {} messages",
-          // boxing for Scala 2.11
-          Long.box(stream1messages),
-          Long.box(stream2messages),
-          Long.box(stream1messages + stream2messages),
-          Long.box(totalMessages)
+          stream1messages,
+          stream2messages,
+          stream1messages + stream2messages,
+          totalMessages
         )
 
       // since Kafka 2.4.0 issued by `consumer.close`
