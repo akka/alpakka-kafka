@@ -201,7 +201,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {
         val callsToCommitAsync = commitLog.calls.size
-        //println(s"commitLog.call.size: ${commitLog.calls.size}")
         callsToCommitAsync should be >= 1
         callsToCommitAsync should be < count / 10
       }
@@ -211,7 +210,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
     mock.releaseAndAwaitCommitCallbacks(this, count.toLong)
 
     allCommits.futureValue should have size (count.toLong)
-    probe.cancel()
     Await.result(control.shutdown(), remainingOrDefault)
   }
 

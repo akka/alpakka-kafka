@@ -101,10 +101,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
           } else Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
           // emulate commit callbacks in poll thread like in a real KafkaConsumer
           if (releaseCommitCallbacks.get()) {
-            handler match {
-              case h: ConsumerMock.LogHandler => h.onComplete()
-              case _ => ()
-            }
+            handler.onComplete()
           }
           new ConsumerRecords[K, V](records.asJava)
         }
@@ -192,7 +189,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
   }
 }
 
-class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V]() {
+class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
   var callNumber = 0
 
   Mockito

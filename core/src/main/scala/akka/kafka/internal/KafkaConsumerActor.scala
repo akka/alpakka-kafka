@@ -211,7 +211,6 @@ import scala.util.control.NonFatal
   import KafkaConsumerActor.Internal._
   import KafkaConsumerActor._
 
-  println(s"new KafkaConsumerActor, $id")
   private val pollMsg = Poll(this, periodic = true)
   private val delayedPollMsg = Poll(this, periodic = false)
 
@@ -300,7 +299,6 @@ import scala.util.control.NonFatal
     case s: StopLike =>
       val from = stopFromMessage(s)
       commitAggregatedOffsets()
-      println(s"commitsInProgress: $commitsInProgress")
       if (commitsInProgress == 0) {
         log.debug("Received Stop from {}, stopping", from)
         context.stop(self)
@@ -496,8 +494,7 @@ import scala.util.control.NonFatal
     commitAndPoll()
   }
 
-  private def receivePoll(p: Poll[_, _]): Unit = {
-    println(s"receivePoll, p: $p")
+  private def receivePoll(p: Poll[_, _]): Unit =
     if (p.target == this) {
       commitAndPoll()
       if (p.periodic)
@@ -508,7 +505,6 @@ import scala.util.control.NonFatal
       // Message was enqueued before a restart - can be ignored
       log.debug("Ignoring Poll message with stale target ref")
     }
-  }
 
   private def commitAndPoll(): Unit = {
     val refreshOffsets = commitRefreshing.refreshOffsets
@@ -578,7 +574,6 @@ import scala.util.control.NonFatal
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]): Unit = {
     commitRefreshing.updateRefreshDeadlines(commitMap.keySet)
     commitsInProgress += 1
-    println(s"incremented commitsInProgress ($commitsInProgress), committing asynchronously: $commitMap")
     val startTime = System.nanoTime()
     consumer.commitAsync(
       commitMap.asJava,
@@ -593,7 +588,6 @@ import scala.util.control.NonFatal
                         commitsInProgress)
           }
           commitsInProgress -= 1
-          println(s"decremented commitsInProgress ($commitsInProgress), for commit.onComplete: $offsets")
           if (exception != null) {
             val failure = Status.Failure(exception)
             replyTo.foreach(_ ! failure)
