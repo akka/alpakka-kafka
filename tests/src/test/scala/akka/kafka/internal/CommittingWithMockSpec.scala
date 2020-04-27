@@ -8,10 +8,10 @@ package akka.kafka.internal
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
+import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.kafka._
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -23,7 +23,6 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -69,19 +68,6 @@ class CommittingWithMockSpec(_system: ActorSystem)
   val messages = (1 to 1000).map(createMessage)
   val failure = new CommitFailedException()
   val onCompleteFailure: ConsumerMock.OnCompleteHandler = _ => (null, failure)
-
-  def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
-    val mock = new ConsumerMock[K, V]()
-    val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    probe.request(msgss.map(_.size).sum.toLong)
-    msgss.foreach(chunk => mock.enqueue(chunk.map(toRecord)))
-    probe.expectNextN(msgss.flatten)
-
-    Await.result(control.shutdown(), remainingOrDefault)
-  }
 
   def createCommittableSource(mock: Consumer[K, V],
                               groupId: String = "group1",
@@ -135,7 +121,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     offsetMeta.metadata should ===(msg.record.offset.toString)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this, 0L)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -165,7 +151,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     offsetMeta.offset should ===(msg.record.offset() + 1)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this, 0L)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -189,7 +175,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     }
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     intercept[Exception] {
       Await.result(done, remainingOrDefault)
@@ -222,7 +208,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     }
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this, count.toLong)
 
     allCommits.futureValue should have size (count.toLong)
     probe.cancel()
@@ -258,7 +244,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -297,7 +283,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -338,7 +324,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -396,8 +382,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.record.offset() + 1)
 
     // allow poll to emulate commits
-    mock1.releaseCommitCallbacks.set(true)
-    mock2.releaseCommitCallbacks.set(true)
+    mock1.releaseAndAwaitCommitCallbacks(this)
+    mock2.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done2, remainingOrDefault)
     Await.result(control1.shutdown(), remainingOrDefault)
@@ -438,7 +424,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(control.shutdown(), remainingOrDefault)
   }
@@ -462,7 +448,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     }
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     probe.failed.futureValue shouldBe a[CommitFailedException]
     control.shutdown().futureValue shouldBe Done
@@ -496,7 +482,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     }
 
     // allow poll to emulate commits
-    mock.releaseCommitCallbacks.set(true)
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     control.shutdown().futureValue shouldBe Done
     probe.futureValue shouldBe Done

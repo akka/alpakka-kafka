@@ -7,6 +7,7 @@ package akka.kafka.internal
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.testkit.TestKit
 import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -21,36 +22,47 @@ import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 
 object ConsumerMock {
-  //type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
   type OnCompleteHandler = Map[TopicPartition, OffsetAndMetadata] => (Map[TopicPartition, OffsetAndMetadata], Exception)
 
   def closeTimeout = 500.millis
 
   trait CommitHandler {
-    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit
-    def processOnComplete(): Unit
+    def onCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit
+    def onComplete(): Unit
+    def allComplete(): Boolean
+    def allComplete(minOffset: Long): Boolean
   }
 
   class NotImplementedHandler extends CommitHandler {
-    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit = ???
-    def processOnComplete(): Unit = ???
+    def onCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit = ???
+    def onComplete(): Unit = ???
+    def allComplete(): Boolean = ???
+    def allComplete(minOffset: Long): Boolean = ???
   }
 
   class LogHandler(val onCompleteHandler: OnCompleteHandler = offsets => (offsets, null)) extends CommitHandler {
     var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
-    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit =
-      this.synchronized {
-        calls :+= ((offsets, callback))
-      }
+    var completed: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
+    var maxOffset: Map[TopicPartition, OffsetAndMetadata] = Map.empty
+    def onCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit =
+      this.synchronized(calls :+= ((offsets, callback)))
 
-    def processOnComplete(): Unit = this.synchronized {
-      calls.foreach {
-        case (offsets, callback) =>
+    def onComplete(): Unit = this.synchronized {
+      calls.filterNot(completed.contains).foreach {
+        case call @ (offsets, callback) =>
           val (newOffsets, exception) = onCompleteHandler(offsets)
           callback.onComplete(newOffsets.asJava, exception)
+          maxOffset = offsets.map {
+            case (tp, thisOffset) =>
+              val lastMaxOffset = maxOffset.getOrElse(tp, thisOffset)
+              tp -> Seq(lastMaxOffset, thisOffset).maxBy(_.offset())
+          }
+          completed :+= call
       }
-      calls = Seq.empty
     }
+
+    def allComplete(): Boolean = calls.size == completed.size
+    def allComplete(minOffset: Long): Boolean = allComplete() && maxOffset.forall(_._2.offset() >= minOffset)
   }
 }
 class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.NotImplementedHandler) {
@@ -90,7 +102,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
           // emulate commit callbacks in poll thread like in a real KafkaConsumer
           if (releaseCommitCallbacks.get()) {
             handler match {
-              case h: ConsumerMock.LogHandler => h.processOnComplete()
+              case h: ConsumerMock.LogHandler => h.onComplete()
               case _ => ()
             }
           }
@@ -106,7 +118,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
         override def answer(invocation: InvocationOnMock) = {
           val offsets = invocation.getArgument[java.util.Map[TopicPartition, OffsetAndMetadata]](0)
           val callback = invocation.getArgument[OffsetCommitCallback](1)
-          handler.sendCommitAsync(offsets.asScala.toMap, callback)
+          handler.onCommitAsync(offsets.asScala.toMap, callback)
           ()
         }
       })
@@ -168,9 +180,19 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
       case (topic, localTps) =>
         pendingSubscriptions.find(_._1 == topic).get._2.onPartitionsRevoked(localTps.asJavaCollection)
     }
+
+  def releaseAndAwaitCommitCallbacks(testkit: TestKit, minOffset: Long): Unit = {
+    releaseCommitCallbacks.set(true)
+    testkit.awaitCond(handler.allComplete(minOffset))
+  }
+
+  def releaseAndAwaitCommitCallbacks(testkit: TestKit): Unit = {
+    releaseCommitCallbacks.set(true)
+    testkit.awaitCond(handler.allComplete())
+  }
 }
 
-class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V] {
+class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) extends ConsumerMock[K, V]() {
   var callNumber = 0
 
   Mockito
