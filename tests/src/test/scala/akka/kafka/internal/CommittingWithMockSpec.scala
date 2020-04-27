@@ -8,7 +8,7 @@ package akka.kafka.internal
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Repeated, Subscriptions}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.tests.scaladsl.LogCapturing
@@ -27,6 +27,7 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
 object CommittingWithMockSpec {
   type K = String
@@ -55,7 +56,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     with Eventually
     with ScalaFutures
     with IntegrationPatience
-    with LogCapturing {
+    with LogCapturing
+    with Repeated {
 
   import CommittingWithMockSpec._
 
@@ -88,7 +90,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
       ConsumerSettings
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
-        .withConsumerFactory(_ => mock),
+        .withConsumerFactory(_ => mock)
+        .withStopTimeout(0.seconds),
       Subscriptions.topics(topics)
     )
 
@@ -219,28 +222,23 @@ class CommittingWithMockSpec(_system: ActorSystem)
     withClue("the commits are aggregated to a low number of calls to commitAsync:") {
       awaitAssert {
         val callsToCommitAsync = commitLog.calls.size
+        //println(s"commitLog.call.size: ${commitLog.calls.size}")
         callsToCommitAsync should be >= 1
         callsToCommitAsync should be < count / 10
       }
     }
 
-    // Await until every message is committed
-    var lastOffsetObserved = -1L
-    eventually {
-      //emulate commit
-      commitLog.calls.foreach {
-        case (offsets, callback) =>
-          // What is the highest offset recorded in this callback?
-          val max = offsets.map { case (key, value) => value.offset() }.max
-          // update lastOffsetObserved
-          lastOffsetObserved = Math.max(lastOffsetObserved, max)
-          callback.onComplete(offsets.asJava, null)
-      }
-      lastOffsetObserved should be >= count.toLong
-    }
+    //emulate commit
+//    commitLog.calls.foreach {
+//      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
+//    }
+
+    println("release commit callbacks..")
+    mock.releaseCommitCallbacks.set(true)
 
     allCommits.futureValue should have size (count.toLong)
-    control.shutdown().futureValue shouldBe Done
+    probe.cancel()
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "support commit batching" in assertAllStagesStopped {

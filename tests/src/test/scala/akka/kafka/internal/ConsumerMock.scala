@@ -5,6 +5,8 @@
 
 package akka.kafka.internal
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -16,26 +18,40 @@ import org.mockito.{ArgumentMatchers, Mockito}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
+import scala.concurrent.Promise
 import scala.concurrent.duration._
 
 object ConsumerMock {
   type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
+  type OnCompleteHandler = Map[TopicPartition, OffsetAndMetadata] => (Map[TopicPartition, OffsetAndMetadata], Exception)
 
   def closeTimeout = 500.millis
 
   def notImplementedHandler: CommitHandler = (_, _) => ???
 
-  class LogHandler extends CommitHandler {
+  class LogHandler(val onCompleteHandler: OnCompleteHandler = offsets => (offsets, null)) extends CommitHandler {
     var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
-    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) =
+    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = this.synchronized {
       calls :+= ((offsets, callback))
+    }
+
+    def processCallbacks(): Unit = this.synchronized {
+      calls.foreach {
+        case (offsets, callback) =>
+          val (newOffsets, exception) = onCompleteHandler(offsets)
+          callback.onComplete(newOffsets.asJava, exception)
+      }
+      calls = Seq.empty
+    }
   }
 }
 class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notImplementedHandler) {
   private var responses = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
+  private var commitCallbacks = collection.immutable.Queue.empty[Map[TopicPartition, OffsetAndMetadata]]
   private var pendingSubscriptions = List.empty[(List[String], ConsumerRebalanceListener)]
   private var assignment = Set.empty[TopicPartition]
   private var messagesRequested = false
+  val releaseCommitCallbacks = new AtomicBoolean()
   val mock = {
     val result = Mockito.mock(classOf[KafkaConsumer[K, V]])
     Mockito
@@ -64,6 +80,13 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notI
               }
               .getOrElse(Map.empty)
           } else Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]]
+          // emulate commit callbacks in poll thread like in a real KafkaConsumer
+          if (releaseCommitCallbacks.get()) {
+            handler match {
+              case h: ConsumerMock.LogHandler => h.processCallbacks()
+              case _ => ()
+            }
+          }
           new ConsumerRecords[K, V](records.asJava)
         }
       })
