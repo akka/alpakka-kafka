@@ -18,31 +18,32 @@ import org.mockito.{ArgumentMatchers, Mockito}
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
-import scala.concurrent.Promise
 import scala.concurrent.duration._
 
 object ConsumerMock {
-  type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
+  //type CommitHandler = (Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback) => Unit
   type OnCompleteHandler = Map[TopicPartition, OffsetAndMetadata] => (Map[TopicPartition, OffsetAndMetadata], Exception)
 
   def closeTimeout = 500.millis
 
-  trait Handler {
-    def processCallbacks(): Unit
+  trait CommitHandler {
+    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit
+    def processOnComplete(): Unit
   }
 
-  class NotImplementedHandler extends CommitHandler with Handler {
-    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = ???
-    def processCallbacks(): Unit = ()
+  class NotImplementedHandler extends CommitHandler {
+    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit = ???
+    def processOnComplete(): Unit = ???
   }
 
   class LogHandler(val onCompleteHandler: OnCompleteHandler = offsets => (offsets, null)) extends CommitHandler {
     var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
-    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = this.synchronized {
-      calls :+= ((offsets, callback))
-    }
+    def sendCommitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback): Unit =
+      this.synchronized {
+        calls :+= ((offsets, callback))
+      }
 
-    def processCallbacks(): Unit = this.synchronized {
+    def processOnComplete(): Unit = this.synchronized {
       calls.foreach {
         case (offsets, callback) =>
           val (newOffsets, exception) = onCompleteHandler(offsets)
@@ -89,7 +90,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
           // emulate commit callbacks in poll thread like in a real KafkaConsumer
           if (releaseCommitCallbacks.get()) {
             handler match {
-              case h: ConsumerMock.LogHandler => h.processCallbacks()
+              case h: ConsumerMock.LogHandler => h.processOnComplete()
               case _ => ()
             }
           }
@@ -105,7 +106,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
         override def answer(invocation: InvocationOnMock) = {
           val offsets = invocation.getArgument[java.util.Map[TopicPartition, OffsetAndMetadata]](0)
           val callback = invocation.getArgument[OffsetCommitCallback](1)
-          handler(offsets.asScala.toMap, callback)
+          handler.sendCommitAsync(offsets.asScala.toMap, callback)
           ()
         }
       })
