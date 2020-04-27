@@ -27,7 +27,14 @@ object ConsumerMock {
 
   def closeTimeout = 500.millis
 
-  def notImplementedHandler: CommitHandler = (_, _) => ???
+  trait Handler {
+    def processCallbacks(): Unit
+  }
+
+  class NotImplementedHandler extends CommitHandler with Handler {
+    def apply(offsets: Map[TopicPartition, OffsetAndMetadata], callback: OffsetCommitCallback) = ???
+    def processCallbacks(): Unit = ()
+  }
 
   class LogHandler(val onCompleteHandler: OnCompleteHandler = offsets => (offsets, null)) extends CommitHandler {
     var calls: Seq[(Map[TopicPartition, OffsetAndMetadata], OffsetCommitCallback)] = Seq.empty
@@ -45,9 +52,8 @@ object ConsumerMock {
     }
   }
 }
-class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = ConsumerMock.notImplementedHandler) {
+class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.NotImplementedHandler) {
   private var responses = collection.immutable.Queue.empty[Seq[ConsumerRecord[K, V]]]
-  private var commitCallbacks = collection.immutable.Queue.empty[Map[TopicPartition, OffsetAndMetadata]]
   private var pendingSubscriptions = List.empty[(List[String], ConsumerRebalanceListener)]
   private var assignment = Set.empty[TopicPartition]
   private var messagesRequested = false
