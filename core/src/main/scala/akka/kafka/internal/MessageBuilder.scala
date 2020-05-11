@@ -22,7 +22,7 @@ import org.apache.kafka.common.requests.OffsetFetchResponse
 
 import scala.collection.compat._
 import scala.compat.java8.FutureConverters.FutureOps
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.jdk.CollectionConverters._
 
 /** Internal API */
@@ -45,6 +45,10 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
   def committedMarker: CommittedMarker
 
   def onMessage(consumerMessage: ConsumerRecord[K, V]): Unit
+
+  def onTransactionAborted(): Promise[Unit]
+
+  def onFirstMessageReceived(): Promise[Unit]
 
   def fromPartitionedSource: Boolean
 }
@@ -155,8 +159,12 @@ private[kafka] trait CommittedMarker {
   /** Marks offsets as already committed */
   def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done]
 
-  /** Marks committing failure */
-  def failed(): Unit
+  /** Marks commit aborted */
+  def onTransactionAborted(): Promise[Unit]
+
+  /** Marks first message enlisted in transaction */
+  def onFirstMessageReceived(): Promise[Unit]
+
 }
 
 /** Internal API */

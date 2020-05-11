@@ -21,6 +21,8 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 /**
  * INTERNAL API
@@ -44,14 +46,14 @@ private object TransactionalProducerStage {
 
   private[kafka] sealed trait TransactionBatch {
     def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch
-    def committingFailed(): Unit
+    def transactionAborted(): Future[Unit]
   }
 
   final class EmptyTransactionBatch extends TransactionBatch {
     override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch =
       new NonemptyTransactionBatch(partitionOffset)
 
-    override def committingFailed(): Unit = {}
+    override def transactionAborted(): Future[Unit] = Future.successful(Done)
   }
 
   final class NonemptyTransactionBatch(head: PartitionOffsetCommittedMarker,
@@ -74,8 +76,11 @@ private object TransactionalProducerStage {
     def internalCommit(): Future[Done] =
       committedMarker.committed(offsetMap())
 
-    override def committingFailed(): Unit =
-      committedMarker.failed()
+    override def transactionAborted(): Future[Unit] =
+      committedMarker.onTransactionAborted().success(()).future
+
+    def firstMessageReceived(): Future[Unit] =
+      committedMarker.onFirstMessageReceived().success(()).future
 
     override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch = {
       require(
@@ -134,6 +139,10 @@ private final class TransactionalProducerStageLogic[K, V, P](
     case Some(msg) =>
       produce(msg)
       firstMessage = None
+      batchOffsets match {
+        case batch: NonemptyTransactionBatch => batch.committedMarker.onFirstMessageReceived()
+        case _ => ()
+      }
     case _ =>
       throw new IllegalStateException("Should never attempt to produce first message if it does not exist.")
   }
@@ -229,8 +238,18 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override def onCompletionFailure(ex: Throwable): Unit = {
     abortTransaction("Stage failure")
-    batchOffsets.committingFailed()
-    super.onCompletionFailure(ex)
+
+    batchOffsets
+      .transactionAborted()
+      .onComplete {
+        case Success(_) =>
+          log.debug("Successfully sent source stage failure")
+          onCommitFailedAckCb.invoke(ex)
+        case Failure(commitEx) if NonFatal(commitEx) =>
+          log.error(commitEx, "Failed to send source stage failure")
+          onCommitFailedAckCb.invoke(commitEx)
+      }(materializer.executionContext)
+    //super.onCompletionFailure(ex)
   }
 
   private def commitTransaction(batch: NonemptyTransactionBatch, beginNewTransaction: Boolean): Unit = {
@@ -256,6 +275,12 @@ private final class TransactionalProducerStageLogic[K, V, P](
       beginTransaction()
       resumeDemand()
     }
+  }
+
+  private val onCommitFailedAckCb: AsyncCallback[Throwable] = {
+    getAsyncCallback[Throwable](
+      t => super.onCompletionFailure(t)
+    )
   }
 
   private val onInternalCommitAckCb: AsyncCallback[Unit] = {
