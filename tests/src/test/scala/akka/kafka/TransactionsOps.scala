@@ -166,7 +166,7 @@ trait TransactionsOps extends TestSuite with Matchers {
       .alsoTo(
         Flow[(Int, Long, String)]
           .scan(0) { case (count, _) => count + 1 }
-          .filter(_ % 100 == 0)
+          .filter(_ % 10 == 0)
           .log("received")
           .to(Sink.ignore)
       )
@@ -184,8 +184,6 @@ trait TransactionsOps extends TestSuite with Matchers {
     val expectedValues: immutable.Seq[String] = (1 to elements).map(_.toString)
 
     for (partition <- 0 until maxPartitions) {
-      println(s"Asserting values for partition: $partition")
-
       val partitionMessages: immutable.Seq[String] =
         values.filter(_._1 == partition).map { case (_, _, value) => value }
 

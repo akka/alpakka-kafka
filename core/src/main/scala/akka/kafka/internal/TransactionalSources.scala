@@ -300,7 +300,10 @@ private[kafka] final class TransactionalSubSource[K, V](
         implicit val timeout = Timeout(txConsumerSettings.commitTimeout)
         try {
           val drainCommandFutures =
-            subSources.values.map(_.stageActor).map(ask(_, Drain(partitions, None, Drained)))
+            subSources.values
+              .filterNot(_.stageActor.isTerminated)
+              .map(_.stageActor)
+              .map(ask(_, Drain(partitions, None, Drained)))
           implicit val ec = executionContext
           Await.result(Future.sequence(drainCommandFutures), timeout.duration)
           true
@@ -410,6 +413,18 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   override val fromPartitionedSource: Boolean = true
 
+  override def preStart(): Unit = {
+    super.preStart()
+    onTransactionAborted.future.onComplete {
+      case Success(_) => onTransactionAbortedCb.invoke(())
+      case _ => ()
+    }(materializer.executionContext)
+    onFirstMessageReceived.future.onComplete {
+      case Success(_) => onFirstMessageReceivedCb.invoke(())
+      case _ => ()
+    }(materializer.executionContext)
+  }
+
   override protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] =
     super.messageHandling.orElse(drainHandling).orElse {
       case (_, Revoked(tps)) =>
@@ -459,15 +474,11 @@ private final class TransactionalSubSourceStageLogic[K, V](
         )
       }
     case (sender, DrainingComplete) =>
+      log.debug("Completing, StageActor: {}", stageActor.ref)
       completeStage()
   }
 
   override val onTransactionAborted: Promise[Unit] = Promise()
-
-  onTransactionAborted.future.onComplete {
-    case Success(_) => onTransactionAbortedCb.invoke(())
-    case _ => ()
-  }(materializer.executionContext)
 
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
     log.info("Committing failed, resetting in flight offsets")
@@ -475,11 +486,6 @@ private final class TransactionalSubSourceStageLogic[K, V](
   }
 
   override val onFirstMessageReceived: Promise[Unit] = Promise()
-
-  onFirstMessageReceived.future.onComplete {
-    case Success(_) => onFirstMessageReceivedCb.invoke(())
-    case _ => ()
-  }(materializer.executionContext)
 
   private val onFirstMessageReceivedCb = getAsyncCallback[Unit] { _ =>
     log.info("First message received by producer")

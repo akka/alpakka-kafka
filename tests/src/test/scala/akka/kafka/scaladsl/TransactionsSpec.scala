@@ -344,6 +344,11 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         )
 
         val actualValues: immutable.Seq[(Int, Long, String)] = Await.result(consumer, 60.seconds)
+
+        log.debug(s"Asserting elements: $elements, maxPartitions: $maxPartitions, actualValues: $actualValues")
+        actualValues.groupBy(_._1).foreach {
+          case (partition, values) => log.debug(s"actual values for partition $partition\n$values")
+        }
         assertPartitionedConsistency(elements, maxPartitions, actualValues)
 
         Await.result(control.shutdown(), remainingOrDefault)
