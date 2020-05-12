@@ -12,7 +12,7 @@ import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, Partiti
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings}
+import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings, Repeated}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
@@ -41,7 +41,8 @@ class ProducerSpec(_system: ActorSystem)
     with FlatSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with LogCapturing {
+    with LogCapturing
+    with Repeated {
 
   def this() = this(ActorSystem())
 
@@ -675,12 +676,16 @@ class CommittedMarkerMock {
       Future.successful(Done)
   })
 
-  private[kafka] def verifyOffsets(pos: ConsumerMessage.PartitionOffsetCommittedMarker*): Future[Done] =
+  private[kafka] def verifyOffsets(pos: ConsumerMessage.PartitionOffsetCommittedMarker*): Unit = {
     Mockito
-      .verify(mock, Mockito.only())
+      .verify(mock)
       .committed(
         mockito.ArgumentMatchers.eq(
           pos.map(p => new TopicPartition(p.key.topic, p.key.partition) -> new OffsetAndMetadata(p.offset + 1)).toMap
         )
       )
+    Mockito.verify(mock).onFirstMessageReceived()
+    Mockito.verifyNoMoreInteractions(mock)
+  }
+
 }
