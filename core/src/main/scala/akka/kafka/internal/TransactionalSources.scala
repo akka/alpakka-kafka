@@ -29,7 +29,7 @@ import org.apache.kafka.common.requests.IsolationLevel
 import scala.collection.compat._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.Success
+import scala.util.{Success, Failure => TFailure}
 
 /** Internal API */
 @InternalApi
@@ -102,14 +102,13 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   override def preStart(): Unit = {
     super.preStart()
-
     onTransactionAborted.future.onComplete {
       case Success(_) => onTransactionAbortedCb.invoke(())
-      case _ => ()
+      case TFailure(ex) => log.error(ex, "An error occurred while during the transaction abort process")
     }(materializer.executionContext)
     onFirstMessageReceived.future.onComplete {
       case Success(_) => onFirstMessageReceivedCb.invoke(())
-      case _ => ()
+      case TFailure(ex) => log.error(ex, "The first message was not received")
     }(materializer.executionContext)
   }
 
@@ -130,17 +129,14 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
-      log.debug(s"inFlightRecords before 'committed': $inFlightRecords")
-      log.debug(s"committing offsets: ${offsets.view.mapValues(_.offset() - 1).toMap}")
       inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
-      log.debug(s"Committed offsets (-1): $offsets.  inFlightRecords after 'committed': $inFlightRecords")
       sender.tell(Done, sourceActor.ref)
     case (sender, Drain(partitions, ack, msg)) =>
       if (!firstMessageReceived || inFlightRecords.empty(partitions)) {
         log.debug(s"Partitions drained ${partitions.mkString(",")}")
         ack.getOrElse(sender).tell(msg, sourceActor.ref)
       } else {
-        log.debug(s"Draining partitions {}, inFlightRecords: $inFlightRecords", partitions)
+        log.debug(s"Draining partitions {}, inFlightRecords: {}", partitions, inFlightRecords)
         materializer.scheduleOnce(
           consumerSettings.drainingCheckInterval,
           new Runnable {
@@ -153,17 +149,13 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   override val groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
-  override val onTransactionAborted: Promise[Unit] = Promise()
-
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
-    log.info("Committing failed, resetting in flight offsets")
+    log.debug("Committing failed, resetting inFlightRecords")
     inFlightRecords.reset()
   }
 
-  override val onFirstMessageReceived: Promise[Unit] = Promise()
-
   private val onFirstMessageReceivedCb = getAsyncCallback[Unit] { _ =>
-    log.info("First message received by producer")
+    log.debug("First message received by producer")
     firstMessageReceived = true
   }
 
@@ -295,12 +287,14 @@ private[kafka] final class TransactionalSubSource[K, V](
         new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
       }
 
+      // NOTE: this is called by Consumer.poll thread from blocking partition rebalance handler
       private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
         import akka.pattern.ask
         implicit val timeout = Timeout(txConsumerSettings.commitTimeout)
         try {
           val drainCommandFutures =
             subSources.values
+            // it's possible the sub source stage has already completed
               .filterNot(_.stageActor.isTerminated)
               .map(_.stageActor)
               .map(ask(_, Drain(partitions, None, Drained)))
@@ -417,11 +411,11 @@ private final class TransactionalSubSourceStageLogic[K, V](
     super.preStart()
     onTransactionAborted.future.onComplete {
       case Success(_) => onTransactionAbortedCb.invoke(())
-      case _ => ()
+      case TFailure(ex) => log.error(ex, "An error occurred while during the transaction abort process")
     }(materializer.executionContext)
     onFirstMessageReceived.future.onComplete {
       case Success(_) => onFirstMessageReceivedCb.invoke(())
-      case _ => ()
+      case TFailure(ex) => log.error(ex, "The first message was not received")
     }(materializer.executionContext)
   }
 
@@ -474,18 +468,14 @@ private final class TransactionalSubSourceStageLogic[K, V](
         )
       }
     case (sender, DrainingComplete) =>
-      log.debug("Completing, StageActor: {}", stageActor.ref)
+      log.debug("Completing, StageActor {}", stageActor.ref)
       completeStage()
   }
 
-  override val onTransactionAborted: Promise[Unit] = Promise()
-
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
-    log.info("Committing failed, resetting in flight offsets")
+    log.info("Committing failed, resetting inFlightRecords")
     inFlightRecords.reset()
   }
-
-  override val onFirstMessageReceived: Promise[Unit] = Promise()
 
   private val onFirstMessageReceivedCb = getAsyncCallback[Unit] { _ =>
     log.info("First message received by producer")

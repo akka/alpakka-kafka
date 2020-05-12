@@ -46,11 +46,10 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
 
   def onMessage(consumerMessage: ConsumerRecord[K, V]): Unit
 
-  def onTransactionAborted(): Promise[Unit]
-
-  def onFirstMessageReceived(): Promise[Unit]
-
   def fromPartitionedSource: Boolean
+
+  val onTransactionAborted: Promise[Unit] = Promise()
+  val onFirstMessageReceived: Promise[Unit] = Promise()
 }
 
 /** Internal API */
