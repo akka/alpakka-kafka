@@ -605,10 +605,10 @@ import scala.util.control.NonFatal
               requestDelayedPoll()
 
             case commitException =>
-              log.warning("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
-                          duration / 1000000L,
-                          commitsInProgress,
-                          commitException)
+              log.error("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
+                        duration / 1000000L,
+                        commitsInProgress,
+                        commitException)
               val failure = Status.Failure(commitException)
               replyTo.foreach(_ ! failure)
           }
