@@ -5,8 +5,6 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.annotation.InternalApi
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings

@@ -596,7 +596,7 @@ import scala.util.control.NonFatal
               replyTo.foreach(_ ! Done)
 
             case e: RetriableCommitFailedException =>
-              log.warning("Kafka commit is to be retried, cause={}, after={} ms, commitsInProgress={}",
+              log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
                           e.getCause,
                           duration / 1000000L,
                           commitsInProgress)
@@ -604,8 +604,12 @@ import scala.util.control.NonFatal
               commitSenders = commitSenders ++ replyTo
               requestDelayedPoll()
 
-            case e =>
-              val failure = Status.Failure(exception)
+            case commitException =>
+              log.warning("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
+                          duration / 1000000L,
+                          commitsInProgress,
+                          commitException)
+              val failure = Status.Failure(commitException)
               replyTo.foreach(_ ! failure)
           }
         }
