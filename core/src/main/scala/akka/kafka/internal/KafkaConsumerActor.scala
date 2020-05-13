@@ -566,9 +566,11 @@ import scala.util.control.NonFatal
   private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
     val aggregatedOffsets = aggregateOffsets(commitMaps)
     commitRefreshing.add(aggregatedOffsets)
-    commit(aggregatedOffsets, commitSenders)
+    val replyTo = commitSenders
+    // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
     commitMaps = List.empty
     commitSenders = Vector.empty
+    commit(aggregatedOffsets, replyTo)
   }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]): Unit = {
@@ -582,18 +584,29 @@ import scala.util.control.NonFatal
                                 exception: Exception): Unit = {
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
-          if (duration > settings.commitTimeWarning.toNanos) {
-            log.warning("Kafka commit took longer than `commit-time-warning`: {} ms, commitsInProgress={}",
-                        duration / 1000000L,
-                        commitsInProgress)
-          }
           commitsInProgress -= 1
-          if (exception != null) {
-            val failure = Status.Failure(exception)
-            replyTo.foreach(_ ! failure)
-          } else {
-            commitRefreshing.committed(offsets)
-            replyTo.foreach(_ ! Done)
+          exception match {
+            case null =>
+              if (duration > settings.commitTimeWarning.toNanos) {
+                log.warning("Kafka commit took longer than `commit-time-warning`: {} ms, commitsInProgress={}",
+                            duration / 1000000L,
+                            commitsInProgress)
+              }
+              commitRefreshing.committed(offsets)
+              replyTo.foreach(_ ! Done)
+
+            case e: RetriableCommitFailedException =>
+              log.warning("Kafka commit is to be retried, cause={}, after={} ms, commitsInProgress={}",
+                          e.getCause,
+                          duration / 1000000L,
+                          commitsInProgress)
+              commitMaps = commitMap.toList ++ commitMaps
+              commitSenders = commitSenders ++ replyTo
+              requestDelayedPoll()
+
+            case e =>
+              val failure = Status.Failure(exception)
+              replyTo.foreach(_ ! failure)
           }
         }
       }
