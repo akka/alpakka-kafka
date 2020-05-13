@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
 import akka.annotation.InternalApi
-import akka.kafka.CommitWhen.{NextOffsetObserved, OffsetFirstObserved}
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.ProducerMessage._
 import akka.kafka.{CommitDelivery, CommitterSettings, ProducerSettings}
@@ -52,7 +51,6 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
     with StageIdLogging
     with DeferredProducer[K, V] {
 
-  import CommittingProducerSinkStage._
   import CommitTrigger._
 
   /** The promise behind the materialized future. */
