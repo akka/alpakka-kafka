@@ -1,3 +1,6 @@
 # Internal API
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.isEmpty")
 ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.kafka.ConsumerMessage#CommittableOffsetBatch.tellCommitEmergency")
+
+# private API, triggered by Mima upgrade https://github.com/akka/alpakka-kafka/pull/1112
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.CommitterSettings.this")
