@@ -150,6 +150,7 @@ val commonSettings = Def.settings(
   // -s Try to decode Scala names in stack traces and test names.
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
   scalafmtOnCompile := true,
+  ThisBuild / mimaReportSignatureProblems := true,
   headerLicense := Some(
       HeaderLicense.Custom(
         """|Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
@@ -304,7 +305,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.5" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.4" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -413,7 +414,7 @@ lazy val docs = project
                          "release-notes/1.0-RC1.html",
                          "release-notes/1.0-RC2.html"),
     resolvers += Resolver.jcenterRepo,
-    publishRsyncArtifact := makeSite.value -> "www/",
+    publishRsyncArtifacts += makeSite.value -> "www/",
     publishRsyncHost := "akkarepo@gustav.akka.io"
   )
 
@@ -436,7 +437,7 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "1.1.2",
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.0",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
