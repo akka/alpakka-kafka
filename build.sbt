@@ -14,17 +14,17 @@ val akkaVersion = if (Nightly) akkaVersion26 else "2.5.30"
 val AkkaBinaryVersion25 = "2.5"
 val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
-val kafkaVersion = "2.4.0"
+val kafkaVersion = "2.4.1"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.4.0"
+val embeddedKafkaSchemaRegistry = "5.4.1.2"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.4"
 val slf4jVersion = "1.7.26"
-val confluentAvroSerializerVersion = "5.4.0"
+val confluentAvroSerializerVersion = "5.4.1"
 
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
@@ -73,7 +73,6 @@ TaskKey[Unit]("verifyCodeFmt") := {
 }
 
 addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
-
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
 val commonSettings = Def.settings(
