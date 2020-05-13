@@ -18,7 +18,7 @@ This is just a start, please add your experiences to this list by [opening a Pul
 
 ## Monitoring
 
-For performance monitoring consider [Lightbend Telemetry](https://developer.lightbend.com/docs/telemetry/current/) which gives insights into Akka and Akka Streams.
+For performance monitoring consider [Lightbend Telemetry](https://developer.lightbend.com/docs/telemetry/current/home.html) which gives insights into Akka and Akka Streams.
 
 
 ## Security setup
@@ -30,7 +30,7 @@ The different security setups offered by Kafka brokers are described in the @ext
 
 The properties described in Kafka's @extref[Configuring Kafka Clients for SSL](kafka:/documentation.html#security_configclients) go in the
 `akka.kafka.consumer.kafka-clients` and `akka.kafka.producer.kafka-clients` sections of the configuration, or can be added programmatically via
-`ProducerSettings.withProperties` and `ConsumerSettings.withProperties`.
+`ProducerSettings.withProperties` and `ConsumerSettings.withProperties`. The necessary property name constants are available in @javadoc[SslConfigs](org.apache.kafka.common.config.SslConfigs).
 
 ```hocon
 akka.kafka.producer { # and akka.kafka.consumer respectively
