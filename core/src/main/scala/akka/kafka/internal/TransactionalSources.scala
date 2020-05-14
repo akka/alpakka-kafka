@@ -99,6 +99,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private val inFlightRecords = InFlightRecords.empty
   private var firstMessageReceived = false
+  private var draining = false
 
   override def preStart(): Unit = {
     super.preStart()
@@ -122,8 +123,10 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       .orElse(drainHandling)
       .orElse {
         case (_, Status.Failure(e)) =>
+          log.error("### Failing stage because Status.Failure sent")
           failStage(e)
         case (_, Terminated(ref)) if ref == consumerActor =>
+          log.error("### Failing stage because KafkaConsumerActor failed")
           failStage(new ConsumerFailed())
       }
 
@@ -134,6 +137,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     case (sender, Drain(partitions, ack, msg)) =>
       if (!firstMessageReceived || inFlightRecords.empty(partitions)) {
         log.debug(s"Partitions drained ${partitions.mkString(",")}")
+        draining = false
         ack.getOrElse(sender).tell(msg, sourceActor.ref)
       } else {
         log.debug(s"Draining partitions {}, inFlightRecords: {}", partitions, inFlightRecords)
@@ -150,8 +154,8 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override val groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
-    log.debug("Committing failed, resetting inFlightRecords")
-    inFlightRecords.reset()
+    log.debug(s"Committing failed, draining: $draining, resetting inFlightRecords: $inFlightRecords")
+  //inFlightRecords.reset()
   }
 
   private val onFirstMessageReceivedCb = getAsyncCallback[Unit] { _ =>
@@ -169,7 +173,9 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override def onMessage(rec: ConsumerRecord[K, V]): Unit =
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
 
-  override protected def stopConsumerActor(): Unit =
+  override protected def stopConsumerActor(): Unit = {
+    log.debug("### Draining started from stopConsumerActor()")
+    draining = true
     sourceActor.ref
       .tell(Drain(
               inFlightRecords.assigned(),
@@ -177,6 +183,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
               KafkaConsumerActor.Internal.StopFromStage(id)
             ),
             sourceActor.ref)
+  }
 
   override protected def addToPartitionAssignmentHandler(
       handler: PartitionAssignmentHandler
