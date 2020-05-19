@@ -155,7 +155,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
     log.debug(s"Committing failed, draining: $draining, resetting inFlightRecords: $inFlightRecords")
-  //inFlightRecords.reset()
+    inFlightRecords.reset()
   }
 
   private val onFirstMessageReceivedCb = getAsyncCallback[Unit] { _ =>

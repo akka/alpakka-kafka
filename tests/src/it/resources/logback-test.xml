@@ -26,6 +26,7 @@
 
     <logger name="akka" level="DEBUG"/>
     <logger name="akka.kafka" level="DEBUG"/>
+    <logger name="akka.stream.Log" level="DEBUG" />
     <logger name="docs.scaladsl" levle="DEBUG"/>
 
     <logger name="org.apache.zookeeper" level="WARN"/>
@@ -41,6 +42,7 @@
     <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
     <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="INFO"/>
     -->
+    <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="INFO"/>
     <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
     <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 

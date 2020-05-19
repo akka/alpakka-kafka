@@ -4,9 +4,10 @@
  */
 
 package akka.kafka
-import akka.{Done, NotUsed}
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.PartitionOffset
+import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer, Transactional}
@@ -14,6 +15,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
+import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.scalatest.{Matchers, TestSuite}
@@ -30,22 +32,31 @@ trait TransactionsOps extends TestSuite with Matchers {
       sinkTopic: String,
       transactionalId: String,
       idleTimeout: FiniteDuration,
-      restartAfter: Option[Int] = None
-  ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
+      restartAfter: Option[Int] = None,
+      maxRestarts: Option[AtomicInteger] = None
+  ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] = {
     Transactional
       .source(consumerSettings, Subscriptions.topics(sourceTopic))
       .zip(Source.unfold(1)(count => Some((count + 1, count))))
       .map {
         case (msg, count) =>
-          if (restartAfter.exists(restartAfter => count >= restartAfter))
+          if (restart(count, restartAfter, maxRestarts))
             throw new Error("Restarting transactional copy stream")
           msg
       }
       .idleTimeout(idleTimeout)
+      .alsoTo(
+        Flow[TransactionalMessage[String, String]]
+          .filter(_.partitionOffset.offset % 50 == 0)
+          .map(_.record.value())
+          .log("### transactionalCopyStream producing")
+          .to(Sink.ignore)
+      )
       .map { msg =>
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
       .via(Transactional.flow(producerSettings, transactionalId))
+  }
 
   /**
    * Copy messages from a source to sink topic. Source and sink must have exactly the same number of partitions.
@@ -58,7 +69,8 @@ trait TransactionsOps extends TestSuite with Matchers {
       transactionalId: String,
       idleTimeout: FiniteDuration,
       maxPartitions: Int,
-      restartAfter: Option[Int] = None
+      restartAfter: Option[Int] = None,
+      maxRestarts: Option[AtomicInteger] = None
   ): Source[ProducerMessage.Results[String, String, PartitionOffset], Control] =
     Transactional
       .partitionedSource(consumerSettings, Subscriptions.topics(sourceTopic))
@@ -69,7 +81,7 @@ trait TransactionsOps extends TestSuite with Matchers {
               .zip(Source.unfold(1)(count => Some((count + 1, count))))
               .map {
                 case (msg, count) =>
-                  if (restartAfter.exists(restartAfter => count >= restartAfter))
+                  if (restart(count, restartAfter, maxRestarts))
                     throw new Error("Restarting transactional copy stream")
                   msg
               }
@@ -85,6 +97,14 @@ trait TransactionsOps extends TestSuite with Matchers {
             results
         }
       )
+
+  def restart(count: Int, restartAfter: Option[Int], maxRestarts: Option[AtomicInteger]): Boolean = {
+    (restartAfter, maxRestarts) match {
+      case (Some(restart), Some(maxRestart)) => count >= restart && maxRestart.decrementAndGet() > 0
+      case (Some(restart), _) => count >= restart
+      case _ => false
+    }
+  }
 
   def produceToAllPartitions(producerSettings: ProducerSettings[String, String],
                              topic: String,
@@ -162,7 +182,6 @@ trait TransactionsOps extends TestSuite with Matchers {
       .plainSource(settings, Subscriptions.topics(topic))
       .map(r => (r.partition(), r.offset(), r.value()))
       .take(elementsToTake)
-      .idleTimeout(30.seconds)
       .alsoTo(
         Flow[(Int, Long, String)]
           .scan(0) { case (count, _) => count + 1 }
