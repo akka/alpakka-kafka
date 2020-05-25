@@ -11,6 +11,7 @@ import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommitted
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.DeferredProducer._
 import akka.kafka.internal.ProducerStage.ProducerCompletionState
+import akka.kafka.internal.TransactionalProducerStage.TransactionBatch.FirstAndHighestOffsets
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape}
@@ -39,20 +40,22 @@ private[kafka] final class TransactionalProducerStage[K, V, P](
 }
 
 /** Internal API */
-private object TransactionalProducerStage {
+private[kafka] object TransactionalProducerStage {
   private val tpFirstEndOffsetFormat = "%-64s%-25s%s\n"
 
   object TransactionBatch {
     def empty: TransactionBatch = new EmptyTransactionBatch()
+
+    final case class FirstAndHighestOffsets(first: Long, highest: Long)
   }
 
   private[kafka] sealed trait TransactionBatch {
-    def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch
+    def updated(partitionOffset: PartitionOffsetCommittedMarker): NonemptyTransactionBatch
     def transactionAborted(): Future[Unit]
   }
 
   final class EmptyTransactionBatch extends TransactionBatch {
-    override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch =
+    override def updated(partitionOffset: PartitionOffsetCommittedMarker): NonemptyTransactionBatch =
       new NonemptyTransactionBatch(partitionOffset)
 
     override def transactionAborted(): Future[Unit] = Future.successful(Done)
@@ -61,37 +64,37 @@ private object TransactionalProducerStage {
   }
 
   final class NonemptyTransactionBatch(head: PartitionOffsetCommittedMarker,
-                                       tail: Map[GroupTopicPartition, Long] = Map.empty,
-                                       first: Map[GroupTopicPartition, Long] = Map.empty)
+                                       tail: Map[GroupTopicPartition, FirstAndHighestOffsets] = Map.empty)
       extends TransactionBatch {
-    // There is no guarantee that offsets adding callbacks will be called in any particular order.
-    // Decreasing an offset stored for the KTP would mean possible data duplication.
-    // Since `awaitingConfirmation` counter guarantees that all writes finished, we can safely assume
-    // that all all data up to maximal offsets has been wrote to Kafka.
-    private val previousHighest = tail.getOrElse(head.key, -1L)
-    private[internal] val offsets = tail + (head.key -> head.offset.max(previousHighest))
-    private[internal] lazy val firstOffsetMap = first.get(head.key) match {
-      case None => first + (head.key -> head.offset)
-      case _ => first
+
+    private val withHighest = tail.get(head.key) match {
+      // There is no guarantee that offsets adding callbacks will be called in any particular order.
+      // Decreasing an offset stored for the KTP would mean possible data duplication.
+      // Since `awaitingConfirmation` counter guarantees that all writes finished, we can safely assume
+      // that all all data up to maximal offsets has been written to Kafka.
+      case Some(FirstAndHighestOffsets(first, previousHighest)) if previousHighest < head.offset =>
+        FirstAndHighestOffsets(first, head.offset)
+      case Some(last @ FirstAndHighestOffsets(_, _)) => last
+      case None => FirstAndHighestOffsets(head.offset, head.offset)
     }
+
+    private[internal] val offsets = tail + (head.key -> withHighest)
 
     def group: String = head.key.groupId
     def committedMarker: CommittedMarker = head.committedMarker
 
     def offsetMap(): Map[TopicPartition, OffsetAndMetadata] = offsets.map {
-      case (gtp, offset) => new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
+      case (gtp, FirstAndHighestOffsets(_, offset)) =>
+        new TopicPartition(gtp.topic, gtp.partition) -> new OffsetAndMetadata(offset + 1)
     }
 
     def internalCommit(): Future[Done] =
       committedMarker.committed(offsetMap())
 
     override def transactionAborted(): Future[Unit] =
-      committedMarker.onTransactionAborted().success(()).future
+      committedMarker.onTransactionAborted.success(()).future
 
-    def firstMessageReceived(): Future[Unit] =
-      committedMarker.onFirstMessageReceived().success(()).future
-
-    override def updated(partitionOffset: PartitionOffsetCommittedMarker): TransactionBatch = {
+    override def updated(partitionOffset: PartitionOffsetCommittedMarker): NonemptyTransactionBatch = {
       require(
         group == partitionOffset.key.groupId,
         s"Transaction batch must contain messages from exactly 1 consumer group. $group != ${partitionOffset.key.groupId}"
@@ -100,13 +103,14 @@ private object TransactionalProducerStage {
         this.committedMarker == partitionOffset.committedMarker,
         "Transaction batch must contain messages from a single source"
       )
-      new NonemptyTransactionBatch(partitionOffset, offsets, firstOffsetMap)
+      new NonemptyTransactionBatch(partitionOffset, offsets)
     }
 
     override def toString: String = {
       val header = tpFirstEndOffsetFormat.format("TopicPartition", "First Observed Offset", "End Offset")
-      val rows = firstOffsetMap.map {
-        case (gtp, firstOffset) => tpFirstEndOffsetFormat.format(gtp.topicPartition.toString, firstOffset, offsets(gtp))
+      val rows = offsets.map {
+        case (gtp, FirstAndHighestOffsets(first, highest)) =>
+          tpFirstEndOffsetFormat.format(gtp.topicPartition.toString, first, highest)
       }
       "\n" + header + rows.mkString
     }
@@ -156,7 +160,8 @@ private final class TransactionalProducerStageLogic[K, V, P](
       produce(msg)
       firstMessage = None
       msg.passThrough match {
-        case committedMarker: PartitionOffsetCommittedMarker => committedMarker.committedMarker.onFirstMessageReceived()
+        case partitionOffset: PartitionOffsetCommittedMarker =>
+          partitionOffset.committedMarker.onFirstMessageReceived.success(())
         case _ => ()
       }
     case _ =>

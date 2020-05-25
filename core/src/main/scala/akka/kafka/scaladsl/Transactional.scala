@@ -147,7 +147,7 @@ object Transactional {
       })(res => res.passThrough)
   }
 
-  private def flowWithDispatcher[PassThrough, V, K](
+  private[kafka] def flowWithDispatcher[PassThrough, V, K](
       settings: ProducerSettings[K, V],
       flow: Flow[Envelope[K, V, PassThrough], Results[K, V, PassThrough], NotUsed]
   ) =

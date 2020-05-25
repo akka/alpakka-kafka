@@ -319,7 +319,7 @@ private[kafka] final class TransactionalSubSource[K, V](
 
 /** Internal API */
 @InternalApi
-private object TransactionalSourceLogic {
+private[internal] object TransactionalSourceLogic {
   type Offset = Long
 
   case object Drained

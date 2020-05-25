@@ -159,10 +159,10 @@ private[kafka] trait CommittedMarker {
   def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done]
 
   /** Marks commit aborted */
-  def onTransactionAborted(): Promise[Unit]
+  def onTransactionAborted: Promise[Unit]
 
   /** Marks first message enlisted in transaction */
-  def onFirstMessageReceived(): Promise[Unit]
+  def onFirstMessageReceived: Promise[Unit]
 
 }
 
