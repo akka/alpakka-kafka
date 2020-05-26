@@ -7,7 +7,7 @@ package akka.kafka
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
-import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
+import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer, Transactional}
