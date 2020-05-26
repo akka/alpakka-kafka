@@ -14,16 +14,16 @@ val AkkaBinaryVersion25 = "2.5"
 val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 val kafkaVersion = "2.5.0"
-val embeddedKafkaVersion = "2.4.1" //kafkaVersion // TODO: revert when embedded-kafka 2.5.0 is released
+val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.4.1.2"
+val embeddedKafkaSchemaRegistry = "5.5.0.1"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.12.4"
 val slf4jVersion = "1.7.26"
-val confluentAvroSerializerVersion = "5.4.0"
+val confluentAvroSerializerVersion = "5.5.0"
 
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
@@ -72,7 +72,6 @@ TaskKey[Unit]("verifyCodeFmt") := {
 }
 
 addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
-
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
 val commonSettings = Def.settings(
@@ -136,6 +135,7 @@ val commonSettings = Def.settings(
   // -s Try to decode Scala names in stack traces and test names.
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
   scalafmtOnCompile := true,
+  ThisBuild / mimaReportSignatureProblems := true,
   headerLicense := Some(
       HeaderLicense.Custom(
         """|Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
@@ -287,7 +287,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.5" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.4" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -312,7 +312,18 @@ lazy val tests = project
             )
         }
       },
-    resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
+    resolvers ++= Seq(
+        "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
+        // required to bring in com.github.everit-org.json-schema:org.everit.json.schema:1.12.1
+        // $ sbt "tests/test:whatDependsOn com.github.everit-org.json-schema org.everit.json.schema 1.12.1"
+        //[info] com.github.everit-org.json-schema:org.everit.json.schema:1.12.1
+        //[info]   +-io.confluent:kafka-json-schema-provider:5.5.0
+        //[info]     +-io.confluent:kafka-schema-registry:5.5.0
+        //[info]       +-io.github.embeddedkafka:embedded-kafka-schema-registry_2.12:5.5.0.1
+        //[info]         +-com.typesafe.akka:akka-stream-kafka-tests_2.12:2.0.2+26-ddcdbcb8+20200526-1427 [S]
+        //[info]
+        "Jitpack" at "https://jitpack.io"
+      ),
     publish / skip := true,
     whitesourceIgnore := true,
     Test / fork := true,
@@ -395,7 +406,7 @@ lazy val docs = project
                          "release-notes/1.0-RC1.html",
                          "release-notes/1.0-RC2.html"),
     resolvers += Resolver.jcenterRepo,
-    publishRsyncArtifact := makeSite.value -> "www/",
+    publishRsyncArtifacts += makeSite.value -> "www/",
     publishRsyncHost := "akkarepo@gustav.akka.io"
   )
 
@@ -417,7 +428,7 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "1.1.2",
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.0",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,

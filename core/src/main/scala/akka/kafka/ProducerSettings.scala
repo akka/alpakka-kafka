@@ -388,9 +388,17 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
                                enrichAsync,
                                producerFactorySync)
 
-  override def toString: String =
+  override def toString: String = {
+    val kafkaClients = properties.toSeq
+      .map {
+        case (key, _) if key.endsWith(".password") =>
+          key -> "[is set]"
+        case t => t
+      }
+      .sortBy(_._1)
+      .mkString(",")
     "akka.kafka.ProducerSettings(" +
-    s"properties=${properties.mkString(",")}," +
+    s"properties=$kafkaClients," +
     s"keySerializer=$keySerializerOpt," +
     s"valueSerializer=$valueSerializerOpt," +
     s"closeTimeout=${closeTimeout.toCoarsest}," +
@@ -400,6 +408,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}," +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}," +
     s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})"
+  }
 
   /**
    * Applies `enrichAsync` to complement these settings from asynchronous sources.

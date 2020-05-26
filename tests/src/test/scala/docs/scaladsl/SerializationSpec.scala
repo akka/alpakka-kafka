@@ -9,15 +9,14 @@ import java.nio.charset.StandardCharsets
 
 import akka.Done
 import akka.kafka._
-import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
+import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.kafka.testkit.scaladsl.KafkaSpec
-import akka.stream.{ActorAttributes, Supervision}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityLevel
+import akka.stream.{ActorAttributes, Supervision}
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
 import org.apache.avro.util.Utf8
 import org.apache.kafka.common.TopicPartition
@@ -38,9 +37,9 @@ import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{FlatSpecLike, Matchers}
 import org.slf4j.bridge.SLF4JBridgeHandler
 
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 
 // #spray-imports
 import spray.json._
@@ -54,7 +53,7 @@ object SampleDataSprayProtocol extends DefaultJsonProtocol {
   implicit val sampleDataProtocol: RootJsonFormat[SampleData] = jsonFormat2(SampleData)
 }
 
-import SampleDataSprayProtocol._
+import docs.scaladsl.SampleDataSprayProtocol._
 // #spray-deser
 
 class SerializationSpec
@@ -69,13 +68,7 @@ class SerializationSpec
   val schemaRegistryPort = KafkaPorts.ScalaAvroSerialization + 2
 
   val configWithSchemaRegistryImpl =
-    EmbeddedKafkaConfigImpl(kafkaPort,
-                            zooKeeperPort,
-                            schemaRegistryPort,
-                            AvroCompatibilityLevel.NONE,
-                            Map.empty,
-                            Map.empty,
-                            Map.empty)
+    EmbeddedKafkaConfigImpl(kafkaPort, zooKeeperPort, schemaRegistryPort, Map.empty, Map.empty, Map.empty, Map.empty)
 
   override def bootstrapServers = s"localhost:${KafkaPorts.ScalaAvroSerialization}"
 

@@ -49,9 +49,9 @@ public abstract class EmbeddedKafkaWithSchemaRegistryTest extends KafkaJunit4Tes
         kafkaPort,
         zookeeperPort,
         schemaRegistryPort,
-        AvroCompatibilityLevel.NONE,
         createReplicationFactorBrokerProps(replicationFactor)
             .updated("zookeeper.connection.timeout.ms", "20000"),
+        HashMap$.MODULE$.empty(),
         HashMap$.MODULE$.empty(),
         HashMap$.MODULE$.empty());
   }
