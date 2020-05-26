@@ -72,7 +72,7 @@ class TransactionsSourceSpec
 
       Await.result(Future.sequence(producers), 1.minute)
 
-      val consumerSettings = consumerDefaults.withStopTimeout(5.seconds).withCloseTimeout(3.seconds).withGroupId(group)
+      val consumerSettings = consumerDefaults.withGroupId(group)
 
       val completedCopy = new AtomicInteger(0)
       val completedWithTimeout = new AtomicInteger(0)
