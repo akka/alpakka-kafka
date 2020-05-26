@@ -103,14 +103,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   override def preStart(): Unit = {
     super.preStart()
-    onTransactionAborted.future.onComplete {
-      case Success(_) => onTransactionAbortedCb.invoke(())
-      case TFailure(ex) => log.error(ex, "An error occurred while during the transaction abort process")
-    }(materializer.executionContext)
-    onFirstMessageReceived.future.onComplete {
-      case Success(_) => onFirstMessageReceivedCb.invoke(())
-      case TFailure(ex) => log.error(ex, "The first message was not received")
-    }(materializer.executionContext)
+    initCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
   }
 
   override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
@@ -416,14 +409,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   override def preStart(): Unit = {
     super.preStart()
-    onTransactionAborted.future.onComplete {
-      case Success(_) => onTransactionAbortedCb.invoke(())
-      case TFailure(ex) => log.error(ex, "An error occurred while during the transaction abort process")
-    }(materializer.executionContext)
-    onFirstMessageReceived.future.onComplete {
-      case Success(_) => onFirstMessageReceivedCb.invoke(())
-      case TFailure(ex) => log.error(ex, "The first message was not received")
-    }(materializer.executionContext)
+    initCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
   }
 
   override protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] =
