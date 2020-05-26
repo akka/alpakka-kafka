@@ -36,10 +36,13 @@ private final class CommitCollectorStageLogic(
     stage: CommitCollectorStage,
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
+    with CommitObservationLogic
     with StageIdLogging {
 
   import CommitCollectorStage._
   import CommitTrigger._
+
+  final val settings: CommitterSettings = stage.committerSettings
 
   override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
@@ -50,14 +53,11 @@ private final class CommitCollectorStageLogic(
     log.debug("CommitCollectorStage initialized")
   }
 
-  /** Batches offsets until a commit is triggered. */
-  private var offsetBatch: CommittableOffsetBatch = CommittableOffsetBatch.empty
-
   // ---- Consuming
   private def consume(offset: Committable): Unit = {
     log.debug("Consuming offset {}", offset)
-    offsetBatch = offsetBatch.updated(offset)
-    if (offsetBatch.batchSize >= stage.committerSettings.maxBatch) pushDownStream(BatchSize)(push)
+    if (updateBatch(offset))
+      pushDownStream(BatchSize)(push)
     else tryPull(stage.in) // accumulating the batch
   }
 

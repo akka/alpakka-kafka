@@ -53,4 +53,8 @@ object ProducerResultFactory {
       parts: java.util.Collection[ProducerMessage.MultiResultPart[K, V]],
       passThrough: PassThrough
   ): ProducerMessage.MultiResult[K, V, PassThrough] = ProducerMessage.MultiResult(parts.asScala.toList, passThrough)
+
+  def passThroughResult[K, V, PassThrough](
+      passThrough: PassThrough
+  ): ProducerMessage.PassThroughResult[K, V, PassThrough] = ProducerMessage.PassThroughResult(passThrough)
 }

@@ -5,12 +5,14 @@
 
 package akka.kafka.internal
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{internal, CommitterSettings, ConsumerSettings, Subscriptions}
-import akka.kafka.scaladsl.{Committer, Consumer}
+import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
+import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.tests.scaladsl.LogCapturing
 import akka.stream._
 import akka.stream.scaladsl._
@@ -20,12 +22,10 @@ import akka.testkit.TestKit
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.scalatest.concurrent.Eventually
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-import scala.jdk.CollectionConverters._
-import scala.collection.immutable.Seq
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object CommittingWithMockSpec {
@@ -55,7 +55,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     with Eventually
     with ScalaFutures
     with IntegrationPatience
-    with LogCapturing {
+    with LogCapturing
+    with Repeated {
 
   import CommittingWithMockSpec._
 
@@ -67,19 +68,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
   implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
   val messages = (1 to 1000).map(createMessage)
-
-  def checkMessagesReceiving(msgss: Seq[Seq[CommittableMessage[K, V]]]): Unit = {
-    val mock = new ConsumerMock[K, V]()
-    val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    probe.request(msgss.map(_.size).sum.toLong)
-    msgss.foreach(chunk => mock.enqueue(chunk.map(toRecord)))
-    probe.expectNextN(msgss.flatten)
-
-    Await.result(control.shutdown(), remainingOrDefault)
-  }
+  val failure = new CommitFailedException()
+  val onCompleteFailure: ConsumerMock.OnCompleteHandler = _ => (null, failure)
 
   def createCommittableSource(mock: Consumer[K, V],
                               groupId: String = "group1",
@@ -88,7 +78,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
       ConsumerSettings
         .create(system, new StringDeserializer, new StringDeserializer)
         .withGroupId(groupId)
-        .withConsumerFactory(_ => mock),
+        .withConsumerFactory(_ => mock)
+        .withStopTimeout(0.seconds),
       Subscriptions.topics(topics)
     )
 
@@ -131,10 +122,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     offsetMeta.offset should ===(msg.record.offset() + 1)
     offsetMeta.metadata should ===(msg.record.offset.toString)
 
-    //emulate commit
-    commitLog.calls.head match {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this, 0L)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -163,17 +152,15 @@ class CommittingWithMockSpec(_system: ActorSystem)
     // committed offset should be the next message the application will consume, i.e. +1
     offsetMeta.offset should ===(msg.record.offset() + 1)
 
-    //emulate commit
-    commitLog.calls.head match {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this, 0L)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "fail future in case of commit fail" in assertAllStagesStopped {
-    val commitLog = new ConsumerMock.LogHandler()
+    val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
       .toMat(TestSink.probe)(Keep.both)
@@ -189,16 +176,50 @@ class CommittingWithMockSpec(_system: ActorSystem)
       commitLog.calls should have size (1)
     }
 
-    //emulate commit failure
-    val failure = new Exception()
-    commitLog.calls.head match {
-      case (offsets, callback) => callback.onComplete(null, failure)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     intercept[Exception] {
       Await.result(done, remainingOrDefault)
     } should be(failure)
     Await.result(control.shutdown(), remainingOrDefault)
+  }
+
+  it should "retry commit" in assertAllStagesStopped {
+    val retries = 4
+    val callNo = new AtomicInteger()
+    val timeout = new CommitTimeoutException("injected15")
+    val onCompleteFailure: ConsumerMock.OnCompleteHandler = { offsets =>
+      if (callNo.getAndIncrement() < retries)
+        (null, new RetriableCommitFailedException(s"injected ${callNo.get()}", timeout))
+      else (offsets, null)
+    }
+    val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
+    val mock = new ConsumerMock[K, V](commitLog)
+    val (control, probe) = createCommittableSource(mock.mock)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    val msg = createMessage(1)
+    mock.enqueue(List(toRecord(msg)))
+
+    probe.request(100)
+    val done = probe.expectNext().committableOffset.commitInternal()
+
+    awaitAssert {
+      commitLog.calls should have size (1)
+    }
+
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
+
+    // the first commit and the retries should be captured
+    awaitAssert {
+      commitLog.calls should have size (retries + 1L)
+    }
+
+    done.futureValue shouldBe Done
+    control.shutdown().futureValue shouldBe Done
   }
 
   it should "collect commits to be sent to commitAsync" in assertAllStagesStopped {
@@ -224,23 +245,11 @@ class CommittingWithMockSpec(_system: ActorSystem)
       }
     }
 
-    // Await until every message is committed
-    var lastOffsetObserved = -1L
-    eventually {
-      //emulate commit
-      commitLog.calls.foreach {
-        case (offsets, callback) =>
-          // What is the highest offset recorded in this callback?
-          val max = offsets.map { case (key, value) => value.offset() }.max
-          // update lastOffsetObserved
-          lastOffsetObserved = Math.max(lastOffsetObserved, max)
-          callback.onComplete(offsets.asJava, null)
-      }
-      lastOffsetObserved should be >= count.toLong
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this, count.toLong)
 
     allCommits.futureValue should have size (count.toLong)
-    control.shutdown().futureValue shouldBe Done
+    Await.result(control.shutdown(), remainingOrDefault)
   }
 
   it should "support commit batching" in assertAllStagesStopped {
@@ -271,10 +280,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic1", 1)).offset should ===(msgsTopic1.last.record.offset() + 1)
     commitMap(new TopicPartition("topic2", 1)).offset should ===(msgsTopic2.last.record.offset() + 1)
 
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -312,10 +319,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -355,10 +360,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done, remainingOrDefault)
     Await.result(control.shutdown(), remainingOrDefault)
@@ -415,13 +418,9 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap2(new TopicPartition("topic1", 1)).offset should ===(msgs2a.last.record.offset() + 1)
     commitMap2(new TopicPartition("topic3", 1)).offset should ===(msgs2b.last.record.offset() + 1)
 
-    //emulate commit
-    commitLog1.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
-    commitLog2.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock1.releaseAndAwaitCommitCallbacks(this)
+    mock2.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(done2, remainingOrDefault)
     Await.result(control1.shutdown(), remainingOrDefault)
@@ -461,10 +460,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     commitMap(new TopicPartition("topic1", 1)).metadata() should ===(msgsTopic1.last.record.offset().toString)
     commitMap(new TopicPartition("topic2", 1)).metadata() should ===(msgsTopic2.last.record.offset().toString)
 
-    //emulate commit
-    commitLog.calls.foreach {
-      case (offsets, callback) => callback.onComplete(offsets.asJava, null)
-    }
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     Await.result(control.shutdown(), remainingOrDefault)
   }
@@ -473,7 +470,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val committerSettings = CommitterSettings(system)
       .withMaxBatch(1L)
 
-    val commitLog = new internal.ConsumerMock.LogHandler()
+    val commitLog = new internal.ConsumerMock.LogHandler(onCompleteFailure)
     val mock = new ConsumerMock[K, V](commitLog)
     val msg = createMessage(1)
     mock.enqueue(List(toRecord(msg)))
@@ -487,7 +484,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
       commitLog.calls should have size 1
     }
 
-    emulateFailedCommit(commitLog)
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     probe.failed.futureValue shouldBe a[CommitFailedException]
     control.shutdown().futureValue shouldBe Done
@@ -497,7 +495,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val committerSettings = CommitterSettings(system)
       .withMaxBatch(1L)
 
-    val commitLog = new ConsumerMock.LogHandler()
+    val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
     val mock = new ConsumerMock[K, V](commitLog)
     val msg = createMessage(1)
     mock.enqueue(List(toRecord(msg)))
@@ -520,16 +518,10 @@ class CommittingWithMockSpec(_system: ActorSystem)
       commitLog.calls should have size 1
     }
 
-    emulateFailedCommit(commitLog)
+    // allow poll to emulate commits
+    mock.releaseAndAwaitCommitCallbacks(this)
 
     control.shutdown().futureValue shouldBe Done
     probe.futureValue shouldBe Done
-  }
-
-  private def emulateFailedCommit(commitLog: ConsumerMock.LogHandler): Unit = {
-    val failure = new CommitFailedException()
-    commitLog.calls.head match {
-      case (_, callback) => callback.onComplete(null, failure)
-    }
   }
 }

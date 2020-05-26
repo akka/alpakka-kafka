@@ -623,9 +623,17 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def createKafkaConsumerCompletionStage(executor: Executor): CompletionStage[Consumer[K, V]] =
     enriched.map(consumerFactory)(ExecutionContext.fromExecutor(executor)).toJava
 
-  override def toString: String =
-    s"akka.kafka.ConsumerSettings(" +
-    s"properties=${properties.mkString(",")}," +
+  override def toString: String = {
+    val kafkaClients = properties.toSeq
+      .map {
+        case (key, _) if key.endsWith(".password") =>
+          key -> "[is set]"
+        case t => t
+      }
+      .sortBy(_._1)
+      .mkString(",")
+    "akka.kafka.ConsumerSettings(" +
+    s"properties=$kafkaClients," +
     s"keyDeserializer=$keyDeserializerOpt," +
     s"valueDeserializer=$valueDeserializerOpt," +
     s"pollInterval=${pollInterval.toCoarsest}," +
@@ -643,4 +651,5 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}" +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
     ")"
+  }
 }

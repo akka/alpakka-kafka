@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
+import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 import org.scalatest._
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -75,6 +76,18 @@ class ProducerSettingsSpec
         .getConfig("akka.kafka.producer")
       val settings = ProducerSettings(conf, None, Some(new ByteArraySerializer))
       settings.properties("bootstrap.servers") should ===("localhost:9092")
+    }
+
+    "filter passwords from kafka-clients properties" in {
+      val conf = ConfigFactory.load().getConfig(ProducerSettings.configPath)
+      val settings = ProducerSettings(conf, new ByteArraySerializer, new StringSerializer)
+        .withProperty(SslConfigs.SSL_KEY_PASSWORD_CONFIG, "hemligt")
+        .withProperty("ssl.truststore.password", "geheim")
+      val s = settings.toString
+      s should include(SslConfigs.SSL_KEY_PASSWORD_CONFIG)
+      s should not include ("hemligt")
+      s should include("ssl.truststore.password")
+      s should not include ("geheim")
     }
 
     "throw IllegalArgumentException if no value serializer defined" in {
