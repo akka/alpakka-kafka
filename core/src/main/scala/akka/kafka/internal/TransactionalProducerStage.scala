@@ -259,7 +259,6 @@ private final class TransactionalProducerStageLogic[K, V, P](
   }
 
   override def onCompletionFailure(ex: Throwable): Unit = {
-    log.error(ex, "### onCompletionFailure")
     cancelTimer(commitSchedulerKey)
     abortTransaction("Stage failure")
 

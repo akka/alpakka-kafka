@@ -57,7 +57,6 @@ import scala.concurrent.{Future, Promise}
 
   protected def shuttingDownReceive: PartialFunction[(ActorRef, Any), Unit] = {
     case (_, Terminated(ref)) if ref == consumerActor =>
-      log.debug("### Shutting down because of KafkaConsumerActor termination")
       onShutdown()
       completeStage()
   }

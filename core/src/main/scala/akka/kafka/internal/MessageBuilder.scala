@@ -53,8 +53,8 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
   val onTransactionAborted: Promise[Unit] = Promise()
   val onFirstMessageReceived: Promise[Unit] = Promise()
 
-  def initCallbacks(firstMessageReceivedCb: AsyncCallback[Unit],
-                    transactionAbortedCb: AsyncCallback[Unit])(implicit ec: ExecutionContext): Unit = {
+  def initSourceStageCallbacks(firstMessageReceivedCb: AsyncCallback[Unit],
+                               transactionAbortedCb: AsyncCallback[Unit])(implicit ec: ExecutionContext): Unit = {
     onFirstMessageReceived.future.onComplete {
       case Success(_) => firstMessageReceivedCb.invoke(())
       case Failure(ex) => throw new RuntimeException("The first message was not received", ex)

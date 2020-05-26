@@ -103,7 +103,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   override def preStart(): Unit = {
     super.preStart()
-    initCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
+    initSourceStageCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
   }
 
   override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
@@ -116,10 +116,8 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       .orElse(drainHandling)
       .orElse {
         case (_, Status.Failure(e)) =>
-          log.error("### Failing stage because Status.Failure sent")
           failStage(e)
         case (_, Terminated(ref)) if ref == consumerActor =>
-          log.error("### Failing stage because KafkaConsumerActor failed")
           failStage(new ConsumerFailed())
       }
 
@@ -167,7 +165,6 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
 
   override protected def stopConsumerActor(): Unit = {
-    log.debug("### Draining started from stopConsumerActor()")
     draining = true
     sourceActor.ref
       .tell(Drain(
@@ -409,7 +406,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   override def preStart(): Unit = {
     super.preStart()
-    initCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
+    initSourceStageCallbacks(onFirstMessageReceivedCb, onTransactionAbortedCb)(materializer.executionContext)
   }
 
   override protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] =

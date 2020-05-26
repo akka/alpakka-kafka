@@ -45,13 +45,6 @@ trait TransactionsOps extends TestSuite with Matchers {
           msg
       }
       .idleTimeout(idleTimeout)
-      .alsoTo(
-        Flow[TransactionalMessage[String, String]]
-          .filter(_.partitionOffset.offset % 50 == 0)
-          .map(_.record.value())
-          .log("### transactionalCopyStream producing")
-          .to(Sink.ignore)
-      )
       .map { msg =>
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
@@ -185,7 +178,7 @@ trait TransactionsOps extends TestSuite with Matchers {
       .alsoTo(
         Flow[(Int, Long, String)]
           .scan(0) { case (count, _) => count + 1 }
-          .filter(_ % 10 == 0)
+          .filter(_ % 100 == 0)
           .log("received")
           .to(Sink.ignore)
       )
