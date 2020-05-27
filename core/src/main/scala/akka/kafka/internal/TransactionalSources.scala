@@ -99,7 +99,6 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private val inFlightRecords = InFlightRecords.empty
   private var firstMessageReceived = false
-  private var draining = false
 
   override def preStart(): Unit = {
     super.preStart()
@@ -115,10 +114,8 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     super.shuttingDownReceive
       .orElse(drainHandling)
       .orElse {
-        case (_, Status.Failure(e)) =>
-          failStage(e)
-        case (_, Terminated(ref)) if ref == consumerActor =>
-          failStage(new ConsumerFailed())
+        case (_, Status.Failure(e)) => failStage(e)
+        case (_, Terminated(ref)) if ref == consumerActor => failStage(new ConsumerFailed())
       }
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
@@ -128,7 +125,6 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     case (sender, Drain(partitions, ack, msg)) =>
       if (!firstMessageReceived || inFlightRecords.empty(partitions)) {
         log.debug(s"Partitions drained ${partitions.mkString(",")}")
-        draining = false
         ack.getOrElse(sender).tell(msg, sourceActor.ref)
       } else {
         log.debug(s"Draining partitions {}, inFlightRecords: {}", partitions, inFlightRecords)
@@ -145,7 +141,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override val groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
   private val onTransactionAbortedCb = getAsyncCallback[Unit] { _ =>
-    log.debug(s"Committing failed, draining: $draining, resetting inFlightRecords: $inFlightRecords")
+    log.debug("Committing failed resetting inFlightRecords: {}", inFlightRecords)
     inFlightRecords.reset()
   }
 
@@ -165,7 +161,6 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
 
   override protected def stopConsumerActor(): Unit = {
-    draining = true
     sourceActor.ref
       .tell(Drain(
               inFlightRecords.assigned(),

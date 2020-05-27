@@ -22,7 +22,6 @@ import org.apache.kafka.common.TopicPartition
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 /**
@@ -268,7 +267,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
         case Success(_) =>
           log.debug("Successfully sent source stage failure")
           onCommitFailedAckCb.invoke(ex)
-        case Failure(commitEx) if NonFatal(commitEx) =>
+        case Failure(commitEx) =>
           log.error(commitEx, "Failed to send source stage failure")
           onCommitFailedAckCb.invoke(commitEx)
       }(materializer.executionContext)
