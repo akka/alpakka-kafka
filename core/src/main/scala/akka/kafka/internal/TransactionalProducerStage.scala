@@ -286,7 +286,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
     log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
               transactionalId,
               group,
-              batch.toString)
+              batch)
     batchOffsets = TransactionBatch.empty
 
     batch
