@@ -279,7 +279,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
     log.debug("Committing transaction for transactional id '{}' consumer group '{}' with offsets: {}",
               transactionalId,
               group,
-              batch.toString)
+              batch)
     val offsetMap = batch.offsetMap()
     producer.sendOffsetsToTransaction(offsetMap.asJava, group)
     producer.commitTransaction()
