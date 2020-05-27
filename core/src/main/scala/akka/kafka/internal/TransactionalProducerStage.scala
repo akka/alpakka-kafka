@@ -323,7 +323,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   }
 
   private def abortTransaction(reason: String): Unit = {
-    log.debug("Aborting transaction with reason: {}, offsets: {}", reason, batchOffsets.toString)
+    log.debug("Aborting transaction with reason: {}, offsets: {}", reason, batchOffsets)
     if (producerAssignmentLifecycle == Assigned) producer.abortTransaction()
   }
 }
