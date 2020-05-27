@@ -71,7 +71,7 @@ private[kafka] object TransactionalProducerStage {
       // There is no guarantee that offsets adding callbacks will be called in any particular order.
       // Decreasing an offset stored for the KTP would mean possible data duplication.
       // Since `awaitingConfirmation` counter guarantees that all writes finished, we can safely assume
-      // that all all data up to maximal offsets has been written to Kafka.
+      // that all data up to maximal offsets has been written to Kafka.
       case Some(FirstAndHighestOffsets(first, previousHighest)) if previousHighest < head.offset =>
         FirstAndHighestOffsets(first, head.offset)
       case Some(last @ FirstAndHighestOffsets(_, _)) => last
