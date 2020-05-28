@@ -6,6 +6,8 @@ tmp
 .history
 dist
 /.idea
+.metals
+.bloop
 /*.iml
 /out
 /.idea_modules
