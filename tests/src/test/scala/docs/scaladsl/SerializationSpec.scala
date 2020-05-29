@@ -110,13 +110,9 @@ class SerializationSpec
 
     // #spray-deser
 
-    val resumeOnParsingException = ActorAttributes.withSupervisionStrategy {
-      new akka.japi.function.Function[Throwable, Supervision.Directive] {
-        override def apply(t: Throwable): Supervision.Directive = t match {
-          case _: spray.json.JsonParser.ParsingException => Supervision.Resume
-          case _ => Supervision.stop
-        }
-      }
+    val resumeOnParsingException = ActorAttributes.supervisionStrategy {
+      case _: spray.json.JsonParser.ParsingException => Supervision.Resume
+      case _ => Supervision.stop
     }
 
     val consumer = Consumer
