@@ -158,8 +158,15 @@ import scala.util.control.NonFatal
         }
       }
 
-      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit =
-        refreshDeadlines = refreshDeadlines ++ tps.map(_ -> commitRefreshInterval.fromNow)
+      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {
+        // only update some of the deadline, those that we have been assigned. The committed set that is expected to
+        // be <= the number of assigned partitions, so iterate over that set. It is possible that we try to commit a
+        // partition that is no longer assigned to this consumer, so that assumption is not necessarily strictly
+        // true, but it's reasonable.
+        refreshDeadlines = refreshDeadlines ++ tps.intersect(refreshDeadlines.keySet).map{ tp =>
+          (tp, commitRefreshInterval.fromNow)
+        }
+      }
 
       def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
         requestedOffsets = requestedOffsets ++ assignedOffsets.map {
@@ -170,7 +177,8 @@ import scala.util.control.NonFatal
             case (partition, offset) =>
               partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
           }
-        updateRefreshDeadlines(assignedTps)
+        // assigned the partitions, to update all the of deadlines
+        refreshDeadlines = refreshDeadlines ++ assignedTps.map(_ -> commitRefreshInterval.fromNow)
       }
 
       def assignedPositions(assignedTps: Set[TopicPartition],
