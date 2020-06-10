@@ -158,23 +158,8 @@ import scala.util.control.NonFatal
         }
       }
 
-      /**
-        * Update the deadlines for offsets to refresh from all the committed partitions. Filters out those partitions
-        * that have been revoked (in the rebalance handler), to ensure that we only continue to refresh partitions
-        * that are currently assigned to this consumer.
-        *
-        * Otherwise, since the partition is no longer assigned, no more messages are consumed, so we will be forever
-        * stuck with that committed offset to be refreshed (at least until the partition is again reassigned to us), and
-        * refreshing a stale offset.
-       */
-      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {
-        // The committed set that is expected to be <= the number of assigned partitions, so iterate over that set.
-        // It is possible that we try to commit a partition that is no longer assigned to this consumer, so that
-        // assumption is not necessarily strictly true, but it's reasonable.
-        refreshDeadlines = refreshDeadlines ++ tps.intersect(refreshDeadlines.keySet).map{ tp =>
-          (tp, commitRefreshInterval.fromNow)
-        }
-      }
+      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit =
+        refreshDeadlines = refreshDeadlines ++ tps.map(_ -> commitRefreshInterval.fromNow)
 
       def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
         requestedOffsets = requestedOffsets ++ assignedOffsets.map {
@@ -185,8 +170,7 @@ import scala.util.control.NonFatal
             case (partition, offset) =>
               partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
           }
-        // assigned the partitions, to update all the of deadlines
-        refreshDeadlines = refreshDeadlines ++ assignedTps.map(_ -> commitRefreshInterval.fromNow)
+        updateRefreshDeadlines(assignedTps)
       }
 
       def assignedPositions(assignedTps: Set[TopicPartition],
@@ -581,12 +565,17 @@ import scala.util.control.NonFatal
 
   private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
     val aggregatedOffsets = aggregateOffsets(commitMaps)
-    commitRefreshing.add(aggregatedOffsets)
+    // commits can occur after the partition has been unassigned from the consumer, so ensure that we only attempt to
+    // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
+    // amounts of replayed data during a rebalance, but for low volume topics can ensure that consumers never appear
+    // 'stuck' because of out-of-order commits from slow consumers.
+    val assignedOffsetToCommit = aggregatedOffsets.filterKeys(consumer.assignment().asScala.contains)
+    commitRefreshing.add(assignedOffsetToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
     commitMaps = List.empty
     commitSenders = Vector.empty
-    commit(aggregatedOffsets, replyTo)
+    commit(assignedOffsetToCommit, replyTo)
   }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]): Unit = {
