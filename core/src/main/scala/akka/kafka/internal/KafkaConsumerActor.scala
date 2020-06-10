@@ -158,11 +158,19 @@ import scala.util.control.NonFatal
         }
       }
 
+      /**
+        * Update the deadlines for offsets to refresh from all the committed partitions. Filters out those partitions
+        * that have been revoked (in the rebalance handler), to ensure that we only continue to refresh partitions
+        * that are currently assigned to this consumer.
+        *
+        * Otherwise, since the partition is no longer assigned, no more messages are consumed, so we will be forever
+        * stuck with that committed offset to be refreshed (at least until the partition is again reassigned to us), and
+        * refreshing a stale offset.
+       */
       def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {
-        // only update some of the deadline, those that we have been assigned. The committed set that is expected to
-        // be <= the number of assigned partitions, so iterate over that set. It is possible that we try to commit a
-        // partition that is no longer assigned to this consumer, so that assumption is not necessarily strictly
-        // true, but it's reasonable.
+        // The committed set that is expected to be <= the number of assigned partitions, so iterate over that set.
+        // It is possible that we try to commit a partition that is no longer assigned to this consumer, so that
+        // assumption is not necessarily strictly true, but it's reasonable.
         refreshDeadlines = refreshDeadlines ++ tps.intersect(refreshDeadlines.keySet).map{ tp =>
           (tp, commitRefreshInterval.fromNow)
         }
