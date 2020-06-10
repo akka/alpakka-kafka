@@ -51,7 +51,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 
   "After retention period (1 min) consumer" must {
 
-    "rebalanced partitions after they are committed are not refreshed" in assertAllStagesStopped {
+    "not commit or refresh partitions that are not assigned" in assertAllStagesStopped {
       val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
       val topicSuffix = Random.nextInt()

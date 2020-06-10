@@ -569,7 +569,7 @@ import scala.util.control.NonFatal
     // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
     // amounts of replayed data during a rebalance, but for low volume topics can ensure that consumers never appear
     // 'stuck' because of out-of-order commits from slow consumers.
-    val assignedOffsetToCommit = aggregatedOffsets.filterKeys(consumer.assignment().asScala.contains)
+    val assignedOffsetToCommit = aggregatedOffsets.filterKeys(consumer.assignment().contains).toMap
     commitRefreshing.add(assignedOffsetToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
