@@ -51,7 +51,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 
   "After retention period (1 min) consumer" must {
 
-    "rebalanced partitions after they are committed are not refreshed" in assertAllStagesStopped{
+    "rebalanced partitions after they are committed are not refreshed" in assertAllStagesStopped {
       val count = 20L
       // de-coupling consecutive test runs with crossScalaVersions on Travis
       val topicSuffix = Random.nextInt()
@@ -60,10 +60,10 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val tp0 = new TopicPartition(topic1, partition0)
       val tp1 = new TopicPartition(topic1, partition1)
       val consumerSettings = consumerDefaults
-          .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
-          .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
-          .withCommitRefreshInterval(5.seconds)
-          .withGroupId(group1)
+        .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
+        .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
+        .withCommitRefreshInterval(5.seconds)
+        .withGroupId(group1)
 
       awaitProduce(produce(topic1, 0 to count.toInt, partition0))
 
@@ -77,9 +77,9 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val probe1rebalanceActor = TestProbe()
       val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
       val (control1, probe1) = Consumer
-          .committableSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+        .committableSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
       log.debug("Await initial partition assignment")
       probe1rebalanceActor.expectMsg(
@@ -89,7 +89,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       log.debug("read one message from probe1 with partition 0")
       val firstOffset = probe1.requestNext()
       firstOffset.record.topic() should be(topic1)
-      firstOffset.record.partition() should equal (partition0)
+      firstOffset.record.partition() should equal(partition0)
 
       log.debug("move the partition to the other consumer")
       AlpakkaAssignor.clientIdToPartitionMap.set(
@@ -103,9 +103,9 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val probe2rebalanceActor = TestProbe()
       val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
-          .committableSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+        .committableSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
       log.debug("Await a revoke to consumer 1")
       probe1rebalanceActor.expectMsg(
@@ -126,9 +126,9 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 
       log.debug("Resume polling on second consumer, committing progress forward for {}", tp0)
       val offsets = probe2.request(2).expectNextN(2)
-      for (offset <- offsets){
+      for (offset <- offsets) {
         offset.record.topic() should be(topic1)
-        offset.record.partition() should equal (partition0)
+        offset.record.partition() should equal(partition0)
         offset.committableOffset.commitInternal()
       }
 
@@ -143,22 +143,26 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
           .withGroupId(group2)
       val probe3subscription = Subscriptions.topics("__consumer_offsets")
       val (control3, probe3) = Consumer
-          .plainSource(group2consumerSettings.withClientId(consumerClientId3), probe3subscription)
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+        .plainSource(group2consumerSettings.withClientId(consumerClientId3), probe3subscription)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
       val commits: Seq[ConsumerRecord[Array[Byte], Array[Byte]]] = probe3.request(100).expectNextN(10)
 
       // helper method ripped from GroupMetadataManager's formatter
-      def readOffset(consumerRecord:ConsumerRecord[Array[Byte], Array[Byte]]):
-      Option[(GroupTopicPartition, Option[OffsetAndMetadata])] = {
+      def readOffset(
+          consumerRecord: ConsumerRecord[Array[Byte], Array[Byte]]
+      ): Option[(GroupTopicPartition, Option[OffsetAndMetadata])] = {
         val offsetKey = GroupMetadataManager.readMessageKey(ByteBuffer.wrap(consumerRecord.key()))
         // Only read the message if it is an offset record.
         // We ignore the timestamp of the message because GroupMetadataMessage has its own timestamp.
         offsetKey match {
-          case offsetKey: OffsetKey => val groupTopicPartition = offsetKey.key
+          case offsetKey: OffsetKey =>
+            val groupTopicPartition = offsetKey.key
             val value = consumerRecord.value
-            val formattedValue = if (value == null) None else Some(GroupMetadataManager.readOffsetMessageValue(ByteBuffer.wrap(value)))
-            Some((groupTopicPartition, formattedValue)).asInstanceOf[Option[(GroupTopicPartition, Option[OffsetAndMetadata])]]
+            val formattedValue =
+              if (value == null) None else Some(GroupMetadataManager.readOffsetMessageValue(ByteBuffer.wrap(value)))
+            Some((groupTopicPartition, formattedValue))
+              .asInstanceOf[Option[(GroupTopicPartition, Option[OffsetAndMetadata])]]
           case _: Any => None
         }
       }
@@ -170,8 +174,8 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
           case Some((group, offset)) =>
             log.debug("Committed {}: {}", group: Any, offset: Any)
             offset match {
-              case Some(position)  =>
-                if (group.topicPartition.equals(tp0)){
+              case Some(position) =>
+                if (group.topicPartition.equals(tp0)) {
                   position.offset shouldBe >=(progress)
                   progress = position.offset
                 }
