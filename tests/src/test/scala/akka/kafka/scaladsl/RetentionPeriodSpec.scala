@@ -25,7 +25,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.util.Random
 
 class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
@@ -49,29 +48,21 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
   final val consumerClientId2 = "consumer-2"
   final val consumerClientId3 = "consumer-3"
 
-  "After retention period (1 min) consumer" must {
-
+  "While refreshing offsets the consumer" must {
     "not commit or refresh partitions that are not assigned" in assertAllStagesStopped {
-      val count = 20L
-      // de-coupling consecutive test runs with crossScalaVersions on Travis
-      val topicSuffix = Random.nextInt()
-      val topic1 = createTopic(topicSuffix, partitions = 2)
+      val topic1 = createTopic(0, partitions = 2)
       val group1 = createGroupId(1)
       val tp0 = new TopicPartition(topic1, partition0)
       val tp1 = new TopicPartition(topic1, partition1)
       val consumerSettings = consumerDefaults
         .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
         .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, classOf[AlpakkaAssignor].getName)
-        .withCommitRefreshInterval(5.seconds)
+        .withCommitRefreshInterval(1.seconds)
         .withGroupId(group1)
 
-      awaitProduce(produce(topic1, 0 to count.toInt, partition0))
+      awaitProduce(produce(topic1, 0 to 20, partition0))
 
-      AlpakkaAssignor.clientIdToPartitionMap.set(
-        Map(
-          consumerClientId1 -> Set(tp0, tp1)
-        )
-      )
+      AlpakkaAssignor.clientIdToPartitionMap.set(Map(consumerClientId1 -> Set(tp0, tp1)))
 
       log.debug("Subscribe to the topic (without demand)")
       val probe1rebalanceActor = TestProbe()
@@ -82,9 +73,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
         .run()
 
       log.debug("Await initial partition assignment")
-      probe1rebalanceActor.expectMsg(
-        TopicPartitionsAssigned(probe1subscription, Set(tp0, tp1))
-      )
+      probe1rebalanceActor.expectMsg(TopicPartitionsAssigned(probe1subscription, Set(tp0, tp1)))
 
       log.debug("read one message from probe1 with partition 0")
       val firstOffset = probe1.requestNext()
@@ -92,12 +81,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       firstOffset.record.partition() should equal(partition0)
 
       log.debug("move the partition to the other consumer")
-      AlpakkaAssignor.clientIdToPartitionMap.set(
-        Map(
-          consumerClientId1 -> Set(tp1),
-          consumerClientId2 -> Set(tp0)
-        )
-      )
+      AlpakkaAssignor.clientIdToPartitionMap.set(Map(consumerClientId1 -> Set(tp1), consumerClientId2 -> Set(tp0)))
 
       log.debug("Subscribe to the topic (without demand)")
       val probe2rebalanceActor = TestProbe()
@@ -108,17 +92,11 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
         .run()
 
       log.debug("Await a revoke to consumer 1")
-      probe1rebalanceActor.expectMsg(
-        TopicPartitionsRevoked(probe1subscription, Set(tp0, tp1))
-      )
+      probe1rebalanceActor.expectMsg(TopicPartitionsRevoked(probe1subscription, Set(tp0, tp1)))
 
       log.debug("the rebalance finishes")
-      probe1rebalanceActor.expectMsg(
-        TopicPartitionsAssigned(probe1subscription, Set(tp1))
-      )
-      probe2rebalanceActor.expectMsg(
-        TopicPartitionsAssigned(probe2subscription, Set(tp0))
-      )
+      probe1rebalanceActor.expectMsg(TopicPartitionsAssigned(probe1subscription, Set(tp1)))
+      probe2rebalanceActor.expectMsg(TopicPartitionsAssigned(probe2subscription, Set(tp0)))
 
       // this should setup the refreshing offsets on consumer 1 to go backwards
       log.debug("committing progress on first consumer for {}, after it has been rebalanced away", tp0)
@@ -132,15 +110,14 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
         offset.committableOffset.commitInternal()
       }
 
-      // sleep for more than the refresh period
-      Thread.sleep(15.seconds.toMillis)
+      sleep(5.seconds, "Wait for a number of offset refreshes")
 
       // read the __consumer_offsets topic and we should see the flipping back and forth
       val group2 = createGroupId(2)
-      val group2consumerSettings: ConsumerSettings[Array[Byte], Array[Byte]] =
-        consumerDefaults(new ByteArrayDeserializer(), new ByteArrayDeserializer())
-          .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1")
-          .withGroupId(group2)
+      val group2consumerSettings: ConsumerSettings[Array[Byte], Array[Byte]] = consumerDefaults(
+        new ByteArrayDeserializer(),
+        new ByteArrayDeserializer()
+      ).withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1").withGroupId(group2)
       val probe3subscription = Subscriptions.topics("__consumer_offsets")
       val (control3, probe3) = Consumer
         .plainSource(group2consumerSettings.withClientId(consumerClientId3), probe3subscription)
@@ -152,8 +129,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       def readOffset(
           consumerRecord: ConsumerRecord[Array[Byte], Array[Byte]]
       ): Option[(GroupTopicPartition, Option[OffsetAndMetadata])] = {
-        val offsetKey = GroupMetadataManager.readMessageKey(ByteBuffer.wrap(consumerRecord.key()))
-        // Only read the message if it is an offset record.
+        val offsetKey = GroupMetadataManager.readMessageKey(ByteBuffer.wrap(consumerRecord.key())) // Only read the message if it is an offset record.
         // We ignore the timestamp of the message because GroupMetadataMessage has its own timestamp.
         offsetKey match {
           case offsetKey: OffsetKey =>
@@ -194,7 +170,9 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       control2.isShutdown.futureValue shouldBe Done
       control3.isShutdown.futureValue shouldBe Done
     }
+  }
 
+  "After retention period (1 min) consumer" must {
     "resume from committed offset" in assertAllStagesStopped {
       val topic1 = createTopic()
       val group1 = createGroupId()
