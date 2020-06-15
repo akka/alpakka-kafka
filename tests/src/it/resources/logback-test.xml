@@ -25,7 +25,7 @@
     </logger>
 
     <logger name="akka" level="DEBUG"/>
-    <logger name="akka.kafka" level="DEBUG"/>
+    <logger name="akka.kafka" level="INFO"/>
     <logger name="akka.stream.Log" level="DEBUG" />
     <logger name="docs.scaladsl" levle="DEBUG"/>
 
