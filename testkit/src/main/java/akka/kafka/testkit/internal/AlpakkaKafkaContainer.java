@@ -24,7 +24,8 @@ import java.util.stream.Stream;
 /**
  * This container wraps Confluent Kafka and Zookeeper (optionally)
  *
- * This is a copy of KafkaContainer from testcontainers/testcontainers-java that we can tweak as needed
+ * <p>This is a copy of KafkaContainer from testcontainers/testcontainers-java that we can tweak as
+ * needed
  */
 @InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
