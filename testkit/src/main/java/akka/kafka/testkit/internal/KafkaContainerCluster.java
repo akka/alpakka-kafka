@@ -34,10 +34,10 @@ public class KafkaContainerCluster implements Startable {
 
   public static final String CONFLUENT_PLATFORM_VERSION =
       AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION;
-  public static final int START_TIMEOUT_SECONDS = 1200;
+  public static final int START_TIMEOUT_SECONDS = 120;
 
-  private static final String TEST_SCRIPT = "/testcontainers_test.sh";
-  private static final String TEST_TOPIC = "test-kafka-container-cluster";
+  private static final String READINESS_CHECK_SCRIPT = "/testcontainers_readiness_check.sh";
+  private static final String READINESS_CHECK_TOPIC = "ready-kafka-container-cluster";
   private static final Version BOOTSTRAP_PARAM_MIN_VERSION = new Version("5.2.0");
 
   private final Logger log = LoggerFactory.getLogger(getClass());
@@ -138,7 +138,7 @@ public class KafkaContainerCluster implements Startable {
               broker -> {
                 broker.copyFileToContainer(
                     Transferable.of(readinessCheckScript().getBytes(StandardCharsets.UTF_8), 700),
-                    TEST_SCRIPT);
+                    READINESS_CHECK_SCRIPT);
               });
 
       // test produce & consume message with full cluster involvement
@@ -183,13 +183,13 @@ public class KafkaContainerCluster implements Startable {
         "kafka-topics "
             + connect
             + " --delete --topic "
-            + TEST_TOPIC
+            + READINESS_CHECK_TOPIC
             + " || echo \"topic does not exist\" \n";
     command +=
         "kafka-topics "
             + connect
             + " --topic "
-            + TEST_TOPIC
+            + READINESS_CHECK_TOPIC
             + " --create --partitions "
             + this.brokersNum
             + " --replication-factor "
@@ -200,13 +200,13 @@ public class KafkaContainerCluster implements Startable {
     command += "MESSAGE=\"`date -u`\" \n";
     command +=
         "echo \"$MESSAGE\" | kafka-console-producer --broker-list localhost:9092 --topic "
-            + TEST_TOPIC
+            + READINESS_CHECK_TOPIC
             + " --producer-property acks=all \n";
     command +=
         "kafka-console-consumer --bootstrap-server localhost:9092 --topic "
-            + TEST_TOPIC
+            + READINESS_CHECK_TOPIC
             + " --from-beginning --timeout-ms 2000 --max-messages 1 | grep \"$MESSAGE\" \n";
-    command += "kafka-topics " + connect + " --delete --topic " + TEST_TOPIC + " \n";
+    command += "kafka-topics " + connect + " --delete --topic " + READINESS_CHECK_TOPIC + " \n";
     command += "echo \"test succeeded\" \n";
     return command;
   }
@@ -229,7 +229,7 @@ public class KafkaContainerCluster implements Startable {
                   .execCreateCmd(c.getContainerId())
                   .withAttachStdout(true)
                   .withAttachStderr(true)
-                  .withCmd("sh", "-c", TEST_SCRIPT)
+                  .withCmd("sh", "-c", READINESS_CHECK_SCRIPT)
                   .exec()
                   .getId())
           .exec(new ExecStartResultCallback(stdoutStream, stderrStream))
