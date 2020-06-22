@@ -21,7 +21,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** This container wraps Confluent Kafka and Zookeeper (optionally) */
+/**
+ * This container wraps Confluent Kafka and Zookeeper (optionally)
+ *
+ * <p>This is a copy of KafkaContainer from testcontainers/testcontainers-java that we can tweak as
+ * needed
+ */
 @InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
 
