@@ -112,16 +112,13 @@ public class KafkaContainerCluster implements Startable {
   }
 
   private Stream<GenericContainer> allContainers() {
-    Stream<GenericContainer> genericBrokers = this.brokers.stream().map(b -> b);
-    Stream<GenericContainer> zookeeper = Stream.of(this.zookeeper);
-    return Stream.concat(genericBrokers, zookeeper);
+    return Stream.concat(this.brokers.stream(), Stream.of(this.zookeeper));
   }
 
   @Override
   public void start() {
     try {
-      Stream<Startable> startables = this.brokers.stream().map(b -> b);
-      Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
+      Startables.deepStart(this.brokers.stream()).get(START_TIMEOUT_SECONDS, SECONDS);
 
       // assert that cluster has formed
       Unreliables.retryUntilTrue(
