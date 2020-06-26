@@ -24,6 +24,12 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.core.JsonParseException;
 // #jackson-imports
+// #protobuf-imports
+// the Protobuf generated class
+import docs.javadsl.proto.OrderMessages;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+// #protobuf-imports
 import docs.scaladsl.SampleAvroClass;
 // #imports
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
@@ -42,6 +48,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.*;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -132,6 +139,77 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
         is(Done.getInstance()));
 
     List<SampleData> result =
+        control.drainAndShutdown(ec).toCompletableFuture().get(1, TimeUnit.SECONDS);
+    assertThat(result, is(samples));
+    assertThat(result.size(), is(samples.size()));
+  }
+
+  @Test
+  public void protobufDeSer() throws Exception {
+    final String topic = createTopic();
+    final String group = createGroupId();
+
+    OrderMessages.Order sample = OrderMessages.Order.newBuilder().setId("789465").build();
+    List<OrderMessages.Order> samples = Arrays.asList(sample, sample, sample);
+
+    // #protobuf-serializer
+
+    ProducerSettings<String, byte[]> producerSettings = // ...
+        // #protobuf-serializer
+        producerDefaults(new StringSerializer(), new ByteArraySerializer());
+
+    // #protobuf-serializer
+
+    CompletionStage<Done> producerCompletion =
+        Source.from(samples)
+            .map(order -> new ProducerRecord<>(topic, order.getId(), order.toByteArray()))
+            .runWith(Producer.plainSink(producerSettings), mat);
+    // #protobuf-serializer
+
+    CompletionStage<Done> badlyFormattedProducer =
+        Source.single("faulty".getBytes(StandardCharsets.UTF_8))
+            .map(data -> new ProducerRecord<>(topic, "32", data))
+            .runWith(Producer.plainSink(producerSettings), mat);
+
+    // #protobuf-deserializer
+
+    final Attributes resumeOnParseException =
+        ActorAttributes.withSupervisionStrategy(
+            exception -> {
+              if (exception instanceof com.google.protobuf.InvalidProtocolBufferException) {
+                return Supervision.resume();
+              } else {
+                return Supervision.stop();
+              }
+            });
+
+    ConsumerSettings<String, byte[]> consumerSettings = // ...
+        // #protobuf-deserializer
+        consumerDefaults(new StringDeserializer(), new ByteArrayDeserializer()).withGroupId(group);
+    // #protobuf-deserializer
+
+    Consumer.DrainingControl<List<OrderMessages.Order>> control =
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
+            .map(ConsumerRecord::value)
+            .map(OrderMessages.Order::parseFrom)
+            .withAttributes(resumeOnParseException) // drop faulty elements
+            // #protobuf-deserializer
+            .take(samples.size())
+            // #protobuf-deserializer
+            .toMat(Sink.seq(), Consumer::createDrainingControl)
+            .run(mat);
+    // #protobuf-deserializer
+
+    assertThat(
+        producerCompletion.toCompletableFuture().get(4, TimeUnit.SECONDS), is(Done.getInstance()));
+    assertThat(
+        badlyFormattedProducer.toCompletableFuture().get(4, TimeUnit.SECONDS),
+        is(Done.getInstance()));
+    assertThat(
+        control.isShutdown().toCompletableFuture().get(10, TimeUnit.SECONDS),
+        is(Done.getInstance()));
+
+    List<OrderMessages.Order> result =
         control.drainAndShutdown(ec).toCompletableFuture().get(1, TimeUnit.SECONDS);
     assertThat(result, is(samples));
     assertThat(result.size(), is(samples.size()));

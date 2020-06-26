@@ -134,6 +134,60 @@ class SerializationSpec
     consumer.drainAndShutdown().futureValue should be(samples)
   }
 
+  "Protobuf use" should "be documented" in assertAllStagesStopped {
+    // #protobuf-imports
+    // the Protobuf generated class
+    import docs.scaladsl.proto.Order
+
+    // #protobuf-imports
+    val group = createGroupId()
+    val topic = createTopic()
+
+    val sample = Order(id = "789465")
+    val samples = List(sample, sample, sample)
+
+    // #protobuf-serializer
+    val producerSettings: ProducerSettings[String, Array[Byte]] = // ...
+      // #protobuf-serializer
+      producerDefaults(new StringSerializer(), new ByteArraySerializer())
+
+    // #protobuf-serializer
+
+    val producerCompletion =
+      Source(samples)
+        .map(order => new ProducerRecord(topic, order.id, order.toByteArray))
+        .runWith(Producer.plainSink(producerSettings))
+    // #protobuf-serializer
+
+    // #protobuf-deserializer
+    val resumeOnParsingException = ActorAttributes.supervisionStrategy {
+      case _: com.google.protobuf.InvalidProtocolBufferException => Supervision.Resume
+      case _ => Supervision.stop
+    }
+
+    val consumerSettings: ConsumerSettings[String, Array[Byte]] = // ...
+      // #protobuf-deserializer
+      consumerDefaults(new StringDeserializer, new ByteArrayDeserializer).withGroupId(group)
+    // #protobuf-deserializer
+
+    val consumer = Consumer
+      .plainSource(consumerSettings, Subscriptions.topics(topic))
+      .map { consumerRecord =>
+        Order.parseFrom(consumerRecord.value())
+      }
+      .withAttributes(resumeOnParsingException)
+      // #protobuf-deserializer
+      .take(samples.size.toLong)
+      // #protobuf-deserializer
+      .toMat(Sink.seq)(DrainingControl.apply)
+      .run()
+    // #protobuf-deserializer
+
+    producerCompletion.futureValue shouldBe Done
+    consumer.isShutdown.futureValue should be(Done)
+    consumer.drainAndShutdown().futureValue should be(samples)
+  }
+
   "With SchemaRegistry" should "Avro serialization/deserialization work" in assertAllStagesStopped {
     val group = createGroupId()
     val topic = createTopic()
