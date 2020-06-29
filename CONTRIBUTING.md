@@ -44,8 +44,8 @@ For a Pull Request to be considered at all it has to meet these requirements:
 1. Refer to issues it intends to fix by adding "Fixes #{issue id}" to the notes.
 
 1. Code in the branch should live up to the current code standard:
-   - Not violate [DRY](http://programmer.97things.oreilly.com/wiki/index.php/Don%27t_Repeat_Yourself).
-   - [Boy Scout Rule](http://programmer.97things.oreilly.com/wiki/index.php/The_Boy_Scout_Rule) needs to have been applied.
+   - Not violate [DRY](https://www.oreilly.com/library/view/97-things-every/9780596809515/ch30.html).
+   - [Boy Scout Rule](https://www.oreilly.com/library/view/97-things-every/9780596809515/ch08.html) needs to have been applied.
 
 1. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
 
