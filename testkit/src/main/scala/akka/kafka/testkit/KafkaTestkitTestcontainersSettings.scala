@@ -16,6 +16,7 @@ final class KafkaTestkitTestcontainersSettings private (
     val confluentPlatformVersion: String,
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
+    val useSchemaRegistry: Boolean,
     val configureKafka: Vector[AlpakkaKafkaContainer] => Unit = _ => (),
     val configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
       new Consumer[java.util.Collection[AlpakkaKafkaContainer]]() {
@@ -42,6 +43,11 @@ final class KafkaTestkitTestcontainersSettings private (
    * Java Api
    */
   def getInternalTopicsReplicationFactor(): Int = internalTopicsReplicationFactor
+
+  /**
+   * Java Api
+   */
+  def getSchemaRegistry(): Boolean = useSchemaRegistry
 
   /**
    * Sets the Confluent Platform Version
@@ -92,10 +98,16 @@ final class KafkaTestkitTestcontainersSettings private (
   ): KafkaTestkitTestcontainersSettings =
     copy(configureZooKeeperConsumer = configureZooKeeperConsumer)
 
+  /**
+   * Use Schema Registry container.
+   */
+  def withSchemaRegistry(): KafkaTestkitTestcontainersSettings = copy(useSchemaRegistry = true);
+
   private def copy(
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
+      useSchemaRegistry: Boolean = useSchemaRegistry,
       configureKafka: Vector[AlpakkaKafkaContainer] => Unit = configureKafka,
       configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
         configureKafkaConsumer,
@@ -105,6 +117,7 @@ final class KafkaTestkitTestcontainersSettings private (
     new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
+                                           useSchemaRegistry,
                                            configureKafka,
                                            configureKafkaConsumer,
                                            configureZooKeeper,
@@ -114,7 +127,8 @@ final class KafkaTestkitTestcontainersSettings private (
     "KafkaTestkitTestcontainersSettings(" +
     s"confluentPlatformVersion=$confluentPlatformVersion," +
     s"numBrokers=$numBrokers," +
-    s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor)"
+    s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
+    s"useSchemaRegistry=$useSchemaRegistry)"
 }
 
 object KafkaTestkitTestcontainersSettings {
@@ -140,8 +154,12 @@ object KafkaTestkitTestcontainersSettings {
     val confluentPlatformVersion = config.getString("confluent-platform-version")
     val numBrokers = config.getInt("num-brokers")
     val internalTopicsReplicationFactor = config.getInt("internal-topics-replication-factor")
+    val useSchemaRegistry = config.getBoolean("use-schema-registry")
 
-    new KafkaTestkitTestcontainersSettings(confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
+    new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
+                                           numBrokers,
+                                           internalTopicsReplicationFactor,
+                                           useSchemaRegistry)
   }
 
   /**

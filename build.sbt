@@ -17,9 +17,6 @@ val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion2
 val kafkaVersion = "2.4.1"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
-// this depends on Kafka, and should be upgraded to such latest version
-// that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistry = "5.4.1.2"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.14.3"
@@ -323,9 +320,7 @@ lazy val tests = project
             Seq()
           case "2.12" | "2.11" =>
             Seq(
-              "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
-              // sbt 1.3.x reports: Conflicting cross-version suffixes in: org.apache.kafka:kafka, com.typesafe.scala-logging:scala-logging
-              "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test excludeAll (confluentLibsExclusionRules: _*)
+              "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
             )
         }
       },
@@ -334,20 +329,7 @@ lazy val tests = project
     whitesourceIgnore := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false,
-    Test / unmanagedSources / excludeFilter := {
-      scalaBinaryVersion.value match {
-        case "2.11" | "2.12" =>
-          HiddenFileFilter
-        case "2.13" =>
-          HiddenFileFilter ||
-          // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
-          // https://github.com/embeddedkafka/embedded-kafka-schema-registry/issues/78
-          "SerializationTest.java" ||
-          "SerializationSpec.scala" ||
-          "EmbeddedKafkaWithSchemaRegistryTest.java"
-      }
-    }
+    IntegrationTest / parallelExecution := false
   )
 
 lazy val docs = project
@@ -405,7 +387,9 @@ lazy val docs = project
         "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         // Testcontainers
-        "testcontainers.version" -> testcontainersVersion
+        "testcontainers.version" -> testcontainersVersion,
+        "javadoc.org.testcontainers.containers.base_url" -> s"https://www.javadoc.io/doc/org.testcontainers/testcontainers/$testcontainersVersion/",
+        "javadoc.org.testcontainers.containers.link_style" -> "direct"
       ),
     apidocRootPackage := "akka",
     paradoxRoots := List("index.html",

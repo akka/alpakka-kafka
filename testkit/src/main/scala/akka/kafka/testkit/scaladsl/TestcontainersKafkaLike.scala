@@ -6,7 +6,7 @@
 package akka.kafka.testkit.scaladsl
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
-import akka.kafka.testkit.internal.{AlpakkaKafkaContainer, TestcontainersKafka}
+import akka.kafka.testkit.internal.{AlpakkaKafkaContainer, SchemaRegistryContainer, TestcontainersKafka}
 import org.testcontainers.containers.GenericContainer
 
 /**
@@ -21,12 +21,15 @@ trait TestcontainersKafkaLike extends TestcontainersKafka.Spec {
   override def bootstrapServers: String = TestcontainersKafka.Singleton.bootstrapServers
   override def brokerContainers: Vector[AlpakkaKafkaContainer] = TestcontainersKafka.Singleton.brokerContainers
   override def zookeeperContainer: GenericContainer[_] = TestcontainersKafka.Singleton.zookeeperContainer
-  override def startKafka(settings: KafkaTestkitTestcontainersSettings): String =
-    TestcontainersKafka.Singleton.startKafka(settings)
+  override def schemaRegistryContainer: Option[SchemaRegistryContainer] =
+    TestcontainersKafka.Singleton.schemaRegistryContainer
+  override def schemaRegistryUrl: String = TestcontainersKafka.Singleton.schemaRegistryUrl
+  override def startKafkaWithSettings(overrideSettings: KafkaTestkitTestcontainersSettings): String =
+    TestcontainersKafka.Singleton.startKafkaWithSettings(overrideSettings)
   override def stopKafka(): Unit = TestcontainersKafka.Singleton.stopKafka()
 
   override def setUp(): Unit = {
-    startKafka(testcontainersSettings)
+    startKafkaWithSettings(testcontainersSettings)
     super.setUp()
   }
 

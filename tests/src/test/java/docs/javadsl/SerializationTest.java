@@ -8,12 +8,12 @@ package docs.javadsl;
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
-import akka.kafka.KafkaPorts;
 import akka.kafka.ProducerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
-import akka.kafka.javadsl.EmbeddedKafkaWithSchemaRegistryTest;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.*;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
@@ -40,7 +40,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 // #imports
 import org.junit.*;
-import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,22 +50,25 @@ import java.util.concurrent.*;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
+// #schema-registry-settings
+public class SerializationTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("SerializationTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SerializationTest() {
-    super(sys, mat, KafkaPorts.SerializationTest(), 1, KafkaPorts.SerializationTest() + 2);
+    super(
+        sys,
+        mat,
+        KafkaTestkitTestcontainersSettings.create(sys)
+            .withInternalTopicsReplicationFactor(1)
+            .withSchemaRegistry());
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    // Schema registry uses Glassfish which uses java.util.logging
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
-  }
+  // tests..
+
+  // #schema-registry-settings
 
   @Test
   public void jacksonDeSer() throws Exception {
@@ -146,7 +148,7 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
 
     Map<String, Object> kafkaAvroSerDeConfig = new HashMap<>();
     kafkaAvroSerDeConfig.put(
-        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
     // #serializer #de-serializer
     // #de-serializer
     KafkaAvroDeserializer kafkaAvroDeserializer = new KafkaAvroDeserializer();
@@ -201,4 +203,6 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
   public static void afterClass() {
     TestKit.shutdownActorSystem(sys);
   }
+  // #schema-registry-settings
 }
+// #schema-registry-settings
