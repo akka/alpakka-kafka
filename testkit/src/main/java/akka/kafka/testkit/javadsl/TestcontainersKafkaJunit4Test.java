@@ -13,6 +13,8 @@ import akka.stream.Materializer;
 import org.junit.After;
 import org.junit.Before;
 
+import scala.compat.java8.OptionConverters;
+
 /**
  * JUnit 4 base class using [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka
  * broker in a Docker container. The Kafka broker will be kept around across multiple test classes,
@@ -72,10 +74,9 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
   }
 
   public String getSchemaRegistryUrl() {
-    return TestcontainersKafka.Singleton()
-        .schemaRegistryContainer()
+    return OptionConverters.toJava(TestcontainersKafka.Singleton().schemaRegistryContainer())
         .map(SchemaRegistryContainer::getSchemaRegistryUrl)
-        .getOrElse(
+        .<RuntimeException>orElseThrow(
             () -> {
               throw new RuntimeException(
                   "Did you enable schema registry in your KafkaTestkitTestcontainersSettings?");
