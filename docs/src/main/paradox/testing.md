@@ -5,7 +5,15 @@ project.description: Alpakka Kafka provides a Testkit with support for running l
 
 To simplify testing of streaming integrations with Alpakka Kafka, it provides the **Alpakka Kafka testkit**. It provides help for
 
-* @ref:[Using an embedded Kafka broker](#testing-with-an-embedded-kafka-server)
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4 and will be removed in the next minor release.**
+
+**Use @ref:[testcontainers (Docker)](testing-testcontainers.md) instead.**
+
+@@@
+
+* ~~@ref:[Using an embedded Kafka broker](#testing-with-an-embedded-kafka-server)~~
 * @ref:[Using Docker to launch a local Kafka cluster with testcontainers](testing-testcontainers.md)
 * @ref:[Mocking the Alpakka Kafka Consumers and Producers](#mocking-the-consumer-or-producer)
 
@@ -33,26 +41,38 @@ We've overriden the `commons-compress` library to use a version with [fewer know
 
 ## Running Kafka with your tests
 
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4**
+
+@@@
+
 The Testkit provides a variety of ways to test your application against a real Kafka broker or cluster. There are two main options:
 
-1. @ref:[Embedded Kafka](#testing-with-an-embedded-kafka-server)
+1. ~~@ref:[Embedded Kafka](#testing-with-an-embedded-kafka-server)~~
 2. @ref:[Testcontainers (Docker)](testing-testcontainers.md)
 
 The table below helps guide you to the right Testkit implementation depending on your programming language, testing framework, and use (or not) of Docker containers.
 You must mix in or implement these types into your test classes to use them.
 See the documentation for each for more details.
 
-| Type                                                                                                                                                | Test Framework | Runtime Mode    | Cluster | Schema Registry | Lang     | Lifetime             |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------|----------------|-----------------|---------|-----------------|----------|----------------------|
-| @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)                                        | JUnit 5        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)                                  | JUnit 4        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)                                      | ScalaTest      | Embedded Kafka  | No      | Yes             | Scala    | Per class            |
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)     | JUnit 5        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)           | JUnit 4        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)         | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | All tests            |
-| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code) | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | Per class            |
+| Type                                                                                                                                                    | Test Framework     | Runtime Mode        | Cluster     | Schema Registry     | Lang         | Lifetime                 |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|---------------------|-------------|---------------------|--------------|--------------------------|
+| ~~@ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)~~                                        | ~~JUnit 5~~        | ~~Embedded Kafka~~  | ~~No~~      | ~~Yes~~             | ~~Java~~     | ~~All tests, Per class~~ |
+| ~~@ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)~~                                  | ~~JUnit 4~~        | ~~Embedded Kafka~~  | ~~No~~      | ~~Yes~~             | ~~Java~~     | ~~All tests, Per class~~ |
+| ~~@ref:[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)~~                                      | ~~ScalaTest~~      | ~~Embedded Kafka~~  | ~~No~~      | ~~Yes~~             | ~~Scala~~    | ~~Per class~~            |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)         | JUnit 5            | Testcontainers      | Yes         | Yes                 | Java         | All tests, Per class     |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)               | JUnit 4            | Testcontainers      | Yes         | Yes                 | Java         | All tests, Per class     |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)             | ScalaTest          | Testcontainers      | Yes         | Yes                 | Scala        | All tests                |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)     | ScalaTest          | Testcontainers      | Yes         | Yes                 | Scala        | Per class                |
 
 ## Testing with an embedded Kafka server
+
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4**
+
+@@@
 
 To test the Alpakka Kafka connector the [Embedded Kafka library](https://github.com/embeddedkafka/embedded-kafka) is an important tool as it helps to easily start and stop Kafka brokers from test cases.
 
@@ -78,10 +98,22 @@ The testkit contains helper classes used by the tests in the Alpakka Kafka conne
 
 ### Testing with Avro and Schema Registry
 
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4**
+
+@@@
+
 If you need to run tests using [Confluent's Schema Registry](https://docs.confluent.io/current/schema-registry/docs/index.html), you might include [embedded-kafka-schema-registry](https://github.com/embeddedkafka/embedded-kafka-schema-registry) instead.
 
 
 ### Testing with Avro and Schema Registry from Java code
+
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4**
+
+@@@
 
 Test classes may extend @scaladoc[EmbeddedKafkaTest](akka.kafka.testkit.javadsl.EmbeddedKafkaTest) (JUnit 5) or @scaladoc[EmbeddedKafkaJunit4Test](akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test) (JUnit 4) to automatically start and stop an embedded Kafka broker.
 
@@ -104,6 +136,12 @@ The JUnit test base classes run the @javadoc[assertAllStagesStopped](akka.stream
 
 
 ### Testing with Avro and Schema Registry from Scala code
+
+@@@ note
+
+**Embedded Kafka testkit support has been deprecated since 2.0.4**
+
+@@@
 
 The @scaladoc[KafkaSpec](akka.kafka.testkit.scaladsl.KafkaSpec) class offers access to 
 
