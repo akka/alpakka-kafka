@@ -47,10 +47,10 @@ See the documentation for each for more details.
 | @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaTest`](#testing-with-avro-and-schema-registry-from-java-code)                                        | JUnit 5        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
 | @ref:[`akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test`](#testing-with-avro-and-schema-registry-from-java-code)                                  | JUnit 4        | Embedded Kafka  | No      | Yes             | Java     | All tests, Per class |
 | @ref:[`akka.kafka.testkit.scaladsl.EmbeddedKafkaLike`](#testing-with-avro-and-schema-registry-from-scala-code)                                      | ScalaTest      | Embedded Kafka  | No      | Yes             | Scala    | Per class            |
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)     | JUnit 5        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)           | JUnit 4        | Testcontainers  | Yes     | No              | Java     | All tests, Per class |
-| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)         | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | All tests            |
-| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code) | ScalaTest      | Testcontainers  | Yes     | No              | Scala    | Per class            |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)     | JUnit 5        | Testcontainers  | Yes     | Yes             | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)           | JUnit 4        | Testcontainers  | Yes     | Yes             | Java     | All tests, Per class |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)         | ScalaTest      | Testcontainers  | Yes     | Yes             | Scala    | All tests            |
+| @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code) | ScalaTest      | Testcontainers  | Yes     | Yes             | Scala    | Per class            |
 
 ## Testing with an embedded Kafka server
 

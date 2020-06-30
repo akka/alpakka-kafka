@@ -17,15 +17,14 @@ val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion2
 val kafkaVersion = "2.4.1"
 val embeddedKafkaVersion = kafkaVersion
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
+// this depends on Kafka, and should be upgraded to such latest version
+// that depends on the same Kafka version, as is defined above
+val embeddedKafkaSchemaRegistry = "5.4.1.2"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.1"
-
-val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.4"
-
-val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
@@ -299,7 +298,6 @@ lazy val tests = project
     crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.11.4", // use the same version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -322,14 +320,13 @@ lazy val tests = project
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
-            Seq(scalapb)
-          case "2.12" =>
+            Seq()
+          case "2.12" | "2.11" =>
             Seq(
-              scalapb,
-              kafkaBrokerWithoutSlf4jLog4j
+              "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
+              // sbt 1.3.x reports: Conflicting cross-version suffixes in: org.apache.kafka:kafka, com.typesafe.scala-logging:scala-logging
+              "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % embeddedKafkaSchemaRegistry % Test excludeAll (confluentLibsExclusionRules: _*)
             )
-          case "2.11" =>
-            Seq(kafkaBrokerWithoutSlf4jLog4j)
         }
       },
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
@@ -340,16 +337,15 @@ lazy val tests = project
     IntegrationTest / parallelExecution := false,
     Test / unmanagedSources / excludeFilter := {
       scalaBinaryVersion.value match {
-        case "2.11" =>
-          HiddenFileFilter ||
-          // ScalaPB doesn't support Scala 2.11
-          "Order.scala" ||
-          "OrderProto.scala" ||
-          "SerializationSpec.scala"
-        case "2.12" =>
+        case "2.11" | "2.12" =>
           HiddenFileFilter
         case "2.13" =>
-          HiddenFileFilter
+          HiddenFileFilter ||
+          // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
+          // https://github.com/embeddedkafka/embedded-kafka-schema-registry/issues/78
+          "SerializationTest.java" ||
+          "SerializationSpec.scala" ||
+          "EmbeddedKafkaWithSchemaRegistryTest.java"
       }
     }
   )
