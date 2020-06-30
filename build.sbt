@@ -23,6 +23,10 @@ val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.1"
 
+val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.4"
+
+val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
+
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -295,6 +299,7 @@ lazy val tests = project
     crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
+        "com.google.protobuf" % "protobuf-java" % "3.11.4", // use the same version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -317,11 +322,14 @@ lazy val tests = project
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
-            Seq()
-          case "2.12" | "2.11" =>
+            Seq(scalapb)
+          case "2.12" =>
             Seq(
-              "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
+              scalapb,
+              kafkaBrokerWithoutSlf4jLog4j
             )
+          case "2.11" =>
+            Seq(kafkaBrokerWithoutSlf4jLog4j)
         }
       },
     resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
@@ -329,7 +337,21 @@ lazy val tests = project
     whitesourceIgnore := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false
+    IntegrationTest / parallelExecution := false,
+    Test / unmanagedSources / excludeFilter := {
+      scalaBinaryVersion.value match {
+        case "2.11" =>
+          HiddenFileFilter ||
+          // ScalaPB doesn't support Scala 2.11
+          "Order.scala" ||
+          "OrderProto.scala" ||
+          "SerializationSpec.scala"
+        case "2.12" =>
+          HiddenFileFilter
+        case "2.13" =>
+          HiddenFileFilter
+      }
+    }
   )
 
 lazy val docs = project

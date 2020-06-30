@@ -44,10 +44,10 @@ If you use Confluent's Schema Registry in your client code you may optionally ru
 The following snippet demonstrates overriding a test class to use the container, or you can enable it for all tests in your `application.conf`.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #schema-registry-settings }
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/SchemaRegistrySerializationSpec.scala) { #schema-registry-settings }
 
 Java
-: @@snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #schema-registry-settings }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/SchemaRegistrySerializationTest.java) { #schema-registry-settings }
 
 You can retrieve the Schema Registry URL in your test configuration by calling `getSchemaRegistryUrl()` or `schemaRegistryUrl`.
 
