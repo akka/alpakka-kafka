@@ -8,12 +8,12 @@ package docs.javadsl;
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
-import akka.kafka.KafkaPorts;
 import akka.kafka.ProducerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
-import akka.kafka.javadsl.EmbeddedKafkaWithSchemaRegistryTest;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
+import akka.kafka.tests.javadsl.LogCapturingExtension;
 import akka.stream.*;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
@@ -30,49 +30,38 @@ import docs.javadsl.proto.OrderMessages;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 // #protobuf-imports
-import docs.scaladsl.SampleAvroClass;
-// #imports
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
-// #imports
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-// #imports
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-// #imports
-import org.junit.*;
-import org.slf4j.bridge.SLF4JBridgeHandler;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.*;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(LogCapturingExtension.class)
+public class SerializationTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem sys = ActorSystem.create("SerializationTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SerializationTest() {
-    super(sys, mat, KafkaPorts.SerializationTest(), 1, KafkaPorts.SerializationTest() + 2);
+    super(sys, mat);
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    // Schema registry uses Glassfish which uses java.util.logging
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
+  @AfterAll
+  void afterAll() {
+    TestKit.shutdownActorSystem(sys);
   }
 
   @Test
@@ -213,70 +202,5 @@ public class SerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
         control.drainAndShutdown(ec).toCompletableFuture().get(1, TimeUnit.SECONDS);
     assertThat(result, is(samples));
     assertThat(result.size(), is(samples.size()));
-  }
-
-  @Test
-  public void avroDeSerMustWorkWithSchemaRegistry() throws Exception {
-    final String topic = createTopic();
-    final String group = createGroupId();
-
-    // #serializer #de-serializer
-
-    Map<String, Object> kafkaAvroSerDeConfig = new HashMap<>();
-    kafkaAvroSerDeConfig.put(
-        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
-    // #serializer #de-serializer
-    // #de-serializer
-    KafkaAvroDeserializer kafkaAvroDeserializer = new KafkaAvroDeserializer();
-    kafkaAvroDeserializer.configure(kafkaAvroSerDeConfig, false);
-    Deserializer<Object> deserializer = kafkaAvroDeserializer;
-
-    ConsumerSettings<String, Object> consumerSettings =
-        ConsumerSettings.create(sys, new StringDeserializer(), deserializer)
-            .withBootstrapServers(bootstrapServers())
-            .withGroupId(group)
-            .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-    // #de-serializer
-
-    // #serializer
-    KafkaAvroSerializer kafkaAvroSerializer = new KafkaAvroSerializer();
-    kafkaAvroSerializer.configure(kafkaAvroSerDeConfig, false);
-    Serializer<Object> serializer = kafkaAvroSerializer;
-
-    ProducerSettings<String, Object> producerSettings =
-        ProducerSettings.create(sys, new StringSerializer(), serializer)
-            .withBootstrapServers(bootstrapServers());
-
-    SampleAvroClass sample = new SampleAvroClass("key", "name");
-    List<SampleAvroClass> samples = Arrays.asList(sample, sample, sample);
-    CompletionStage<Done> producerCompletion =
-        Source.from(samples)
-            .map(n -> new ProducerRecord<String, Object>(topic, n.key(), n))
-            .runWith(Producer.plainSink(producerSettings), mat);
-    // #serializer
-
-    // #de-serializer
-
-    Consumer.DrainingControl<List<ConsumerRecord<String, Object>>> controlCompletionStagePair =
-        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
-            .take(samples.size())
-            .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(mat);
-    // #de-serializer
-
-    assertThat(
-        controlCompletionStagePair.isShutdown().toCompletableFuture().get(20, TimeUnit.SECONDS),
-        is(Done.getInstance()));
-    List<ConsumerRecord<String, Object>> result =
-        controlCompletionStagePair
-            .drainAndShutdown(ec)
-            .toCompletableFuture()
-            .get(1, TimeUnit.SECONDS);
-    assertThat(result.size(), is(samples.size()));
-  }
-
-  @AfterClass
-  public static void afterClass() {
-    TestKit.shutdownActorSystem(sys);
   }
 }

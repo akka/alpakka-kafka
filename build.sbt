@@ -328,7 +328,7 @@ lazy val tests = project
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
-            Seq()
+            Seq(scalapb)
           case "2.12" =>
             Seq(
               scalapb,
@@ -354,14 +354,14 @@ lazy val tests = project
           HiddenFileFilter ||
           // ScalaPB doesn't support Scala 2.11
           "SerializationSpec.scala"
-        case "2.11" | "2.12" =>
+        case "2.12" =>
           HiddenFileFilter
         case "2.13" =>
           HiddenFileFilter ||
           // TODO: Remove ignore once `"io.github.embeddedkafka" %% "embedded-kafka-schema-registry"` is released for Scala 2.13
           // https://github.com/embeddedkafka/embedded-kafka-schema-registry/issues/78
-          "SerializationTest.java" ||
-          "SerializationSpec.scala" ||
+          "SchemaRegistrySerializationTest.java" ||
+          "SchemaRegistrySerializationSpec.scala" ||
           "EmbeddedKafkaWithSchemaRegistryTest.java"
       }
     }

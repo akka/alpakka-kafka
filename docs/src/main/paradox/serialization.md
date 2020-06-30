@@ -106,10 +106,10 @@ Gradle
 To create serializers that use the Schema Registry, its URL needs to be provided as configuration `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the serializer and that serializer is used in the @apidoc[ProducerSettings$].
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #serializer }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SchemaRegistrySerializationSpec.scala) { #imports #serializer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #imports #serializer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/SchemaRegistrySerializationTest.java) { #imports #serializer }
 
 
 
@@ -118,8 +118,8 @@ Java
 To create deserializers that use the Schema Registry, its URL needs to be provided as configuration  `AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG` to the deserializer and that deserializer is used in the @apidoc[ConsumerSettings$].
 
 Scala
-: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SerializationSpec.scala) { #imports #de-serializer }
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/SchemaRegistrySerializationSpec.scala) { #imports #de-serializer }
 
 Java
-: @@ snip [snip](/tests/src/test/java/docs/javadsl/SerializationTest.java) { #imports #de-serializer }
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/SchemaRegistrySerializationTest.java) { #imports #de-serializer }
 
