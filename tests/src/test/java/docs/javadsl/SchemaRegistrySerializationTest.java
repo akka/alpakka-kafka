@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
+// #schema-registry-settings
 public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("SchemaRegistrySerializationTest");
@@ -56,6 +57,12 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SchemaRegistrySerializationTest() {
+    // #schema-registry-settings
+    // NOTE: Overriding KafkaTestkitTestcontainersSettings doesn't necessarily do anything here
+    // because the JUnit testcontainer abstract classes run the testcontainers as a singleton.
+    // Whatever JUnit test spawns first is the only one that can override settings. To workaround
+    // this I've enabled the schema registry container for all tests in an application.conf.
+    // #schema-registry-settings
     super(
         sys,
         mat,
@@ -63,6 +70,8 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
             .withInternalTopicsReplicationFactor(1)
             .withSchemaRegistry());
   }
+
+  // #schema-registry-settings
 
   @Test
   public void avroDeSerMustWorkWithSchemaRegistry() throws Exception {

@@ -73,13 +73,7 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
     super.cleanUpAdminClient();
   }
 
-  public String getSchemaRegistryUrl() {
-    return OptionConverters.toJava(TestcontainersKafka.Singleton().schemaRegistryContainer())
-        .map(SchemaRegistryContainer::getSchemaRegistryUrl)
-        .<RuntimeException>orElseThrow(
-            () -> {
-              throw new RuntimeException(
-                  "Did you enable schema registry in your KafkaTestkitTestcontainersSettings?");
-            });
+  protected String getSchemaRegistryUrl() {
+    return TestcontainersKafka.Singleton().getSchemaRegistryUrl();
   }
 }

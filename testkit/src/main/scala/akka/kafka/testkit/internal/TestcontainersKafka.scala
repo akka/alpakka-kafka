@@ -53,6 +53,13 @@ object TestcontainersKafka {
 
     def schemaRegistryContainer: Option[SchemaRegistryContainer] = cluster.getSchemaRegistry.asScala
 
+    def getSchemaRegistryUrl: String =
+      cluster.getSchemaRegistry.asScala
+        .map(_.getSchemaRegistryUrl)
+        .getOrElse(
+          throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
+        )
+
     /**
      * Deprecated: Starts Kafka, but does not override with provided settings.
      */
