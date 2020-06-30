@@ -5,41 +5,16 @@
 
 package docs.scaladsl
 
-import java.nio.charset.StandardCharsets
-
 import akka.Done
 import akka.kafka._
-import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
-import akka.kafka.testkit.scaladsl.{KafkaSpec, TestcontainersKafkaLike}
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.{ActorAttributes, Supervision}
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.stream.testkit.scaladsl.TestSink
-import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityLevel
-import org.apache.avro.util.Utf8
-import org.apache.kafka.common.TopicPartition
-import org.scalatest.concurrent.IntegrationPatience
-// #imports
-import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer}
-import org.apache.avro.specific.SpecificRecord
-// #imports
-import net.manub.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfigImpl}
-import org.apache.avro.specific.SpecificRecordBase
-import org.apache.avro.{AvroRuntimeException, Schema}
-import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-// #imports
 import org.apache.kafka.common.serialization._
-// #imports
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.{FlatSpecLike, Matchers}
-import org.slf4j.bridge.SLF4JBridgeHandler
-
-import scala.jdk.CollectionConverters._
-import scala.collection.immutable
-import scala.concurrent.duration._
 
 // #spray-imports
 import spray.json._
