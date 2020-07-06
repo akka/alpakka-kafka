@@ -52,7 +52,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private boolean enableRemoteJmxService = false;
 
   public AlpakkaKafkaContainer() {
-    this("5.3.1");
+    this(DEFAULT_CP_PLATFORM_VERSION);
   }
 
   public AlpakkaKafkaContainer(String confluentPlatformVersion) {
@@ -216,7 +216,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
       dockerClient
           .execStartCmd(execCreateCmdResponse.getId())
-          .exec(new ExecStartResultCallback())
+          .start()
           .awaitStarted(10, TimeUnit.SECONDS);
 
       return "localhost:" + ZOOKEEPER_PORT;

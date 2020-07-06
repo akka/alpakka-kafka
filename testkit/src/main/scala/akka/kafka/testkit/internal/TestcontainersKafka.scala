@@ -9,6 +9,7 @@ import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.GenericContainer
 
+import scala.compat.java8.OptionConverters._
 import scala.jdk.CollectionConverters._
 
 object TestcontainersKafka {
@@ -50,13 +51,25 @@ object TestcontainersKafka {
 
     def zookeeperContainer: GenericContainer[_] = cluster.getZooKeeper
 
+    def schemaRegistryContainer: Option[SchemaRegistryContainer] = cluster.getSchemaRegistry.asScala
+
+    def getSchemaRegistryUrl: String =
+      cluster.getSchemaRegistry.asScala
+        .map(_.getSchemaRegistryUrl)
+        .getOrElse(
+          throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
+        )
+
+    def startKafka(): String = startKafka(testcontainersSettings)
+
     def startKafka(settings: KafkaTestkitTestcontainersSettings): String = {
-      val settings = testcontainersSettings
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
-        cluster =
-          new KafkaContainerCluster(settings.confluentPlatformVersion, numBrokers, internalTopicsReplicationFactor)
+        cluster = new KafkaContainerCluster(settings.confluentPlatformVersion,
+                                            numBrokers,
+                                            internalTopicsReplicationFactor,
+                                            settings.useSchemaRegistry)
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
@@ -76,6 +89,13 @@ object TestcontainersKafka {
         kafkaPortInternal = -1
         cluster = null
       }
+
+    def schemaRegistryUrl: String =
+      schemaRegistryContainer
+        .map(_.getSchemaRegistryUrl)
+        .getOrElse(
+          throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
+        )
   }
 
   private class SpecBase extends ScalatestKafkaSpec(-1) with Spec

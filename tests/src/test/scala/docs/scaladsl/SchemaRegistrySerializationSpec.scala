@@ -10,18 +10,16 @@ import java.nio.charset.StandardCharsets
 import akka.Done
 import akka.kafka._
 import akka.kafka.scaladsl._
-import akka.kafka.testkit.internal.TestFrameworkInterface
-import akka.kafka.testkit.scaladsl.KafkaSpec
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityLevel
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
-import org.apache.avro.{AvroRuntimeException, Schema}
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.avro.util.Utf8
+import org.apache.avro.{AvroRuntimeException, Schema}
 import org.apache.kafka.common.TopicPartition
-import org.scalatest.concurrent.IntegrationPatience
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -29,55 +27,20 @@ import scala.concurrent.duration._
 import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
 import org.apache.avro.specific.SpecificRecord
 // #imports
-import net.manub.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfigImpl}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 // #imports
 import org.apache.kafka.common.serialization._
 // #imports
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.{FlatSpecLike, Matchers}
-import org.slf4j.bridge.SLF4JBridgeHandler
-
 import scala.jdk.CollectionConverters._
 
-class SchemaRegistrySerializationSpec
-    extends KafkaSpec(KafkaPorts.ScalaAvroSerialization)
-    with FlatSpecLike
-    with TestFrameworkInterface.Scalatest
-    with Matchers
-    with ScalaFutures
-    with IntegrationPatience
-    with Eventually {
+// #schema-registry-settings
+class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKafkaPerClassLike {
 
-  val schemaRegistryPort = KafkaPorts.ScalaAvroSerialization + 2
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system).withSchemaRegistry(true)
 
-  val configWithSchemaRegistryImpl =
-    EmbeddedKafkaConfigImpl(kafkaPort,
-                            zooKeeperPort,
-                            schemaRegistryPort,
-                            AvroCompatibilityLevel.NONE,
-                            Map.empty,
-                            Map.empty,
-                            Map.empty)
-
-  override def bootstrapServers = s"localhost:${KafkaPorts.ScalaAvroSerialization}"
-
-  def schemaRegistryUrl = s"http://localhost:$schemaRegistryPort"
-
-  override def setUp(): Unit = {
-    // Schema registry uses Glassfish which uses java.util.logging
-    SLF4JBridgeHandler.removeHandlersForRootLogger()
-    SLF4JBridgeHandler.install()
-    //
-    EmbeddedKafka.start()(configWithSchemaRegistryImpl)
-    super.setUp()
-  }
-
-  override def cleanUp(): Unit = {
-    EmbeddedKafka.stop()
-    super.cleanUp()
-  }
+  // tests..
+  // #schema-registry-settings
 
   "With SchemaRegistry" should "Avro serialization/deserialization work" in assertAllStagesStopped {
     val group = createGroupId()
@@ -256,8 +219,9 @@ class SchemaRegistrySerializationSpec
       .withGroupId(group)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
   }
-
+  // #schema-registry-settings
 }
+// #schema-registry-settings
 
 case class SampleAvroClass(var key: String, var name: String) extends SpecificRecordBase {
 
