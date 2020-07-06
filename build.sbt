@@ -349,7 +349,8 @@ lazy val tests = project
           HiddenFileFilter ||
           // ScalaPB doesn't support Scala 2.11
           "Order.scala" ||
-          "OrderProto.scala"
+          "OrderProto.scala" ||
+          "SerializationSpec.scala"
         case "2.12" => HiddenFileFilter
         case "2.13" => HiddenFileFilter
       }
