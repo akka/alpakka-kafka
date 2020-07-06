@@ -7,13 +7,10 @@ package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
-import akka.kafka.testkit.internal.SchemaRegistryContainer;
 import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
 import org.junit.After;
 import org.junit.Before;
-
-import scala.compat.java8.OptionConverters;
 
 /**
  * JUnit 4 base class using [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka
@@ -54,7 +51,7 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
   }
 
   protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {
-    return TestcontainersKafka.Singleton().startKafkaWithSettings(settings);
+    return TestcontainersKafka.Singleton().startKafka(settings);
   }
 
   protected static void stopKafka() {

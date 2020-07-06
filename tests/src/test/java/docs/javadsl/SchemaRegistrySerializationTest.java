@@ -68,7 +68,7 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
         mat,
         KafkaTestkitTestcontainersSettings.create(sys)
             .withInternalTopicsReplicationFactor(1)
-            .withSchemaRegistry());
+            .withSchemaRegistry(true));
   }
 
   // #schema-registry-settings

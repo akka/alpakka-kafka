@@ -53,7 +53,7 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
   }
 
   protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {
-    return TestcontainersKafka.Singleton().startKafkaWithSettings(settings);
+    return TestcontainersKafka.Singleton().startKafka(settings);
   }
 
   protected static void stopKafka() {

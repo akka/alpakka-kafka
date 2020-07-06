@@ -37,7 +37,7 @@ import scala.jdk.CollectionConverters._
 // #schema-registry-settings
 class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKafkaPerClassLike {
 
-  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system).withSchemaRegistry()
+  override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system).withSchemaRegistry(true)
 
   // tests..
   // #schema-registry-settings

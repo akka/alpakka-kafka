@@ -101,7 +101,8 @@ final class KafkaTestkitTestcontainersSettings private (
   /**
    * Use Schema Registry container.
    */
-  def withSchemaRegistry(): KafkaTestkitTestcontainersSettings = copy(useSchemaRegistry = true);
+  def withSchemaRegistry(useSchemaRegistry: Boolean): KafkaTestkitTestcontainersSettings =
+    copy(useSchemaRegistry = useSchemaRegistry);
 
   private def copy(
       confluentPlatformVersion: String = confluentPlatformVersion,

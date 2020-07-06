@@ -60,19 +60,9 @@ object TestcontainersKafka {
           throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
         )
 
-    /**
-     * Deprecated: Starts Kafka, but does not override with provided settings.
-     */
-    @deprecated("Use startKafkaWithSettings instead", "2.0.3")
+    def startKafka(): String = startKafka(testcontainersSettings)
+
     def startKafka(settings: KafkaTestkitTestcontainersSettings): String = {
-      startKafkaWithSettings(testcontainersSettings)
-    }
-
-    def startKafka(): String = {
-      startKafkaWithSettings(testcontainersSettings)
-    }
-
-    def startKafkaWithSettings(settings: KafkaTestkitTestcontainersSettings): String = {
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
