@@ -11,12 +11,14 @@ import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.kafka.{KafkaConsumerActor, KafkaPorts, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import com.github.ghik.silencer.silent
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
+@silent
 class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) with EmbeddedKafkaLike {
 
   override def createKafkaConfig: EmbeddedKafkaConfig =

@@ -9,12 +9,14 @@ import akka.Done
 import akka.kafka.KafkaPorts
 import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import com.github.ghik.silencer.silent
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
+@silent
 class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) with EmbeddedKafkaLike {
 
   override def createKafkaConfig: EmbeddedKafkaConfig =

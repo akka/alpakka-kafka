@@ -11,12 +11,14 @@ import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
+import com.github.ghik.silencer.silent
 import net.manub.embeddedkafka.EmbeddedKafka
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
+@silent
 class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafkaLike {
 
   val proxyPort = KafkaPorts.ReconnectSpecProxy

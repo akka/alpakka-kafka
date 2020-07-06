@@ -17,7 +17,10 @@ import scala.collection.immutable.HashMap$;
 /**
  * JUnit 4 base-class with some convenience for creating an embedded Kafka broker before running the
  * tests.
+ *
+ * @deprecated Use testcontainers instead. Since 2.0.4.
  */
+@Deprecated
 public abstract class EmbeddedKafkaJunit4Test extends KafkaJunit4Test {
 
   private static EmbeddedKafkaConfig embeddedKafkaConfig(

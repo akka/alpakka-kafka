@@ -7,8 +7,10 @@ package akka.kafka.scaladsl
 
 // #embeddedkafka
 import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import com.github.ghik.silencer.silent
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
+@silent
 class EmbeddedKafkaSampleSpec extends SpecBase(kafkaPort = 1234) with EmbeddedKafkaLike {
 
   // if a specific Kafka broker configuration is desired
