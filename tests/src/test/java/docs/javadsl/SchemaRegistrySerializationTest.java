@@ -8,12 +8,12 @@ package docs.javadsl;
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
-import akka.kafka.KafkaPorts;
 import akka.kafka.ProducerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
-import akka.kafka.javadsl.EmbeddedKafkaWithSchemaRegistryTest;
 import akka.kafka.javadsl.Producer;
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
@@ -35,9 +35,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 // #imports
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,27 +49,29 @@ import java.util.concurrent.TimeUnit;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class SchemaRegistrySerializationTest extends EmbeddedKafkaWithSchemaRegistryTest {
+// #schema-registry-settings
+public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Test {
 
-  private static final ActorSystem sys = ActorSystem.create("SerializationTest");
+  private static final ActorSystem sys = ActorSystem.create("SchemaRegistrySerializationTest");
   private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SchemaRegistrySerializationTest() {
+    // #schema-registry-settings
+    // NOTE: Overriding KafkaTestkitTestcontainersSettings doesn't necessarily do anything here
+    // because the JUnit testcontainer abstract classes run the testcontainers as a singleton.
+    // Whatever JUnit test spawns first is the only one that can override settings. To workaround
+    // this I've enabled the schema registry container for all tests in an application.conf.
+    // #schema-registry-settings
     super(
         sys,
         mat,
-        KafkaPorts.SchemaRegistrySerializationTest(),
-        1,
-        KafkaPorts.SchemaRegistrySerializationTest() + 2);
+        KafkaTestkitTestcontainersSettings.create(sys)
+            .withInternalTopicsReplicationFactor(1)
+            .withSchemaRegistry(true));
   }
 
-  @BeforeClass
-  public static void beforeClass() {
-    // Schema registry uses Glassfish which uses java.util.logging
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
-  }
+  // #schema-registry-settings
 
   @Test
   public void avroDeSerMustWorkWithSchemaRegistry() throws Exception {
@@ -82,7 +82,7 @@ public class SchemaRegistrySerializationTest extends EmbeddedKafkaWithSchemaRegi
 
     Map<String, Object> kafkaAvroSerDeConfig = new HashMap<>();
     kafkaAvroSerDeConfig.put(
-        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
     // #serializer #de-serializer
     // #de-serializer
     KafkaAvroDeserializer kafkaAvroDeserializer = new KafkaAvroDeserializer();
@@ -137,4 +137,6 @@ public class SchemaRegistrySerializationTest extends EmbeddedKafkaWithSchemaRegi
   public static void afterClass() {
     TestKit.shutdownActorSystem(sys);
   }
+  // #schema-registry-settings
 }
+// #schema-registry-settings
