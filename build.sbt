@@ -445,7 +445,7 @@ lazy val benchmarks = project
         "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.0",
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.1",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
