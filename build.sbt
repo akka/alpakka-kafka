@@ -248,7 +248,7 @@ lazy val testkit = project
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
-    JupiterKeys.junitJupiterVersion := "5.5.2",
+    JupiterKeys.junitJupiterVersion := "5.6.2",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
