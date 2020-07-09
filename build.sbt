@@ -21,7 +21,7 @@ val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafk
 // that depends on the same Kafka version, as is defined above
 val embeddedKafkaSchemaRegistryVersion = "5.4.1.2"
 val kafkaVersionForDocs = "24"
-val scalatestVersion = "3.0.8"
+val scalatestVersion = "3.2.0"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.1"
