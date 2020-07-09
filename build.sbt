@@ -24,7 +24,7 @@ val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.0.8"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.26"
-val confluentAvroSerializerVersion = "5.4.1"
+val confluentAvroSerializerVersion = "5.4.2"
 
 val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.4"
 
