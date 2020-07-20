@@ -26,7 +26,7 @@ val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.26"
 val confluentAvroSerializerVersion = "5.4.1"
 
-val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.4"
+val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.7"
 
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
@@ -256,7 +256,7 @@ lazy val testkit = project
         "junit" % "junit" % "4.12" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
         "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
-        "org.apache.commons" % "commons-compress" % "1.19" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
+        "org.apache.commons" % "commons-compress" % "1.20" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
         embeddedKafka % Provided exclude ("log4j", "log4j")
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
@@ -302,7 +302,7 @@ lazy val tests = project
     crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.11.4", // use the same version as in scalapb
+        "com.google.protobuf" % "protobuf-java" % "3.12.2", // use the same version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -442,10 +442,10 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-        "io.dropwizard.metrics" % "metrics-core" % "3.2.6",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.10.1",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.0",
+        "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.1",
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
