@@ -5,24 +5,9 @@
 
 package akka.kafka.scaladsl
 
-import java.util.Collections
-
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem}
 import akka.dispatch.ExecutionContexts
-import akka.kafka.Metadata.{
-  BeginningOffsets,
-  CommittedOffset,
-  CommittedOffsets,
-  EndOffsets,
-  GetBeginningOffsets,
-  GetCommittedOffset,
-  GetCommittedOffsets,
-  GetEndOffsets,
-  GetPartitionsFor,
-  ListTopics,
-  PartitionsFor,
-  Topics
-}
+import akka.kafka.Metadata._
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -114,7 +99,9 @@ object MetadataClient {
       consumerSettings: ConsumerSettings[K, V],
       timeout: Timeout
   )(implicit system: ActorSystem, ec: ExecutionContext): MetadataClient = {
-    val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+    val consumerActor = system
+      .asInstanceOf[ExtendedActorSystem]
+      .systemActorOf(KafkaConsumerActor.props(consumerSettings), "alpakka-kafka-metadata-client")
     new MetadataClient(consumerActor, timeout, true)
   }
 }
