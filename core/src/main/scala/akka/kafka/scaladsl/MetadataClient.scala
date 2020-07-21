@@ -5,6 +5,8 @@
 
 package akka.kafka.scaladsl
 
+import java.util.concurrent.atomic.AtomicLong
+
 import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem}
 import akka.dispatch.ExecutionContexts
 import akka.kafka.Metadata._
@@ -91,6 +93,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
 }
 
 object MetadataClient {
+  private val actorCount = new AtomicLong()
 
   def create(consumerActor: ActorRef, timeout: Timeout)(implicit ec: ExecutionContext): MetadataClient =
     new MetadataClient(consumerActor, timeout, false)
@@ -101,7 +104,8 @@ object MetadataClient {
   )(implicit system: ActorSystem, ec: ExecutionContext): MetadataClient = {
     val consumerActor = system
       .asInstanceOf[ExtendedActorSystem]
-      .systemActorOf(KafkaConsumerActor.props(consumerSettings), "alpakka-kafka-metadata-client")
+      .systemActorOf(KafkaConsumerActor.props(consumerSettings),
+                     s"alpakka-kafka-metadata-client-${actorCount.getAndIncrement()}")
     new MetadataClient(consumerActor, timeout, true)
   }
 }
