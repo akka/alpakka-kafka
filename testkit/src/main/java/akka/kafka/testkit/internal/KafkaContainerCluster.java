@@ -201,6 +201,7 @@ public class KafkaContainerCluster implements Startable {
                           + " ls /brokers/ids | tail -n 1")
                   .exec()
                   .getId())
+          // FIXME: investigate non-deprecated usage to return STDOUT
           .exec(new ExecStartResultCallback(outputStream, null))
           .awaitCompletion();
       return outputStream.toString();
