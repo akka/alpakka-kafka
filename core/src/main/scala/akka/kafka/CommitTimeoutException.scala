@@ -8,7 +8,6 @@ package akka.kafka
 import java.util.concurrent.TimeoutException
 
 /**
- * Calls to `commitJavadsl` and `commitScaladsl` will be failed with this exception if
- * Kafka doesn't respond within `commit-timeout`
+ * Commits will be failed with this exception if Kafka doesn't respond within `commit-timeout`
  */
 class CommitTimeoutException(msg: String) extends TimeoutException(msg) {}
