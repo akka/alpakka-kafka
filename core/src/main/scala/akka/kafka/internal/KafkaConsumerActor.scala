@@ -609,9 +609,9 @@ import scala.util.control.NonFatal
 
             case e: RetriableCommitFailedException =>
               log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                          e.getCause,
                           duration / 1000000L,
-                          commitsInProgress)
+                          commitsInProgress,
+                          e.getCause)
               commitMaps = commitMap.toList ++ commitMaps
               commitSenders = commitSenders ++ replyTo
               requestDelayedPoll()
