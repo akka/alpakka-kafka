@@ -26,6 +26,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 import akka.util.JavaDurationConverters._
+import org.slf4j.LoggerFactory
+
 import scala.compat.java8.FutureConverters._
 
 /**
@@ -286,6 +288,10 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
 
   @InternalApi
   private[kafka] object RebalanceListener {
+
+    // Used from future callbacks so can't use the log in the context
+    private val log = LoggerFactory.getLogger(RebalanceListener.getClass)
+
     def apply(typeKey: EntityTypeKey[_]): Behavior[ConsumerRebalanceEvent] =
       Behaviors.setup { ctx =>
         import ctx.executionContext
@@ -293,40 +299,43 @@ object KafkaClusterSharding extends ExtensionId[KafkaClusterSharding] {
         val address = Cluster(ctx.system).selfMember.address
         Behaviors.receiveMessage[ConsumerRebalanceEvent] {
           case TopicPartitionsAssigned(_, partitions) =>
-            val partitionsList = partitions.mkString(",")
-            ctx.log.info("Consumer group '{}' assigned topic partitions to cluster member '{}': [{}]",
-                         typeKey.name,
-                         address,
-                         partitionsList)
-            val updates = partitions.map { tp =>
+            if (log.isInfoEnabled) {
+              log.info("Consumer group '{}' assigned topic partitions to cluster member '{}': [{}]",
+                       typeKey.name,
+                       address,
+                       partitions.mkString(","))
+            }
+
+            val updates = shardAllocationClient.updateShardLocations(partitions.map { tp =>
               val shardId = tp.partition().toString
               // the Kafka partition number becomes the akka shard id
-              // TODO: use batch update when it's available: https://github.com/akka/akka/issues/28696
-              shardAllocationClient.updateShardLocation(shardId, address)
-            }
-            Future
-              .sequence(updates)
-              // Each Future returns successfully once a majority of cluster nodes receive the update. There's no point
-              // blocking here because the rebalance listener is triggered asynchronously. If we want to block during
-              // rebalance then we should provide an implementation using the `PartitionAssignmentHandler` instead
+              (shardId, address)
+            }.toMap)
+
+            // There's no point blocking here because the rebalance listener is triggered asynchronously. If we want to block during
+            // rebalance then we should provide an implementation using the `PartitionAssignmentHandler` instead
+            updates
               .onComplete {
                 case Success(_) =>
-                  ctx.log.info(
-                    "Completed consumer group '{}' assignment of topic partitions to cluster member '{}': [{}]",
-                    typeKey.name,
-                    address,
-                    partitionsList
-                  )
+                  if (log.isInfoEnabled) {
+                    log.info(
+                      "Completed consumer group '{}' assignment of topic partitions to cluster member '{}': [{}]",
+                      typeKey.name,
+                      address,
+                      partitions.mkString(",")
+                    )
+                  }
+
                 case Failure(ex) =>
-                  ctx.log.error("A failure occurred while updating cluster shards", ex)
+                  log.error("A failure occurred while updating cluster shards", ex)
               }
             Behaviors.same
           case TopicPartitionsRevoked(_, partitions) =>
             val partitionsList = partitions.mkString(",")
-            ctx.log.info("Consumer group '{}' revoked topic partitions from cluster member '{}': [{}]",
-                         typeKey.name,
-                         address,
-                         partitionsList)
+            log.info("Consumer group '{}' revoked topic partitions from cluster member '{}': [{}]",
+                     typeKey.name,
+                     address,
+                     partitionsList)
             Behaviors.same
         }
       }

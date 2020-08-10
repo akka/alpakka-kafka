@@ -17,7 +17,6 @@ object KafkaPorts {
   val ScalaPartitionExamples = 9052
   val ScalaAvroSerialization = 9072
   val AssignmentTest = 9082
-  val SerializationTest = 9092
   val ProducerExamplesTest = 9112
   val KafkaConnectionCheckerTest = 9122
   val PartitionAssignmentHandlerSpec = 9132

@@ -159,7 +159,13 @@ import scala.util.control.NonFatal
       }
 
       def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit =
-        refreshDeadlines = refreshDeadlines ++ tps.map(_ -> commitRefreshInterval.fromNow)
+        // only update some of the deadlines, those that we have been assigned. The committed set that is expected to
+        // be <= the number of assigned partitions, so intersect over that set. It is possible that we try to commit a
+        // partition that is no longer assigned to this consumer, so that assumption is not necessarily strictly
+        // true, but it's reasonable.
+        refreshDeadlines = refreshDeadlines ++ tps.intersect(refreshDeadlines.keySet).map { tp =>
+            (tp, commitRefreshInterval.fromNow)
+          }
 
       def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
         requestedOffsets = requestedOffsets ++ assignedOffsets.map {
@@ -170,7 +176,8 @@ import scala.util.control.NonFatal
             case (partition, offset) =>
               partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
           }
-        updateRefreshDeadlines(assignedTps)
+        // assigned the partitions, to update all the of deadlines
+        refreshDeadlines = refreshDeadlines ++ assignedTps.map(_ -> commitRefreshInterval.fromNow)
       }
 
       def assignedPositions(assignedTps: Set[TopicPartition],
@@ -565,12 +572,17 @@ import scala.util.control.NonFatal
 
   private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
     val aggregatedOffsets = aggregateOffsets(commitMaps)
-    commitRefreshing.add(aggregatedOffsets)
+    // commits can occur after the partition has been revoked from the consumer, so ensure that we only attempt to
+    // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
+    // amounts of replayed data during a rebalance, but for low volume topics we can ensure that consumers never appear
+    // 'stuck' because of out-of-order commits from slow consumers.
+    val assignedOffsetsToCommit = aggregatedOffsets.filterKeys(consumer.assignment().contains).toMap
+    commitRefreshing.add(assignedOffsetsToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
     commitMaps = List.empty
     commitSenders = Vector.empty
-    commit(aggregatedOffsets, replyTo)
+    commit(assignedOffsetsToCommit, replyTo)
   }
 
   private def commit(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]): Unit = {
@@ -597,9 +609,9 @@ import scala.util.control.NonFatal
 
             case e: RetriableCommitFailedException =>
               log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                          e.getCause,
                           duration / 1000000L,
-                          commitsInProgress)
+                          commitsInProgress,
+                          e.getCause)
               commitMaps = commitMap.toList ++ commitMaps
               commitSenders = commitSenders ++ replyTo
               requestDelayedPoll()

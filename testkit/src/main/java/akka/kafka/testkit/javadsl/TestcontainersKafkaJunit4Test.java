@@ -69,4 +69,8 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
   public void cleanUpAdminClient() {
     super.cleanUpAdminClient();
   }
+
+  protected String getSchemaRegistryUrl() {
+    return TestcontainersKafka.Singleton().getSchemaRegistryUrl();
+  }
 }

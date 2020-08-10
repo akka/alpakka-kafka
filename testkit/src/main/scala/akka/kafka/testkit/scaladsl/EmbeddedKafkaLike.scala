@@ -7,6 +7,7 @@ package akka.kafka.testkit.scaladsl
 
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 
+@deprecated("Use testcontainers instead", "2.0.4")
 trait EmbeddedKafkaLike extends KafkaSpec {
 
   lazy implicit val embeddedKafkaConfig: EmbeddedKafkaConfig = createKafkaConfig

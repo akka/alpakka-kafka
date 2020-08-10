@@ -59,4 +59,8 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
   protected static void stopKafka() {
     TestcontainersKafka.Singleton().stopKafka();
   }
+
+  protected String getSchemaRegistryUrl() {
+    return TestcontainersKafka.Singleton().getSchemaRegistryUrl();
+  }
 }

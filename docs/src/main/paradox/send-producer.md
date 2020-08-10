@@ -7,7 +7,7 @@ A producer publishes messages to Kafka topics. The message itself contains infor
 
 The Alpakka Kafka @apidoc[SendProducer] does not integrate with Akka Streams. Instead, it offers a wrapper of the Apache Kafka @javadoc[KafkaProducer](org.apache.kafka.clients.producer.KafkaProducer) to send data to Kafka topics in a per-element fashion with a @scala[`Future`-based]@java[`CompletionStage`-based] API.
 
-It supports the same @ref[settings](producer.md#settings) as Alpakka @apidoc[Producer] flows and sinks and supports @ref[service discovery](discovery.md).
+It supports the same @ref[settings](producer.md#settings) as Alpakka @apidoc[Producer$] flows and sinks and supports @ref[service discovery](discovery.md).
 
 After use, the `Producer` needs to be properly closed via the asynchronous `close()` method.
 
