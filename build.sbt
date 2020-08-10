@@ -309,7 +309,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.5" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.4" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.5" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -320,7 +320,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "2.28.2" % Test,
+        "org.mockito" % "mockito-core" % "3.4.6" % Test,
         embeddedKafka % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
@@ -442,7 +442,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.10.1",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.11",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.1",
