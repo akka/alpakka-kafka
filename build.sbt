@@ -96,7 +96,8 @@ val commonSettings = Def.settings(
   scalaVersion := Scala212,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
-      "-Xlint:deprecation"
+      "-Xlint:deprecation",
+      "-Xlint:unchecked"
     ),
   scalacOptions ++= Seq(
       "-deprecation",
