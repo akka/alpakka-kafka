@@ -276,7 +276,7 @@ lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
+  .disablePlugins(MimaPlugin, SitePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-cluster-sharding",
