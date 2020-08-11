@@ -6,7 +6,6 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.kafka._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -19,7 +18,7 @@ import scala.concurrent.{Await, Future}
 
 class ReconnectSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
-  val proxyPort = KafkaPorts.ReconnectSpecProxy
+  val proxyPort = 9034
 
   "A Producer" must {
 

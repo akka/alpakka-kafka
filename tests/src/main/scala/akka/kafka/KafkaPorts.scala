@@ -11,11 +11,7 @@ package akka.kafka
  */
 object KafkaPorts {
 
-  val RetentionPeriodSpec = 9012
-  val ReconnectSpecProxy = 9034
-  val ScalaAvroSerialization = 9072
   val AssignmentTest = 9082
   val ProducerExamplesTest = 9112
-  val KafkaConnectionCheckerTest = 9122
-  val PartitionAssignmentHandlerSpec = 9132
+
 }
