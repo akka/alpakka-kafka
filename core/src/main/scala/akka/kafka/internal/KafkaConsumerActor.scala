@@ -27,6 +27,7 @@ import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
+import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
@@ -732,10 +733,14 @@ import scala.util.control.NonFatal
       )
 
     case Metadata.GetCommittedOffset(partition) =>
-      Metadata.CommittedOffset(
-        Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },
+      @silent val resp = Metadata.CommittedOffset(
+        Try {
+          @silent val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
+          offset
+        },
         partition
       )
+      resp
   }
 
   private def stopFromMessage(msg: StopLike) = msg match {

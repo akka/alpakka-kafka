@@ -13,6 +13,7 @@ import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, CommitterSettings, ConsumerMessage, ProducerSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 import akka.{japi, Done, NotUsed}
+import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.compat.java8.FutureConverters._
@@ -72,11 +73,13 @@ object Producer {
   @Deprecated
   def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
       settings: ProducerSettings[K, V]
-  ): Sink[IN, CompletionStage[Done]] =
-    scaladsl.Producer
+  ): Sink[IN, CompletionStage[Done]] = {
+    @silent val sink: Sink[IN, CompletionStage[Done]] = scaladsl.Producer
       .committableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
+    sink
+  }
 
   /**
    * Create a sink that is aware of the [[ConsumerMessage.Committable committable offset]]
@@ -169,11 +172,13 @@ object Producer {
   @Deprecated
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V]
-  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] =
-    scaladsl.Producer
+  ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
+    @silent val flow = scaladsl.Producer
       .flow(settings)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]
+    flow
+  }
 
   /**
    * Create a flow to conditionally publish records to Kafka topics and then pass it on.

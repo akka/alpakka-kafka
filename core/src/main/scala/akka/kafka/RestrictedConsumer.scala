@@ -6,6 +6,7 @@
 package akka.kafka
 
 import akka.annotation.ApiMayChange
+import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer.{Consumer, OffsetAndMetadata, OffsetAndTimestamp}
 import org.apache.kafka.common.TopicPartition
 
@@ -36,6 +37,7 @@ final class RestrictedConsumer(consumer: Consumer[_, _], duration: java.time.Dur
   /**
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(TopicPartition,java.time.Duration)]]
    */
+  @silent
   def committed(tp: TopicPartition): OffsetAndMetadata = consumer.committed(tp, duration)
 
   /**

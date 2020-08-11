@@ -10,7 +10,7 @@ import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
 import akka.util.JavaDurationConverters._
-import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -62,7 +62,7 @@ final class SendProducer[K, V] private (val settings: ProducerSettings[K, V])(im
     }
   }
 
-  private def sendSingle[R](producer: Producer[K, V],
+  private def sendSingle[R](producer: org.apache.kafka.clients.producer.Producer[K, V],
                             record: ProducerRecord[K, V],
                             success: RecordMetadata => R): Future[R] = {
     val result = Promise[R]
