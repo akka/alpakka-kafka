@@ -13,7 +13,6 @@ object KafkaPorts {
 
   val RetentionPeriodSpec = 9012
   val ReconnectSpecProxy = 9034
-  val MultiConsumerSpec = 9042
   val ScalaPartitionExamples = 9052
   val ScalaAvroSerialization = 9072
   val AssignmentTest = 9082
