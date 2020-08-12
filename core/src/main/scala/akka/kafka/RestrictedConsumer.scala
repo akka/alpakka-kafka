@@ -38,7 +38,14 @@ final class RestrictedConsumer(consumer: Consumer[_, _], duration: java.time.Dur
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(TopicPartition,java.time.Duration)]]
    */
   @silent
+  @deprecated("use `committed(java.util.Set[TopicPartition])`", "2.1.0")
   def committed(tp: TopicPartition): OffsetAndMetadata = consumer.committed(tp, duration)
+
+  /**
+   * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(java.util.Set[TopicPartition],java.time.Duration)]]
+   */
+  def committed(partitions: java.util.Set[TopicPartition]): java.util.Map[TopicPartition, OffsetAndMetadata] =
+    consumer.committed(partitions, duration)
 
   /**
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#endOffsets(java.util.Collection[TopicPartition],java.time.Duration)]]
