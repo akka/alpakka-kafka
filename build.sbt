@@ -15,7 +15,7 @@ val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 
 val kafkaVersion = "2.6.0"
-val embeddedKafkaVersion = "2.5.0"
+val embeddedKafkaVersion = "2.6.0"
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
