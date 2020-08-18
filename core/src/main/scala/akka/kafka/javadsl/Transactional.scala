@@ -7,15 +7,14 @@ package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
 
-import org.apache.kafka.common.TopicPartition
-import akka.annotation.{ApiMayChange, InternalApi}
+import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.ProducerMessage._
 import akka.kafka._
 import akka.kafka.internal.{ConsumerControlAsJava, TransactionalSourceWithOffsetContext}
 import akka.kafka.javadsl.Consumer.Control
-import akka.stream.javadsl.{Flow, FlowWithContext, Sink, Source, SourceWithContext}
+import akka.stream.javadsl._
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 

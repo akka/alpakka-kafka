@@ -7,20 +7,20 @@ package akka.kafka.testkit.internal;
 
 import akka.annotation.InternalApi;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.rnorth.ducttape.unreliables.Unreliables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
 
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,17 +43,22 @@ public class KafkaContainerCluster implements Startable {
   private final Logger log = LoggerFactory.getLogger(getClass());
   private final Version confluentPlatformVersion;
   private final int brokersNum;
+  private final Boolean useSchemaRegistry;
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
+  private Optional<SchemaRegistryContainer> schemaRegistry;
   private final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
-    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf);
+    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false);
   }
 
   public KafkaContainerCluster(
-      String confluentPlatformVersion, int brokersNum, int internalTopicsRf) {
+      String confluentPlatformVersion,
+      int brokersNum,
+      int internalTopicsRf,
+      boolean useSchemaRegistry) {
     if (brokersNum < 0) {
       throw new IllegalArgumentException("brokersNum '" + brokersNum + "' must be greater than 0");
     }
@@ -66,6 +71,7 @@ public class KafkaContainerCluster implements Startable {
 
     this.confluentPlatformVersion = new Version(confluentPlatformVersion);
     this.brokersNum = brokersNum;
+    this.useSchemaRegistry = useSchemaRegistry;
     this.network = Network.newNetwork();
 
     this.zookeeper =
@@ -101,6 +107,10 @@ public class KafkaContainerCluster implements Startable {
     return this.zookeeper;
   }
 
+  public Optional<SchemaRegistryContainer> getSchemaRegistry() {
+    return this.schemaRegistry;
+  }
+
   public Collection<AlpakkaKafkaContainer> getBrokers() {
     return this.brokers;
   }
@@ -111,8 +121,22 @@ public class KafkaContainerCluster implements Startable {
         .collect(Collectors.joining(","));
   }
 
+  public String getInternalNetworkBootstrapServers() {
+    return IntStream.range(0, this.brokersNum)
+        .mapToObj(brokerNum -> String.format("broker-%s:%s", brokerNum, "9092"))
+        .collect(Collectors.joining(","));
+  }
+
+  /** for backwards compatibility with Java 8 */
+  private <T> Stream<T> optionalStream(Optional<T> option) {
+    if (option.isPresent()) return Stream.of(option.get());
+    else return Stream.empty();
+  }
+
   private Stream<GenericContainer> allContainers() {
-    return Stream.concat(this.brokers.stream(), Stream.of(this.zookeeper));
+    return Stream.concat(
+        Stream.concat(this.brokers.stream(), Stream.of(this.zookeeper)),
+        optionalStream(this.schemaRegistry));
   }
 
   @Override
@@ -143,6 +167,18 @@ public class KafkaContainerCluster implements Startable {
           START_TIMEOUT_SECONDS,
           TimeUnit.SECONDS,
           () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
+
+      this.schemaRegistry =
+          useSchemaRegistry
+              ? Optional.of(
+                  new SchemaRegistryContainer(confluentPlatformVersion.get())
+                      .withNetworkAliases("schema-registry")
+                      .withCluster(this))
+              : Optional.empty();
+
+      // start schema registry if the container is initialized
+      Startables.deepStart(optionalStream(this.schemaRegistry)).get(START_TIMEOUT_SECONDS, SECONDS);
+
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -150,23 +186,14 @@ public class KafkaContainerCluster implements Startable {
 
   private String clusterBrokers(GenericContainer c) {
     try {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      dockerClient
-          .execStartCmd(
-              dockerClient
-                  .execCreateCmd(c.getContainerId())
-                  .withAttachStdout(true)
-                  .withCmd(
-                      "sh",
-                      "-c",
-                      "zookeeper-shell zookeeper:"
-                          + AlpakkaKafkaContainer.ZOOKEEPER_PORT
-                          + " ls /brokers/ids | tail -n 1")
-                  .exec()
-                  .getId())
-          .exec(new ExecStartResultCallback(outputStream, null))
-          .awaitCompletion();
-      return outputStream.toString();
+      Container.ExecResult result =
+          c.execInContainer(
+              "sh",
+              "-c",
+              "zookeeper-shell zookeeper:"
+                  + AlpakkaKafkaContainer.ZOOKEEPER_PORT
+                  + " ls /brokers/ids | tail -n 1");
+      return result.getStdout();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -177,11 +204,16 @@ public class KafkaContainerCluster implements Startable {
     String command = "#!/bin/bash \n";
     command += "set -e \n";
     command +=
-        "kafka-topics "
+        "[[ $(kafka-topics "
+            + connect
+            + " --describe --topic "
+            + READINESS_CHECK_TOPIC
+            + " | wc -l) > 1 ]] && "
+            + "kafka-topics "
             + connect
             + " --delete --topic "
             + READINESS_CHECK_TOPIC
-            + " || echo \"topic does not exist\" \n";
+            + " \n";
     command +=
         "kafka-topics "
             + connect
@@ -218,21 +250,15 @@ public class KafkaContainerCluster implements Startable {
 
   private Boolean runReadinessCheck(GenericContainer c) {
     try {
-      ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
-      ByteArrayOutputStream stderrStream = new ByteArrayOutputStream();
-      dockerClient
-          .execStartCmd(
-              dockerClient
-                  .execCreateCmd(c.getContainerId())
-                  .withAttachStdout(true)
-                  .withAttachStderr(true)
-                  .withCmd("sh", "-c", READINESS_CHECK_SCRIPT)
-                  .exec()
-                  .getId())
-          .exec(new ExecStartResultCallback(stdoutStream, stderrStream))
-          .awaitCompletion();
-      log.debug("Readiness check returned errors:\n{}", stderrStream.toString());
-      return stdoutStream.toString().contains("test succeeded");
+      Container.ExecResult result = c.execInContainer("sh", "-c", READINESS_CHECK_SCRIPT);
+      if (result.getExitCode() != 0 || !result.getStdout().contains("test succeeded")) {
+        log.debug(
+            "Readiness check returned errors:\nSTDOUT:\n{}\nSTDERR\n{}",
+            result.getStdout(),
+            result.getStderr());
+        return false;
+      }
+      return true;
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

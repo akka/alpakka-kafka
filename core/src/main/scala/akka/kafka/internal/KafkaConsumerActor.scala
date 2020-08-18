@@ -27,6 +27,7 @@ import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
+import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
@@ -609,9 +610,9 @@ import scala.util.control.NonFatal
 
             case e: RetriableCommitFailedException =>
               log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                          e.getCause,
                           duration / 1000000L,
-                          commitsInProgress)
+                          commitsInProgress,
+                          e.getCause)
               commitMaps = commitMap.toList ++ commitMaps
               commitSenders = commitSenders ++ replyTo
               requestDelayedPoll()
@@ -732,10 +733,14 @@ import scala.util.control.NonFatal
       )
 
     case Metadata.GetCommittedOffset(partition) =>
-      Metadata.CommittedOffset(
-        Try { consumer.committed(partition, settings.getMetadataRequestTimeout) },
+      @silent val resp = Metadata.CommittedOffset(
+        Try {
+          @silent val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
+          offset
+        },
         partition
       )
+      resp
   }
 
   private def stopFromMessage(msg: StopLike) = msg match {

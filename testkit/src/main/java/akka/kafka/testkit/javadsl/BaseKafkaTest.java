@@ -75,7 +75,8 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         topic, StringSerializer(), StringSerializer(), Pair.create(DefaultKey(), message));
   }
 
-  protected <K, V> CompletionStage<Done> produce(
+  @SafeVarargs
+  protected final <K, V> CompletionStage<Done> produce(
       String topic,
       Serializer<K> keySerializer,
       Serializer<V> valueSerializer,
@@ -113,7 +114,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         settings().clusterTimeout(),
         settings().checkInterval(),
         adminClient(),
-        new FromJavaPredicate(predicate),
+        new FromJavaPredicate<DescribeClusterResult>(predicate),
         log());
   }
 
@@ -129,7 +130,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         settings().consumerGroupTimeout(),
         settings().checkInterval(),
         adminClient(),
-        new FromJavaPredicate(predicate),
+        new FromJavaPredicate<ConsumerGroupDescription>(predicate),
         log());
   }
 

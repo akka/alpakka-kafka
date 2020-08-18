@@ -11,7 +11,7 @@ import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.internal._
-import akka.stream.scaladsl.{Keep, Source, SourceWithContext}
+import akka.stream.scaladsl.{Source, SourceWithContext}
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}

@@ -19,7 +19,10 @@ import scala.collection.immutable.HashMap$;
  * running the tests. Extending classes must be annotated with `@TestInstance(Lifecycle.PER_CLASS)`
  * to create a single instance of the test class with `@BeforeAll` and `@AfterAll` annotated methods
  * called by the test framework.
+ *
+ * @deprecated Use testcontainers instead. Since 2.0.4.
  */
+@Deprecated
 public abstract class EmbeddedKafkaTest extends KafkaTest {
 
   private static EmbeddedKafkaConfig embeddedKafkaConfig(

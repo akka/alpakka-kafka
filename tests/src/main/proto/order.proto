@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+option java_package = "docs.sample";
+option java_outer_classname = "OrderMessages";
+
+message Order {
+  string id = 1;
+}

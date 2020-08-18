@@ -69,6 +69,7 @@ jobs:
 
     - stage: whitesource
       env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
+    - env: CMD=";clusterSharding/whitesourceCheckPolicies ;clusterSharding/whitesourceUpdate"
 
     - stage: publish
       env: CMD="+publish"

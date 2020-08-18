@@ -65,7 +65,11 @@ private final class CommitCollectorStageLogic(
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommitCollectorStage.CommitNow => pushDownStream(Interval)(push)
+    // have to use emit, rather than push, here as timers may occur outside of a push/pull cycle, so the outlet is
+    // not yet available. Emit ensures that we do not push until the next pull occurs. After that, akka 're-installs'
+    // the usual pull handler and we go back to consuming batches. This is very hard to get tested consistently, so
+    // it gets this big comment instead.
+    case CommitCollectorStage.CommitNow => pushDownStream(Interval)(emit[CommittableOffsetBatch])
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy)(

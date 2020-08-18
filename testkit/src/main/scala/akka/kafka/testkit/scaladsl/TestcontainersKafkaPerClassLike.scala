@@ -13,7 +13,7 @@ import akka.kafka.testkit.internal.TestcontainersKafka
  */
 trait TestcontainersKafkaPerClassLike extends TestcontainersKafka.Spec {
   override def setUp(): Unit = {
-    startKafka(testcontainersSettings)
+    startKafka()
     super.setUp()
   }
 

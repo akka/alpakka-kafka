@@ -5,24 +5,11 @@
 
 package akka.kafka.scaladsl
 
-import java.util.Collections
+import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem}
 import akka.dispatch.ExecutionContexts
-import akka.kafka.Metadata.{
-  BeginningOffsets,
-  CommittedOffset,
-  CommittedOffsets,
-  EndOffsets,
-  GetBeginningOffsets,
-  GetCommittedOffset,
-  GetCommittedOffsets,
-  GetEndOffsets,
-  GetPartitionsFor,
-  ListTopics,
-  PartitionsFor,
-  Topics
-}
+import akka.kafka.Metadata._
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -106,6 +93,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
 }
 
 object MetadataClient {
+  private val actorCount = new AtomicLong()
 
   def create(consumerActor: ActorRef, timeout: Timeout)(implicit ec: ExecutionContext): MetadataClient =
     new MetadataClient(consumerActor, timeout, false)
@@ -114,7 +102,10 @@ object MetadataClient {
       consumerSettings: ConsumerSettings[K, V],
       timeout: Timeout
   )(implicit system: ActorSystem, ec: ExecutionContext): MetadataClient = {
-    val consumerActor = system.actorOf(KafkaConsumerActor.props(consumerSettings))
+    val consumerActor = system
+      .asInstanceOf[ExtendedActorSystem]
+      .systemActorOf(KafkaConsumerActor.props(consumerSettings),
+                     s"alpakka-kafka-metadata-client-${actorCount.getAndIncrement()}")
     new MetadataClient(consumerActor, timeout, true)
   }
 }

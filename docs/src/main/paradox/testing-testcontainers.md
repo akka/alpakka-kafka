@@ -32,8 +32,24 @@ Scala
 Java
 : @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
 
-<!-- NOTE: Can't use paradox to link to `KafkaContainer` because it shares the same package name as the main artifact `org.testcontainers.containers`, but is published separately https://static.javadoc.io/org.testcontainers/kafka/version/ --> 
-To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @apidoc[KafkaTestkitTestcontainersSettings] see the API docs for [`KafkaContainer`](https://www.javadoc.io/static/org.testcontainers/kafka/$testcontainers.version$/org/testcontainers/containers/KafkaContainer.html) and [`GenericContainer`](https://www.javadoc.io/static/org.testcontainers/testcontainers/$testcontainers.version$/org/testcontainers/containers/GenericContainer.html).
+<!-- NOTE: Can't get this working with paradox..
+To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @apidoc[KafkaTestkitTestcontainersSettings] see the API docs for @apidoc[AlpakkaKafkaContainer] and @apidoc[org.testcontainers.containers.GenericContainer]. 
+-->
+
+To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @apidoc[KafkaTestkitTestcontainersSettings] see the API docs for @apidoc[AlpakkaKafkaContainer] and [`GenericContainer`](https://www.javadoc.io/static/org.testcontainers/testcontainers/$testcontainers.version$/org/testcontainers/containers/GenericContainer.html).
+
+### Testing with Schema Registry
+
+If you use Confluent's Schema Registry in your client code you may optionally run a Schema Registry container as well.
+The following snippet demonstrates overriding a test class to use the container, or you can enable it for all tests in your `application.conf`.
+
+Scala
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/SchemaRegistrySerializationSpec.scala) { #schema-registry-settings }
+
+Java
+: @@snip [snip](/tests/src/test/java/docs/javadsl/SchemaRegistrySerializationTest.java) { #schema-registry-settings }
+
+You can retrieve the Schema Registry URL in your test configuration by calling `getSchemaRegistryUrl()` or `schemaRegistryUrl`.
 
 ## Testing with a Docker Kafka cluster from Java code
 

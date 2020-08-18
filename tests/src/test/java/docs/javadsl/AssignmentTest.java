@@ -42,8 +42,8 @@ import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 
+@SuppressWarnings("deprecation")
 // #testkit
-
 public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
