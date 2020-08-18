@@ -8,10 +8,10 @@ package akka.kafka.benchmarks
 import java.time.Duration
 import java.util
 import java.util.concurrent.TimeUnit
-import java.util.{Arrays, Properties, UUID}
+import java.util.{Arrays, UUID}
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
+import org.apache.kafka.clients.admin.{Admin, NewTopic}
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
@@ -49,19 +49,19 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     initTopicAndProducer(ft, kafkaHost)
 
   def createTopic(ft: FilledTopic, kafkaHost: String): KafkaProducer[Array[Byte], String] = {
-    val props = new Properties
+    val props = new java.util.HashMap[String, AnyRef]()
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
-    val admin = AdminClient.create(props)
+    val admin = Admin.create(props)
     val producer = createTopicAndFill(ft, props, admin)
     admin.close(adminClientCloseTimeout)
     producer
   }
 
   private def initTopicAndProducer(ft: FilledTopic, kafkaHost: String): Unit = {
-    val props = new Properties
+    val props = new java.util.HashMap[String, AnyRef]()
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaHost)
     //
-    val admin = AdminClient.create(props)
+    val admin = Admin.create(props)
     val existing = admin.listTopics().names().get(10, TimeUnit.SECONDS)
     if (existing.contains(ft.topic)) {
       logger.info(s"Reusing existing topic $ft")
@@ -72,7 +72,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     admin.close(adminClientCloseTimeout)
   }
 
-  private def createTopicAndFill(ft: FilledTopic, props: Properties, admin: AdminClient) = {
+  private def createTopicAndFill(ft: FilledTopic, props: java.util.Map[String, AnyRef], admin: Admin) = {
     val result = admin.createTopics(
       Arrays.asList(
         new NewTopic(ft.topic, ft.numberOfPartitions, ft.replicationFactor.toShort)
