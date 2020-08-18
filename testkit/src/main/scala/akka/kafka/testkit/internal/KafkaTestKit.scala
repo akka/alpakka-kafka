@@ -8,12 +8,12 @@ package akka.kafka.testkit.internal
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.{Arrays, Properties}
+import java.util.Arrays
 
 import akka.actor.ActorSystem
 import akka.kafka.testkit.KafkaTestkitSettings
 import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
-import org.apache.kafka.clients.admin.{AdminClient, AdminClientConfig, NewTopic}
+import org.apache.kafka.clients.admin.{Admin, AdminClientConfig, NewTopic}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{Deserializer, Serializer, StringDeserializer, StringSerializer}
 import org.slf4j.Logger
@@ -84,18 +84,18 @@ trait KafkaTestKit {
 
   val settings = KafkaTestkitSettings(system)
 
-  private lazy val adminDefaults = {
-    val config = new Properties()
+  private lazy val adminDefaults: java.util.Map[String, AnyRef] = {
+    val config = new java.util.HashMap[String, AnyRef]()
     config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
     config
   }
 
-  private var adminClientVar: AdminClient = _
+  private var adminClientVar: Admin = _
 
   /**
-   * Access to the Kafka AdminClient which life
+   * Access to the Kafka Admin client
    */
-  def adminClient: AdminClient = {
+  def adminClient: Admin = {
     assert(
       adminClientVar != null,
       "admin client not created, be sure to call setupAdminClient() and cleanupAdminClient()"
@@ -110,7 +110,7 @@ trait KafkaTestKit {
    */
   def setUpAdminClient(): Unit =
     if (adminClientVar == null) {
-      adminClientVar = AdminClient.create(adminDefaults)
+      adminClientVar = Admin.create(adminDefaults)
     }
 
   /**

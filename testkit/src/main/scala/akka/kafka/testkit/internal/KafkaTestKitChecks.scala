@@ -9,7 +9,7 @@ import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 import org.apache.kafka.clients.admin.{
-  AdminClient,
+  Admin,
   ConsumerGroupDescription,
   DescribeClusterResult,
   DescribeConsumerGroupsOptions
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success, Try}
 object KafkaTestKitChecks {
   def waitUntilCluster(timeout: FiniteDuration,
                        sleepInBetween: FiniteDuration,
-                       adminClient: AdminClient,
+                       adminClient: Admin,
                        predicate: DescribeClusterResult => Boolean,
                        log: Logger): Unit =
     periodicalCheck("cluster state", timeout, sleepInBetween)(() => adminClient.describeCluster())(predicate)(log)
@@ -31,7 +31,7 @@ object KafkaTestKitChecks {
   def waitUntilConsumerGroup(groupId: String,
                              timeout: FiniteDuration,
                              sleepInBetween: FiniteDuration,
-                             adminClient: AdminClient,
+                             adminClient: Admin,
                              predicate: ConsumerGroupDescription => Boolean,
                              log: Logger): Unit =
     periodicalCheck("consumer group state", timeout, sleepInBetween)(
