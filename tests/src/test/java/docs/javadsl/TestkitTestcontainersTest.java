@@ -5,6 +5,7 @@
 
 package docs.javadsl;
 
+// #testcontainers-settings
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
@@ -13,7 +14,6 @@ import akka.stream.Materializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 
-// #testcontainers-settings
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TestkitTestcontainersTest extends TestcontainersKafkaTest {
 
