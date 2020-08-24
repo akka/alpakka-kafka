@@ -222,6 +222,7 @@ lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(SitePlugin)
   .settings(commonSettings)
+  .settings(VersionGenerator.settings)
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
