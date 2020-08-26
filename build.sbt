@@ -105,7 +105,8 @@ val commonSettings = Def.settings(
       "-unchecked",
       "-Xlint",
       "-Ywarn-dead-code",
-      "-Ywarn-numeric-widen"
+      "-Ywarn-numeric-widen",
+      "-target:jvm-1.8"
     ) ++ {
       if (scalaBinaryVersion.value == "2.13") Seq.empty
       else Seq("-Yno-adapted-args", "-Xfuture")
