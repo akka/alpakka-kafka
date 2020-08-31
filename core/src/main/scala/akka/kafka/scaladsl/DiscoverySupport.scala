@@ -5,7 +5,7 @@
 
 package akka.kafka.scaladsl
 
-import akka.actor.{ActorSystem, ActorSystemImpl}
+import akka.actor.{ActorSystem, ActorSystemImpl, ClassicActorSystemProvider}
 import akka.annotation.InternalApi
 import akka.discovery.{Discovery, ServiceDiscovery}
 import akka.kafka.{ConsumerSettings, ProducerSettings}
@@ -24,7 +24,7 @@ import scala.util.Failure
 object DiscoverySupport {
 
   // used for initial discovery of contact points
-  private def discovery(config: Config)(implicit system: ActorSystem): ServiceDiscovery =
+  private def discovery(config: Config, system: ActorSystem): ServiceDiscovery =
     config.getString("discovery-method") match {
       case "akka.discovery" =>
         Discovery(system).discovery
@@ -64,7 +64,7 @@ object DiscoverySupport {
     val serviceName = config.getString("service-name")
     if (serviceName.nonEmpty) {
       val lookupTimeout = config.getDuration("resolve-timeout").asScala
-      bootstrapServers(discovery(config), serviceName, lookupTimeout)
+      bootstrapServers(discovery(config, system), serviceName, lookupTimeout)
     } else throw new IllegalArgumentException(s"value for `service-name` in $config is empty")
   }
 
@@ -74,13 +74,21 @@ object DiscoverySupport {
    */
   def consumerBootstrapServers[K, V](
       config: Config
-  )(implicit system: ActorSystem): ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = {
-    import system.dispatcher
+  )(implicit system: ClassicActorSystemProvider): ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = {
+    val sys: ActorSystem = system.classicSystem
+    import sys.dispatcher
     settings =>
-      bootstrapServers(config)
+      bootstrapServers(config)(sys)
         .map { bootstrapServers =>
           settings.withBootstrapServers(bootstrapServers)
         }
+  }
+  @InternalApi // kept for bin-compatibility
+  def consumerBootstrapServers[K, V](
+      config: Config
+  )(system: ActorSystem): ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = {
+    implicit val sys: ClassicActorSystemProvider = system
+    consumerBootstrapServers(config)
   }
 
   /**
@@ -89,13 +97,22 @@ object DiscoverySupport {
    */
   def producerBootstrapServers[K, V](
       config: Config
-  )(implicit system: ActorSystem): ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = {
-    import system.dispatcher
+  )(implicit system: ClassicActorSystemProvider): ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = {
+    val sys: ActorSystem = system.classicSystem
+    import sys.dispatcher
     settings =>
-      bootstrapServers(config)
+      bootstrapServers(config)(sys)
         .map { bootstrapServers =>
           settings.withBootstrapServers(bootstrapServers)
         }
+  }
+
+  @InternalApi // kept for bin-compatibility
+  def producerBootstrapServers[K, V](config: Config)(
+      system: ActorSystem
+  ): ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = {
+    implicit val sys: ClassicActorSystemProvider = system
+    producerBootstrapServers(config)
   }
 
   private def checkClassOrThrow(system: ActorSystemImpl): Unit =
