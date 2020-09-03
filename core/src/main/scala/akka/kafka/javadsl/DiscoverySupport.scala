@@ -37,7 +37,8 @@ object DiscoverySupport {
     function.andThen(FutureConverters.toJava).asJava
   }
 
-  @InternalApi // kept for bin-compatibility
+  // kept for bin-compatibility
+  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def consumerBootstrapServers[K, V](
       config: Config,
       system: ActorSystem
@@ -60,7 +61,8 @@ object DiscoverySupport {
     function.andThen(FutureConverters.toJava).asJava
   }
 
-  @InternalApi // kept for bin-compatibility
+  // kept for bin-compatibility
+  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def producerBootstrapServers[K, V](
       config: Config,
       system: ActorSystem

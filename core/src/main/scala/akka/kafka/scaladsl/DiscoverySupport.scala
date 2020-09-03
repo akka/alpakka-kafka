@@ -83,7 +83,9 @@ object DiscoverySupport {
           settings.withBootstrapServers(bootstrapServers)
         }
   }
-  @InternalApi // kept for bin-compatibility
+
+  // kept for bin-compatibility
+  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def consumerBootstrapServers[K, V](
       config: Config
   )(system: ActorSystem): ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]] = {
@@ -107,7 +109,8 @@ object DiscoverySupport {
         }
   }
 
-  @InternalApi // kept for bin-compatibility
+  // kept for bin-compatibility
+  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def producerBootstrapServers[K, V](config: Config)(
       system: ActorSystem
   ): ProducerSettings[K, V] => Future[ProducerSettings[K, V]] = {
