@@ -26,7 +26,7 @@ val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
 val confluentAvroSerializerVersion = "5.4.1"
 
-val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.7"
+val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.8"
 
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
