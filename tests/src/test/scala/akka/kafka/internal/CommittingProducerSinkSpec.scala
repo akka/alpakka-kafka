@@ -10,8 +10,6 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.ConsumerMessage.CommittableMessage
-import akka.kafka.ProducerMessage.PassThroughMessage
 import akka.kafka.internal.KafkaConsumerActor.Internal
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.Producer
