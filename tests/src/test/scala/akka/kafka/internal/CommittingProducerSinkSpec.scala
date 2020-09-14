@@ -254,6 +254,36 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     control.drainAndShutdown().futureValue shouldBe Done
   }
 
+  it should "only commit when batch size is reached with empty multi-messages" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+    val message = consumer.message(partition, "increment the offset")
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(1)
+
+    val control = Source
+      .single(message)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.multi(immutable.Seq.empty[ProducerRecord[String, String]], msg.committableOffset)
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 1)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size 0
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
   it should "produce, and commit when the next offset is observed" in assertAllStagesStopped {
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
 
