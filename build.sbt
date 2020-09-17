@@ -395,12 +395,12 @@ lazy val docs = project
         "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         // Akka 2.6. These can be removed when we drop Akka 2.5 support.
-        "akka.version26" -> akkaVersion26,
-        "extref.akka26.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
-        "scaladoc.akka.actor.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
-        "extref.akka.actor.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
-        "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
-        "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
+        "akka.version26" -> "current",
+        "extref.akka26.base_url" -> s"https://doc.akka.io/docs/akka/current/%s",
+        "scaladoc.akka.actor.typed.base_url" -> s"https://doc.akka.io/api/akka/current/",
+        "extref.akka.actor.typed.base_url" -> s"https://doc.akka.io/docs/akka/current/%s",
+        "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/current/",
+        "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/current/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/%s",
