@@ -46,6 +46,8 @@ private final class CommitCollectorStageLogic(
 
   override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
+  private var emitOnPull = false
+
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
@@ -56,20 +58,25 @@ private final class CommitCollectorStageLogic(
   // ---- Consuming
   private def consume(offset: Committable): Unit = {
     log.debug("Consuming offset {}", offset)
-    if (updateBatch(offset))
-      pushDownStream(BatchSize)(push)
-    else tryPull(stage.in) // accumulating the batch
+    if (updateBatch(offset)) {
+      // Push only of the outlet is available, a commit on interval might have taken the pending demand.
+      // This is very hard to get tested consistently, so it gets this big comment instead.
+      if (isAvailable(stage.out)) pushDownStream(BatchSize)(push)
+    } else tryPull(stage.in) // accumulating the batch
   }
 
   private def scheduleCommit(): Unit =
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    // have to use emit, rather than push, here as timers may occur outside of a push/pull cycle, so the outlet is
-    // not yet available. Emit ensures that we do not push until the next pull occurs. After that, akka 're-installs'
-    // the usual pull handler and we go back to consuming batches. This is very hard to get tested consistently, so
-    // it gets this big comment instead.
-    case CommitCollectorStage.CommitNow => pushDownStream(Interval)(emit[CommittableOffsetBatch])
+    case CommitCollectorStage.CommitNow =>
+      if (activeBatchInProgress) {
+        // Push only of the outlet is available, as timers may occur outside of a push/pull cycle.
+        // Otherwise instruct `onPull` to emit what is there when the next pull occurs.
+        // This is very hard to get tested consistently, so it gets this big comment instead.
+        if (isAvailable(stage.out)) pushDownStream(Interval)(push)
+        else emitOnPull = true
+      } else scheduleCommit()
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy)(
@@ -116,9 +123,13 @@ private final class CommitCollectorStageLogic(
   setHandler(
     stage.out,
     new OutHandler {
-      def onPull(): Unit = if (!hasBeenPulled(stage.in)) {
-        tryPull(stage.in)
-      }
+      def onPull(): Unit =
+        if (emitOnPull) {
+          pushDownStream(Interval)(push)
+          emitOnPull = false
+        } else if (!hasBeenPulled(stage.in)) {
+          tryPull(stage.in)
+        }
     }
   )
 
