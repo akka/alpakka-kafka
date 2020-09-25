@@ -19,7 +19,7 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerPartitionAssignor, ConsumerRecord}
 import org.apache.kafka.clients.consumer.internals.AbstractPartitionAssignor
 import org.apache.kafka.common.TopicPartition
-import org.scalatest._
+import org.scalatest.Inside
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration._

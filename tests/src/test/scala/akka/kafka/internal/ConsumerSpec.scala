@@ -21,7 +21,9 @@ import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito.Mockito._
 import org.scalatest.concurrent.Eventually
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
@@ -49,7 +51,7 @@ object ConsumerSpec {
 
 class ConsumerSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with LogCapturing

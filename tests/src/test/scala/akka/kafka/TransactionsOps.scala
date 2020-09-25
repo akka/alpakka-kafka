@@ -16,7 +16,8 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
-import org.scalatest.{Matchers, TestSuite}
+import org.scalatest.TestSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable
 import scala.concurrent.Future

@@ -21,7 +21,7 @@ import akka.testkit.TestProbe
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
-import org.scalatest._
+import org.scalatest.{Inside, OptionValues}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
