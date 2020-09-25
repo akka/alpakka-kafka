@@ -48,7 +48,6 @@ private final class CommitCollectorStageLogic(
 
   private var emitOnPull = false
 
-  // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
     scheduleCommit()
@@ -70,11 +69,9 @@ private final class CommitCollectorStageLogic(
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy): Unit = {
-    if (activeBatchInProgress) {
-      log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
-      push(stage.out, offsetBatch)
-      offsetBatch = CommittableOffsetBatch.empty
-    }
+    log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
+    push(stage.out, offsetBatch)
+    offsetBatch = CommittableOffsetBatch.empty
     scheduleCommit()
   }
 
@@ -92,25 +89,20 @@ private final class CommitCollectorStageLogic(
       }
 
       override def onUpstreamFinish(): Unit = {
-        if (noActiveBatchInProgress) {
-          completeStage()
-        } else {
+        if (activeBatchInProgress) {
           log.debug("pushDownStream triggered by {}, outstanding batch {}", UpstreamFinish, offsetBatch)
           emit(stage.out, offsetBatch)
-          completeStage()
         }
+        completeStage()
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        if (noActiveBatchInProgress) {
-          log.debug("onUpstreamFailure with exception {} with empty offset batch", ex)
-          failStage(ex)
-        } else {
-          log.debug("onUpstreamFailure with exception {} with {}", ex, offsetBatch)
+        log.debug("onUpstreamFailure with exception {} with {}", ex, offsetBatch)
+        if (activeBatchInProgress) {
           offsetBatch.tellCommitEmergency()
           offsetBatch = CommittableOffsetBatch.empty
-          failStage(ex)
         }
+        failStage(ex)
       }
     }
   )
@@ -133,7 +125,6 @@ private final class CommitCollectorStageLogic(
     super.postStop()
   }
 
-  private def noActiveBatchInProgress: Boolean = offsetBatch.isEmpty
   private def activeBatchInProgress: Boolean = !offsetBatch.isEmpty
 }
 
