@@ -55,16 +55,6 @@ private final class CommitCollectorStageLogic(
     log.debug("CommitCollectorStage initialized")
   }
 
-  // ---- Consuming
-  private def consume(offset: Committable): Unit = {
-    log.debug("Consuming offset {}", offset)
-    if (updateBatch(offset)) {
-      // Push only of the outlet is available, a commit on interval might have taken the pending demand.
-      // This is very hard to get tested consistently, so it gets this big comment instead.
-      if (isAvailable(stage.out)) pushDownStream(BatchSize)(push)
-    } else tryPull(stage.in) // accumulating the batch
-  }
-
   private def scheduleCommit(): Unit =
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
@@ -74,17 +64,15 @@ private final class CommitCollectorStageLogic(
         // Push only of the outlet is available, as timers may occur outside of a push/pull cycle.
         // Otherwise instruct `onPull` to emit what is there when the next pull occurs.
         // This is very hard to get tested consistently, so it gets this big comment instead.
-        if (isAvailable(stage.out)) pushDownStream(Interval)(push)
+        if (isAvailable(stage.out)) pushDownStream(Interval)
         else emitOnPull = true
       } else scheduleCommit()
   }
 
-  private def pushDownStream(triggeredBy: TriggerdBy)(
-      emission: (Outlet[CommittableOffsetBatch], CommittableOffsetBatch) => Unit
-  ): Unit = {
+  private def pushDownStream(triggeredBy: TriggerdBy): Unit = {
     if (activeBatchInProgress) {
       log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
-      emission(stage.out, offsetBatch)
+      push(stage.out, offsetBatch)
       offsetBatch = CommittableOffsetBatch.empty
     }
     scheduleCommit()
@@ -94,14 +82,21 @@ private final class CommitCollectorStageLogic(
     stage.in,
     new InHandler {
       def onPush(): Unit = {
-        consume(grab(stage.in))
+        val offset = grab(stage.in)
+        log.debug("Consuming offset {}", offset)
+        if (updateBatch(offset)) {
+          // Push only of the outlet is available, a commit on interval might have taken the pending demand.
+          // This is very hard to get tested consistently, so it gets this big comment instead.
+          if (isAvailable(stage.out)) pushDownStream(BatchSize)
+        } else tryPull(stage.in) // accumulating the batch
       }
 
       override def onUpstreamFinish(): Unit = {
         if (noActiveBatchInProgress) {
           completeStage()
         } else {
-          pushDownStream(UpstreamFinish)(emit[CommittableOffsetBatch])
+          log.debug("pushDownStream triggered by {}, outstanding batch {}", UpstreamFinish, offsetBatch)
+          emit(stage.out, offsetBatch)
           completeStage()
         }
       }
@@ -125,7 +120,7 @@ private final class CommitCollectorStageLogic(
     new OutHandler {
       def onPull(): Unit =
         if (emitOnPull) {
-          pushDownStream(Interval)(push)
+          pushDownStream(Interval)
           emitOnPull = false
         } else if (!hasBeenPulled(stage.in)) {
           tryPull(stage.in)
