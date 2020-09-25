@@ -250,12 +250,14 @@ lazy val testkit = project
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
     crossScalaVersions := (if (Nightly) Seq(Scala212, Scala213) else Seq(Scala212, Scala211, Scala213)),
-    JupiterKeys.junitJupiterVersion := "5.5.2",
+    // https://github.com/junit-team/junit5/releases
+    JupiterKeys.junitJupiterVersion := "5.7.0",
+    JupiterKeys.junitVintageVersion := "5.7.0",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-        "junit" % "junit" % "4.12" % Provided,
+        "junit" % "junit" % "4.13" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
         "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
         "org.apache.commons" % "commons-compress" % "1.20" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
