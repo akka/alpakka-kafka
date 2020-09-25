@@ -104,6 +104,55 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
+
+      "emit immediately if there is pending demand" in assertAllStagesStopped {
+        val settings = DefaultCommitterSettings.withMaxBatch(Integer.MAX_VALUE).withMaxInterval(100.millis)
+        val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
+
+        sinkProbe.request(1)
+        // the interval triggers, but there is nothing to emit
+        sinkProbe.expectNoMessage(200.millis)
+
+        // next trigger should emit this single value immediately
+        val msg = factory.makeOffset()
+        sourceProbe.sendNext(msg)
+        val committedBatch = sinkProbe.expectNext(50.millis)
+
+        committedBatch.batchSize shouldBe 1
+        committedBatch.offsets.values should have size 1
+        committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
+        factory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+
+      "emit after a triggered batch when the next batch is full" in assertAllStagesStopped {
+        val settings = DefaultCommitterSettings.withMaxBatch(2).withMaxInterval(50.millis)
+        val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
+
+        val msg = factory.makeOffset()
+        sourceProbe.sendNext(msg)
+        // triggered by interval
+        val committedBatch = sinkProbe.requestNext(80.millis)
+
+        val msg2 = factory.makeOffset()
+        sourceProbe.sendNext(msg2)
+        val msg3 = factory.makeOffset()
+        sourceProbe.sendNext(msg3)
+
+        // triggered by size
+        val committedBatch2 = sinkProbe.requestNext(10.millis)
+
+        committedBatch.batchSize shouldBe 1
+        committedBatch.offsets.values should have size 1
+        committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
+
+        committedBatch2.batchSize shouldBe 2
+        committedBatch2.offsets.values should have size 1
+        committedBatch2.offsets.values.last shouldBe msg3.partitionOffset.offset
+
+        control.shutdown().futureValue shouldBe Done
+      }
     }
 
     "all offsets are in batch that is in flight" should {
