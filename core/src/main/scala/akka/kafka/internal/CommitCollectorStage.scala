@@ -46,7 +46,7 @@ private final class CommitCollectorStageLogic(
 
   override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
-  private var emitOnPull = false
+  private var pushOnNextPull = false
 
   override def preStart(): Unit = {
     super.preStart()
@@ -64,7 +64,7 @@ private final class CommitCollectorStageLogic(
         // Otherwise instruct `onPull` to emit what is there when the next pull occurs.
         // This is very hard to get tested consistently, so it gets this big comment instead.
         if (isAvailable(stage.out)) pushDownStream(Interval)
-        else emitOnPull = true
+        else pushOnNextPull = true
       } else scheduleCommit()
   }
 
@@ -111,9 +111,9 @@ private final class CommitCollectorStageLogic(
     stage.out,
     new OutHandler {
       def onPull(): Unit =
-        if (emitOnPull) {
+        if (pushOnNextPull) {
           pushDownStream(Interval)
-          emitOnPull = false
+          pushOnNextPull = false
         } else if (!hasBeenPulled(stage.in)) {
           tryPull(stage.in)
         }
