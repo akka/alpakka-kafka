@@ -14,12 +14,18 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
+class PlainSourceFailoverSpec
+    extends SpecBase
+    with TestcontainersKafkaPerClassLike
+    with AnyWordSpecLike
+    with ScalaFutures
+    with Matchers {
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(45.seconds, 1.second)
 
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
@@ -37,17 +43,23 @@ class PlainSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassL
         _.nodes().get().size == testcontainersSettings.numBrokers
       }
 
-      val topic = createTopic(0, partitions, replication = 3, Map(
-        // require at least two replicas be in sync before acknowledging produced record
-        TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
-      ))
+      val topic = createTopic(
+        0,
+        partitions,
+        replication = 3,
+        Map(
+          // require at least two replicas be in sync before acknowledging produced record
+          TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
+        )
+      )
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val consumerMatValue: Future[Long] = Consumer.plainSource(consumerConfig, Subscriptions.topics(topic))
+      val consumerMatValue: Future[Long] = Consumer
+        .plainSource(consumerConfig, Subscriptions.topics(topic))
         .scan(0L)((c, _) => c + 1)
         .via(IntegrationTests.logReceivedMessages()(log))
         .takeWhile(count => count < totalMessages, inclusive = true)
