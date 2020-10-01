@@ -21,12 +21,10 @@ script:
 jobs:
   include:
     - stage: check
-      env: CMD="verifyCodeStyle ; mimaReportBinaryIssues"
-      name: "Code style check and binary-compatibility check. Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'"
-    - env: CMD="Test/compile ; It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'"
-    - env: CMD="+clusterSharding/Test/compile"
-      name: "Compile cluster-sharding module for all supported Scala versions. Run locally with: env CI=true sbt '+clusterSharding/Test/compile'"
+      env: CMD="verifyCodeStyle"
+      name: "Code style check. Run locally with: sbt verifyCodeStyle"
+    - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
     - env: CMD="verifyDocs"
       name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
 
@@ -59,8 +57,6 @@ jobs:
     - stage: publish
       env: CMD="+publish"
       name: "Publish artifacts for all Scala versions"
-    - env: CMD="+clusterSharding/publish"
-      name: "Publish akka-stream-kafka-cluster-sharding for all its supported Scala versions"
     - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
       name: "Publish API and reference documentation"
 

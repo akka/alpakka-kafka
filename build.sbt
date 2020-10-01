@@ -8,19 +8,17 @@ val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 
 val Scala212 = "2.12.11"
 val Scala213 = "2.13.2"
-val akkaVersion26 = "2.6.6"
-val akkaVersion = if (Nightly) akkaVersion26 else "2.5.31"
-val AkkaBinaryVersion25 = "2.5"
-val AkkaBinaryVersion26 = "2.6"
-val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 
+val AkkaBinaryVersionForDocs = "2.6"
+val KafkaVersionForDocs = "26"
+
+val akkaVersion = "2.6.10"
 val kafkaVersion = "2.6.0"
 // TODO Jackson is now a provided dependency of kafka-clients
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5"
 val embeddedKafkaVersion = "2.6.0"
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
-val kafkaVersionForDocs = "26"
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
@@ -28,7 +26,6 @@ val slf4jVersion = "1.7.30"
 // that depends on the same Kafka version, as is defined above
 val confluentAvroSerializerVersion = "6.0.0"
 val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.8"
-
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
 val confluentLibsExclusionRules = Seq(
@@ -204,7 +201,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, tests, benchmarks, docs)
+    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -253,12 +250,6 @@ lazy val testkit = project
       )
   )
 
-/**
- * TODO: Once Akka 2.5 is dropped:
- * - add to `alpakka-kafka` aggregate project
- * - move `ClusterShardingExample` to `tests` project
- * - remove all akka26 paradox properties
- */
 lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
   .dependsOn(core)
@@ -269,7 +260,7 @@ lazy val clusterSharding = project
     name := "akka-stream-kafka-cluster-sharding",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.cluster.sharding"),
     libraryDependencies ++= Seq(
-        "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion26
+        "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
@@ -278,7 +269,7 @@ lazy val clusterSharding = project
   )
 
 lazy val tests = project
-  .dependsOn(core, testkit)
+  .dependsOn(core, testkit, clusterSharding)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin)
   .configs(IntegrationTest.extend(Test))
@@ -368,22 +359,15 @@ lazy val docs = project
         "javadoc.akka.kafka.base_url" -> "",
         // Akka
         "akka.version" -> akkaVersion,
-        "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion/%s",
-        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion/",
-        "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersion/",
+        "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersionForDocs/%s",
+        "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersionForDocs/",
+        "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersionForDocs/",
         "javadoc.akka.link_style" -> "direct",
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
-        // Akka 2.6. These can be removed when we drop Akka 2.5 support.
-        "akka.version26" -> akkaVersion26,
-        "extref.akka26.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
-        "scaladoc.akka.actor.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
-        "extref.akka.actor.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
-        "scaladoc.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersion26/",
-        "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
-        "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/%s",
-        "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
+        "extref.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/%s",
+        "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "frames",
         // Java
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
