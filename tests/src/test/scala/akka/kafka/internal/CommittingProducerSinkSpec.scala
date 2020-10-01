@@ -26,7 +26,9 @@ import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.immutable
@@ -35,7 +37,7 @@ import scala.jdk.CollectionConverters._
 
 class CommittingProducerSinkSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with ScalaFutures
@@ -250,6 +252,36 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
 
     eventually {
       producer.history.asScala should have size (totalProducerRecords.longValue())
+    }
+    control.drainAndShutdown().futureValue shouldBe Done
+  }
+
+  it should "only commit when batch size is reached with empty multi-messages" in assertAllStagesStopped {
+    val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
+    val message = consumer.message(partition, "increment the offset")
+
+    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
+      .withProducer(producer)
+    val committerSettings = CommitterSettings(system).withMaxBatch(1)
+
+    val control = Source
+      .single(message)
+      .concat(Source.maybe)
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      .map { msg =>
+        ProducerMessage.multi(immutable.Seq.empty[ProducerRecord[String, String]], msg.committableOffset)
+      }
+      .toMat(Producer.committableSink(producerSettings, committerSettings))(DrainingControl.apply)
+      .run()
+
+    val commitMsg = consumer.actor.expectMsgClass(classOf[Internal.Commit])
+    commitMsg.tp shouldBe new TopicPartition(topic, partition)
+    commitMsg.offsetAndMetadata.offset() shouldBe (consumer.startOffset + 1)
+    consumer.actor.reply(Done)
+
+    eventually {
+      producer.history.asScala should have size 0
     }
     control.drainAndShutdown().futureValue shouldBe Done
   }

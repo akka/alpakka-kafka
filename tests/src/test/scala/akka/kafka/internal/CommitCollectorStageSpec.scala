@@ -23,7 +23,9 @@ import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.testkit.TestKit
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{AppendedClues, BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{AppendedClues, BeforeAndAfterAll}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -31,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class CommitCollectorStageSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with BeforeAndAfterAll
     with Eventually
@@ -59,9 +61,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     "the batch is full" should {
       val settings = DefaultCommitterSettings.withMaxBatch(2).withMaxInterval(10.hours)
       "batch commit without errors" in assertAllStagesStopped {
-        val (sourceProbe, control, sinkProbe) = streamProbes(settings)
-        val committer = new TestBatchCommitter(settings)
-        val offsetFactory = TestOffsetFactory(committer)
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         val (msg1, msg2) = (offsetFactory.makeOffset(), offsetFactory.makeOffset())
 
         sinkProbe.request(100)
@@ -69,7 +69,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         // first message should not be committed but 'batched-up'
         sourceProbe.sendNext(msg1)
         sinkProbe.expectNoMessage(msgAbsenceDuration)
-        committer.commits shouldBe empty
+        offsetFactory.committer.commits shouldBe empty
 
         // now message that fills up the batch
         sourceProbe.sendNext(msg2)
@@ -79,7 +79,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         committedBatch.batchSize shouldBe 2
         committedBatch.offsets.values should have size 1
         committedBatch.offsets.values.last shouldBe msg2.partitionOffset.offset
-        committer.commits.size shouldBe 1 withClue "expected only one batch commit"
+        offsetFactory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
 
         control.shutdown().futureValue shouldBe Done
       }
@@ -101,6 +101,55 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         committedBatch.offsets.values should have size 1
         committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
         factory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+
+      "emit immediately if there is pending demand" in assertAllStagesStopped {
+        val settings = DefaultCommitterSettings.withMaxBatch(Integer.MAX_VALUE).withMaxInterval(100.millis)
+        val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
+
+        sinkProbe.request(1)
+        // the interval triggers, but there is nothing to emit
+        sinkProbe.expectNoMessage(200.millis)
+
+        // next trigger should emit this single value immediately
+        val msg = factory.makeOffset()
+        sourceProbe.sendNext(msg)
+        val committedBatch = sinkProbe.expectNext(50.millis)
+
+        committedBatch.batchSize shouldBe 1
+        committedBatch.offsets.values should have size 1
+        committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
+        factory.committer.commits.size shouldBe 1 withClue "expected only one batch commit"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+
+      "emit after a triggered batch when the next batch is full" in assertAllStagesStopped {
+        val settings = DefaultCommitterSettings.withMaxBatch(2).withMaxInterval(50.millis)
+        val (sourceProbe, control, sinkProbe, factory) = streamProbesWithOffsetFactory(settings)
+
+        val msg = factory.makeOffset()
+        sourceProbe.sendNext(msg)
+        // triggered by interval
+        val committedBatch = sinkProbe.requestNext(80.millis)
+
+        val msg2 = factory.makeOffset()
+        sourceProbe.sendNext(msg2)
+        val msg3 = factory.makeOffset()
+        sourceProbe.sendNext(msg3)
+
+        // triggered by size
+        val committedBatch2 = sinkProbe.requestNext(10.millis)
+
+        committedBatch.batchSize shouldBe 1
+        committedBatch.offsets.values should have size 1
+        committedBatch.offsets.values.last shouldBe msg.partitionOffset.offset
+
+        committedBatch2.batchSize shouldBe 2
+        committedBatch2.offsets.values should have size 1
+        committedBatch2.offsets.values.last shouldBe msg3.partitionOffset.offset
 
         control.shutdown().futureValue shouldBe Done
       }
@@ -182,9 +231,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     "using next observed offset" should {
       val settings = DefaultCommitterSettings.withMaxBatch(1).withCommitWhen(CommitWhen.NextOffsetObserved)
       "only commit when the next offset is observed" in assertAllStagesStopped {
-        val (sourceProbe, control, sinkProbe) = streamProbes(settings)
-        val committer = new TestBatchCommitter(settings)
-        val offsetFactory = TestOffsetFactory(committer)
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         val (msg1, msg2, msg3) = (offsetFactory.makeOffset(), offsetFactory.makeOffset(), offsetFactory.makeOffset())
 
         sinkProbe.request(100)
@@ -202,14 +249,12 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         val lastBatch = batches.maxBy(_.offsets.values.last)
 
         lastBatch.offsets.values.last shouldBe msg2.partitionOffset.offset withClue "expect only the second offset to be committed"
-        committer.commits.size shouldBe 2 withClue "expected only two commits"
+        offsetFactory.committer.commits.size shouldBe 2 withClue "expected only two commits"
 
         control.shutdown().futureValue shouldBe Done
       }
       "only commit when the next offset is observed for the correct partitions" in assertAllStagesStopped {
-        val (sourceProbe, control, sinkProbe) = streamProbes(settings)
-        val committer = new TestBatchCommitter(settings)
-        val offsetFactory = TestOffsetFactory(committer)
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         val (msg1, msg2, msg3, msg4, msg5) = (offsetFactory.makeOffset(partitionNum = 1),
                                               offsetFactory.makeOffset(partitionNum = 2),
                                               offsetFactory.makeOffset(partitionNum = 1),
@@ -228,7 +273,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         lastBatch.offsets(msg3.partitionOffset.key) shouldBe msg3.partitionOffset.offset withClue "expect the second offset of partition 1"
         secondLastBatch.offsets(msg2.partitionOffset.key) shouldBe msg2.partitionOffset.offset withClue "expect the first offset of partition 2"
-        committer.commits.size shouldBe 3 withClue "expected only three commits"
+        offsetFactory.committer.commits.size shouldBe 3 withClue "expected only three commits"
 
         control.shutdown().futureValue shouldBe Done
       }

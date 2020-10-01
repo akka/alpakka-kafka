@@ -6,11 +6,11 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import akka.kafka.ProducerMessage._
 import akka.kafka.ProducerSettings
 import akka.util.JavaDurationConverters._
-import org.apache.kafka.clients.producer.{Callback, Producer, ProducerRecord, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
  * Utility class for producing to Kafka without using Akka Streams.
  * @param settings producer settings used to create or access the [[org.apache.kafka.clients.producer.Producer]]
  */
-final class SendProducer[K, V] private (val settings: ProducerSettings[K, V])(implicit system: ActorSystem) {
+final class SendProducer[K, V] private (val settings: ProducerSettings[K, V], system: ActorSystem) {
 
   private implicit val ec: ExecutionContext = system.dispatchers.lookup(settings.dispatcher)
   private final val producerFuture = settings.createKafkaProducerAsync()(ec)
@@ -62,7 +62,7 @@ final class SendProducer[K, V] private (val settings: ProducerSettings[K, V])(im
     }
   }
 
-  private def sendSingle[R](producer: Producer[K, V],
+  private def sendSingle[R](producer: org.apache.kafka.clients.producer.Producer[K, V],
                             record: ProducerRecord[K, V],
                             success: RecordMetadata => R): Future[R] = {
     val result = Promise[R]
@@ -96,6 +96,11 @@ final class SendProducer[K, V] private (val settings: ProducerSettings[K, V])(im
 }
 
 object SendProducer {
-  def apply[K, V](settings: ProducerSettings[K, V])(implicit system: ActorSystem): SendProducer[K, V] =
-    new SendProducer(settings)
+  def apply[K, V](settings: ProducerSettings[K, V])(implicit system: ClassicActorSystemProvider): SendProducer[K, V] =
+    new SendProducer(settings, system.classicSystem)
+
+  // kept for bin-compatibility
+  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
+  def apply[K, V](settings: ProducerSettings[K, V], system: ActorSystem): SendProducer[K, V] =
+    new SendProducer(settings, system)
 }

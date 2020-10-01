@@ -37,6 +37,7 @@ import static org.junit.Assert.assertEquals;
 
 @TestInstance(Lifecycle.PER_CLASS)
 // #testkit
+@SuppressWarnings("deprecation")
 @ExtendWith(LogCapturingExtension.class)
 // #testkit
 class ProducerExampleTest extends EmbeddedKafkaTest {

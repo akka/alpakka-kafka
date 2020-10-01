@@ -15,11 +15,12 @@ import akka.testkit.TestKit
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 
 class MisconfiguredConsumerSpec
     extends TestKit(ActorSystem())
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with ScalaFutures
     with Eventually

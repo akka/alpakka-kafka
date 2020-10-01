@@ -5,24 +5,25 @@
 
 package akka.kafka.scaladsl
 
-// #testkit
 import akka.kafka.Repeated
-import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import akka.kafka.tests.scaladsl.LogCapturing
+// #testkit
+import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 
 abstract class SpecBase(kafkaPort: Int)
     extends ScalatestKafkaSpec(kafkaPort)
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with ScalaFutures
-    with Eventually
+    // #testkit
     with LogCapturing
-    // #testkit
     with IntegrationPatience
+    with Repeated
     // #testkit
-    with Repeated {
+    with Eventually {
 
   protected def this() = this(kafkaPort = -1)
 }

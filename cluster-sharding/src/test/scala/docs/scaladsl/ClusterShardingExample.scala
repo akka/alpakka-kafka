@@ -5,6 +5,7 @@
 
 package docs.scaladsl
 
+import akka.NotUsed
 import akka.actor.typed.{ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.Behaviors
@@ -14,6 +15,7 @@ import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityType
 import akka.kafka.cluster.sharding.KafkaClusterSharding
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerRebalanceEvent, ConsumerSettings, Subscriptions}
+import akka.stream.scaladsl.{Flow, Sink}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.concurrent.Future
@@ -28,12 +30,13 @@ import scala.util.{Failure, Success}
  * https://github.com/akka/akka-samples/tree/2.6/akka-sample-kafka-to-sharding-scala
  */
 object ClusterShardingExample {
-  val system = ActorSystem(Behaviors.empty, "ClusterShardingExample")
+  implicit val system = ActorSystem(Behaviors.empty, "ClusterShardingExample")
   val kafkaBootstrapServers = "localhost:9092"
 
   implicit val ec = system.executionContext
 
   def userBehaviour(): Behavior[User] = Behaviors.empty[User]
+  def userBusiness[T](): Flow[T, T, NotUsed] = Flow[T]
 
   // #user-entity
   final case class User(id: String, name: String)
@@ -87,6 +90,10 @@ object ClusterShardingExample {
     .topics("user-topic")
     .withRebalanceListener(rebalanceListenerClassic)
 
-  val consumer = Consumer.plainSource(consumerSettings, subscription)
+  // run & materialize the stream
+  val consumer = Consumer
+    .plainSource(consumerSettings, subscription)
+    .via(userBusiness())
+    .runWith(Sink.ignore)
   // #rebalance-listener
 }

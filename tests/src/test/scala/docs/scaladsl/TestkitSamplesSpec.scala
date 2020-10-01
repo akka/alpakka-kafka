@@ -17,13 +17,13 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-
-import scala.collection.immutable
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 class TestkitSamplesSpec
     extends TestKit(ActorSystem("example"))
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with ScalaFutures
@@ -45,22 +45,17 @@ class TestkitSamplesSpec
     import akka.kafka.testkit.{ConsumerResultFactory, ProducerResultFactory}
 
     // create elements emitted by the mocked Consumer
-    val elements = immutable.Seq(
+    val elements = (0 to 10).map { i =>
+      val nextOffset = startOffset + i
       ConsumerResultFactory.committableMessage(
-        new ConsumerRecord(topic, partition, startOffset, "key", "value 1"),
-        ConsumerResultFactory.committableOffset(groupId, topic, partition, startOffset, "metadata")
-      ),
-      ConsumerResultFactory.committableMessage(
-        new ConsumerRecord(topic, partition, startOffset + 1, "key", "value 2"),
-        ConsumerResultFactory.committableOffset(groupId, topic, partition, startOffset + 1, "metadata 2")
+        new ConsumerRecord(topic, partition, nextOffset, "key", s"value $i"),
+        ConsumerResultFactory.committableOffset(groupId, topic, partition, nextOffset, s"metadata $i")
       )
-    )
+    }
 
     // create a source imitating the Consumer.committableSource
     val mockedKafkaConsumerSource: Source[ConsumerMessage.CommittableMessage[String, String], Consumer.Control] =
-      Source
-        .cycle(() => elements.iterator)
-        .viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
+      Source(elements).viaMat(ConsumerControlFactory.controlFlow())(Keep.right)
 
     // create a source imitating the Producer.flexiFlow
     val mockedKafkaProducerFlow: Flow[ProducerMessage.Envelope[String, String, CommittableOffset],
@@ -88,8 +83,6 @@ class TestkitSamplesSpec
       .run()
     // #factories
 
-    Thread.sleep(1 * 1000L)
-    control.shutdown().futureValue should be(Done)
     streamCompletion.futureValue should be(Done)
   }
 }

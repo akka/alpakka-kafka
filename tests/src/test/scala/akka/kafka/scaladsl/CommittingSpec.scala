@@ -21,7 +21,7 @@ import akka.testkit.TestProbe
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
-import org.scalatest._
+import org.scalatest.Inside
 
 import scala.collection.immutable
 import scala.concurrent.Future

@@ -9,12 +9,14 @@ import akka.NotUsed
 import akka.kafka.testkit.scaladsl.KafkaSpec
 import akka.kafka.testkit.internal.TestFrameworkInterface
 import akka.stream.scaladsl.Flow
-import org.scalatest.{FlatSpecLike, Matchers, Suite}
+import org.scalatest.Suite
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 abstract class DocsSpecBase(kafkaPort: Int)
     extends KafkaSpec(kafkaPort)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with TestFrameworkInterface.Scalatest
     with Matchers
     with ScalaFutures

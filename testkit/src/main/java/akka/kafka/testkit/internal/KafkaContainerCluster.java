@@ -7,18 +7,17 @@ package akka.kafka.testkit.internal;
 
 import akka.annotation.InternalApi;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.rnorth.ducttape.unreliables.Unreliables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
 
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Optional;
@@ -187,23 +186,14 @@ public class KafkaContainerCluster implements Startable {
 
   private String clusterBrokers(GenericContainer c) {
     try {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      dockerClient
-          .execStartCmd(
-              dockerClient
-                  .execCreateCmd(c.getContainerId())
-                  .withAttachStdout(true)
-                  .withCmd(
-                      "sh",
-                      "-c",
-                      "zookeeper-shell zookeeper:"
-                          + AlpakkaKafkaContainer.ZOOKEEPER_PORT
-                          + " ls /brokers/ids | tail -n 1")
-                  .exec()
-                  .getId())
-          .exec(new ExecStartResultCallback(outputStream, null))
-          .awaitCompletion();
-      return outputStream.toString();
+      Container.ExecResult result =
+          c.execInContainer(
+              "sh",
+              "-c",
+              "zookeeper-shell zookeeper:"
+                  + AlpakkaKafkaContainer.ZOOKEEPER_PORT
+                  + " ls /brokers/ids | tail -n 1");
+      return result.getStdout();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -214,11 +204,16 @@ public class KafkaContainerCluster implements Startable {
     String command = "#!/bin/bash \n";
     command += "set -e \n";
     command +=
-        "kafka-topics "
+        "[[ $(kafka-topics "
+            + connect
+            + " --describe --topic "
+            + READINESS_CHECK_TOPIC
+            + " | wc -l) > 1 ]] && "
+            + "kafka-topics "
             + connect
             + " --delete --topic "
             + READINESS_CHECK_TOPIC
-            + " || echo \"topic does not exist\" \n";
+            + " \n";
     command +=
         "kafka-topics "
             + connect
@@ -255,21 +250,15 @@ public class KafkaContainerCluster implements Startable {
 
   private Boolean runReadinessCheck(GenericContainer c) {
     try {
-      ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
-      ByteArrayOutputStream stderrStream = new ByteArrayOutputStream();
-      dockerClient
-          .execStartCmd(
-              dockerClient
-                  .execCreateCmd(c.getContainerId())
-                  .withAttachStdout(true)
-                  .withAttachStderr(true)
-                  .withCmd("sh", "-c", READINESS_CHECK_SCRIPT)
-                  .exec()
-                  .getId())
-          .exec(new ExecStartResultCallback(stdoutStream, stderrStream))
-          .awaitCompletion();
-      log.debug("Readiness check returned errors:\n{}", stderrStream.toString());
-      return stdoutStream.toString().contains("test succeeded");
+      Container.ExecResult result = c.execInContainer("sh", "-c", READINESS_CHECK_SCRIPT);
+      if (result.getExitCode() != 0 || !result.getStdout().contains("test succeeded")) {
+        log.debug(
+            "Readiness check returned errors:\nSTDOUT:\n{}\nSTDERR\n{}",
+            result.getStdout(),
+            result.getStderr());
+        return false;
+      }
+      return true;
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

@@ -9,7 +9,7 @@ val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 val akkaVersion26 = "2.6.6"
-val akkaVersion = if (Nightly) akkaVersion26 else "2.5.30"
+val akkaVersion = if (Nightly) akkaVersion26 else "2.5.31"
 val AkkaBinaryVersion25 = "2.5"
 val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
@@ -21,11 +21,11 @@ val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafk
 // that depends on the same Kafka version, as is defined above
 val embeddedKafkaSchemaRegistryVersion = "5.5.1"
 val kafkaVersionForDocs = "24"
-val scalatestVersion = "3.0.8"
+val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
 val confluentAvroSerializerVersion = "5.5.1" // FIXME upgrade when available to matching apache kafka version
-val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.7"
+val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.8"
 
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
@@ -95,7 +95,8 @@ val commonSettings = Def.settings(
   scalaVersion := Scala212,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
-      "-Xlint:deprecation"
+      "-Xlint:deprecation",
+      "-Xlint:unchecked"
     ),
   scalacOptions ++= Seq(
       "-deprecation",
@@ -207,6 +208,7 @@ lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(SitePlugin)
   .settings(commonSettings)
+  .settings(VersionGenerator.settings)
   .settings(
     name := "akka-stream-kafka",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka"),
@@ -259,7 +261,7 @@ lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, SitePlugin) // TODO: re-enable MiMa plugin after first release
+  .disablePlugins(SitePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-cluster-sharding",
@@ -418,7 +420,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.11",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.12.1",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.1",
