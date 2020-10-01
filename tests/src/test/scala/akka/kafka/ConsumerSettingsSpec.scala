@@ -11,13 +11,15 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
-import org.scalatest._
+import org.scalatest.OptionValues
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext
 
 class ConsumerSettingsSpec
-    extends WordSpecLike
+    extends AnyWordSpec
     with Matchers
     with OptionValues
     with ScalaFutures

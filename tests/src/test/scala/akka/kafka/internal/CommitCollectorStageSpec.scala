@@ -23,7 +23,9 @@ import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.testkit.TestKit
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{AppendedClues, BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{AppendedClues, BeforeAndAfterAll}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -31,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class CommitCollectorStageSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with BeforeAndAfterAll
     with Eventually

@@ -21,7 +21,7 @@ import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import org.scalatest._
+import org.scalatest.Inside
 
 import scala.collection.immutable
 import scala.concurrent.duration._

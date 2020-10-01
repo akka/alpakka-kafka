@@ -8,9 +8,10 @@ package akka.kafka
 import akka.kafka.internal.ConfigSettings
 import akka.kafka.tests.scaladsl.LogCapturing
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ConfigSettingsSpec extends WordSpecLike with Matchers with LogCapturing {
+class ConfigSettingsSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   "ConfigSettings" must {
 

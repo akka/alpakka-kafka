@@ -11,9 +11,10 @@ import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{Subscription, Subscriptions}
 import akka.util.ByteString
 import org.apache.kafka.common.TopicPartition
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SubscriptionsSpec extends WordSpec with Matchers with LogCapturing {
+class SubscriptionsSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   "URL encoded subscription" should {
     "be readable for topics" in {

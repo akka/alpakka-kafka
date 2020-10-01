@@ -16,12 +16,13 @@ import kafka.server.KafkaConfig
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
 
-class ConnectionCheckerSpec extends WordSpecLike with Matchers with LogCapturing {
+class ConnectionCheckerSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   implicit val system: ActorSystem = ActorSystem("KafkaConnectionCheckerSpec")
   implicit val ec: ExecutionContextExecutor = system.dispatcher
