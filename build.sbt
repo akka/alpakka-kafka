@@ -17,14 +17,13 @@ val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion2
 val kafkaVersion = "2.6.0"
 val embeddedKafkaVersion = "2.6.0"
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
-// this depends on Kafka, and should be upgraded to such latest version
-// that depends on the same Kafka version, as is defined above
-val embeddedKafkaSchemaRegistryVersion = "5.5.1"
 val kafkaVersionForDocs = "24"
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
-val confluentAvroSerializerVersion = "5.5.1" // FIXME upgrade when available to matching apache kafka version
+// this depends on Kafka, and should be upgraded to such latest version
+// that depends on the same Kafka version, as is defined above
+val confluentAvroSerializerVersion = "6.0.0"
 val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.8"
 
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")

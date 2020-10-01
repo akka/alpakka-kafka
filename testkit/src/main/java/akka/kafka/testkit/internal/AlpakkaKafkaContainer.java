@@ -32,7 +32,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
-  public static final String DEFAULT_CP_PLATFORM_VERSION = "5.5.1";
+  public static final String DEFAULT_CP_PLATFORM_VERSION = "6.0.0";
 
   public static final int KAFKA_PORT = 9093;
 
