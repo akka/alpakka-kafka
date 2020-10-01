@@ -7,11 +7,12 @@ package akka.kafka.benchmarks
 
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.{FlatSpecLike, Matchers}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 abstract class SpecBase(kafkaPort: Int)
-  extends ScalatestKafkaSpec(kafkaPort)
-    with FlatSpecLike
+    extends ScalatestKafkaSpec(kafkaPort)
+    with AnyFlatSpecLike
     with Matchers
     with ScalaFutures
     with Eventually {
