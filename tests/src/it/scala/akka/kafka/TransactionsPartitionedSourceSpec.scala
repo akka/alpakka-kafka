@@ -16,7 +16,9 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Ignore, Matchers, WordSpecLike}
+import org.scalatest.Ignore
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -24,13 +26,14 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
 @Ignore
-class TransactionsPartitionedSourceSpec extends SpecBase
-  with TestcontainersKafkaPerClassLike
-  with WordSpecLike
-  with ScalaFutures
-  with Matchers
-  with TransactionsOps
-  with Repeated {
+class TransactionsPartitionedSourceSpec
+    extends SpecBase
+    with TestcontainersKafkaPerClassLike
+    with AnyWordSpecLike
+    with ScalaFutures
+    with Matchers
+    with TransactionsOps
+    with Repeated {
 
   val replicationFactor = 2
 
@@ -80,8 +83,7 @@ class TransactionsPartitionedSourceSpec extends SpecBase
                 idleTimeout = 10.seconds,
                 maxPartitions = sourcePartitions,
                 restartAfter = Some(restartAfter)
-              )
-                .recover {
+              ).recover {
                   case e: TimeoutException =>
                     if (completedWithTimeout.incrementAndGet() > 10)
                       "no more messages to copy"

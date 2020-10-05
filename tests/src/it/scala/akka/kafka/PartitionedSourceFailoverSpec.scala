@@ -15,12 +15,18 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.config.TopicConfig
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPerClassLike with WordSpecLike with ScalaFutures with Matchers {
+class PartitionedSourceFailoverSpec
+    extends SpecBase
+    with TestcontainersKafkaPerClassLike
+    with AnyWordSpecLike
+    with ScalaFutures
+    with Matchers {
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(45.seconds, 1.second)
 
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
@@ -38,26 +44,33 @@ class PartitionedSourceFailoverSpec extends SpecBase with TestcontainersKafkaPer
         _.nodes().get().size == testcontainersSettings.numBrokers
       }
 
-      val topic = createTopic(0, partitions, replication = 3, Map(
-        // require at least two replicas be in sync before acknowledging produced record
-        TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
-      ))
+      val topic = createTopic(
+        0,
+        partitions,
+        replication = 3,
+        Map(
+          // require at least two replicas be in sync before acknowledging produced record
+          TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG -> "2"
+        )
+      )
       val groupId = createGroupId(0)
 
       val consumerConfig = consumerDefaults
         .withGroupId(groupId)
         .withProperty(ConsumerConfig.METADATA_MAX_AGE_CONFIG, "100") // default was 5 * 60 * 1000 (five minutes)
 
-      val consumerMatValue: Future[Long] = Consumer.plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
+      val consumerMatValue: Future[Long] = Consumer
+        .plainPartitionedSource(consumerConfig, Subscriptions.topics(topic))
         .groupBy(partitions, _._1)
-        .mapAsync(8) { case (tp, source) =>
-          log.info(s"Sub-source for ${tp}")
-          source
-            .scan(0L)((c, _) => c + 1)
-            .via(IntegrationTests.logReceivedMessages(tp)(log))
-            // shutdown substream after receiving at its share of the total messages
-            .takeWhile(count => count < (totalMessages / partitions), inclusive = true)
-            .runWith(Sink.last)
+        .mapAsync(8) {
+          case (tp, source) =>
+            log.info(s"Sub-source for ${tp}")
+            source
+              .scan(0L)((c, _) => c + 1)
+              .via(IntegrationTests.logReceivedMessages(tp)(log))
+              // shutdown substream after receiving at its share of the total messages
+              .takeWhile(count => count < (totalMessages / partitions), inclusive = true)
+              .runWith(Sink.last)
         }
         .mergeSubstreams
         // sum of sums. sum the last results of substreams.

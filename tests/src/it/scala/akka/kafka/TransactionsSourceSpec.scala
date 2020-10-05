@@ -18,20 +18,22 @@ import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
-class TransactionsSourceSpec extends SpecBase
-  with TestcontainersKafkaPerClassLike
-  with WordSpecLike
-  with ScalaFutures
-  with Matchers
-  with TransactionsOps
-  with Repeated {
+class TransactionsSourceSpec
+    extends SpecBase
+    with TestcontainersKafkaPerClassLike
+    with AnyWordSpecLike
+    with ScalaFutures
+    with Matchers
+    with TransactionsOps
+    with Repeated {
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(45.seconds, 1.second)
 
@@ -71,7 +73,13 @@ class TransactionsSourceSpec extends SpecBase
           .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
             () => {
               val transactionId = s"$group-$id"
-              transactionalCopyStream(consumerSettings, txProducerDefaults, sourceTopic, sinkTopic, transactionId, 10.seconds, Some(restartAfter))
+              transactionalCopyStream(consumerSettings,
+                                      txProducerDefaults,
+                                      sourceTopic,
+                                      sinkTopic,
+                                      transactionId,
+                                      10.seconds,
+                                      Some(restartAfter))
                 .recover {
                   case e: TimeoutException =>
                     if (completedWithTimeout.incrementAndGet() > 10)
@@ -150,7 +158,7 @@ class TransactionsSourceSpec extends SpecBase
             .source(consumerSettings, Subscriptions.topics(sourceTopic))
             .map { msg =>
               ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value),
-                msg.partitionOffset)
+                                     msg.partitionOffset)
             }
             .take(batchSize.toLong)
             .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
