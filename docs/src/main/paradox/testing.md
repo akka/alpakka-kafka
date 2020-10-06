@@ -89,7 +89,7 @@ Add the Embedded Kafka to your test dependencies:
 
 As Kafka uses Scala internally, only the Scala versions supported by Kafka can be used together with Embedded Kafka. To be independent of Kafka's supported Scala versions, run @ref:[Kafka in a Docker container](testing-testcontainers.md).
 
-The helpers for running Embedded Kafka are available for **Scala 2.11 and 2.12**.
+The helpers for running Embedded Kafka are available for **Scala 2.12 and Scala 2.13**.
 
 @@@
 

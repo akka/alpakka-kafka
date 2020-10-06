@@ -6,28 +6,28 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.kafka.KafkaPorts
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import com.github.ghik.silencer.silent
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 @silent
-class MultiConsumerSpec extends SpecBase(kafkaPort = KafkaPorts.MultiConsumerSpec) with EmbeddedKafkaLike {
+class MultiConsumerSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
-  override def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "broker.id" -> "1",
-                          "num.partitions" -> "3",
-                          "offsets.topic.replication.factor" -> "1",
-                          "offsets.topic.num.partitions" -> "3"
-                        ))
+  override val testcontainersSettings =
+    KafkaTestkitTestcontainersSettings(system)
+      .withInternalTopicsReplicationFactor(1)
+      .withConfigureKafka { brokerContainers =>
+        brokerContainers.foreach {
+          _.withEnv("KAFKA_BROKER_ID", "1")
+            .withEnv("KAFKA_NUM_PARTITIONS", "3")
+            .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", "3")
+        }
+      }
 
   "Multiple consumer in a single consumer group" must {
 

@@ -23,9 +23,6 @@ jobs:
     - stage: check
       env: CMD="verifyCodeStyle"
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
-    - env: CMD=";++2.11.12 Test/compile ;++2.11.12 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.11. Run locally with: env CI=true sbt ';++2.11.12 Test/compile ;++2.11.12 It/compile'"
-      if: type != cron
     - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
       name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
     - env: CMD="+clusterSharding/Test/compile
@@ -36,20 +33,10 @@ jobs:
       name: "Check binary compatibility. Run locally with: sbt mimaReportBinaryIssues"
 
     - stage: test
-      env: CMD="++2.11.12 test"
-      name: "Run tests with Scala 2.11 and AdoptOpenJDK 8"
-      if: type != cron
-    - env: CMD="++2.12.10 test"
+      env: CMD="++2.12.10 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
     - env: CMD="++2.13.1 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
-
-    - env:
-      - JDK="adopt@~1.11.0-4"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.11.12 test"
-      name: "Run tests with Scala 2.11 and AdoptOpenJDK 11"
-      if: type != cron
     - env:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"

@@ -7,29 +7,28 @@ package docs.scaladsl
 
 import akka.actor.ActorRef
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
-import akka.kafka.{KafkaConsumerActor, KafkaPorts, Subscriptions}
+import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
+import akka.kafka.{KafkaConsumerActor, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import com.github.ghik.silencer.silent
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
-@silent
-class PartitionExamples extends DocsSpecBase(KafkaPorts.ScalaPartitionExamples) with EmbeddedKafkaLike {
+class PartitionExamples extends DocsSpecBase with TestcontainersKafkaPerClassLike {
 
-  override def createKafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort,
-                        zooKeeperPort,
-                        Map(
-                          "broker.id" -> "1",
-                          "num.partitions" -> "3",
-                          "offsets.topic.replication.factor" -> "1",
-                          "offsets.topic.num.partitions" -> "3"
-                        ))
+  override val testcontainersSettings =
+    KafkaTestkitTestcontainersSettings(system)
+      .withInternalTopicsReplicationFactor(1)
+      .withConfigureKafka { brokerContainers =>
+        brokerContainers.foreach {
+          _.withEnv("KAFKA_BROKER_ID", "1")
+            .withEnv("KAFKA_NUM_PARTITIONS", "3")
+            .withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", "3")
+        }
+      }
 
   "Externally controlled kafka consumer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
