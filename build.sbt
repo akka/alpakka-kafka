@@ -94,7 +94,7 @@ val commonSettings = Def.settings(
   licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Seq(Scala212, Scala213),
-  scalaVersion := Scala212,
+  scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
       "-Xlint:deprecation",

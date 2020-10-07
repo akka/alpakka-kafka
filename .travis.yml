@@ -23,8 +23,8 @@ jobs:
     - stage: check
       env: CMD="verifyCodeStyle"
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
-    - env: CMD=";++2.13.3 Test/compile ;++2.13.3 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.3 Test/compile ;++2.13.3 It/compile'"
+    - env: CMD="Test/compile ; It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'"
     - env: CMD="+clusterSharding/Test/compile"
       name: "Compile cluster-sharding module for all supported Scala versions. Run locally with: env CI=true sbt '+clusterSharding/Test/compile'"
     - env: CMD="verifyDocs"

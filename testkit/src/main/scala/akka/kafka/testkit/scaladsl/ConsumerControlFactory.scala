@@ -34,7 +34,7 @@ object ConsumerControlFactory {
 
   class FakeControl(val killSwitch: KillSwitch) extends Consumer.Control {
 
-    val shutdownPromise = Promise[Done]
+    val shutdownPromise = Promise[Done]()
 
     override def stop(): Future[Done] = {
       killSwitch.shutdown()

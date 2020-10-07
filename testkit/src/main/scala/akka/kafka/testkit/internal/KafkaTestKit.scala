@@ -57,7 +57,7 @@ trait KafkaTestKit {
   /**
    * Return a unique topic name.
    */
-  def createTopicName(suffix: Int): String = s"topic-$suffix-$nextNumber"
+  def createTopicName(suffix: Int): String = s"topic-$suffix-${nextNumber()}"
 
   /**
    * Return a unique group id with a default suffix.
@@ -67,7 +67,7 @@ trait KafkaTestKit {
   /**
    * Return a unique group id with a given suffix.
    */
-  def createGroupId(suffix: Int): String = s"group-$suffix-$nextNumber"
+  def createGroupId(suffix: Int): String = s"group-$suffix-${nextNumber()}"
 
   /**
    * Return a unique transactional id with a default suffix.
@@ -77,7 +77,7 @@ trait KafkaTestKit {
   /**
    * Return a unique transactional id with a given suffix.
    */
-  def createTransactionalId(suffix: Int): String = s"transactionalId-$suffix-$nextNumber"
+  def createTransactionalId(suffix: Int): String = s"transactionalId-$suffix-${nextNumber()}"
 
   def system: ActorSystem
   def bootstrapServers: String
