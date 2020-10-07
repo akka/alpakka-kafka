@@ -21,7 +21,7 @@ import akka.stream.javadsl.Source;
 import akka.testkit.javadsl.TestKit;
 import docs.scaladsl.SampleAvroClass;
 // #imports
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 // #imports
@@ -82,7 +82,7 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
 
     Map<String, Object> kafkaAvroSerDeConfig = new HashMap<>();
     kafkaAvroSerDeConfig.put(
-        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
+        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
     // #serializer #de-serializer
     // #de-serializer
     KafkaAvroDeserializer kafkaAvroDeserializer = new KafkaAvroDeserializer();

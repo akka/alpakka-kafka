@@ -56,7 +56,7 @@ private class SubSourceLogic[K, V, Msg](
     with StageIdLogging {
   import SubSourceLogic._
 
-  private val consumerPromise = Promise[ActorRef]
+  private val consumerPromise = Promise[ActorRef]()
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
   override def id: String = s"${super.id}#$actorNumber"
   override def executionContext: ExecutionContext = materializer.executionContext

@@ -54,7 +54,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   import CommitTrigger._
 
   /** The promise behind the materialized future. */
-  final val streamCompletion = Promise[Done]
+  final val streamCompletion = Promise[Done]()
 
   final val settings: CommitterSettings = stage.committerSettings
 
