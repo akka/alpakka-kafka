@@ -26,7 +26,7 @@ import scala.concurrent.{Future, Promise}
 ) extends BaseSingleSourceLogic[K, V, Msg](shape) {
 
   override protected def logSource: Class[_] = classOf[SingleSourceLogic[K, V, Msg]]
-  private val consumerPromise = Promise[ActorRef]
+  private val consumerPromise = Promise[ActorRef]()
   final val actorNumber = KafkaConsumerActor.Internal.nextNumber()
 
   final def consumerFuture: Future[ActorRef] = consumerPromise.future

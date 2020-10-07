@@ -65,7 +65,7 @@ final class SendProducer[K, V] private (val settings: ProducerSettings[K, V], sy
   private def sendSingle[R](producer: org.apache.kafka.clients.producer.Producer[K, V],
                             record: ProducerRecord[K, V],
                             success: RecordMetadata => R): Future[R] = {
-    val result = Promise[R]
+    val result = Promise[R]()
     producer.send(
       record,
       new Callback {
