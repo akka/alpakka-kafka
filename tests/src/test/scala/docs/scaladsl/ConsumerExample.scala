@@ -114,7 +114,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val consumerSettings = createSettings().withGroupId(createGroupId())
     val topic = createTopic()
     val totalMessages = 10
-    val lastMessage = Promise[Done]
+    val lastMessage = Promise[Done]()
 
     def business(key: String, value: Array[Byte]): Future[Done] = {
       if (value.toList == totalMessages.toString.getBytes.toList) lastMessage.success(Done)
@@ -329,8 +329,8 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
   "Rebalance Listener" should "get messages" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
-    val assignedPromise = Promise[Done]
-    val revokedPromise = Promise[Done]
+    val assignedPromise = Promise[Done]()
+    val revokedPromise = Promise[Done]()
     // format: off
     //#withRebalanceListenerActor
     import akka.kafka.{TopicPartitionsAssigned, TopicPartitionsRevoked}
@@ -378,9 +378,9 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
     val topic = createTopic()
     val tpsSet = Set(new TopicPartition(topic, 0))
-    val assignedPromise = Promise[Set[TopicPartition]]
-    val revokedPromise = Promise[Set[TopicPartition]]
-    val stopPromise = Promise[Set[TopicPartition]]
+    val assignedPromise = Promise[Set[TopicPartition]]()
+    val revokedPromise = Promise[Set[TopicPartition]]()
+    val stopPromise = Promise[Set[TopicPartition]]()
 
     // #partitionAssignmentHandler
     val assignmentHandler = new PartitionAssignmentHandler {

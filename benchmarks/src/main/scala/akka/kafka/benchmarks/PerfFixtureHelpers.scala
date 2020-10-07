@@ -83,7 +83,7 @@ private[benchmarks] trait PerfFixtureHelpers extends LazyLogging {
     // fill topic with messages
     val producer =
       new KafkaProducer[Array[Byte], String](props, new ByteArraySerializer, new StringSerializer)
-    val lastElementStoredPromise = Promise[Unit]
+    val lastElementStoredPromise = Promise[Unit]()
     val loggedStep = if (ft.msgCount > logPercentStep) ft.msgCount / (100 / logPercentStep) else 1
     val msg = stringOfSize(ft.msgSize)
     for (i <- 0L to ft.msgCount.toLong) {

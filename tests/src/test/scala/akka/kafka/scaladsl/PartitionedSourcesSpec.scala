@@ -129,7 +129,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val totalMessages = 400L
 
       val initialMessage = 0L
-      val initialized = Promise[Unit]
+      val initialized = Promise[Unit]()
 
       val topic = createTopic(1, partitions)
       val group = createGroupId()
@@ -222,7 +222,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val totalMessages = 400L
       val receivedMessages = new AtomicLong(0)
       val initialMessage = 0L
-      val initialized = Promise[Unit]
+      val initialized = Promise[Unit]()
 
       val topic = createTopic(1, partitions)
       val allTps = (0 until partitions).map(p => new TopicPartition(topic, p))
@@ -382,7 +382,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
       val (queue, accumulator) = Source
         .queue[Long](8, OverflowStrategy.backpressure)
         .toMat(Sink.fold(0)((c, _) => c + 1))(Keep.both)
-        .run
+        .run()
 
       val (killSwitch, consumerCompletion) = Consumer
         .plainPartitionedSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
@@ -404,7 +404,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                 case _ =>
               })
         })(Keep.both)
-        .run
+        .run()
 
       accumulator.futureValue shouldBe totalMessages
       killSwitch.shutdown()

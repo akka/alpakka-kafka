@@ -59,7 +59,7 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
 
     "fail stream and control.isShutdown when kafka down" in assertAllStagesStopped {
       val (control, futDone) =
-        Consumer.plainSource(noBrokerConsumerSettings, Subscriptions.topics(topic)).toMat(Sink.ignore)(Keep.both).run
+        Consumer.plainSource(noBrokerConsumerSettings, Subscriptions.topics(topic)).toMat(Sink.ignore)(Keep.both).run()
 
       Await.ready(control.isShutdown.zip(futDone), failingDetectionTime)
     }
@@ -73,7 +73,7 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
       val consumerSettings = noBrokerConsumerSettings.withBootstrapServers(bootstrapServers)
 
       val (control, probe) =
-        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic)).toMat(TestSink.probe)(Keep.both).run
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic)).toMat(TestSink.probe)(Keep.both).run()
 
       probe.ensureSubscription().requestNext().value() shouldBe msg
 
