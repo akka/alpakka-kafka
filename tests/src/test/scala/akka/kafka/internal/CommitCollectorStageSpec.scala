@@ -367,7 +367,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     var commits = List.empty[PartitionOffset]
 
     private def completeCommit(): Future[Done] = {
-      val promisedCommit = Promise[Done]
+      val promisedCommit = Promise[Done]()
       system.scheduler.scheduleOnce(commitDelay()) {
         promisedCommit.success(Done)
       }
