@@ -10,11 +10,11 @@ before_install:
   # using jabba for custom jdk management
   - if [ ! -f ~/.jabba/jabba.sh ]; then curl -sL https://raw.githubusercontent.com/shyiko/jabba/0.11.2/install.sh | bash ; fi
   - . ~/.jabba/jabba.sh
-  - jabba install adopt@~1.8.0-222
-  - jabba install adopt@~1.11.0-4
+  - jabba install adopt@~1.8-0
+  - jabba install adopt@~1.11-0
 
 script:
-  - jabba use ${JDK:=adopt@~1.8.0-222}
+  - jabba use ${JDK:=adopt@~1.8-0}
   - java -version
   - sbt -jvm-opts .jvmopts-travis "$CMD"
 
@@ -36,12 +36,12 @@ jobs:
     - env: CMD="++2.13.2 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
     - env:
-      - JDK="adopt@~1.11.0-4"
+      - JDK="adopt@~1.11-0"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
       - CMD="++2.12.11 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
     - env:
-      - JDK="adopt@~1.11.0-4"
+      - JDK="adopt@~1.11-0"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
       - CMD="++2.13.2 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
