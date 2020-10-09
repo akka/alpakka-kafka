@@ -9,7 +9,6 @@ import akka.annotation.InternalApi;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
@@ -32,6 +31,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
+  // Align this with testkit/src/main/resources/reference.conf
   public static final String DEFAULT_CP_PLATFORM_VERSION = "6.0.0";
 
   public static final int KAFKA_PORT = 9093;
