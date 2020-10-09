@@ -34,9 +34,6 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   // Align this with testkit/src/main/resources/reference.conf
   public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.4.0";
 
-  @Deprecated(since = "2.1.0")
-  public static final String DEFAULT_CP_PLATFORM_VERSION = DEFAULT_CONFLUENT_PLATFORM_VERSION;
-
   public static final int KAFKA_PORT = 9093;
 
   public static final int KAFKA_JMX_PORT = 49999;
