@@ -33,7 +33,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class KafkaContainerCluster implements Startable {
 
   public static final String CONFLUENT_PLATFORM_VERSION =
-      AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION;
+      AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION;
   public static final int START_TIMEOUT_SECONDS = 120;
 
   private static final String READINESS_CHECK_SCRIPT = "/testcontainers_readiness_check.sh";
