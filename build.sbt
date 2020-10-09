@@ -15,10 +15,12 @@ val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 
 val kafkaVersion = "2.6.0"
+// TODO Jackson is now a provided dependency of kafka-clients
+// https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5"
 val embeddedKafkaVersion = "2.6.0"
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
-val kafkaVersionForDocs = "24"
+val kafkaVersionForDocs = "26"
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
