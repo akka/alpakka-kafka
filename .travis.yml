@@ -31,19 +31,19 @@ jobs:
       name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
 
     - stage: test
-      env: CMD="++2.12.12 test"
+      env: CMD="++2.12.11 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
-    - env: CMD="++2.13.3 test"
+    - env: CMD="++2.13.2 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
     - env:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.12.12 test"
+      - CMD="++2.12.11 test"
       name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
     - env:
       - JDK="adopt@~1.11.0-4"
       - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.13.3 test"
+      - CMD="++2.13.2 test"
       name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
 
     - stage: integration
@@ -61,7 +61,7 @@ jobs:
       name: "Publish artifacts for all Scala versions"
     - env: CMD="+clusterSharding/publish"
       name: "Publish akka-stream-kafka-cluster-sharding for all its supported Scala versions"
-    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.3 docs/publishRsync'
+    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
       name: "Publish API and reference documentation"
 
 stages:
