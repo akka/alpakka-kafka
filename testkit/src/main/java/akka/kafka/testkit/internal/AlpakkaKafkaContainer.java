@@ -32,7 +32,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
   // Align this with testkit/src/main/resources/reference.conf
-  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.4.0";
+  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.0";
 
   public static final int KAFKA_PORT = 9093;
 

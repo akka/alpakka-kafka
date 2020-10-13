@@ -8,13 +8,12 @@ package docs.javadsl;
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.AutoSubscription;
-import akka.kafka.KafkaPorts;
 import akka.kafka.ManualSubscription;
 import akka.kafka.ProducerMessage;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 // #testkit
-import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
+import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 // #testkit
 import akka.kafka.javadsl.Producer;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
@@ -28,9 +27,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 // #testkit
 import org.junit.AfterClass;
-import org.junit.Rule;
 import org.junit.Test;
 // #testkit
+import org.junit.Rule;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,19 +39,19 @@ import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 
-@SuppressWarnings("deprecation")
 // #testkit
-public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
-  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
+public class AssignmentTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
 
   public AssignmentTest() {
-    super(sys, KafkaPorts.AssignmentTest());
+    super(sys);
   }
 
   // #testkit
+
+  @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   @Test
   public void mustConsumeFromTheSpecifiedSingleTopic() throws Exception {

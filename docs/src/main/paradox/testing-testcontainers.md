@@ -67,10 +67,10 @@ The Testcontainers dependency must be added to your project explicitly.
 The example below shows skeleton test classes for JUnit 4 and JUnit 5. The Kafka broker will start before the first test and be stopped after all test classes are finished.
 
 Java JUnit 4
-: @@snip [snip](/tests/src/test/java/docs/javadsl/AssignmentWithTestcontainersTest.java) { #testkit }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/AssignmentTest.java) { #testkit }
 
 Java JUnit 5
-: @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerWithTestcontainersTest.java) { #testkit }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ProducerTest.java) { #testkit }
 
 
 ## Testing with a Docker Kafka cluster from Scala code

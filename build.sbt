@@ -17,8 +17,6 @@ val kafkaVersion = "2.6.0"
 // TODO Jackson is now a provided dependency of kafka-clients
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5"
-val embeddedKafkaVersion = "2.6.0"
-val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.14.3"
 val slf4jVersion = "1.7.30"
@@ -239,10 +237,7 @@ lazy val testkit = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
         "junit" % "junit" % "4.12" % Provided,
-        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided,
-        "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12"),
-        "org.apache.commons" % "commons-compress" % "1.20" % Provided, // embedded Kafka pulls in Avro which pulls in commons-compress 1.8.1
-        embeddedKafka % Provided exclude ("log4j", "log4j")
+        "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
@@ -299,8 +294,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "3.5.13" % Test,
-        embeddedKafka % Test exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12")
+        "org.mockito" % "mockito-core" % "3.5.13" % Test
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
@@ -313,16 +307,7 @@ lazy val tests = project
         }
       },
     resolvers ++= Seq(
-        "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
-        // required to bring in com.github.everit-org.json-schema:org.everit.json.schema:1.12.1
-        // $ sbt "tests/test:whatDependsOn com.github.everit-org.json-schema org.everit.json.schema 1.12.1"
-        //[info] com.github.everit-org.json-schema:org.everit.json.schema:1.12.1
-        //[info]   +-io.confluent:kafka-json-schema-provider:5.5.0
-        //[info]     +-io.confluent:kafka-schema-registry:5.5.0
-        //[info]       +-io.github.embeddedkafka:embedded-kafka-schema-registry_2.12:5.5.0.1
-        //[info]         +-com.typesafe.akka:akka-stream-kafka-tests_2.12:2.0.2+26-ddcdbcb8+20200526-1427 [S]
-        //[info]
-        "Jitpack" at "https://jitpack.io"
+        "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
       ),
     publish / skip := true,
     whitesourceIgnore := true,
@@ -353,7 +338,6 @@ lazy val docs = project
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
-        "embeddedKafka.version" -> embeddedKafkaVersion,
         "confluent.version" -> confluentAvroSerializerVersion,
         "scalatest.version" -> scalatestVersion,
         "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
