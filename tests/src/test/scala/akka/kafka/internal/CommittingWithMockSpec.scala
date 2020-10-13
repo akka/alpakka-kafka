@@ -19,6 +19,7 @@ import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -62,12 +63,17 @@ class CommittingWithMockSpec(_system: ActorSystem)
 
   import CommittingWithMockSpec._
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("CommittingWithMockSpec",
+                  ConfigFactory
+                    .load()
+                    .withFallback(ConfigFactory.parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")))
+    )
 
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
   val messages = (1 to 1000).map(createMessage)
   val failure = new CommitFailedException()
@@ -76,14 +82,15 @@ class CommittingWithMockSpec(_system: ActorSystem)
   def createCommittableSource(mock: Consumer[K, V],
                               groupId: String = "group1",
                               topics: Set[String] = Set("topic")): Source[CommittableMessage[K, V], Control] =
-    Consumer.committableSource(
-      ConsumerSettings
-        .create(system, new StringDeserializer, new StringDeserializer)
-        .withGroupId(groupId)
-        .withConsumerFactory(_ => mock)
-        .withStopTimeout(0.seconds),
-      Subscriptions.topics(topics)
-    )
+    Consumer
+      .committableSource(
+        ConsumerSettings
+          .create(system, new StringDeserializer, new StringDeserializer)
+          .withGroupId(groupId)
+          .withConsumerFactory(_ => mock)
+          .withStopTimeout(0.seconds),
+        Subscriptions.topics(topics)
+      )
 
   def createSourceWithMetadata(mock: Consumer[K, V],
                                metadataFromRecord: ConsumerRecord[K, V] => String,

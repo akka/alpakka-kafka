@@ -23,8 +23,8 @@ jobs:
     - stage: check
       env: CMD="verifyCodeStyle"
       name: "Code style check. Run locally with: sbt verifyCodeStyle"
-    - env: CMD=";++2.13.1 Test/compile ;++2.13.1 It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.1 Test/compile ;++2.13.1 It/compile'"
+    - env: CMD=";++2.13.2 Test/compile ;++2.13.2 It/compile"
+      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt ';++2.13.2 Test/compile ;++2.13.2 It/compile'"
     - env: CMD="verifyDocs"
       name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
 

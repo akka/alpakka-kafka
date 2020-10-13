@@ -20,8 +20,8 @@ import org.junit.jupiter.api.BeforeAll;
  */
 public abstract class KafkaTest extends BaseKafkaTest {
 
-  protected KafkaTest(ActorSystem system, Materializer materializer, String bootstrapServers) {
-    super(system, materializer, bootstrapServers);
+  protected KafkaTest(ActorSystem system, String bootstrapServers) {
+    super(system, bootstrapServers);
   }
 
   @BeforeAll
@@ -38,6 +38,6 @@ public abstract class KafkaTest extends BaseKafkaTest {
   public void checkForStageLeaks() {
     // you might need to configure `stop-timeout` in your `application.conf`
     // as the default of 30s will fail this
-    StreamTestKit.assertAllStagesStopped(materializer);
+    StreamTestKit.assertAllStagesStopped(Materializer.matFromSystem(system()));
   }
 }

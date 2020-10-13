@@ -6,6 +6,7 @@
 package docs.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.kafka.ProducerSettings;
 import akka.kafka.ProducerSettingsSpec$;
 // #discovery-settings
@@ -25,16 +26,17 @@ public class ProducerSettingsTest {
         ConfigFactory.parseString(ProducerSettingsSpec$.MODULE$.DiscoveryConfigSection())
             .withFallback(ConfigFactory.load())
             .resolve();
-    ActorSystem system = ActorSystem.create("ProducerSettingsTest", config);
+    ClassicActorSystemProvider system = ActorSystem.create("ProducerSettingsTest", config);
 
     // #discovery-settings
 
-    Config producerConfig = system.settings().config().getConfig("discovery-producer");
+    Config producerConfig =
+        system.classicSystem().settings().config().getConfig("discovery-producer");
     ProducerSettings<String, String> settings =
         ProducerSettings.create(producerConfig, new StringSerializer(), new StringSerializer())
             .withEnrichCompletionStage(
                 DiscoverySupport.producerBootstrapServers(producerConfig, system));
     // #discovery-settings
-    TestKit.shutdownActorSystem(system);
+    TestKit.shutdownActorSystem(system.classicSystem());
   }
 }

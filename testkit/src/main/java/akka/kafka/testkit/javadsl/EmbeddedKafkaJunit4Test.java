@@ -36,15 +36,14 @@ public abstract class EmbeddedKafkaJunit4Test extends KafkaJunit4Test {
   protected final int kafkaPort;
   protected final int replicationFactor;
 
-  public EmbeddedKafkaJunit4Test(
-      ActorSystem system, Materializer materializer, int kafkaPort, int replicationFactor) {
-    super(system, materializer, "localhost:" + kafkaPort);
+  public EmbeddedKafkaJunit4Test(ActorSystem system, int kafkaPort, int replicationFactor) {
+    super(system, "localhost:" + kafkaPort);
     this.kafkaPort = kafkaPort;
     this.replicationFactor = replicationFactor;
   }
 
-  protected EmbeddedKafkaJunit4Test(ActorSystem system, Materializer materializer, int kafkaPort) {
-    this(system, materializer, kafkaPort, 1);
+  protected EmbeddedKafkaJunit4Test(ActorSystem system, int kafkaPort) {
+    this(system, kafkaPort, 1);
   }
 
   protected static void startEmbeddedKafka(int kafkaPort, int replicationFactor) {

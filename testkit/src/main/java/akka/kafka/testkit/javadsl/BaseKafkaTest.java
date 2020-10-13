@@ -43,11 +43,8 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
   public final Logger log = LoggerFactory.getLogger(getClass());
 
-  protected final Materializer materializer;
-
-  protected BaseKafkaTest(ActorSystem system, Materializer materializer, String bootstrapServers) {
+  protected BaseKafkaTest(ActorSystem system, String bootstrapServers) {
     super(system, bootstrapServers);
-    this.materializer = materializer;
   }
 
   @Override
@@ -67,7 +64,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
     return Source.fromIterator(() -> IntStream.range(0, messageCount).iterator())
         .map(Object::toString)
         .map(n -> new ProducerRecord<String, String>(topic, partition, DefaultKey(), n))
-        .runWith(Producer.plainSink(producerDefaults()), materializer);
+        .runWith(Producer.plainSink(producerDefaults()), system());
   }
 
   protected CompletionStage<Done> produceString(String topic, String message) {
@@ -83,8 +80,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
       Pair<K, V>... messages) {
     return Source.from(Arrays.asList(messages))
         .map(pair -> new ProducerRecord<>(topic, pair.first(), pair.second()))
-        .runWith(
-            Producer.plainSink(producerDefaults(keySerializer, valueSerializer)), materializer);
+        .runWith(Producer.plainSink(producerDefaults(keySerializer, valueSerializer)), system());
   }
 
   protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
@@ -101,7 +97,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
             Subscriptions.topics(topic))
         .take(take)
         .toMat(Sink.seq(), Consumer::createDrainingControl)
-        .run(materializer);
+        .run(system());
   }
 
   /**

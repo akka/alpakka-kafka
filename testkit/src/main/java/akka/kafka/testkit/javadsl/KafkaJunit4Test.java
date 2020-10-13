@@ -14,9 +14,8 @@ import org.junit.Before;
 /** JUnit 4 base-class with some convenience for accessing a Kafka broker. */
 public abstract class KafkaJunit4Test extends BaseKafkaTest {
 
-  protected KafkaJunit4Test(
-      ActorSystem system, Materializer materializer, String bootstrapServers) {
-    super(system, materializer, bootstrapServers);
+  protected KafkaJunit4Test(ActorSystem system, String bootstrapServers) {
+    super(system, bootstrapServers);
   }
 
   @Before
@@ -33,6 +32,6 @@ public abstract class KafkaJunit4Test extends BaseKafkaTest {
   public void checkForStageLeaks() {
     // you might need to configure `stop-timeout` in your `application.conf`
     // as the default of 30s will fail this
-    StreamTestKit.assertAllStagesStopped(materializer);
+    StreamTestKit.assertAllStagesStopped(Materializer.matFromSystem(system()));
   }
 }

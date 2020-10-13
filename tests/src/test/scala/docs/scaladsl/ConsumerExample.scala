@@ -13,6 +13,7 @@ import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl._
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.stream.RestartSettings
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
@@ -471,17 +472,14 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
 
     val result = RestartSource
-      .onFailuresWithBackoff(
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2
-      ) { () =>
-        Consumer
-          .plainSource(consumerSettings, Subscriptions.topics(topic))
-          // this is a hack to get access to the Consumer.Control
-          // instances of the latest Kafka Consumer source
-          .mapMaterializedValue(c => control.set(c))
-          .via(businessFlow)
+      .onFailuresWithBackoff(RestartSettings(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2)) {
+        () =>
+          Consumer
+            .plainSource(consumerSettings, Subscriptions.topics(topic))
+            // this is a hack to get access to the Consumer.Control
+            // instances of the latest Kafka Consumer source
+            .mapMaterializedValue(c => control.set(c))
+            .via(businessFlow)
       }
       .runWith(Sink.seq)
 
@@ -501,18 +499,15 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
 
     val result = RestartSource
-      .onFailuresWithBackoff(
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2
-      ) { () =>
-        val subscription = Subscriptions.assignment(new TopicPartition(topic, partitionNumber))
-        Consumer
-          .committableSource(consumerSettings, subscription)
-          .mapMaterializedValue(c => control.set(c))
-          .via(businessFlow)
-          .map(_.committableOffset)
-          .via(Committer.flow(committerSettings))
+      .onFailuresWithBackoff(RestartSettings(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2)) {
+        () =>
+          val subscription = Subscriptions.assignment(new TopicPartition(topic, partitionNumber))
+          Consumer
+            .committableSource(consumerSettings, subscription)
+            .mapMaterializedValue(c => control.set(c))
+            .via(businessFlow)
+            .map(_.committableOffset)
+            .via(Committer.flow(committerSettings))
       }
       .runWith(Sink.ignore)
     awaitProduce(produce(topic, 1 to 10))

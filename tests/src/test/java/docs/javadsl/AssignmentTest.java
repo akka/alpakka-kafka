@@ -18,8 +18,6 @@ import akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test;
 // #testkit
 import akka.kafka.javadsl.Producer;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 // #testkit
@@ -49,10 +47,9 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("AssignmentTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
 
   public AssignmentTest() {
-    super(sys, mat, KafkaPorts.AssignmentTest());
+    super(sys, KafkaPorts.AssignmentTest());
   }
 
   // #testkit
@@ -65,7 +62,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
             .map(msg -> new ProducerRecord<>(topic, 0, DefaultKey(), msg.toString()))
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
 
     resultOf(producerCompletion);
 
@@ -79,7 +76,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
         resultOf(
                 consumer
                     .takeWhile(m -> Integer.valueOf(m.value()) < totalMessages, true)
-                    .runWith(Sink.seq(), mat))
+                    .runWith(Sink.seq(), sys))
             .size();
 
     assertEquals(totalMessages, receivedMessages);
@@ -99,7 +96,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
                             .map(t -> new ProducerRecord<>(t, 0, DefaultKey(), msg.toString()))
                             .collect(Collectors.toList())))
             .via(Producer.flexiFlow(producerDefaults()))
-            .runWith(Sink.ignore(), mat);
+            .runWith(Sink.ignore(), sys);
 
     resultOf(producerCompletion);
 
@@ -112,7 +109,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
 
     int expectedTotal = totalMessages * topics.size();
     final Integer receivedMessages =
-        resultOf(consumer.take(expectedTotal).runWith(Sink.seq(), mat)).size();
+        resultOf(consumer.take(expectedTotal).runWith(Sink.seq(), sys)).size();
 
     assertEquals(expectedTotal, (int) receivedMessages);
   }
@@ -128,7 +125,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
                   final Integer partition = msg % 2;
                   return new ProducerRecord<>(topic, partition, DefaultKey(), msg.toString());
                 })
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
 
     resultOf(producerCompletion);
 
@@ -144,7 +141,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
         consumer
             .take(totalMessages / 2)
             .map(msg -> Integer.valueOf(msg.value()))
-            .runWith(Sink.seq(), mat);
+            .runWith(Sink.seq(), sys);
     final List<Integer> messages = resultOf(consumerCompletion);
     messages.forEach(m -> assertEquals(0, m % 2));
   }
@@ -156,7 +153,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
     final CompletionStage<Done> producerCompletion =
         Source.range(1, totalMessages)
             .map(msg -> new ProducerRecord<>(topic, 0, DefaultKey(), msg.toString()))
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
 
     resultOf(producerCompletion);
 
@@ -170,7 +167,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
     // #assingment-single-partition-offset
 
     final CompletionStage<List<Long>> consumerCompletion =
-        consumer.take(totalMessages / 2).map(ConsumerRecord::offset).runWith(Sink.seq(), mat);
+        consumer.take(totalMessages / 2).map(ConsumerRecord::offset).runWith(Sink.seq(), sys);
     final List<Long> messages = resultOf(consumerCompletion);
     IntStream.range(0, (int) offset).forEach(idx -> assertEquals(idx, messages.get(idx) - offset));
   }
@@ -185,7 +182,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
                 msg ->
                     new ProducerRecord<>(
                         topic, 0, System.currentTimeMillis(), DefaultKey(), msg.toString()))
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
 
     resultOf(producerCompletion);
 
@@ -204,7 +201,7 @@ public class AssignmentTest extends EmbeddedKafkaJunit4Test {
         consumer
             .takeWhile(m -> Integer.valueOf(m.value()) < totalMessages, true)
             .map(ConsumerRecord::timestamp)
-            .runWith(Sink.seq(), mat);
+            .runWith(Sink.seq(), sys);
     final long oldMessages =
         resultOf(consumerCompletion).stream().map(t -> t - now).filter(t -> t > 5000).count();
     assertEquals(0, oldMessages);

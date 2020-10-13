@@ -13,8 +13,7 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Transactional;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
+import akka.stream.RestartSettings;
 import akka.stream.javadsl.*;
 import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -37,12 +36,11 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem system = ActorSystem.create("TransactionsExampleTest");
-  private static final Materializer materializer = ActorMaterializer.create(system);
   private final ExecutorService ec = Executors.newSingleThreadExecutor();
   private final ProducerSettings<String, String> producerSettings = txProducerDefaults();
 
   public TransactionsExampleTest() {
-    super(system, materializer);
+    super(system);
   }
 
   @AfterClass
@@ -82,7 +80,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
             .toMat(
                 Transactional.sink(producerSettings, transactionalId),
                 Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     // ...
 
@@ -116,7 +114,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
             .toMat(
                 Transactional.sinkWithOffsetContext(producerSettings, transactionalId),
                 Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     String testConsumerGroup = createGroupId(2);
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumer =
@@ -142,9 +140,10 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
     Source<ProducerMessage.Results<String, String, ConsumerMessage.PartitionOffset>, NotUsed>
         stream =
             RestartSource.onFailuresWithBackoff(
-                java.time.Duration.ofSeconds(3), // min backoff
-                java.time.Duration.ofSeconds(30), // max backoff
-                0.2, // adds 20% "noise" to vary the intervals slightly
+                RestartSettings.create(
+                    java.time.Duration.ofSeconds(3), // min backoff
+                    java.time.Duration.ofSeconds(30), // max backoff
+                    0.2), // adds 20% "noise" to vary the intervals slightly
                 () ->
                     Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
                         .via(business())
@@ -163,7 +162,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                             })
                         .via(Transactional.flow(producerSettings, transactionalId)));
 
-    CompletionStage<Done> streamCompletion = stream.runWith(Sink.ignore(), materializer);
+    CompletionStage<Done> streamCompletion = stream.runWith(Sink.ignore(), system);
 
     // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
     Runtime.getRuntime().addShutdownHook(new Thread(() -> innerControl.get().shutdown()));
@@ -229,7 +228,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
     return Consumer.plainSource(settings, Subscriptions.topics(topic))
         .take(take)
         .toMat(Sink.seq(), Consumer::createDrainingControl)
-        .run(materializer);
+        .run(system);
   }
 
   public ConsumerSettings<String, String> probeConsumerSettings(String groupId) {
