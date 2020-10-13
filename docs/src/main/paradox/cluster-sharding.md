@@ -7,7 +7,7 @@ Akka Cluster allows the user to use an @extref[external shard allocation](akka:/
 If you consume Kafka messages into your Akka Cluster application then it's possible to run an Alpakka Kafka Consumer on each cluster node and co-locate Kafka partitions with Akka Cluster shards. 
 When partitions and shards are co-located together then there is less chance that a message must be transmitted over the network by the Akka Cluster Shard Coordinator to a destination user sharded entity.
 
-This module directly depends on `akka-cluster-sharding-typed` and requires Akka version 2.6.6 or later.
+This module directly depends on `akka-cluster-sharding-typed`.
 
 @@project-info{ projectId="clusterSharding" }
 
