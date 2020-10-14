@@ -11,8 +11,6 @@ import akka.kafka.ProducerSettings;
 import akka.kafka.javadsl.SendProducer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.kafka.tests.javadsl.LogCapturingExtension;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -37,10 +35,9 @@ import static org.hamcrest.Matchers.isA;
 public class SendProducerTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ElementProducerTest");
-  private static final Materializer materializer = ActorMaterializer.create(system);
 
   public SendProducerTest() {
-    super(system, materializer);
+    super(system);
   }
 
   @AfterAll

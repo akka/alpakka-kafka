@@ -14,8 +14,6 @@ import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.javadsl.EmbeddedKafkaTest;
 // #testkit
 import akka.kafka.tests.javadsl.LogCapturingExtension;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Source;
 // #testkit
 import akka.testkit.javadsl.TestKit;
@@ -43,7 +41,6 @@ import static org.junit.Assert.assertEquals;
 class ProducerExampleTest extends EmbeddedKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ProducerExampleTest");
-  private static final Materializer materializer = ActorMaterializer.create(system);
   // #testkit
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -52,7 +49,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
   // #testkit
 
   ProducerExampleTest() {
-    super(system, materializer, KafkaPorts.ProducerExamplesTest());
+    super(system, KafkaPorts.ProducerExamplesTest());
   }
 
   @AfterAll
@@ -69,7 +66,7 @@ class ProducerExampleTest extends EmbeddedKafkaTest {
         Source.range(1, 100)
             .map(number -> number.toString())
             .map(value -> new ProducerRecord<String, String>(topic, value))
-            .runWith(Producer.plainSink(producerSettings), materializer);
+            .runWith(Producer.plainSink(producerSettings), system);
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
         consumeString(topic, 100);

@@ -12,7 +12,7 @@ import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ProducerMessage, _}
-import akka.stream.OverflowStrategy
+import akka.stream.{OverflowStrategy, RestartSettings}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -103,9 +103,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         var innerControl = null.asInstanceOf[Control]
 
         val restartSource = RestartSource.onFailuresWithBackoff(
-          minBackoff = 0.1.seconds,
-          maxBackoff = 1.seconds,
-          randomFactor = 0.2
+          RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
         ) { () =>
           restartCount += 1
           Transactional
@@ -156,9 +154,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       var innerControl = null.asInstanceOf[Control]
 
       val restartSource = RestartSource.onFailuresWithBackoff(
-        minBackoff = 0.1.seconds,
-        maxBackoff = 1.seconds,
-        randomFactor = 0.2
+        RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
       ) { () =>
         restartCount += 1
         Transactional

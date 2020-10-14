@@ -16,9 +16,10 @@ import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
-import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.{ActorAttributes, Supervision}
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
@@ -45,13 +46,16 @@ class ProducerSpec(_system: ActorSystem)
     with BeforeAndAfterAll
     with LogCapturing {
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("ProducerSpec",
+                  ConfigFactory
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
+    )
 
   override def afterAll(): Unit = shutdown(system)
 
-  implicit val m = ActorMaterializer(
-    ActorMaterializerSettings(_system).withFuzzing(true)
-  )
   implicit val ec = _system.dispatcher
 
   val checksum = java.lang.Long.valueOf(-1)

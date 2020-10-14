@@ -10,13 +10,12 @@ import akka.kafka.ProducerSettings
 import akka.kafka.tests.scaladsl.LogCapturing
 import akka.stream.scaladsl.Source
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 class MisconfiguredProducerSpec
     extends TestKit(ActorSystem())
@@ -26,8 +25,6 @@ class MisconfiguredProducerSpec
     with Eventually
     with IntegrationPatience
     with LogCapturing {
-
-  implicit val materializer: Materializer = ActorMaterializer()
 
   "Failing producer construction" must {
     "fail stream appropriately" in assertAllStagesStopped {

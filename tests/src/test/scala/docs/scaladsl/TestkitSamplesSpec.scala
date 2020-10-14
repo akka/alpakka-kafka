@@ -11,13 +11,12 @@ import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.{CommitterSettings, ConsumerMessage, ProducerMessage}
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
@@ -28,7 +27,6 @@ class TestkitSamplesSpec
     with BeforeAndAfterAll
     with ScalaFutures
     with IntegrationPatience {
-  implicit val mat: Materializer = ActorMaterializer()
 
   override protected def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 

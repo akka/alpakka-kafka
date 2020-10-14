@@ -23,8 +23,6 @@ import org.apache.kafka.common.PartitionInfo;
 // #metadata
 import akka.actor.ActorSystem;
 import java.util.concurrent.TimeUnit;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import org.junit.AfterClass;
 import org.junit.Rule;
@@ -37,10 +35,9 @@ public class FetchMetadataTest extends TestcontainersKafkaJunit4Test {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("FetchMetadataTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
 
   public FetchMetadataTest() {
-    super(sys, mat);
+    super(sys);
   }
 
   @AfterClass

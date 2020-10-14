@@ -70,7 +70,7 @@ class TransactionsSourceSpec
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
-          .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
+          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
               val transactionId = s"$group-$id"
               transactionalCopyStream(consumerSettings,

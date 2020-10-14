@@ -15,8 +15,6 @@ import akka.kafka.ProducerMessage;
 import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Source;
@@ -46,7 +44,6 @@ public class TestkitSamplesTest {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("TestkitSamplesTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
 
   @AfterClass
   public static void afterClass() {
@@ -119,7 +116,7 @@ public class TestkitSamplesTest {
             .via(mockedKafkaProducerFlow)
             .map(ProducerMessage.Results::passThrough)
             .toMat(Committer.sink(committerSettings), Keep.both())
-            .run(mat);
+            .run(sys);
     // #factories
 
     Thread.sleep(1 * 1000L);

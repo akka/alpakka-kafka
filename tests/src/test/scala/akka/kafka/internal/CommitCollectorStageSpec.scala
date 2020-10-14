@@ -10,22 +10,21 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.{CommitWhen, CommitterSettings, Repeated}
 import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch, PartitionOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.stream.ActorMaterializer
+import akka.kafka.{CommitWhen, CommitterSettings, Repeated}
 import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.testkit.TestKit
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{AppendedClues, BeforeAndAfterAll}
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.{AppendedClues, BeforeAndAfterAll}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -43,7 +42,6 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     with Repeated
     with LogCapturing {
 
-  implicit lazy val materializer: ActorMaterializer = ActorMaterializer()
   implicit lazy val executionContext: ExecutionContext = system.dispatcher
 
   val DefaultCommitterSettings: CommitterSettings = CommitterSettings(system)

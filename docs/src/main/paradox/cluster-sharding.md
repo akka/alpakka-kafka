@@ -3,21 +3,31 @@ project.description: Alpakka Kafka provides a module to use Kafka with Akka Clus
 ---
 # Akka Cluster Sharding
 
-Akka Cluster allows the user to use an @extref[external shard allocation](akka26:/typed/cluster-sharding.html#external-shard-allocation) strategy in order to give the user more control over how many shards are created and what cluster nodes they are assigned to. 
+Akka Cluster allows the user to use an @extref[external shard allocation](akka:/typed/cluster-sharding.html#external-shard-allocation) strategy in order to give the user more control over how many shards are created and what cluster nodes they are assigned to. 
 If you consume Kafka messages into your Akka Cluster application then it's possible to run an Alpakka Kafka Consumer on each cluster node and co-locate Kafka partitions with Akka Cluster shards. 
 When partitions and shards are co-located together then there is less chance that a message must be transmitted over the network by the Akka Cluster Shard Coordinator to a destination user sharded entity.
 
-This module directly depends on `akka-cluster-sharding-typed` version 2.6.6 or later.
+## Project Info
 
 @@project-info{ projectId="clusterSharding" }
+
+## Dependency
 
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka-cluster-sharding_$scala.binary.version$
   version=$project.version$
+  symbol2=AkkaVersion
+  value2="$akka.version$"
+  group2=com.typesafe.akka
+  artifact2=akka-cluster-sharding-typed_$scala.binary.version$
+  version2=AkkaVersion
 }
 
-This module contains an Akka extension called `KafkaClusterSharding`.
+This module contains an Akka extension called `KafkaClusterSharding` and depends on `akka-cluster-sharding-typed`.
+
+## Setup
+
 There are two steps required to setup the cluster sharding module.
 
 * Initialize Akka Cluster Sharding with a @scaladoc[ShardingMessageExtractor](akka.cluster.sharding.typed.ShardingMessageExtractor) to route Kafka consumed messages to the correct Akka Cluster shard and user entity.
@@ -48,26 +58,26 @@ In the following example we asynchronously request an extractor that does not us
 Given a user entity.
 
 Scala
-: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #user-entity }
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #user-entity }
 
 Java
-: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #user-entity }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ClusterShardingExample.java) { #user-entity }
 
 Create a `MessageExtractor`.
 
 Scala
-: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #message-extractor }
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #message-extractor }
 
 Java
-: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #message-extractor }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ClusterShardingExample.java) { #message-extractor }
 
 Setup Akka Typed Cluster Sharding.
 
 Scala
-: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #setup-cluster-sharding }
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #setup-cluster-sharding }
 
 Java
-: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #setup-cluster-sharding }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ClusterShardingExample.java) { #setup-cluster-sharding }
 
 ## Rebalance Listener
 
@@ -89,7 +99,7 @@ The same message type is used by separate Alpakka Kafka consumers, but the messa
 Create the rebalance listener using the extension and pass it into an Alpakka Kafka @scaladoc[Subscription](akka.kafka.Subscription).
 
 Scala
-: @@snip [snip](/cluster-sharding/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #rebalance-listener }
+: @@snip [snip](/tests/src/test/scala/docs/scaladsl/ClusterShardingExample.scala) { #rebalance-listener }
 
 Java
-: @@snip [snip](/cluster-sharding/src/test/java/docs/javadsl/ClusterShardingExample.java) { #rebalance-listener }
+: @@snip [snip](/tests/src/test/java/docs/javadsl/ClusterShardingExample.java) { #rebalance-listener }

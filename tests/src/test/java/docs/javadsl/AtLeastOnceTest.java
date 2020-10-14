@@ -12,8 +12,6 @@ import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 import akka.testkit.javadsl.TestKit;
@@ -46,11 +44,10 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem system = ActorSystem.create("AtLeastOnceTest");
-  private static final Materializer materializer = ActorMaterializer.create(system);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public AtLeastOnceTest() {
-    super(system, materializer);
+    super(system);
   }
 
   @AfterClass
@@ -83,12 +80,12 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
             .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #oneToMany
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
             .toMat(Sink.seq(), Keep.both())
-            .run(materializer);
+            .run(system);
 
     produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
     sleepSeconds(10, "to make produce happen");
@@ -123,11 +120,11 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .via(Producer.flowWithContext(producerSettings))
             .toMat(
                 Committer.sinkWithOffsetContext(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
             .toMat(Sink.seq(), Keep.both())
-            .run(materializer);
+            .run(system);
 
     produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
     sleepSeconds(10, "to make produce happen");
@@ -183,13 +180,13 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .via(Producer.flexiFlow(producerSettings))
             .map(m -> m.passThrough())
             .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #oneToConditional
 
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3, topic4))
             .toMat(Sink.seq(), Keep.both())
-            .run(materializer);
+            .run(system);
 
     produceString(topic1, 10, partition0).toCompletableFuture().get(1, TimeUnit.SECONDS);
     sleepSeconds(10, "to make produce happen");
@@ -222,12 +219,12 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
             .toMat(
                 Committer.sinkWithOffsetContext(committerDefaults()),
                 Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> pair =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2))
             .toMat(Sink.seq(), Keep.both())
-            .run(materializer);
+            .run(system);
 
     Consumer.Control consumerControl = pair.first();
     CompletionStage<List<ConsumerRecord<String, String>>> consumerRecords = pair.second();

@@ -10,8 +10,6 @@ import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.javadsl.MetadataClient;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
 // #metadataClient
@@ -44,14 +42,13 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   @Rule public final LogCapturingJunit4 logCapturing = new LogCapturingJunit4();
 
   private static final ActorSystem sys = ActorSystem.create("MetadataClientTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor executor = Executors.newSingleThreadExecutor();
   private static final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
 
   @Rule public ExpectedException expectedException = ExpectedException.none();
 
   public MetadataClientTest() {
-    super(sys, mat);
+    super(sys);
   }
 
   @Test

@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
@@ -26,20 +27,29 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
   public static final KafkaTestkitTestcontainersSettings settings =
       TestcontainersKafka.Singleton().testcontainersSettings();
 
-  protected TestcontainersKafkaTest(ActorSystem system, Materializer materializer) {
-    super(system, materializer, startKafka(settings));
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `TestcontainersKafkaTest(ClassicActorSystemProvider)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected TestcontainersKafkaTest(ActorSystem system, Materializer mat) {
+    super(system, mat, startKafka(settings));
+  }
+
+  protected TestcontainersKafkaTest(ClassicActorSystemProvider system) {
+    super(system, startKafka(settings));
   }
 
   protected TestcontainersKafkaTest(
-      ActorSystem system, Materializer materializer, KafkaTestkitTestcontainersSettings settings) {
-    super(system, materializer, startKafka(settings));
+      ActorSystem system, KafkaTestkitTestcontainersSettings settings) {
+    super(system, startKafka(settings));
   }
 
   /** @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0 */
   @Deprecated
   protected TestcontainersKafkaTest(
       ActorSystem system, Materializer materializer, String confluentPlatformVersion) {
-    super(system, materializer, startKafka(confluentPlatformVersion));
+    super(system, startKafka(confluentPlatformVersion));
   }
 
   /** @deprecated Use method with `testcontainersSettings` instead. since 2.0.0 */

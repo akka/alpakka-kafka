@@ -5,21 +5,21 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.function.UnaryOperator
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.stream._
+import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -29,9 +29,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 
 class PartitionedSourceSpec(_system: ActorSystem)
     extends TestKit(_system)
@@ -46,12 +46,17 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
   import PartitionedSourceSpec._
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("PartitionedSourceSpec",
+                  ConfigFactory
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
+    )
 
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
 
   def consumerSettings(dummy: Consumer[K, V]): ConsumerSettings[K, V] =

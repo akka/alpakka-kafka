@@ -12,6 +12,7 @@ import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings, Repeated, Subscriptions, TransactionsOps}
+import akka.stream.RestartSettings
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -95,9 +96,11 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
     val innerControl = new AtomicReference[Control](Consumer.NoopControl)
 
     val stream = RestartSource.onFailuresWithBackoff(
-      minBackoff = 1.seconds,
-      maxBackoff = 30.seconds,
-      randomFactor = 0.2
+      RestartSettings(
+        minBackoff = 1.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      )
     ) { () =>
       Transactional
         .source(consumerSettings, Subscriptions.topics(sourceTopic))

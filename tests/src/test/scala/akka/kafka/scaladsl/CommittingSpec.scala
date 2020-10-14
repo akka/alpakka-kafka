@@ -14,6 +14,7 @@ import akka.kafka.ProducerMessage.MultiMessage
 import akka.kafka._
 import akka.kafka.internal.CommittableOffsetBatchImpl
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.stream.RestartSettings
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
@@ -522,7 +523,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val incarnation = new AtomicInteger()
       val result =
         RestartSource
-          .withBackoff(0.millis, 5.millis, 0d) { () =>
+          .withBackoff(RestartSettings(0.millis, 5.millis, 0d)) { () =>
             if (incarnation.incrementAndGet() == 1)
               Consumer
                 .committableSource(consumerSettings, subscription)

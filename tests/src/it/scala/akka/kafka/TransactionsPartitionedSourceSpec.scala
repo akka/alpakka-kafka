@@ -72,7 +72,7 @@ class TransactionsPartitionedSourceSpec
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
-          .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
+          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
               transactionalPartitionedCopyStream(
                 consumerSettings,
@@ -84,12 +84,12 @@ class TransactionsPartitionedSourceSpec
                 maxPartitions = sourcePartitions,
                 restartAfter = Some(restartAfter)
               ).recover {
-                  case e: TimeoutException =>
-                    if (completedWithTimeout.incrementAndGet() > 10)
-                      "no more messages to copy"
-                    else
-                      throw new Error("Continue restarting copy stream")
-                }
+                case e: TimeoutException =>
+                  if (completedWithTimeout.incrementAndGet() > 10)
+                    "no more messages to copy"
+                  else
+                    throw new Error("Continue restarting copy stream")
+              }
             }
           )
           .viaMat(KillSwitches.single)(Keep.right)

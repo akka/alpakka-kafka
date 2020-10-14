@@ -30,6 +30,9 @@ public class ProducerSettingsTest {
     // #discovery-settings
 
     Config producerConfig = system.settings().config().getConfig("discovery-producer");
+    // #discovery-settings
+    @SuppressWarnings("deprecation")
+    // #discovery-settings
     ProducerSettings<String, String> settings =
         ProducerSettings.create(producerConfig, new StringSerializer(), new StringSerializer())
             .withEnrichCompletionStage(

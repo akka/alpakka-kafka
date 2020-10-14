@@ -16,17 +16,17 @@ import akka.kafka.scaladsl.Producer
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.kafka.{CommitWhen, CommitterSettings, ConsumerMessage, ProducerMessage, ProducerSettings, Repeated}
-import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
+import akka.kafka._
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import akka.stream.{ActorAttributes, Supervision}
 import akka.testkit.{TestKit, TestProbe}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
-import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
@@ -57,7 +57,6 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
   // used by the .log(...) stream operator
   implicit val adapter: LoggingAdapter = new Slf4jToAkkaLoggingAdapter(log)
 
-  implicit val materializer = ActorMaterializer()
   implicit val ec = _system.dispatcher
 
   val groupId = "group1"
