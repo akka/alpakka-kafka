@@ -1,0 +1,5 @@
+# Inherited methods removed in ScalaTest 3.1 (#1207)
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.execute")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.newAssertionFailedException")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.trap")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.assertionsHelper")
