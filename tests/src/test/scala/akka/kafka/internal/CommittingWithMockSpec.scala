@@ -67,8 +67,8 @@ class CommittingWithMockSpec(_system: ActorSystem)
     this(
       ActorSystem("CommittingWithMockSpec",
                   ConfigFactory
-                    .load()
-                    .withFallback(ConfigFactory.parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")))
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
     )
 
   override def afterAll(): Unit =

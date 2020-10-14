@@ -103,11 +103,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         var innerControl = null.asInstanceOf[Control]
 
         val restartSource = RestartSource.onFailuresWithBackoff(
-          (
-            RestartSettings(minBackoff = 0.1.seconds,
-                            maxBackoff = 1.seconds,
-                            randomFactor = 0.2)
-          )
+          RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
         ) { () =>
           restartCount += 1
           Transactional

@@ -48,10 +48,10 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
   def this() =
     this(
-      ActorSystem("CommittingWithMockSpec",
+      ActorSystem("PartitionedSourceSpec",
                   ConfigFactory
-                    .load()
-                    .withFallback(ConfigFactory.parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")))
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
     )
 
   override def afterAll(): Unit =

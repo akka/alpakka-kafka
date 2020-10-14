@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.stream.Materializer;
 import akka.stream.testkit.javadsl.StreamTestKit;
 import org.junit.jupiter.api.AfterAll;
@@ -20,7 +21,16 @@ import org.junit.jupiter.api.BeforeAll;
  */
 public abstract class KafkaTest extends BaseKafkaTest {
 
-  protected KafkaTest(ActorSystem system, String bootstrapServers) {
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `KafkaTest(ClassicActorSystemProvider, String)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected KafkaTest(ActorSystem system, Materializer mat, String bootstrapServers) {
+    super(system, mat, bootstrapServers);
+  }
+
+  protected KafkaTest(ClassicActorSystemProvider system, String bootstrapServers) {
     super(system, bootstrapServers);
   }
 
@@ -38,6 +48,6 @@ public abstract class KafkaTest extends BaseKafkaTest {
   public void checkForStageLeaks() {
     // you might need to configure `stop-timeout` in your `application.conf`
     // as the default of 30s will fail this
-    StreamTestKit.assertAllStagesStopped(Materializer.matFromSystem(system()));
+    StreamTestKit.assertAllStagesStopped(materializer);
   }
 }

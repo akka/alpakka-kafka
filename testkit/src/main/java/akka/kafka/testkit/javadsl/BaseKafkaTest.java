@@ -7,6 +7,7 @@ package akka.kafka.testkit.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.japi.Pair;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
@@ -43,8 +44,20 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
   public final Logger log = LoggerFactory.getLogger(getClass());
 
-  protected BaseKafkaTest(ActorSystem system, String bootstrapServers) {
+  protected final Materializer materializer;
+
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `BaseKafkaTest(ClassicActorSystemProvider, String)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected BaseKafkaTest(ActorSystem system, Materializer mat, String bootstrapServers) {
     super(system, bootstrapServers);
+    this.materializer = mat;
+  }
+
+  protected BaseKafkaTest(ClassicActorSystemProvider system, String bootstrapServers) {
+    this(system.classicSystem(), Materializer.matFromSystem(system), bootstrapServers);
   }
 
   @Override
@@ -64,7 +77,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
     return Source.fromIterator(() -> IntStream.range(0, messageCount).iterator())
         .map(Object::toString)
         .map(n -> new ProducerRecord<String, String>(topic, partition, DefaultKey(), n))
-        .runWith(Producer.plainSink(producerDefaults()), system());
+        .runWith(Producer.plainSink(producerDefaults()), materializer);
   }
 
   protected CompletionStage<Done> produceString(String topic, String message) {
@@ -80,7 +93,8 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
       Pair<K, V>... messages) {
     return Source.from(Arrays.asList(messages))
         .map(pair -> new ProducerRecord<>(topic, pair.first(), pair.second()))
-        .runWith(Producer.plainSink(producerDefaults(keySerializer, valueSerializer)), system());
+        .runWith(
+            Producer.plainSink(producerDefaults(keySerializer, valueSerializer)), materializer);
   }
 
   protected Consumer.DrainingControl<List<ConsumerRecord<String, String>>> consumeString(
@@ -97,7 +111,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
             Subscriptions.topics(topic))
         .take(take)
         .toMat(Sink.seq(), Consumer::createDrainingControl)
-        .run(system());
+        .run(materializer);
   }
 
   /**

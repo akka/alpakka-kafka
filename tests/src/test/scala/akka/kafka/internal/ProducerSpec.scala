@@ -48,10 +48,10 @@ class ProducerSpec(_system: ActorSystem)
 
   def this() =
     this(
-      ActorSystem("CommittingWithMockSpec",
+      ActorSystem("ProducerSpec",
                   ConfigFactory
-                    .load()
-                    .withFallback(ConfigFactory.parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")))
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
     )
 
   override def afterAll(): Unit = shutdown(system)

@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
@@ -26,7 +27,16 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
   public static final KafkaTestkitTestcontainersSettings settings =
       TestcontainersKafka.Singleton().testcontainersSettings();
 
-  protected TestcontainersKafkaTest(ActorSystem system) {
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `TestcontainersKafkaTest(ClassicActorSystemProvider)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected TestcontainersKafkaTest(ActorSystem system, Materializer mat) {
+    super(system, mat, startKafka(settings));
+  }
+
+  protected TestcontainersKafkaTest(ClassicActorSystemProvider system) {
     super(system, startKafka(settings));
   }
 

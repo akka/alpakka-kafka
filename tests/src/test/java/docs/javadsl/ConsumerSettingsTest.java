@@ -6,7 +6,6 @@
 package docs.javadsl;
 
 import akka.actor.ActorSystem;
-import akka.actor.ClassicActorSystemProvider;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.ConsumerSettingsSpec$;
 // #discovery-settings
@@ -26,17 +25,19 @@ public class ConsumerSettingsTest {
         ConfigFactory.parseString(ConsumerSettingsSpec$.MODULE$.DiscoveryConfigSection())
             .withFallback(ConfigFactory.load())
             .resolve();
-    ClassicActorSystemProvider system = ActorSystem.create("ConsumerSettingsTest", config);
+    ActorSystem system = ActorSystem.create("ConsumerSettingsTest", config);
 
     // #discovery-settings
 
-    Config consumerConfig =
-        system.classicSystem().settings().config().getConfig("discovery-consumer");
+    Config consumerConfig = system.settings().config().getConfig("discovery-consumer");
+    // #discovery-settings
+    @SuppressWarnings("deprecation")
+    // #discovery-settings
     ConsumerSettings<String, String> settings =
         ConsumerSettings.create(consumerConfig, new StringDeserializer(), new StringDeserializer())
             .withEnrichCompletionStage(
                 DiscoverySupport.consumerBootstrapServers(consumerConfig, system));
     // #discovery-settings
-    TestKit.shutdownActorSystem(system.classicSystem());
+    TestKit.shutdownActorSystem(system);
   }
 }
