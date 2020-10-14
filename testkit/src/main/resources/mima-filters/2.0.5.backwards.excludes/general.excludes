@@ -1,7 +1,0 @@
-# catch up from previous exclusions
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.execute")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.newAssertionFailedException")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.trap")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.assertionsHelper")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.KafkaSpec.mat")
-ProblemFilters.exclude[MissingFieldProblem]("akka.kafka.testkit.internal.AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION")
