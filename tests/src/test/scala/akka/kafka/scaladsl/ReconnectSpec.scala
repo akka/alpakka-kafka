@@ -93,27 +93,21 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       Await.ready(control.shutdown(), remainingOrDefault)
     }
 
-    "pick up again when the Kafka server proxy comes back up" in assertAllStagesStopped {
+    "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroupId(1)
-
-      // create a TCP proxy and set up a consumer through it
-      val (proxyBinding, proxyKillSwitch) = createProxy()
 
       // produce messages
       val messagesProduced = 100
       produce(topic1, 1 to messagesProduced)
 
       // create a consumer
-      val consumerSettings = consumerDefaults
-        .withGroupId(group1)
-        .withBootstrapServers(s"localhost:$proxyPort")
-      val (control, probe) = createProbe(consumerSettings, topic1)
+      val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
 
-      // expect an element and kill the Kafka proxy instance
+      // expect an element and make Kafka brokers unavailable
       probe.requestNext() should be("1")
-      Await.result(proxyKillSwitch, remainingOrDefault).shutdown()
-      Await.ready(proxyBinding.unbind(), remainingOrDefault)
+      // pause Kafka brokers
+      this.brokerContainers.foreach(c => c.getDockerClient.pauseContainerCmd(c.getContainerId).exec())
       sleep(1.second)
 
       // by now all messages have arrived in the consumer
@@ -124,8 +118,8 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       probe.request(1)
       probe.expectNoMessage(1.second)
 
-      // start a new Kafka server proxy and produce another round
-      val (proxyBinding2, proxyKillSwitch2) = createProxy()
+      // unpause Kafka brokers and produce another round
+      this.brokerContainers.foreach(c => c.getDockerClient.unpauseContainerCmd(c.getContainerId).exec())
 
       sleep(1.second) // Got some messages dropped during startup
       produce(topic1, messagesProduced + 1 to messagesProduced * 2)
@@ -135,7 +129,6 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
 
       // shut down
       Await.ready(control.shutdown(), remainingOrDefault)
-      Await.ready(proxyBinding2.unbind(), remainingOrDefault)
     }
   }
 
