@@ -141,7 +141,8 @@ public class KafkaContainerCluster implements Startable {
   @Override
   public void start() {
     try {
-      Startables.deepStart(this.brokers.stream()).get(START_TIMEOUT_SECONDS, SECONDS);
+      Stream<Startable> startables = this.brokers.stream().map(Startable.class::cast);
+      Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
 
       // assert that cluster has formed
       Unreliables.retryUntilTrue(
@@ -164,7 +165,7 @@ public class KafkaContainerCluster implements Startable {
           .ifPresent(
               broker -> {
                 broker.copyFileToContainer(
-                    Transferable.of(readinessCheckScript().getBytes(StandardCharsets.UTF_8), 700),
+                    Transferable.of(readinessCheckScript().getBytes(StandardCharsets.UTF_8), 0777),
                     READINESS_CHECK_SCRIPT);
               });
 
@@ -242,6 +243,7 @@ public class KafkaContainerCluster implements Startable {
   private Boolean runReadinessCheck(GenericContainer c) {
     try {
       Container.ExecResult result = c.execInContainer("sh", "-c", READINESS_CHECK_SCRIPT);
+
       if (result.getExitCode() != 0 || !result.getStdout().contains("test succeeded")) {
         log.debug(
             "Readiness check returned errors:\nSTDOUT:\n{}\nSTDERR\n{}",

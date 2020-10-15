@@ -195,7 +195,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
       command += "/etc/confluent/docker/launch \n";
 
       copyFileToContainer(
-          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0700), STARTER_SCRIPT);
+          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0777), STARTER_SCRIPT);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
