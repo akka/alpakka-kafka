@@ -30,9 +30,6 @@ public class ConsumerSettingsTest {
     // #discovery-settings
 
     Config consumerConfig = system.settings().config().getConfig("discovery-consumer");
-    // #discovery-settings
-    @SuppressWarnings("deprecation")
-    // #discovery-settings
     ConsumerSettings<String, String> settings =
         ConsumerSettings.create(consumerConfig, new StringDeserializer(), new StringDeserializer())
             .withEnrichCompletionStage(
