@@ -1,4 +1,3 @@
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test")
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.testkit.javadsl.EmbeddedKafkaTest")
 ProblemFilters.exclude[MissingClassProblem]("akka.kafka.testkit.scaladsl.EmbeddedKafkaLike")
-ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.KafkaSpec.mat")

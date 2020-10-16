@@ -41,7 +41,10 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
   final val consumerClientId2 = "consumer-2"
   final val consumerClientId3 = "consumer-3"
 
-  // TODO: this test needs to manually consume events from __consumer_offsets without the aid of types from Kafka core
+  /**
+   * This test needs to manually consume events from `__consumer_offsets` without the aid of types from Kafka core
+   * https://github.com/akka/alpakka-kafka/issues/1234
+   */
 //  "While refreshing offsets the consumer" must {
 //    "not commit or refresh partitions that are not assigned" in assertAllStagesStopped {
 //      val topic1 = createTopic(0, partitions = 2)
