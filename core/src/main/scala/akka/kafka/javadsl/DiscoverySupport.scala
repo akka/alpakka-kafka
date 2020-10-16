@@ -37,7 +37,6 @@ object DiscoverySupport {
   }
 
   // kept for bin-compatibility
-  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def consumerBootstrapServers[K, V](
       config: Config,
       system: ActorSystem
@@ -61,7 +60,6 @@ object DiscoverySupport {
   }
 
   // kept for bin-compatibility
-  @deprecated("use the variant with ClassicActorSystemProvider instead", "2.0.5")
   def producerBootstrapServers[K, V](
       config: Config,
       system: ActorSystem

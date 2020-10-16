@@ -16,7 +16,7 @@ import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.kafka.testkit.internal.{KafkaTestKit, KafkaTestKitChecks}
-import akka.stream.Materializer
+import akka.stream.{Materializer, SystemMaterializer}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
@@ -45,8 +45,8 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   // used by the .log(...) stream operator
   implicit val adapter: LoggingAdapter = new Slf4jToAkkaLoggingAdapter(log)
 
-  implicit val mat: Materializer = Materializer.matFromSystem(system)
   implicit val ec: ExecutionContext = system.dispatcher
+  implicit val mat: Materializer = SystemMaterializer(system).materializer
   implicit val scheduler: akka.actor.Scheduler = system.scheduler
 
   var testProducer: KProducer[String, String] = _
