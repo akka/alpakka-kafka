@@ -6,3 +6,6 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.
 
 # Changed signature, but EmbeddedKafka will be removed with #1229
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test.this")
+
+# Changed to return the Admin interface instead of the AdminClient class #1183
+ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.kafka.testkit.scaladsl.KafkaSpec.adminClient")
