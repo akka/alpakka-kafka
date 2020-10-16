@@ -3,3 +3,6 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.newAssertionFailedException")
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.trap")
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.assertionsHelper")
+
+# Changed signature, but EmbeddedKafka will be removed with #1229
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test.this")
