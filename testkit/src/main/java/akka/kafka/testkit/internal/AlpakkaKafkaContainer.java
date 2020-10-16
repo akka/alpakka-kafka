@@ -6,7 +6,6 @@
 package akka.kafka.testkit.internal;
 
 import akka.annotation.InternalApi;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
 import org.testcontainers.containers.GenericContainer;
@@ -16,7 +15,6 @@ import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,7 +30,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
   // Align this with testkit/src/main/resources/reference.conf
-  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.4.0";
+  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.0";
 
   public static final int KAFKA_PORT = 9093;
 
@@ -157,11 +155,16 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
         return;
       }
 
+      String command = "#!/bin/bash\n";
       final String zookeeperConnect;
       if (externalZookeeperConnect != null) {
         zookeeperConnect = externalZookeeperConnect;
       } else {
-        zookeeperConnect = startZookeeper();
+        zookeeperConnect = "localhost:" + ZOOKEEPER_PORT;
+        command += "echo 'clientPort=" + ZOOKEEPER_PORT + "' > zookeeper.properties\n";
+        command += "echo 'dataDir=/var/lib/zookeeper/data' >> zookeeper.properties\n";
+        command += "echo 'dataLogDir=/var/lib/zookeeper/log' >> zookeeper.properties\n";
+        command += "zookeeper-server-start zookeeper.properties &\n";
       }
 
       List<String> internalIps =
@@ -169,7 +172,6 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
               .map(ContainerNetwork::getIpAddress)
               .collect(Collectors.toList());
 
-      String command = "#!/bin/bash \n";
       command += "export KAFKA_ZOOKEEPER_CONNECT='" + zookeeperConnect + "'\n";
       command +=
           "export KAFKA_ADVERTISED_LISTENERS='"
@@ -193,33 +195,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
       command += "/etc/confluent/docker/launch \n";
 
       copyFileToContainer(
-          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 700), STARTER_SCRIPT);
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
-  }
-
-  private String startZookeeper() {
-    try {
-      ExecCreateCmdResponse execCreateCmdResponse =
-          dockerClient
-              .execCreateCmd(getContainerId())
-              .withCmd(
-                  "sh",
-                  "-c",
-                  ""
-                      + "printf 'clientPort="
-                      + ZOOKEEPER_PORT
-                      + "\ndataDir=/var/lib/zookeeper/data\ndataLogDir=/var/lib/zookeeper/log' > /zookeeper.properties\n"
-                      + "zookeeper-server-start /zookeeper.properties\n")
-              .exec();
-
-      dockerClient
-          .execStartCmd(execCreateCmdResponse.getId())
-          .start()
-          .awaitStarted(10, TimeUnit.SECONDS);
-
-      return "localhost:" + ZOOKEEPER_PORT;
+          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0777), STARTER_SCRIPT);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

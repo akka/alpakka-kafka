@@ -44,7 +44,7 @@ import static org.junit.Assert.assertFalse;
 // #testkit
 @ExtendWith(LogCapturingExtension.class)
 // #testkit
-class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
+class ProducerTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create();
   // #testkit
@@ -54,7 +54,7 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
 
   // #testkit
 
-  ProducerWithTestcontainersTest() {
+  ProducerTest() {
     super(system);
   }
 
