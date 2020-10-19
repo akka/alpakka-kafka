@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
@@ -15,7 +15,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
+class ReconnectSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
   val proxyPort = 9034
 
