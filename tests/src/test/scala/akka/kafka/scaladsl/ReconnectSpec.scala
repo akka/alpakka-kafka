@@ -6,7 +6,7 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
@@ -15,7 +15,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class ReconnectSpec extends SpecBase with TestcontainersKafkaPerClassLike {
+class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
 
   val proxyPort = 9034
 
@@ -109,7 +109,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaPerClassLike {
       probe.requestNext() should be("1")
       // stop Kafka broker process
       stopKafka()
-      sleep(1.second)
+      sleep(10.second)
 
       // by now all messages have arrived in the consumer
       probe.request(messagesProduced.toLong - 1)
