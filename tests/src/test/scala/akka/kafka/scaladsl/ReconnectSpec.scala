@@ -111,7 +111,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
 
       // expect an element and make Kafka brokers unavailable
       probe.requestNext() should be("1")
-      // pause Kafka brokers
+      // stop Kafka broker process
       this.brokerContainers.foreach(_.stopKafka())
       sleep(1.second)
 
@@ -123,7 +123,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       probe.request(1)
       probe.expectNoMessage(1.second)
 
-      // unpause Kafka brokers and produce another round
+      // start Kafka broker process produce another round
       this.brokerContainers.foreach(_.startKafka())
 
       sleep(1.second) // Got some messages dropped during startup
