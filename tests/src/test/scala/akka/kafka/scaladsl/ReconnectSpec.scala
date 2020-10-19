@@ -93,10 +93,6 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       Await.ready(control.shutdown(), remainingOrDefault)
     }
 
-    /**
-     * This test works, but doesn't truly recreate a broker disconnect like it did when it used embedded-kafka
-     * Details: https://github.com/akka/alpakka-kafka/issues/1233
-     */
     "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
       val topic1 = createTopic(1)
       val group1 = createGroupId(1)
@@ -112,7 +108,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       // expect an element and make Kafka brokers unavailable
       probe.requestNext() should be("1")
       // stop Kafka broker process
-      this.brokerContainers.foreach(_.stopKafka())
+      stopKafka()
       sleep(1.second)
 
       // by now all messages have arrived in the consumer
@@ -124,7 +120,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       probe.expectNoMessage(1.second)
 
       // start Kafka broker process produce another round
-      this.brokerContainers.foreach(_.startKafka())
+      startKafka()
 
       sleep(1.second) // Got some messages dropped during startup
       produce(topic1, messagesProduced + 1 to messagesProduced * 2)

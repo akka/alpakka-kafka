@@ -144,22 +144,6 @@ public class KafkaContainerCluster implements Startable {
       Stream<Startable> startables = this.brokers.stream().map(Startable.class::cast);
       Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
 
-      // assert that cluster has formed
-      Unreliables.retryUntilTrue(
-          START_TIMEOUT_SECONDS,
-          TimeUnit.SECONDS,
-          () -> {
-            Container.ExecResult result =
-                this.zookeeper.execInContainer(
-                    "sh",
-                    "-c",
-                    "zookeeper-shell zookeeper:"
-                        + AlpakkaKafkaContainer.ZOOKEEPER_PORT
-                        + " ls /brokers/ids | tail -n 1");
-            String brokers = result.getStdout();
-            return brokers != null && brokers.split(",").length == this.brokersNum;
-          });
-
       this.brokers.stream()
           .findFirst()
           .ifPresent(
@@ -169,11 +153,7 @@ public class KafkaContainerCluster implements Startable {
                     READINESS_CHECK_SCRIPT);
               });
 
-      // test produce & consume message with full cluster involvement
-      Unreliables.retryUntilTrue(
-          START_TIMEOUT_SECONDS,
-          TimeUnit.SECONDS,
-          () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
+      waitForClusterFormation();
 
       this.schemaRegistry =
           useSchemaRegistry
@@ -189,6 +169,39 @@ public class KafkaContainerCluster implements Startable {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  private void waitForClusterFormation() {
+    // assert that cluster has formed
+    Unreliables.retryUntilTrue(
+        START_TIMEOUT_SECONDS,
+        TimeUnit.SECONDS,
+        () -> {
+          Container.ExecResult result =
+              this.zookeeper.execInContainer(
+                  "sh",
+                  "-c",
+                  "zookeeper-shell zookeeper:"
+                      + AlpakkaKafkaContainer.ZOOKEEPER_PORT
+                      + " ls /brokers/ids | tail -n 1");
+          String brokers = result.getStdout();
+          return brokers != null && brokers.split(",").length == this.brokersNum;
+        });
+
+    // test produce & consume message with full cluster involvement
+    Unreliables.retryUntilTrue(
+        START_TIMEOUT_SECONDS,
+        TimeUnit.SECONDS,
+        () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
+  }
+
+  public void stopKafka() {
+    this.brokers.forEach(AlpakkaKafkaContainer::stopKafka);
+  }
+
+  public void startKafka() {
+    this.brokers.forEach(AlpakkaKafkaContainer::startKafka);
+    waitForClusterFormation();
   }
 
   private String readinessCheckScript() {
