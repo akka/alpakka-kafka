@@ -99,11 +99,8 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   public void stopKafka() {
     try {
-      // System.out.println(execInContainer("sh", "-c", "/usr/bin/kafka-server-stop").getStdout());
       ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/stop");
-      System.out.println(execResult.getStdout());
-      System.out.println(execResult.getStderr());
-      System.out.println(execResult.getExitCode());
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -111,11 +108,8 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   public void startKafka() {
     try {
-      // System.out.println(execInContainer("sh", "-c", "'" + STARTER_SCRIPT + " &'").getStdout());
       ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/start");
-      System.out.println(execResult.getStdout());
-      System.out.println(execResult.getStderr());
-      System.out.println(execResult.getExitCode());
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -233,11 +227,9 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
               + "'\n"
               + "touch /tmp/start\n"
               + "while :; do\n"
-              + "\techo 'tick1'\n"
               + "\tif [ -f $STARTER_SCRIPT ]; then\n"
-              + "\t\techo 'tick2'\n"
-              + "\t\tif [ -f /tmp/stop ]; then rm /tmp/stop; echo 'calling kafka-server-stop'; /usr/bin/kafka-server-stop; echo 'called kafka-server-stop';\n"
-              + "\t\telif [ -f /tmp/start ]; then rm /tmp/start; echo 'calling start script'; bash -c \"$STARTER_SCRIPT &\"; echo 'called start script';fi\n"
+              + "\t\tif [ -f /tmp/stop ]; then rm /tmp/stop; /usr/bin/kafka-server-stop;\n"
+              + "\t\telif [ -f /tmp/start ]; then rm /tmp/start; bash -c \"$STARTER_SCRIPT &\";fi\n"
               + "\tfi\n"
               + "\tsleep 0.1\n"
               + "done\n";
