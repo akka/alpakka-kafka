@@ -24,13 +24,15 @@ trait TestcontainersKafkaLike extends TestcontainersKafka.Spec {
   override def schemaRegistryContainer: Option[SchemaRegistryContainer] =
     TestcontainersKafka.Singleton.schemaRegistryContainer
   override def schemaRegistryUrl: String = TestcontainersKafka.Singleton.schemaRegistryUrl
-  override def startKafka(): String = TestcontainersKafka.Singleton.startKafka()
-  override def startKafka(settings: KafkaTestkitTestcontainersSettings): String =
-    TestcontainersKafka.Singleton.startKafka(settings)
+  override def startCluster(): String = TestcontainersKafka.Singleton.startCluster()
+  override def startCluster(settings: KafkaTestkitTestcontainersSettings): String =
+    TestcontainersKafka.Singleton.startCluster(settings)
+  override def stopCluster(): Unit = TestcontainersKafka.Singleton.stopCluster()
+  override def startKafka(): Unit = TestcontainersKafka.Singleton.startKafka()
   override def stopKafka(): Unit = TestcontainersKafka.Singleton.stopKafka()
 
   override def setUp(): Unit = {
-    startKafka(testcontainersSettings)
+    startCluster(testcontainersSettings)
     super.setUp()
   }
 

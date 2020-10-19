@@ -27,6 +27,8 @@ import java.util.stream.Stream;
 @InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
 
+  private static final String START_STOP_SCRIPT = "/testcontainers_start_stop_wrapper.sh";
+
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
   // Align this with testkit/src/main/resources/reference.conf
@@ -93,6 +95,24 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
               new Exception("Deprecated method"));
     }
     return super.getNetwork();
+  }
+
+  public void stopKafka() {
+    try {
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/stop");
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  public void startKafka() {
+    try {
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/start");
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
   public AlpakkaKafkaContainer withEmbeddedZookeeper() {
@@ -196,6 +216,25 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
       copyFileToContainer(
           Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0777), STARTER_SCRIPT);
+
+      // start and stop the Kafka broker process without stopping the container
+      String startStopWrapper =
+          "#!/bin/bash\n"
+              + "STARTER_SCRIPT='"
+              + STARTER_SCRIPT
+              + "'\n"
+              + "touch /tmp/start\n"
+              + "while :; do\n"
+              + "\tif [ -f $STARTER_SCRIPT ]; then\n"
+              + "\t\tif [ -f /tmp/stop ]; then rm /tmp/stop; /usr/bin/kafka-server-stop;\n"
+              + "\t\telif [ -f /tmp/start ]; then rm /tmp/start; bash -c \"$STARTER_SCRIPT &\";fi\n"
+              + "\tfi\n"
+              + "\tsleep 0.1\n"
+              + "done\n";
+
+      copyFileToContainer(
+          Transferable.of(startStopWrapper.getBytes(StandardCharsets.UTF_8), 0777),
+          START_STOP_SCRIPT);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

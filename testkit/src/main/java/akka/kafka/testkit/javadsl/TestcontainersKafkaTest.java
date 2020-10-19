@@ -49,15 +49,15 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
         TestcontainersKafka.Singleton()
             .testcontainersSettings()
             .withConfluentPlatformVersion(confluentPlatformVersion);
-    return TestcontainersKafka.Singleton().startKafka(settings);
+    return TestcontainersKafka.Singleton().startCluster(settings);
   }
 
   protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {
-    return TestcontainersKafka.Singleton().startKafka(settings);
+    return TestcontainersKafka.Singleton().startCluster(settings);
   }
 
   protected static void stopKafka() {
-    TestcontainersKafka.Singleton().stopKafka();
+    TestcontainersKafka.Singleton().stopCluster();
   }
 
   protected String getSchemaRegistryUrl() {

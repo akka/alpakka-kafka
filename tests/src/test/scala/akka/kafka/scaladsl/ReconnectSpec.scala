@@ -178,6 +178,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       // expect an element and kill the Kafka instance
       probe.requestNext() should be("1")
       EmbeddedKafka.stop()
+
       sleep(1.second)
 
       // by now all messages have arrived in the consumer
@@ -190,6 +191,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
 
       // start a new Kafka server and produce another round
       EmbeddedKafka.start()
+
       sleep(1.second) // Got some messages dropped during startup
       produce(topic1, messagesProduced + 1 to messagesProduced * 2)
 

@@ -70,6 +70,7 @@ class ConnectionCheckerSpec extends WordSpecLike with Matchers with LogCapturing
       probe.ensureSubscription().requestNext().value() shouldBe msg
 
       embeddedK.stop(true)
+
       Await.ready(control.isShutdown, failingDetectionTime)
       probe.request(1).expectError().getClass shouldBe classOf[KafkaConnectionFailed]
     }
