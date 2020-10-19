@@ -27,6 +27,8 @@ import java.util.stream.Stream;
 @InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
 
+  private static final String START_STOP_SCRIPT = "/testcontainers_start_stop_wrapper.sh";
+
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
   // Align this with testkit/src/main/resources/reference.conf
@@ -95,6 +97,30 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
     return super.getNetwork();
   }
 
+  public void stopKafka() {
+    try {
+      // System.out.println(execInContainer("sh", "-c", "/usr/bin/kafka-server-stop").getStdout());
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/stop");
+      System.out.println(execResult.getStdout());
+      System.out.println(execResult.getStderr());
+      System.out.println(execResult.getExitCode());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  public void startKafka() {
+    try {
+      // System.out.println(execInContainer("sh", "-c", "'" + STARTER_SCRIPT + " &'").getStdout());
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/start");
+      System.out.println(execResult.getStdout());
+      System.out.println(execResult.getStderr());
+      System.out.println(execResult.getExitCode());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
   public AlpakkaKafkaContainer withEmbeddedZookeeper() {
     externalZookeeperConnect = null;
     return self();
@@ -129,7 +155,9 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   @Override
   protected void doStart() {
     withCommand(
-        "sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + STARTER_SCRIPT);
+        "sh",
+        "-c",
+        "while [ ! -f " + START_STOP_SCRIPT + " ]; do sleep 0.1; done; " + START_STOP_SCRIPT);
 
     if (externalZookeeperConnect == null) {
       addExposedPort(ZOOKEEPER_PORT);
@@ -196,6 +224,27 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
       copyFileToContainer(
           Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0777), STARTER_SCRIPT);
+
+      // start and stop the Kafka broker process without stopping the container
+      String startStopWrapper =
+          "#!/bin/bash\n"
+              + "STARTER_SCRIPT='"
+              + STARTER_SCRIPT
+              + "'\n"
+              + "touch /tmp/start\n"
+              + "while :; do\n"
+              + "\techo 'tick1'\n"
+              + "\tif [ -f $STARTER_SCRIPT ]; then\n"
+              + "\t\techo 'tick2'\n"
+              + "\t\tif [ -f /tmp/stop ]; then rm /tmp/stop; echo 'calling kafka-server-stop'; /usr/bin/kafka-server-stop; echo 'called kafka-server-stop';\n"
+              + "\t\telif [ -f /tmp/start ]; then rm /tmp/start; echo 'calling start script'; bash -c \"$STARTER_SCRIPT &\"; echo 'called start script';fi\n"
+              + "\tfi\n"
+              + "\tsleep 0.1\n"
+              + "done\n";
+
+      copyFileToContainer(
+          Transferable.of(startStopWrapper.getBytes(StandardCharsets.UTF_8), 0777),
+          START_STOP_SCRIPT);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
