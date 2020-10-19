@@ -24,8 +24,8 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
 
   override def cleanUp(): Unit = Try(super.cleanUp())
 
-  override def startKafka(): String = {
-    val bootstrapServers = super.startKafka()
+  override def startCluster(): String = {
+    val bootstrapServers = super.startCluster()
     testProducer = Await.result(producerDefaults.createKafkaProducerAsync(), 2.seconds)
     setUpAdminClient()
     bootstrapServers
@@ -65,7 +65,7 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
     }
 
     "fail stream and control.isShutdown when kafka down and not recover during max retries exceeded" in assertAllStagesStopped {
-      startKafka()
+      startCluster()
 
       val msg = "hello"
       produceString(topic, scala.collection.immutable.Seq(msg))
@@ -77,7 +77,7 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
 
       probe.ensureSubscription().requestNext().value() shouldBe msg
 
-      stopKafka()
+      stopCluster()
       Await.ready(control.isShutdown, failingDetectionTime)
       probe.request(1).expectError().getClass shouldBe classOf[KafkaConnectionFailed]
     }
