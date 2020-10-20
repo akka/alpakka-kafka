@@ -107,13 +107,14 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
 
       // expect an element and make Kafka brokers unavailable
       probe.requestNext() should be("1")
+
       // stop Kafka broker process
       stopKafka()
-      sleep(10.second)
+      sleep(1.second)
 
       // by now all messages have arrived in the consumer
-      probe.request(messagesProduced.toLong - 1)
-      probe.receiveWithin(100.millis) should be((2 to messagesProduced).map(_.toString))
+      probe.request(99)
+      probe.receiveWithin(100.millis) should be((2 to 100).map(_.toString))
 
       // expect silence
       probe.request(1)
@@ -123,10 +124,13 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
       startKafka()
 
       sleep(1.second) // Got some messages dropped during startup
-      produce(topic1, messagesProduced + 1 to messagesProduced * 2)
+      produce(topic1, 101 to 200)
 
-      probe.request(messagesProduced.toLong)
-      probe.receiveWithin(5.second) should be((messagesProduced + 1 to messagesProduced * 2).map(_.toString))
+      probe.request(messagesProduced.toLong * 2)
+      // because we are using a plainSink sometimes the disconnect will reset the consumer group generation and when the
+      // consumer reconnects it will seek back to the earliest offset 0 (because `auto.offset.reset=earliest`).
+      // therefore if we take the last `messageProduced` messages it should always be 101 to 200.
+      probe.receiveWithin(5.second).takeRight(messagesProduced) should be((101 to 200).map(_.toString))
 
       // shut down
       Await.ready(control.shutdown(), remainingOrDefault)
