@@ -338,6 +338,7 @@ lazy val docs = project
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
+        "image.base_url" -> "images/",
         "confluent.version" -> confluentAvroSerializerVersion,
         "scalatest.version" -> scalatestVersion,
         "scaladoc.akka.kafka.base_url" -> s"/${(Preprocess / siteSubdirName).value}/",
