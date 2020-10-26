@@ -29,6 +29,7 @@ import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
+import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
@@ -239,12 +240,6 @@ import scala.util.control.NonFatal
   private var commitsInProgress = 0
   private var commitRefreshing: CommitRefreshing = _
   private var stopInProgress = false
-
-  /**
-   * While `true`, committing is delayed.
-   * Changed by `onPartitionsRevoked` and `onPartitionsAssigned` in [[RebalanceListenerImpl]].
-   */
-  private var rebalanceInProgress = false
 
   /**
    * Collect commit offset maps until the next poll.
@@ -571,7 +566,7 @@ import scala.util.control.NonFatal
     }
   }
 
-  private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty && !rebalanceInProgress) {
+  private def commitAggregatedOffsets(): Unit = if (commitMaps.nonEmpty) {
     val aggregatedOffsets = aggregateOffsets(commitMaps)
     // commits can occur after the partition has been revoked from the consumer, so ensure that we only attempt to
     // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
@@ -608,14 +603,19 @@ import scala.util.control.NonFatal
               commitRefreshing.committed(offsets)
               replyTo.foreach(_ ! Done)
 
+            case e: RebalanceInProgressException =>
+              log.info("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
+                       duration / 1000000L,
+                       commitsInProgress,
+                       e)
+              postponeCommits(commitMap, replyTo)
+
             case e: RetriableCommitFailedException =>
               log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
                           duration / 1000000L,
                           commitsInProgress,
                           e.getCause)
-              commitMaps = commitMap.toList ++ commitMaps
-              commitSenders = commitSenders ++ replyTo
-              requestDelayedPoll()
+              postponeCommits(commitMap, replyTo)
 
             case commitException =>
               log.error("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
@@ -628,6 +628,12 @@ import scala.util.control.NonFatal
         }
       }
     )
+  }
+
+  private def postponeCommits(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]) = {
+    commitMaps = commitMap.toList ++ commitMaps
+    commitSenders = commitSenders ++ replyTo
+    requestDelayedPoll()
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit =
@@ -795,7 +801,6 @@ import scala.util.control.NonFatal
       val startTime = System.nanoTime()
       partitionAssignmentHandler.onAssign(tps, restrictedConsumer)
       checkDuration(startTime, "onAssign")
-      rebalanceInProgress = false
     }
 
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
@@ -804,7 +809,6 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler.onRevoke(revokedTps, restrictedConsumer)
       checkDuration(startTime, "onRevoke")
       commitRefreshing.revoke(revokedTps)
-      rebalanceInProgress = true
     }
 
     override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {
@@ -813,7 +817,6 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler.onLost(lostTps, restrictedConsumer)
       checkDuration(startTime, "onLost")
       commitRefreshing.revoke(lostTps)
-      rebalanceInProgress = true
     }
 
     override def postStop(): Unit = {
