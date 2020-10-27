@@ -291,11 +291,10 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
+      val partitions = Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1))
+
       // Await initial partition assignment
-      rebalanceActor1.expectMsg(
-        TopicPartitionsAssigned(subscription1,
-                                Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1)))
-      )
+      rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, partitions))
 
       // read all messages from both partitions
       val committables1: immutable.Seq[ConsumerMessage.CommittableMessage[String, String]] = probe1
@@ -312,9 +311,14 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set()))
 
       // Rebalance happens
-      rebalanceActor1.expectMsg(
-        TopicPartitionsRevoked(subscription1, Set(new TopicPartition(topic1, partition1)))
-      )
+      val revokedPartitions =
+        rebalanceActor1.expectMsgAnyClassOf(classOf[TopicPartitionsRevoked])
+      revokedPartitions.topicPartitions.size shouldEqual 1
+
+      // partition which revoked from the 1st consumer
+      val revoked = revokedPartitions.topicPartitions.head
+      // partition which stays assigned to the 1st consumer
+      val assigned = partitions.find(_ != revoked).get
 
       // commit ALL messages via consumer 1
       Future
@@ -330,15 +334,15 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       // Rebalance finished
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, Set()))
-      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(new TopicPartition(topic1, partition1))))
+      rebalanceActor2.expectMsg(TopicPartitionsAssigned(subscription2, Set(revoked)))
 
       // messages that belonged to the revoked partition show up in the new consumer
-      val commitables2Tp1 = probe2
+      val commitables2Revoked = probe2
         .request(count.toLong)
         .expectNextN(count.toLong)
 
-      commitables2Tp1.map(_.record.value()) should contain theSameElementsInOrderAs {
-        Numbers.take(count).map(_ + "-p1")
+      commitables2Revoked.map(_.record.value()) should contain theSameElementsInOrderAs {
+        Numbers.take(count).map(_ + s"-p${revoked.partition}")
       }
 
       // stop consumer 1
@@ -347,18 +351,22 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       Source(Numbers.slice(count, 2 * count))
         .map { n =>
-          ProducerMessage.Message(new ProducerRecord(topic1, partition0, DefaultKey, n + "-p0"), NotUsed)
+          ProducerMessage.Message(new ProducerRecord(topic1,
+                                                     assigned.partition,
+                                                     DefaultKey,
+                                                     s"$n-p${assigned.partition}"),
+                                  NotUsed)
         }
         .via(Producer.flexiFlow(producerDefaults.withProducer(testProducer)))
         .runWith(Sink.ignore)
 
-      // consume only new messages from committed partition
-      val commitables2Tp0 = probe2
+      // consume only new messages from "assigned" partition
+      val commitables2Assigned = probe2
         .request(count.toLong)
         .expectNextN(count.toLong)
 
-      commitables2Tp0.map(_.record.value()) should contain theSameElementsInOrderAs {
-        Numbers.slice(count, 2 * count).map(_ + "-p0")
+      commitables2Assigned.map(_.record.value()) should contain theSameElementsInOrderAs {
+        Numbers.slice(count, 2 * count).map(n => s"$n-p${assigned.partition}")
       }
 
       probe2.cancel()
