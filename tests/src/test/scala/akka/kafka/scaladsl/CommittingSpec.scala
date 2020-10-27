@@ -291,7 +291,10 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
-      val partitions = Set(new TopicPartition(topic1, partition0), new TopicPartition(topic1, partition1))
+      val partitions: Set[TopicPartition] = Set(
+        new TopicPartition(topic1, partition0),
+        new TopicPartition(topic1, partition1)
+      )
 
       // Await initial partition assignment
       rebalanceActor1.expectMsg(TopicPartitionsAssigned(subscription1, partitions))
