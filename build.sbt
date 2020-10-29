@@ -15,6 +15,9 @@ val AkkaBinaryVersion25 = "2.5"
 val AkkaBinaryVersion26 = "2.6"
 val AkkaBinaryVersion = if (Nightly) AkkaBinaryVersion26 else AkkaBinaryVersion25
 val kafkaVersion = "2.4.1"
+// Jackson is now a provided dependency of kafka-clients
+// https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
+val jacksonVersion = "2.10.5.1"
 val embeddedKafkaVersion = "2.4.1.1"
 val embeddedKafka = "io.github.embeddedkafka" %% "embedded-kafka" % embeddedKafkaVersion
 
@@ -312,7 +315,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.5" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.5" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -404,6 +407,7 @@ lazy val docs = project
         "extref.akka.cluster.sharding.typed.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersion26/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
+        "jackson.version" -> jacksonVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$kafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "frames",

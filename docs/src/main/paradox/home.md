@@ -36,6 +36,13 @@ These client can communicate with brokers that are version 0.10.0 or newer. Olde
 
 ## Dependencies
 
+@@@ note
+
+As of [Apache Kafka 2.6.0](https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0) the `jackson-databind` dependency is marked as `provided`.
+It's up to the user to make sure this dependency is on the classpath.
+
+@@@
+
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka_$scala.binary.version$
@@ -45,6 +52,11 @@ These client can communicate with brokers that are version 0.10.0 or newer. Olde
   group2=com.typesafe.akka
   artifact2=akka-stream_$scala.binary.version$
   version2=AkkaVersion
+  symbol3=JacksonVersion
+  value3=$jackson.version$
+  group3=com.fasterxml.jackson.core
+  artifact3=jackson-databind
+  version3=JacksonVersion
 }
 
 This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
