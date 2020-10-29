@@ -29,6 +29,7 @@ import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
+import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
@@ -595,6 +596,16 @@ import scala.util.control.NonFatal
       new OffsetCommitCallback {
         override def onComplete(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                                 exception: Exception): Unit = {
+          def retryCommit(duration: Long, e: Exception): Unit = {
+            log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
+                        duration / 1000000L,
+                        commitsInProgress,
+                        e.getCause)
+            commitMaps = commitMap.toList ++ commitMaps
+            commitSenders = commitSenders ++ replyTo
+            requestDelayedPoll()
+          }
+
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
           commitsInProgress -= 1
@@ -608,14 +619,8 @@ import scala.util.control.NonFatal
               commitRefreshing.committed(offsets)
               replyTo.foreach(_ ! Done)
 
-            case e: RetriableCommitFailedException =>
-              log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                          duration / 1000000L,
-                          commitsInProgress,
-                          e.getCause)
-              commitMaps = commitMap.toList ++ commitMaps
-              commitSenders = commitSenders ++ replyTo
-              requestDelayedPoll()
+            case e: RetriableCommitFailedException => retryCommit(duration, e)
+            case e: RebalanceInProgressException => retryCommit(duration, e)
 
             case commitException =>
               log.error("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
