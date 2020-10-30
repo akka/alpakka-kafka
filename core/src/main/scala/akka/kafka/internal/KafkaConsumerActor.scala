@@ -590,7 +590,7 @@ import scala.util.control.NonFatal
       new OffsetCommitCallback {
         override def onComplete(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                                 exception: Exception): Unit = {
-          def retryCommits(duration: Long, e: Exception): Unit = {
+          def retryCommits(duration: Long, e: Throwable): Unit = {
             log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
                         duration / 1000000L,
                         commitsInProgress,
@@ -614,7 +614,7 @@ import scala.util.control.NonFatal
               replyTo.foreach(_ ! Done)
 
             case e: RebalanceInProgressException => retryCommits(duration, e)
-            case e: RetriableCommitFailedException => retryCommits(duration, e)
+            case e: RetriableCommitFailedException => retryCommits(duration, e.getCause)
 
             case commitException =>
               log.error("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
