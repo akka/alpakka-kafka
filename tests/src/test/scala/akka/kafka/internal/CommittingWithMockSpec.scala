@@ -22,6 +22,7 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterAll
@@ -194,41 +195,43 @@ class CommittingWithMockSpec(_system: ActorSystem)
     Await.result(control.shutdown(), remainingOrDefault)
   }
 
-  it should "retry commit" in assertAllStagesStopped {
-    val retries = 4
-    val callNo = new AtomicInteger()
-    val timeout = new CommitTimeoutException("injected15")
-    val onCompleteFailure: ConsumerMock.OnCompleteHandler = { offsets =>
-      if (callNo.getAndIncrement() < retries)
-        (null, new RetriableCommitFailedException(s"injected ${callNo.get()}", timeout))
-      else (offsets, null)
+  val exceptions = List(new RebalanceInProgressException(),
+                        new RetriableCommitFailedException(new CommitTimeoutException("injected15")))
+  for (exception <- exceptions) {
+    it should s"retry commit on ${exception.getClass.getSimpleName}" in assertAllStagesStopped {
+      val retries = 4
+      val callNo = new AtomicInteger()
+      val onCompleteFailure: ConsumerMock.OnCompleteHandler = { offsets =>
+        if (callNo.getAndIncrement() < retries) (null, exception)
+        else (offsets, null)
+      }
+      val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
+      val mock = new ConsumerMock[K, V](commitLog)
+      val (control, probe) = createCommittableSource(mock.mock)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+
+      val msg = createMessage(1)
+      mock.enqueue(List(toRecord(msg)))
+
+      probe.request(100)
+      val done = probe.expectNext().committableOffset.commitInternal()
+
+      awaitAssert {
+        commitLog.calls should have size (1)
+      }
+
+      // allow poll to emulate commits
+      mock.releaseAndAwaitCommitCallbacks(this)
+
+      // the first commit and the retries should be captured
+      awaitAssert {
+        commitLog.calls should have size (retries + 1L)
+      }
+
+      done.futureValue shouldBe Done
+      control.shutdown().futureValue shouldBe Done
     }
-    val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
-    val mock = new ConsumerMock[K, V](commitLog)
-    val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
-      .run()
-
-    val msg = createMessage(1)
-    mock.enqueue(List(toRecord(msg)))
-
-    probe.request(100)
-    val done = probe.expectNext().committableOffset.commitInternal()
-
-    awaitAssert {
-      commitLog.calls should have size (1)
-    }
-
-    // allow poll to emulate commits
-    mock.releaseAndAwaitCommitCallbacks(this)
-
-    // the first commit and the retries should be captured
-    awaitAssert {
-      commitLog.calls should have size (retries + 1L)
-    }
-
-    done.futureValue shouldBe Done
-    control.shutdown().futureValue shouldBe Done
   }
 
   it should "collect commits to be sent to commitAsync" in assertAllStagesStopped {
