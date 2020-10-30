@@ -590,6 +590,16 @@ import scala.util.control.NonFatal
       new OffsetCommitCallback {
         override def onComplete(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                                 exception: Exception): Unit = {
+          def retryCommits(duration: Long, e: Exception): Unit = {
+            log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
+                        duration / 1000000L,
+                        commitsInProgress,
+                        e.getCause)
+            commitMaps = commitMap.toList ++ commitMaps
+            commitSenders = commitSenders ++ replyTo
+            requestDelayedPoll()
+          }
+
           // this is invoked on the thread calling consumer.poll which will always be the actor, so it is safe
           val duration = System.nanoTime() - startTime
           commitsInProgress -= 1
@@ -603,19 +613,8 @@ import scala.util.control.NonFatal
               commitRefreshing.committed(offsets)
               replyTo.foreach(_ ! Done)
 
-            case e: RebalanceInProgressException =>
-              log.info("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                       duration / 1000000L,
-                       commitsInProgress,
-                       e)
-              postponeCommits(commitMap, replyTo)
-
-            case e: RetriableCommitFailedException =>
-              log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
-                          duration / 1000000L,
-                          commitsInProgress,
-                          e.getCause)
-              postponeCommits(commitMap, replyTo)
+            case e: RebalanceInProgressException => retryCommits(duration, e)
+            case e: RetriableCommitFailedException => retryCommits(duration, e)
 
             case commitException =>
               log.error("Kafka commit failed after={} ms, commitsInProgress={}, exception={}",
@@ -628,12 +627,6 @@ import scala.util.control.NonFatal
         }
       }
     )
-  }
-
-  private def postponeCommits(commitMap: Map[TopicPartition, OffsetAndMetadata], replyTo: Vector[ActorRef]) = {
-    commitMaps = commitMap.toList ++ commitMaps
-    commitSenders = commitSenders ++ replyTo
-    requestDelayedPoll()
   }
 
   private def processResult(partitionsToFetch: Set[TopicPartition], rawResult: ConsumerRecords[K, V]): Unit =
