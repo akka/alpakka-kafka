@@ -14,6 +14,6 @@ addSbtPlugin("com.lightbend.sbt" % "sbt-publish-rsync" % "0.2")
 addSbtPlugin("com.eed3si9n" % "sbt-unidoc" % "0.4.3")
 // Java 11 module names are not added https://github.com/ThoughtWorksInc/sbt-api-mappings/issues/58
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.0")
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.0")
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.1")
 
 resolvers += Resolver.jcenterRepo
