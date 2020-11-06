@@ -294,7 +294,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "3.5.13" % Test
+        "org.mockito" % "mockito-core" % "3.5.15" % Test
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
