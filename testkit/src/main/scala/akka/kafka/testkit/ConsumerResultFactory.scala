@@ -10,7 +10,8 @@ import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.internal.{CommittableOffsetImpl, KafkaAsyncConsumerCommitterRef}
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
+import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
 
@@ -20,10 +21,16 @@ import scala.concurrent.Future
 @ApiMayChange
 object ConsumerResultFactory {
 
-  val fakeCommitter: KafkaAsyncConsumerCommitterRef = new KafkaAsyncConsumerCommitterRef(null, null)(ec = null) {
-    override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = Future.successful(Done)
-    override def commit(batch: ConsumerMessage.CommittableOffsetBatch): Future[Done] =
-      Future.successful(Done)
+  val fakeCommitter: KafkaAsyncConsumerCommitterRef = new KafkaAsyncConsumerCommitterRef(null, null)(
+    ec = scala.concurrent.ExecutionContext.global
+  ) {
+    private val done = Future.successful(Done)
+
+    override def commitSingle(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = done
+
+    override def commitOneOfMulti(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = done
+
+    override def tellCommit(topicPartition: TopicPartition, offset: OffsetAndMetadata, emergency: Boolean): Unit = ()
   }
 
   def partitionOffset(groupId: String, topic: String, partition: Int, offset: Long): ConsumerMessage.PartitionOffset =

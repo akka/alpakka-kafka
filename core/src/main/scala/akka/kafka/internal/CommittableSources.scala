@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset, CommittableOffsetBatch}
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle, CommitWithoutReply}
 import akka.kafka.internal.SubSourceLogic._
@@ -132,6 +132,54 @@ private[kafka] final class CommittableSubSource[K, V](
                                                        subSourceStageLogicFactory = factory)
   }
 }
+@InternalApi
+private[kafka] object KafkaAsyncConsumerCommitterRef {
+
+  def commit(offset: CommittableOffsetImpl): Future[Done] = {
+    offset.committer.commitSingle(
+      new TopicPartition(offset.partitionOffset.key.topic, offset.partitionOffset.key.partition),
+      new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata)
+    )
+  }
+
+  def commit(batch: CommittableOffsetBatchImpl): Future[Done] = {
+    val futures = forBatch(batch) {
+      case (commiter, topicPartition, offset) =>
+        commiter.commitOneOfMulti(topicPartition, offset)
+    }
+    getFirstExecutionContext(batch)
+      .map { implicit ec =>
+        Future.sequence(futures).map(_ => Done)
+      }
+      .getOrElse(Future.successful(Done))
+  }
+
+  def tellCommit(batch: CommittableOffsetBatchImpl, emergency: Boolean): Unit = {
+    forBatch(batch) {
+      case (commiter, topicPartition, offset) =>
+        commiter.tellCommit(topicPartition, offset, emergency)
+    }
+  }
+
+  private def getFirstExecutionContext(batch: CommittableOffsetBatchImpl): Option[ExecutionContext] = {
+    batch.offsetsAndMetadata.keys.headOption.map {
+      case groupTopicPartition =>
+        batch.committerFor(groupTopicPartition).ec
+    }
+  }
+
+  private def forBatch[T](
+      batch: CommittableOffsetBatchImpl
+  )(sendMsg: (KafkaAsyncConsumerCommitterRef, TopicPartition, OffsetAndMetadata) => T) = {
+    val results = batch.offsetsAndMetadata.map {
+      case (groupTopicPartition, offset) =>
+        // sends one message per partition, they are aggregated in the KafkaConsumerActor
+        val commiter = batch.committerFor(groupTopicPartition)
+        sendMsg(commiter, groupTopicPartition.topicPartition, offset)
+    }
+    results
+  }
+}
 
 /**
  * Internal API.
@@ -143,48 +191,21 @@ private[kafka] final class CommittableSubSource[K, V](
 @InternalApi
 private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: ActorRef,
                                                     private val commitTimeout: FiniteDuration)(
-    implicit ec: ExecutionContext
+    implicit private val ec: ExecutionContext
 ) {
-
-  def commitSingle(offset: CommittableOffsetImpl): Future[Done] =
-    sendCommit(
-      CommitSingle(
-        new TopicPartition(offset.partitionOffset.key.topic, offset.partitionOffset.key.partition),
-        new OffsetAndMetadata(offset.partitionOffset.offset + 1, offset.metadata)
-      )
-    )
-
-  def commit(batch: CommittableOffsetBatch): Future[Done] = batch match {
-    case b: CommittableOffsetBatchImpl =>
-      val futures = b.offsetsAndMetadata.map {
-        case (groupTopicPartition, offset) =>
-          // sends one message per partition, they are aggregated in the KafkaConsumerActor
-          b.committerFor(groupTopicPartition).sendCommit(Commit(groupTopicPartition.topicPartition, offset))
-      }
-      Future.sequence(futures).map(_ => Done)
-
-    case _ => failForUnexpectedImplementation(batch)
+  def commitSingle(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = {
+    sendWithReply(CommitSingle(topicPartition, offset))
   }
 
-  def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = batch match {
-    case b: CommittableOffsetBatchImpl =>
-      b.offsetsAndMetadata.foreach {
-        case (groupTopicPartition, offset) =>
-          // sends one message per partition, they are aggregated in the KafkaConsumerActor
-          b.committerFor(groupTopicPartition)
-            .tellCommit(CommitWithoutReply(groupTopicPartition.topicPartition, offset, emergency))
-      }
-
-    case _ => failForUnexpectedImplementation(batch)
+  def commitOneOfMulti(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = {
+    sendWithReply(Commit(topicPartition, offset))
   }
 
-  private def failForUnexpectedImplementation(batch: CommittableOffsetBatch) =
-    throw new IllegalArgumentException(
-      s"Unknown CommittableOffsetBatch, got [${batch.getClass.getName}], " +
-      s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
-    )
+  def tellCommit(topicPartition: TopicPartition, offset: OffsetAndMetadata, emergency: Boolean): Unit = {
+    consumerActor ! CommitWithoutReply(topicPartition, offset, emergency)
+  }
 
-  private def sendCommit(msg: AnyRef): Future[Done] = {
+  private def sendWithReply(msg: AnyRef): Future[Done] = {
     import akka.pattern.ask
     consumerActor
       .ask(msg)(Timeout(commitTimeout))
@@ -195,8 +216,6 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
         case other => Future.failed(other)
       }(ec)
   }
-
-  private def tellCommit(msg: CommitWithoutReply): Unit = consumerActor ! msg
 
   /**
    * This must be comparable based on `consumerActor` and `commitTimeout`. The comparison is used in [[CommittableOffsetBatchImpl]].
