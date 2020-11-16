@@ -20,7 +20,6 @@ import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.collection.compat._
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -243,6 +242,12 @@ private[kafka] final class CommittableOffsetBatchImpl(
       committers.head._2.tellCommit(this, emergency = emergency)
     }
     this
+  }
+
+  override private[kafka] def filter(p: GroupTopicPartition => Boolean): CommittableOffsetBatch = {
+    val newOffsets = offsetsAndMetadata.filter { case (gtp, _) => p(gtp) }
+    val newCommitters = offsets.map { case (gtp, _) => gtp -> committerFor(gtp) }
+    new CommittableOffsetBatchImpl(newOffsets, newCommitters, newOffsets.size)
   }
 
   override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava

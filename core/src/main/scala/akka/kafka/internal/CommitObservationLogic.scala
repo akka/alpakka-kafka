@@ -32,19 +32,42 @@ private[internal] trait CommitObservationLogic { self: GraphStageLogic =>
     if (settings.when == OffsetFirstObserved) {
       offsetBatch = offsetBatch.updated(committable)
     } else { // CommitWhen.NextOffsetObserved
-      val offset = committable.asInstanceOf[CommittableOffset]
-      val gtp = offset.partitionOffset.key
-      deferredOffsets.get(gtp) match {
-        case Some(dOffset: CommittableOffset) if dOffset.partitionOffset.offset < offset.partitionOffset.offset =>
-          deferredOffsets = deferredOffsets + (gtp -> offset)
-          offsetBatch = offsetBatch.updated(dOffset)
-        case None =>
-          deferredOffsets = deferredOffsets + (gtp -> offset)
-        case _ => ()
+      committable match {
+        case single: CommittableOffset =>
+          val gtp = single.partitionOffset.key
+          updateBatchForPartition(gtp, single, single.partitionOffset.offset)
+        case batch: CommittableOffsetBatchImpl =>
+          for { (gtp, offsetAndMetadata) <- batch.offsetsAndMetadata } updateBatchForPartition(
+            gtp,
+            batch,
+            offsetAndMetadata.offset()
+          )
+        case unknownBatchImpl: CommittableOffsetBatch =>
+          throw new IllegalArgumentException(
+            s"Unknown CommittableOffsetBatch, got [${unknownBatchImpl.getClass.getName}], " +
+            s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+          )
+
       }
     }
     offsetBatch.batchSize >= settings.maxBatch
   }
+
+  private def updateBatchForPartition(gtp: GroupTopicPartition, committable: Committable, offset: Long): Unit =
+    deferredOffsets.get(gtp) match {
+      case Some(dOffset: CommittableOffset) if dOffset.partitionOffset.offset < offset =>
+        deferredOffsets = deferredOffsets + (gtp -> committable)
+        offsetBatch = offsetBatch.updated(dOffset)
+      case Some(dOffsetBatch: CommittableOffsetBatch)
+          if dOffsetBatch.offsets.contains(gtp) && dOffsetBatch.offsets
+            .get(gtp)
+            .head < offset =>
+        deferredOffsets = deferredOffsets + (gtp -> committable)
+        offsetBatch = offsetBatch.updated(dOffsetBatch)
+      case None =>
+        deferredOffsets = deferredOffsets + (gtp -> committable)
+      case _ => ()
+    }
 
   /**
    * Clear any deferred offsets and return the count before emptied. This should only be called
