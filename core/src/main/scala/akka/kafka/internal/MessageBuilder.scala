@@ -247,7 +247,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
   override private[kafka] def filter(p: GroupTopicPartition => Boolean): CommittableOffsetBatch = {
     val newOffsets = offsetsAndMetadata.filter { case (gtp, _) => p(gtp) }
     val newCommitters = offsets.map { case (gtp, _) => gtp -> committerFor(gtp) }
-    new CommittableOffsetBatchImpl(newOffsets, newCommitters, newOffsets.size)
+    new CommittableOffsetBatchImpl(newOffsets, newCommitters, newOffsets.size.toLong)
   }
 
   override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
