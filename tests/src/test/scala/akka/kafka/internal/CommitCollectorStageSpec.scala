@@ -251,7 +251,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
-      "only commit when the next offset is observed in a CommittableOffsetBatch" in {
+      "only commit when the next offset is observed in a CommittableOffsetBatch" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         // create batches of size 1
         val (batch1, batch2, batch3) =
@@ -280,7 +280,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
-      "only commit when the next offset is observed in a CommittableOffset preceded by a CommittableOffsetBatch" in {
+      "only commit when the next offset is observed in a CommittableOffset preceded by a CommittableOffsetBatch" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         // create a mix of single offsets and batches of 1
         val (batch1, msg2, batch3) =
@@ -305,7 +305,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
-      "only commit when the next offset is observed in a CommittableOffsetBatch preceded by a CommittableOffset" in {
+      "only commit when the next offset is observed in a CommittableOffsetBatch preceded by a CommittableOffset" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
         // create a mix of single offsets and batches of 1
         val (msg1, batch2, msg3) =
