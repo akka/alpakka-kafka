@@ -39,7 +39,7 @@ private[internal] trait CommitObservationLogic { self: GraphStageLogic =>
         case batch: CommittableOffsetBatchImpl =>
           for { (gtp, offsetAndMetadata) <- batch.offsetsAndMetadata } updateBatchForPartition(
             gtp,
-            batch,
+            batch.filter(_.equals(gtp)),
             offsetAndMetadata.offset()
           )
         case unknownBatchImpl: CommittableOffsetBatch =>
