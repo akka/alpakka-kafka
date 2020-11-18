@@ -11,7 +11,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.kafka.{CommitWhen, CommitterSettings, Repeated}
-import akka.kafka.ConsumerMessage.{CommittableOffset, CommittableOffsetBatch, PartitionOffset}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch, PartitionOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
@@ -255,6 +255,89 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         control.shutdown().futureValue shouldBe Done
       }
+      "only commit when the next offset is observed in a CommittableOffsetBatch" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
+        // create batches of size 1
+        val (batch1, batch2, batch3) =
+          (offsetFactory.makeBatchOffset(), offsetFactory.makeBatchOffset(), offsetFactory.makeBatchOffset())
+
+        sinkProbe.request(100)
+
+        // commit in first batch should not be committed but 'batched-up' again
+        sourceProbe.sendNext(batch1)
+        sourceProbe.sendNext(batch2)
+        sourceProbe.sendNext(batch3)
+
+        val batches = sinkProbe.expectNextN(2)
+        sinkProbe.expectNoMessage(10.millis)
+
+        // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // downstream out of order
+        val lastBatch = batches.maxBy(_.offsets.values.last)
+
+        lastBatch.offsets.values.last shouldBe batch2
+          .asInstanceOf[CommittableOffsetBatch]
+          .offsets
+          .head
+          ._2 withClue "expect only the second offset to be committed"
+        offsetFactory.committer.commits.size shouldBe 2 withClue "expected only two commits"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+      "only commit when the next offset is observed in a CommittableOffset preceded by a CommittableOffsetBatch" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
+        // create a mix of single offsets and batches of 1
+        val (batch1, msg2, batch3) =
+          (offsetFactory.makeBatchOffset(), offsetFactory.makeOffset(), offsetFactory.makeBatchOffset())
+
+        sinkProbe.request(100)
+
+        // first batch should not be committed but 'batched-up' again
+        sourceProbe.sendNext(batch1)
+        sourceProbe.sendNext(msg2)
+        sourceProbe.sendNext(batch3)
+
+        val batches = sinkProbe.expectNextN(2)
+        sinkProbe.expectNoMessage(10.millis)
+
+        // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // downstream out of order
+        val lastBatch = batches.maxBy(_.offsets.values.last)
+
+        lastBatch.offsets.values.last shouldBe msg2.partitionOffset.offset withClue "expect only the second offset to be committed"
+        offsetFactory.committer.commits.size shouldBe 2 withClue "expected only two commits"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+      "only commit when the next offset is observed in a CommittableOffsetBatch preceded by a CommittableOffset" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe, offsetFactory) = streamProbesWithOffsetFactory(settings)
+        // create a mix of single offsets and batches of 1
+        val (msg1, batch2, msg3) =
+          (offsetFactory.makeOffset(), offsetFactory.makeBatchOffset(), offsetFactory.makeOffset())
+
+        sinkProbe.request(100)
+
+        // first batch should not be committed but 'batched-up' again
+        sourceProbe.sendNext(msg1)
+        sourceProbe.sendNext(batch2)
+        sourceProbe.sendNext(msg3)
+
+        val batches = sinkProbe.expectNextN(2)
+        sinkProbe.expectNoMessage(10.millis)
+
+        // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
+        // downstream out of order
+        val lastBatch = batches.maxBy(_.offsets.values.last)
+
+        lastBatch.offsets.values.last shouldBe batch2
+          .asInstanceOf[CommittableOffsetBatch]
+          .offsets
+          .head
+          ._2 withClue "expect only the second offset to be committed"
+        offsetFactory.committer.commits.size shouldBe 2 withClue "expected only two commits"
+
+        control.shutdown().futureValue shouldBe Done
+      }
       "only commit when the next offset is observed for the correct partitions" in assertAllStagesStopped {
         val (sourceProbe, control, sinkProbe) = streamProbes(settings)
         val committer = new TestBatchCommitter(settings)
@@ -305,12 +388,12 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
   private def streamProbes(
       committerSettings: CommitterSettings
-  ): (TestPublisher.Probe[CommittableOffset], Consumer.Control, TestSubscriber.Probe[CommittableOffsetBatch]) = {
+  ): (TestPublisher.Probe[Committable], Consumer.Control, TestSubscriber.Probe[CommittableOffsetBatch]) = {
 
     val flow = Committer.batchFlow(committerSettings)
 
     val ((source, control), sink) = TestSource
-      .probe[CommittableOffset]
+      .probe[Committable]
       .viaMat(ConsumerControlFactory.controlFlow())(Keep.both)
       .via(flow)
       .toMat(TestSink.probe)(Keep.both)
@@ -321,7 +404,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
   private def streamProbesWithOffsetFactory(
       committerSettings: CommitterSettings
-  ): (TestPublisher.Probe[CommittableOffset],
+  ): (TestPublisher.Probe[Committable],
       Consumer.Control,
       TestSubscriber.Probe[CommittableOffsetBatch],
       TestOffsetFactory) = {
@@ -352,6 +435,10 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
     def makeOffset(failWith: Option[Throwable] = None, partitionNum: Int = 1): CommittableOffset = {
       TestCommittableOffset(offsetCounter, committer, failWith, partitionNum)
+    }
+
+    def makeBatchOffset(failWith: Option[Throwable] = None, partitionNum: Int = 1): CommittableOffsetBatch = {
+      CommittableOffsetBatch(makeOffset(failWith, partitionNum))
     }
   }
 

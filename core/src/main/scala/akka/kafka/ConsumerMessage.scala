@@ -219,6 +219,9 @@ object ConsumerMessage {
     @InternalApi
     private[kafka] def tellCommitEmergency(): CommittableOffsetBatch
 
+    @InternalApi
+    private[kafka] def filter(p: GroupTopicPartition => Boolean): CommittableOffsetBatch
+
     /**
      * @return true if the batch contains no commits.
      */
