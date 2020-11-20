@@ -1,5 +1,5 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
-addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.6")
+addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.6.1")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.8.3")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.6.0")
