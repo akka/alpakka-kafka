@@ -416,7 +416,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     val controlAndActor = ControlAndStageActor(this.asInstanceOf[Control], subSourceActor.ref)
     val started = SubSourceStageLogicControl(tp, controlAndActor, filterRevokedPartitionsCB)
     subSourceStartedCb.invoke(started)
-    consumerActor.tell(RegisterSubStage, subSourceActor.ref)
+    consumerActor.tell(RegisterSubStage(tp), subSourceActor.ref)
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {

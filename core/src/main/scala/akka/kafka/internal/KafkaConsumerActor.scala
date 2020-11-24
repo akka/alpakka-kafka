@@ -59,7 +59,7 @@ import scala.util.control.NonFatal
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, rebalanceHandler: PartitionAssignmentHandler)
         extends SubscriptionRequest
-    final case object RegisterSubStage extends NoSerializationVerificationNeeded
+    final case class RegisterSubStage(tp: TopicPartition) extends NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
     final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
         extends NoSerializationVerificationNeeded
@@ -236,6 +236,7 @@ import scala.util.control.NonFatal
 
   /** ActorRefs of all stages that sent subscriptions requests or `RegisterSubStage` to this actor (removed on their termination). */
   private var stageActors = Set.empty[ActorRef]
+  private var stageActorsMap = Map.empty[TopicPartition, ActorRef]
   private var consumer: Consumer[K, V] = _
   private var commitsInProgress = 0
   private var commitRefreshing: CommitRefreshing = _
@@ -277,7 +278,12 @@ import scala.util.control.NonFatal
     case s: SubscriptionRequest =>
       handleSubscription(s)
 
-    case RegisterSubStage =>
+    case RegisterSubStage(tp) =>
+      stageActorsMap.get(tp) match {
+        case Some(staleStageActorRef) => stageActors -= staleStageActorRef
+        case _ =>
+      }
+      stageActorsMap = stageActorsMap.updated(tp, sender())
       stageActors += sender()
 
     case Seek(offsets) =>
@@ -294,7 +300,9 @@ import scala.util.control.NonFatal
     case req: RequestMessages =>
       context.watch(sender())
       checkOverlappingRequests("RequestMessages", sender(), req.topics)
-      requests = requests.updated(sender(), req)
+      val activeTopics = req.topics.filter(tp => stageActorsMap.getOrElse(tp, sender()) == sender())
+      if (!activeTopics.isEmpty)
+        requests = requests.updated(sender(), req.copy(topics = activeTopics))
       if (stageActors.size == 1)
         poll()
       else requestDelayedPoll()
@@ -324,6 +332,7 @@ import scala.util.control.NonFatal
       }
 
     case Terminated(ref) =>
+      stageActorsMap = stageActorsMap.filterNot(_._2 == ref)
       requests -= ref
       stageActors -= ref
 
