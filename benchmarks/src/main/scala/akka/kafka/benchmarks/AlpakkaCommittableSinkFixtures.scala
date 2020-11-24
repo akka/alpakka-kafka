@@ -18,7 +18,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.metrics.Meter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.{
   ByteArrayDeserializer,
   ByteArraySerializer,
@@ -54,6 +54,7 @@ object AlpakkaCommittableSinkFixtures extends PerfFixtureHelpers {
   )(implicit actorSystem: ActorSystem): ProducerSettings[Array[Byte], String] =
     ProducerSettings(actorSystem, new ByteArraySerializer, new StringSerializer)
       .withBootstrapServers(kafkaHost)
+      .withProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
 
   def producerSink(c: RunTestCommand)(implicit actorSystem: ActorSystem) =
     FixtureGen[AlpakkaCommittableSinkTestFixture[Message, ProducerMessage]](
