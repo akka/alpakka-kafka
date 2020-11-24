@@ -258,10 +258,10 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       // let producers publish all messages
       Await.result(Future.sequence(producers), maxAwait)
 
-      val topic1PartitionList = topicMap.getOrElse(topicIdxMap.getOrElse(1, null), null).toList
-      // because of set sorting tlp0 is at idx 1 and tlp11 is at index 0
-      val t1p0 = topic1PartitionList(1)
-      val t1p1 = topic1PartitionList(0)
+      val topic1PartitionList =
+        topicMap.getOrElse(topicIdxMap.getOrElse(1, null), null).toList.sortBy(a => (a.topic, a.partition))
+      val t1p0 = topic1PartitionList(0)
+      val t1p1 = topic1PartitionList(1)
       AlpakkaAssignor.clientIdToPartitionMap.set(
         Map(
           consumerClientId1 -> Set(t1p0),
