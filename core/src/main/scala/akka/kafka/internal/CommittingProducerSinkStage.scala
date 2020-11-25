@@ -16,7 +16,7 @@ import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.Supervision.Decider
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, SinkShape, Supervision}
-import org.apache.kafka.clients.producer.{Callback, RecordMetadata}
+import org.apache.kafka.clients.producer.{Callback, ProducerConfig, RecordMetadata}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -63,7 +63,8 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   override protected def logSource: Class[_] = classOf[CommittingProducerSinkStage[_, _, _]]
 
-  override protected val producerSettings: ProducerSettings[K, V] = stage.producerSettings
+  override protected val producerSettings: ProducerSettings[K, V] =
+    stage.producerSettings.withProperties(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString)
 
   override protected val closeAndFailStageCb: AsyncCallback[Throwable] = getAsyncCallback[Throwable](closeAndFailStage)
 
@@ -76,7 +77,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   // ---- initialization
   override def preStart(): Unit = {
     super.preStart()
-    resolveProducer(stage.producerSettings)
+    resolveProducer(producerSettings)
   }
 
   /** When the producer is set up, the sink pulls and schedules the first commit. */
