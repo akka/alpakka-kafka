@@ -240,7 +240,17 @@ Java
 
 There is a risk that something fails after publishing, but before committing, so `committableSink` has "at-least-once" delivery semantics.
 
-To get delivery guarantees, please read about @ref[transactions](transactions.md).
+The `Producer.committableSink` will immediately commit an offset when a produced message's callback has been acknowledged.
+This is a different behavior from using the combination of `Producer.flexiFlow` with `Committer.flow` because `Producer.flexiFlow` passes results downstream in the order they're received.
+In situations where a message must be retried by the Producer it's possible to commit a message before an earlier message has been produced, potentially causing messages to be skipped.
+This situation may occur in rebalance or shutdown scenarios.
+To avoid this problem the `enable.idempotence` Producer property has been enforced when using this sink.
+This has limited impact on internally run benchmarks, but could have performance implications for clusters at scale.
+To better understand the consequences of using `enable.idempotence` consult the [Kafka documentation](https://kafka.apache.org/documentation/#enable.idempotence).
+
+To ensure ordering guarantees for `Producer.committableSink` with brokers older than `0.11` you must set the Kafka producer property [`max.in.flight.requests.per.connection`](https://kafka.apache.org/documentation/#max.in.flight.requests.per.connection) to `1`.
+
+For even stronger delivery guarantees, please read about @ref[transactions](transactions.md).
 
 @@@
 

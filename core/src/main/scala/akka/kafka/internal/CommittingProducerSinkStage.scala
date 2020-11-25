@@ -63,6 +63,9 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   override protected def logSource: Class[_] = classOf[CommittingProducerSinkStage[_, _, _]]
 
+  // The `enable.idempotence` configuration is set to true to ensure message write and order guarantees.
+  // This is necessary because we don't enforce the order of results when retries occur.
+  // https://github.com/akka/alpakka-kafka/issues/1242
   override protected val producerSettings: ProducerSettings[K, V] =
     stage.producerSettings.withProperties(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString)
 
