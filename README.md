@@ -47,7 +47,7 @@ In addition to that, you may enjoy following:
 - Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
 - Questions tagged [**#alpakka-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka-kafka)
 
-The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://softwaremill.com/images/header-main-logo.3449d6a3.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
+The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://files.softwaremill.com/logo/logo.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
 
 
 Contributing
