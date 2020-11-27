@@ -277,8 +277,8 @@ import scala.util.control.NonFatal
     case s: SubscriptionRequest =>
       handleSubscription(s)
 
-    case RegisterSubStage(tp) =>
-      stageActorsMap = stageActorsMap.updated(tp, sender())
+    case RegisterSubStage(tps) =>
+      stageActorsMap = stageActorsMap.updated(tps, sender())
 
     case Seek(offsets) =>
       try {
