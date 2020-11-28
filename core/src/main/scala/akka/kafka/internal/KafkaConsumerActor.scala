@@ -22,22 +22,21 @@ import akka.actor.{
   Timers
 }
 import akka.annotation.InternalApi
-import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
+import akka.util.JavaDurationConverters._
 import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.jdk.CollectionConverters._
-import scala.collection.compat._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.{Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
+import scala.util.{Success, Try}
 
 /**
  * Internal API.
@@ -61,8 +60,7 @@ import scala.util.control.NonFatal
         extends SubscriptionRequest
     final case class RegisterSubStage(tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
-    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
-        extends NoSerializationVerificationNeeded
+    final case class RequestMessages(requestId: Int, tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
     final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
@@ -293,8 +291,9 @@ import scala.util.control.NonFatal
 
     case req: RequestMessages =>
       context.watch(sender())
-      checkOverlappingRequests("RequestMessages", sender(), req.topics)
-      if (stageActorsMap.getOrElse(req.topics, sender()) == sender())
+      checkOverlappingRequests("RequestMessages", sender(), req.tps)
+      // https://github.com/akka/alpakka-kafka/pull/1263
+      if (stageActorsMap.getOrElse(req.tps, sender()) == sender())
         requests = requests.updated(sender(), req)
       if (stageActorsMap.size == 1)
         poll()
@@ -406,8 +405,8 @@ import scala.util.control.NonFatal
     // which is an indication that something is wrong, but it might be alright when assignments change.
     if (requests.nonEmpty) requests.foreach {
       case (ref, r) =>
-        if (ref != fromStage && r.topics.exists(topics.apply)) {
-          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
+        if (ref != fromStage && r.tps.exists(topics.apply)) {
+          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.tps)
           ref ! Messages(r.requestId, Iterator.empty)
           requests -= ref
         }
@@ -546,7 +545,7 @@ import scala.util.control.NonFatal
         }
       } else {
         // resume partitions to fetch
-        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics).toSet
+        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.tps).toSet
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)
@@ -648,7 +647,7 @@ import scala.util.control.NonFatal
           // Temporary fix to avoid https://github.com/scala/bug/issues/11807
           // Using `VectorIterator` avoids the error from `ConcatIterator`
           val b = Vector.newBuilder[ConsumerRecord[K, V]]
-          req.topics.foreach { tp =>
+          req.tps.foreach { tp =>
             val tpMessages = rawResult.records(tp).asScala
             b ++= tpMessages
           }
