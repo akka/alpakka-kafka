@@ -86,7 +86,7 @@ val commonSettings = Def.settings(
                           "https://gitter.im/akka/dev",
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
-  licenses := Seq("Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")),
+  licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Seq(Scala212, Scala213),
   scalaVersion := Scala213,
@@ -331,9 +331,12 @@ lazy val docs = project
     Preprocess / preprocessRules := Seq(
         ("\\.java\\.scala".r, _ => ".java"),
         ("https://javadoc\\.io/page/".r, _ => "https://javadoc\\.io/static/"),
+        // bug in Scaladoc
+        ("https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/java/time/Duration\\$.html".r,
+         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/java/time/Duration.html"),
         // Add Java module name https://github.com/ThoughtWorksInc/sbt-api-mappings/issues/58
         ("https://docs\\.oracle\\.com/en/java/javase/11/docs/api/".r,
-         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/")
+         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/")
       ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
