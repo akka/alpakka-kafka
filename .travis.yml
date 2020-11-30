@@ -20,65 +20,65 @@ script:
 
 jobs:
   include:
-    - stage: check
-      env: CMD="verifyCodeStyle ; mimaReportBinaryIssues"
-      name: "Code style check and binary-compatibility check. Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'"
-    - env: CMD="Test/compile ; It/compile"
-      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'"
-    - env: CMD="verifyDocs"
-      name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
-
-    - stage: test
-      env: CMD="++2.12.11 test"
-      name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
-    - env: CMD="++2.13.2 test"
-      name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
-    - env:
-      - JDK="adopt@~1.11-0"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.12.11 test"
-      name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
-    - env:
-      - JDK="adopt@~1.11-0"
-      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
-      - CMD="++2.13.2 test"
-      name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
+#    - stage: check
+#      env: CMD="verifyCodeStyle ; mimaReportBinaryIssues"
+#      name: "Code style check and binary-compatibility check. Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'"
+#    - env: CMD="Test/compile ; It/compile"
+#      name: "Compile all code with fatal warnings for Scala 2.13. Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'"
+#    - env: CMD="verifyDocs"
+#      name: "Create all API docs for artifacts/website and all reference docs. Run locally with: sbt verifyDocs"
+#
+#    - stage: test
+#      env: CMD="++2.12.11 test"
+#      name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
+#    - env: CMD="++2.13.2 test"
+#      name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
+#    - env:
+#      - JDK="adopt@~1.11-0"
+#      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+#      - CMD="++2.12.11 test"
+#      name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
+#    - env:
+#      - JDK="adopt@~1.11-0"
+#      - _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseJVMCICompiler"
+#      - CMD="++2.13.2 test"
+#      name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
 
     - stage: integration
-      env: CMD="tests/it:test"
+      env: CMD="tests/it:testOnly *.TransactionsSourceSpec -- -DtimesToRepeat=20"
       name: "Run multi-broker and long running integration tests"
-    - env: CMD="benchmarks/it:compile"
-      name: "Compile benchmark tests"
-
-    - stage: whitesource
-      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
-
-    - stage: publish
-      env: CMD="+publish"
-      name: "Publish artifacts for all Scala versions"
-    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
-      name: "Publish API and reference documentation"
+#    - env: CMD="benchmarks/it:compile"
+#      name: "Compile benchmark tests"
+#
+#    - stage: whitesource
+#      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
+#
+#    - stage: publish
+#      env: CMD="+publish"
+#      name: "Publish artifacts for all Scala versions"
+#    - script: openssl aes-256-cbc -K $encrypted_d80875c2ae41_key -iv $encrypted_d80875c2ae41_iv -in .travis/travis_alpakka_kafka_rsa.enc -out .travis/id_rsa -d && eval "$(ssh-agent -s)" && chmod 600 .travis/id_rsa && ssh-add .travis/id_rsa && sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
+#      name: "Publish API and reference documentation"
 
 stages:
   # runs on master commits and PRs
-  - name: check
-    if: NOT tag =~ ^v
-
-  # runs on master commits and PRs
-  - name: test
-    if: NOT tag =~ ^v
+#  - name: check
+#    if: NOT tag =~ ^v
+#
+#  # runs on master commits and PRs
+#  - name: test
+#    if: NOT tag =~ ^v
 
   # runs on master commits and PRs
   - name: integration
     if: NOT tag =~ ^v
 
   # runs on main repo master commits and version-tagged commits
-  - name: whitesource
-    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
-
-  # runs on main repo master commits and version-tagged commits
-  - name: publish
-    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
+#  - name: whitesource
+#    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
+#
+#  # runs on main repo master commits and version-tagged commits
+#  - name: publish
+#    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
 after_failure:
   - docker-compose logs
