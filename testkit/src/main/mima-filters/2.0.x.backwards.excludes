@@ -1,0 +1,14 @@
+# Inherited methods removed in ScalaTest 3.1 (#1207)
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.execute")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.newAssertionFailedException")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.trap")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.scaladsl.ScalatestKafkaSpec.assertionsHelper")
+
+# Rollback Confluent Platform version; add Jackson Databind #1226
+ProblemFilters.exclude[MissingFieldProblem]("akka.kafka.testkit.internal.AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION")
+
+# Changed signature, but EmbeddedKafka will be removed with #1229
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.javadsl.EmbeddedKafkaJunit4Test.this")
+
+# Changed to return the Admin interface instead of the AdminClient class #1183
+ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.kafka.testkit.scaladsl.KafkaSpec.adminClient")

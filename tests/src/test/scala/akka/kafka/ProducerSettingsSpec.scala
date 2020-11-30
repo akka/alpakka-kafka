@@ -11,11 +11,13 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 
 class ProducerSettingsSpec
-    extends WordSpecLike
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures
     with IntegrationPatience

@@ -14,7 +14,8 @@ import akka.kafka.internal.ConsumerControlAsJava
 import akka.kafka.tests.scaladsl.LogCapturing
 import org.apache.kafka.common.{Metric, MetricName}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
@@ -37,7 +38,7 @@ object ControlSpec {
   }
 }
 
-class ControlSpec extends WordSpecLike with ScalaFutures with Matchers with LogCapturing {
+class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCapturing {
   import ControlSpec._
 
   val ec = Executors.newCachedThreadPool()

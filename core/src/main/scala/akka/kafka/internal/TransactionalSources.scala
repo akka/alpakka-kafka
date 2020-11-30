@@ -23,8 +23,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, OffsetAndMetadata}
-import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.requests.IsolationLevel
+import org.apache.kafka.common.{IsolationLevel, TopicPartition}
 
 import scala.collection.compat._
 import scala.concurrent.duration.FiniteDuration

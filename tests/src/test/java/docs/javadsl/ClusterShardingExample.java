@@ -5,6 +5,7 @@
 
 package docs.javadsl;
 
+import akka.NotUsed;
 import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.Adapter;
@@ -19,6 +20,8 @@ import akka.kafka.ConsumerSettings;
 import akka.kafka.Subscriptions;
 import akka.kafka.cluster.sharding.KafkaClusterSharding;
 import akka.kafka.javadsl.Consumer;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.Sink;
 import akka.util.Timeout;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -42,6 +45,10 @@ public class ClusterShardingExample {
 
   public static Behavior<User> userBehaviour() {
     return Behaviors.empty();
+  }
+
+  public static <T> Flow<T, T, NotUsed> userBusiness() {
+    return Flow.create();
   }
 
   public static void example() {
@@ -93,7 +100,10 @@ public class ClusterShardingExample {
         Subscriptions.topics("user-topic")
             .withRebalanceListener(Adapter.toClassic(rebalanceListener));
 
-    Consumer.plainSource(consumerSettings, subscription);
+    // run & materialize the stream
+    Consumer.plainSource(consumerSettings, subscription)
+        .via(userBusiness())
+        .runWith(Sink.ignore(), system);
     // #rebalance-listener
 
   }

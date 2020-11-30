@@ -104,7 +104,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
                                                                                             mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val committerDefaults = CommitterSettings(sys)
-    val promise = Promise[Unit]
+    val promise = Promise[Unit]()
     val counter = new AtomicInteger(fixture.numberOfPartitions)
     val control = fixture.source
       .map { msg =>
@@ -132,7 +132,7 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
   )(fixture: CommittableFixture, meter: Meter)(implicit sys: ActorSystem, mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
     val committerDefaults = CommitterSettings(sys)
-    val promise = Promise[Unit]
+    val promise = Promise[Unit]()
     val counter = new AtomicInteger(fixture.numberOfPartitions)
     val control = fixture.source
       .map { msg =>
@@ -159,11 +159,11 @@ object ReactiveKafkaConsumerBenchmarks extends LazyLogging with InflightMetrics 
    */
   def consumeCommitAtMostOnce(fixture: CommittableFixture, meter: Meter)(implicit mat: Materializer): Unit = {
     logger.debug("Creating and starting a stream")
-    val promise = Promise[Unit]
+    val promise = Promise[Unit]()
     val control = fixture.source
       .mapAsync(1) { m =>
         meter.mark()
-        m.committableOffset.commitInternal().map(_ => m)(ExecutionContexts.sameThreadExecutionContext)
+        m.committableOffset.commitInternal().map(_ => m)(ExecutionContexts.parasitic)
       }
       .toMat(Sink.foreach { msg =>
         if (msg.committableOffset.partitionOffset.offset >= fixture.msgCount - 1)

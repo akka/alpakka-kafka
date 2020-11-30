@@ -13,14 +13,15 @@ import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.common.errors.TimeoutException
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 class ConnectionCheckerSpec
     extends TestKit(ActorSystem("KafkaConnectionCheckerSpec", ConfigFactory.load()))
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with LogCapturing {
 

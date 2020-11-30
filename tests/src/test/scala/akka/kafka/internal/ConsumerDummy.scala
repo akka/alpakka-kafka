@@ -94,4 +94,6 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def endOffsets(partitions: java.util.Collection[TopicPartition],
                           timeout: java.time.Duration): java.util.Map[TopicPartition, java.lang.Long] = ???
   override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
+  override def groupMetadata(): ConsumerGroupMetadata = ???
+  override def enforceRebalance(): Unit = ???
 }

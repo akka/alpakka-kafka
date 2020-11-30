@@ -10,7 +10,7 @@ import java.util.Locale
 import akka.kafka.benchmarks.app.RunTestCommand
 import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig}
-import org.apache.kafka.common.requests.IsolationLevel
+import org.apache.kafka.common.IsolationLevel
 import org.apache.kafka.common.serialization.{
   ByteArrayDeserializer,
   ByteArraySerializer,

@@ -19,8 +19,7 @@ import akka.kafka.javadsl.Producer;
 import akka.kafka.javadsl.PartitionAssignmentHandler;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.kafka.tests.javadsl.LogCapturingExtension;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
+import akka.stream.RestartSettings;
 import akka.stream.javadsl.*;
 import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.Config;
@@ -56,11 +55,10 @@ import static org.junit.Assert.*;
 class ConsumerExampleTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create("ConsumerExampleTest");
-  private static final Materializer materializer = ActorMaterializer.create(system);
   private static final Executor executor = Executors.newSingleThreadExecutor();
 
   ConsumerExampleTest() {
-    super(system, materializer);
+    super(system);
   }
 
   @AfterAll
@@ -110,7 +108,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                                 new TopicPartition(topic, partition0), fromOffset))
                         .mapAsync(1, db::businessLogicAndStoreOffset)
                         .to(Sink.ignore())
-                        .run(materializer));
+                        .run(system));
     // #plainSource
     assertDone(produceString(topic, 10, partition0));
     while (db.offsetStore.get() < 9L) {
@@ -169,7 +167,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
         Consumer.atMostOnceSource(consumerSettings, Subscriptions.topics(topic))
             .mapAsync(10, record -> business(record.key(), record.value()))
             .to(Sink.foreach(it -> System.out.println("Done with " + it)))
-            .run(materializer);
+            .run(system);
 
     // #atMostOnce
     assertDone(produceString(topic, 10, partition0));
@@ -198,7 +196,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                         .thenApply(done -> msg.committableOffset()))
             .toMat(
                 Committer.sink(committerSettings.withMaxBatch(1)), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     // #atLeastOnce
     assertDone(produceString(topic, 10, partition0));
@@ -222,7 +220,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                     business(msg.record().key(), msg.record().value())
                         .<ConsumerMessage.Committable>thenApply(done -> msg.committableOffset()))
             .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #committerSink
     assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(executor));
@@ -246,7 +244,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                     business(msg.record().key(), msg.record().value())
                         .thenApply(done -> msg.committableOffset()))
             .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #commitWithMetadata
     assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(executor));
@@ -272,7 +270,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             .toMat(
                 Producer.committableSink(producerSettings, committerSettings),
                 Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #consumerToProducerSink
     assertDone(produceString(topic1, 10, partition0));
     assertDone(produceString(topic2, 10, partition0));
@@ -302,7 +300,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             .toMat(
                 Producer.committableSinkWithOffsetContext(producerSettings, committerSettings),
                 Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #consumerToProducerWithContext
     assertDone(produceString(topic1, 10, partition0));
     assertDone(produceString(topic2, 10, partition0));
@@ -327,7 +325,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             .via(business())
             .map(msg -> msg.committableOffset())
             .toMat(Committer.sink(committerSettings), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #committablePartitionedSource
     assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(executor));
@@ -351,10 +349,10 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                   return source
                       .via(business())
                       .map(message -> message.committableOffset())
-                      .runWith(Committer.sink(committerSettings), materializer);
+                      .runWith(Committer.sink(committerSettings), system);
                 })
             .toMat(Sink.ignore(), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #committablePartitionedSource-stream-per-partition
     assertDone(produceString(topic, 10, partition0));
     assertDone(control.drainAndShutdown(executor));
@@ -378,7 +376,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                 consumer, Subscriptions.assignment(new TopicPartition(topic, partition0)))
             .via(business())
             .to(Sink.ignore())
-            .run(materializer);
+            .run(system);
 
     // Manually assign another topic partition
     Consumer.Control controlPartition2 =
@@ -386,7 +384,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                 consumer, Subscriptions.assignment(new TopicPartition(topic, partition1)))
             .via(business())
             .to(Sink.ignore())
-            .run(materializer);
+            .run(system);
 
     // #consumerActor
     CompletionStage<Done> producePartition0 = produceString(topic, 10, partition0);
@@ -410,9 +408,8 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     AtomicReference<Consumer.Control> control = new AtomicReference<>(Consumer.createNoopControl());
 
     RestartSource.onFailuresWithBackoff(
-            java.time.Duration.ofSeconds(3),
-            java.time.Duration.ofSeconds(30),
-            0.2,
+            RestartSettings.create(
+                java.time.Duration.ofSeconds(3), java.time.Duration.ofSeconds(30), 0.2),
             () ->
                 Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
                     .mapMaterializedValue(
@@ -421,7 +418,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                           return c;
                         })
                     .via(business()))
-        .runWith(Sink.ignore(), materializer);
+        .runWith(Sink.ignore(), system);
 
     // #restartSource
     assertDone(produceString(topic, 10, partition0));
@@ -473,7 +470,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             .take(messageCount)
             // #withRebalanceListenerActor
             .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     // #withRebalanceListenerActor
     assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
@@ -523,7 +520,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
         Consumer.plainSource(consumerSettings, subscription)
             .take(messageCount)
             .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
     assertDone(produceString(topic, messageCount, partition0));
     assertDone(control.isShutdown());
     assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
@@ -545,7 +542,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                 consumerSettings, Subscriptions.assignment(new TopicPartition(topic, 0)))
             .via(business())
             .toMat(Sink.ignore(), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     // #consumerMetrics
     sleepMillis(
@@ -580,7 +577,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
                                 business(record.key(), record.value())
                                     .thenApply(res -> db.storeProcessedOffset(record.offset())))
                         .toMat(Sink.ignore(), Consumer::createDrainingControl)
-                        .run(materializer));
+                        .run(system));
 
     // Shutdown the consumer when desired
     control.thenAccept(c -> c.drainAndShutdown(executor));
@@ -611,7 +608,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
             // #shutdownCommittableSource
             .toMat(
                 Committer.sink(committerSettings.withMaxBatch(1)), Consumer::createDrainingControl)
-            .run(materializer);
+            .run(system);
 
     // #shutdownCommittableSource
     assertDone(produceString(topic, messageCount, partition0));

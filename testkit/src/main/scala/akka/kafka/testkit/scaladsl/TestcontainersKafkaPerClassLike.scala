@@ -13,12 +13,12 @@ import akka.kafka.testkit.internal.TestcontainersKafka
  */
 trait TestcontainersKafkaPerClassLike extends TestcontainersKafka.Spec {
   override def setUp(): Unit = {
-    startKafka()
+    startCluster()
     super.setUp()
   }
 
   override def cleanUp(): Unit = {
     super.cleanUp()
-    stopKafka()
+    stopCluster()
   }
 }

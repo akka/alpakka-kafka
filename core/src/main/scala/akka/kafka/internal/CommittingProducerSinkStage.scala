@@ -54,7 +54,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
   import CommitTrigger._
 
   /** The promise behind the materialized future. */
-  final val streamCompletion = Promise[Done]
+  final val streamCompletion = Promise[Done]()
 
   final val settings: CommitterSettings = stage.committerSettings
 
@@ -99,6 +99,10 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
         awaitingProduceResult += 1
         awaitingCommitResult += 1
         producer.send(msg.record, new SendCallback(msg.passThrough))
+
+      case multiMessage: MultiMessage[K, V, Committable] if multiMessage.records.isEmpty =>
+        awaitingCommitResult += 1
+        collectOffset(multiMessage.passThrough)
 
       case multiMsg: MultiMessage[K, V, Committable] =>
         val size = multiMsg.records.size

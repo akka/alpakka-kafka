@@ -5,8 +5,8 @@ Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][
 [scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/latest.svg
 [maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12
 [maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12/badge.svg
-[travis]:              https://travis-ci.org/akka/alpakka-kafka
-[travis-badge]:        https://travis-ci.org/akka/alpakka-kafka.svg?branch=master
+[travis]:              https://travis-ci.com/akka/alpakka-kafka
+[travis-badge]:        https://travis-ci.com/akka/alpakka-kafka.svg?branch=master
 [gitter]:              https://gitter.im/akka/alpakka-kafka
 [gitter-badge]:        https://badges.gitter.im/akka/alpakka-kafka.svg
 
@@ -47,7 +47,7 @@ In addition to that, you may enjoy following:
 - Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
 - Questions tagged [**#alpakka-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka-kafka)
 
-The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://softwaremill.com/images/header-main-logo.3449d6a3.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
+The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://files.softwaremill.com/logo/logo.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
 
 
 Contributing

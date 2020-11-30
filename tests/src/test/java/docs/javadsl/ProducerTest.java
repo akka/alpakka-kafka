@@ -14,8 +14,6 @@ import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 // #testkit
 import akka.kafka.tests.javadsl.LogCapturingExtension;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 // #testkit
@@ -46,10 +44,9 @@ import static org.junit.Assert.assertFalse;
 // #testkit
 @ExtendWith(LogCapturingExtension.class)
 // #testkit
-class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
+class ProducerTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem system = ActorSystem.create();
-  private static final Materializer materializer = ActorMaterializer.create(system);
   // #testkit
 
   private final Executor executor = Executors.newSingleThreadExecutor();
@@ -57,8 +54,8 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
 
   // #testkit
 
-  ProducerWithTestcontainersTest() {
-    super(system, materializer);
+  ProducerTest() {
+    super(system);
   }
 
   @AfterAll
@@ -90,7 +87,7 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
         Source.range(1, 100)
             .map(number -> number.toString())
             .map(value -> new ProducerRecord<String, String>(topic, value))
-            .runWith(Producer.plainSink(producerSettings), materializer);
+            .runWith(Producer.plainSink(producerSettings), system);
     // #plainSink
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
@@ -115,7 +112,7 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
         Source.range(1, 100)
             .map(number -> number.toString())
             .map(value -> new ProducerRecord<String, String>(topic, value))
-            .runWith(Producer.plainSink(settingsWithProducer), materializer);
+            .runWith(Producer.plainSink(settingsWithProducer), system);
     // #plainSinkWithProducer
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
@@ -225,7 +222,7 @@ class ProducerWithTestcontainersTest extends TestcontainersKafkaTest {
                     return "passed through";
                   }
                 })
-            .runWith(Sink.foreach(System.out::println), materializer);
+            .runWith(Sink.foreach(System.out::println), system);
     // #flow
 
     Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =

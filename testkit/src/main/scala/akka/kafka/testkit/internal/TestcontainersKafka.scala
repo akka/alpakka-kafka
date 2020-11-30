@@ -60,9 +60,9 @@ object TestcontainersKafka {
           throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
         )
 
-    def startKafka(): String = startKafka(testcontainersSettings)
+    def startCluster(): String = startCluster(testcontainersSettings)
 
-    def startKafka(settings: KafkaTestkitTestcontainersSettings): String = {
+    def startCluster(settings: KafkaTestkitTestcontainersSettings): String = {
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
@@ -83,12 +83,16 @@ object TestcontainersKafka {
       kafkaBootstrapServersInternal
     }
 
-    def stopKafka(): Unit =
+    def stopCluster(): Unit =
       if (kafkaPortInternal != -1) {
         cluster.stop()
         kafkaPortInternal = -1
         cluster = null
       }
+
+    def startKafka(): Unit = cluster.startKafka()
+
+    def stopKafka(): Unit = cluster.stopKafka()
 
     def schemaRegistryUrl: String =
       schemaRegistryContainer

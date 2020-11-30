@@ -12,21 +12,23 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{CommitTimeoutException, ConsumerSettings, Repeated, Subscriptions}
-import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.mockito.Mockito._
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters._
 
 object ConsumerSpec {
   type K = String
@@ -49,7 +51,7 @@ object ConsumerSpec {
 
 class ConsumerSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with LogCapturing
@@ -58,12 +60,17 @@ class ConsumerSpec(_system: ActorSystem)
 
   import ConsumerSpec._
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("ConsumerSpec",
+                  ConfigFactory
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
+    )
 
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
   val messages = (1 to 1000).map(createMessage)
 

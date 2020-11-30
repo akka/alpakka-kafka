@@ -16,20 +16,20 @@ import akka.kafka._
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.kafka.testkit.internal.{KafkaTestKit, KafkaTestKitChecks}
+import akka.stream.{Materializer, SystemMaterializer}
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import org.apache.kafka.clients.admin._
 import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
 import org.apache.kafka.common.ConsumerGroupState
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: ActorSystem)
@@ -45,8 +45,8 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
   // used by the .log(...) stream operator
   implicit val adapter: LoggingAdapter = new Slf4jToAkkaLoggingAdapter(log)
 
-  implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
+  implicit val mat: Materializer = SystemMaterializer(system).materializer
   implicit val scheduler: akka.actor.Scheduler = system.scheduler
 
   var testProducer: KProducer[String, String] = _

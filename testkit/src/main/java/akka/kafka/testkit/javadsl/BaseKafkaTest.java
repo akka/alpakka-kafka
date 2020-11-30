@@ -7,6 +7,7 @@ package akka.kafka.testkit.javadsl;
 
 import akka.Done;
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.japi.Pair;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
@@ -45,9 +46,18 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
   protected final Materializer materializer;
 
-  protected BaseKafkaTest(ActorSystem system, Materializer materializer, String bootstrapServers) {
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `BaseKafkaTest(ClassicActorSystemProvider, String)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected BaseKafkaTest(ActorSystem system, Materializer mat, String bootstrapServers) {
     super(system, bootstrapServers);
-    this.materializer = materializer;
+    this.materializer = mat;
+  }
+
+  protected BaseKafkaTest(ClassicActorSystemProvider system, String bootstrapServers) {
+    this(system.classicSystem(), Materializer.matFromSystem(system), bootstrapServers);
   }
 
   @Override

@@ -16,7 +16,9 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Ignore, Matchers, WordSpecLike}
+import org.scalatest.Ignore
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -24,13 +26,14 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
 @Ignore
-class TransactionsPartitionedSourceSpec extends SpecBase
-  with TestcontainersKafkaPerClassLike
-  with WordSpecLike
-  with ScalaFutures
-  with Matchers
-  with TransactionsOps
-  with Repeated {
+class TransactionsPartitionedSourceSpec
+    extends SpecBase
+    with TestcontainersKafkaPerClassLike
+    with AnyWordSpecLike
+    with ScalaFutures
+    with Matchers
+    with TransactionsOps
+    with Repeated {
 
   val replicationFactor = 2
   // It's possible to get into a livelock situation where the `restartAfter` interval causes transactions to abort
@@ -75,7 +78,7 @@ class TransactionsPartitionedSourceSpec extends SpecBase
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
-          .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
+          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
               transactionalPartitionedCopyStream(
                 consumerSettings,
@@ -87,14 +90,13 @@ class TransactionsPartitionedSourceSpec extends SpecBase
                 maxPartitions = sourcePartitions,
                 restartAfter = Some(restartAfter),
                 maxRestarts = Some(maxRestarts)
-              )
-                .recover {
-                  case e: TimeoutException =>
-                    if (completedWithTimeout.incrementAndGet() > 10)
-                      "no more messages to copy"
-                    else
-                      throw new Error("Continue restarting copy stream")
-                }
+              ).recover {
+                case e: TimeoutException =>
+                  if (completedWithTimeout.incrementAndGet() > 10)
+                    "no more messages to copy"
+                  else
+                    throw new Error("Continue restarting copy stream")
+              }
             }
           )
           .viaMat(KillSwitches.single)(Keep.right)

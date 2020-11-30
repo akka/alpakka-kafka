@@ -138,7 +138,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   protected def produce(in: Envelope[K, V, P]): Unit =
     in match {
       case msg: Message[K, V, P] =>
-        val r = Promise[Result[K, V, P]]
+        val r = Promise[Result[K, V, P]]()
         awaitingConfirmation += 1
         producer.send(msg.record, new SendCallback(msg, r))
         postSend(msg)
@@ -149,7 +149,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
         val promises = for {
           msg <- multiMsg.records
         } yield {
-          val r = Promise[MultiResultPart[K, V]]
+          val r = Promise[MultiResultPart[K, V]]()
           awaitingConfirmation += 1
           producer.send(msg, new SendMultiCallback(msg, r))
           r.future

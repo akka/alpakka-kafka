@@ -1,0 +1,2 @@
+ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.kafka.testkit.scaladsl.TestcontainersKafkaLike.startKafka")
+ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.kafka.testkit.scaladsl.TestcontainersKafkaLike.startKafka")

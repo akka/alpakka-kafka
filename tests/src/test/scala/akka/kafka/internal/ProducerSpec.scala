@@ -16,9 +16,10 @@ import akka.kafka.{ConsumerMessage, ProducerMessage, ProducerSettings, Repeated}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
-import akka.stream.{ActorAttributes, ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.{ActorAttributes, Supervision}
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
@@ -29,7 +30,9 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -38,19 +41,22 @@ import scala.util.{Failure, Success, Try}
 
 class ProducerSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with LogCapturing
     with Repeated {
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("ProducerSpec",
+                  ConfigFactory
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
+    )
 
   override def afterAll(): Unit = shutdown(system)
 
-  implicit val m = ActorMaterializer(
-    ActorMaterializerSettings(_system).withFuzzing(true)
-  )
   implicit val ec = _system.dispatcher
 
   val checksum = java.lang.Long.valueOf(-1)

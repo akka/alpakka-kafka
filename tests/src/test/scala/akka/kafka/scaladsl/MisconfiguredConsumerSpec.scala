@@ -10,23 +10,21 @@ import akka.kafka.tests.scaladsl.LogCapturing
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.TestKit
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 class MisconfiguredConsumerSpec
     extends TestKit(ActorSystem())
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with ScalaFutures
     with Eventually
     with IntegrationPatience
     with LogCapturing {
-
-  implicit val materializer: Materializer = ActorMaterializer()
 
   def bootstrapServers = "nowhere:6666"
 

@@ -33,7 +33,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class KafkaContainerCluster implements Startable {
 
   public static final String CONFLUENT_PLATFORM_VERSION =
-      AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION;
+      AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION;
   public static final int START_TIMEOUT_SECONDS = 120;
 
   private static final String READINESS_CHECK_SCRIPT = "/testcontainers_readiness_check.sh";
@@ -48,7 +48,6 @@ public class KafkaContainerCluster implements Startable {
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
   private Optional<SchemaRegistryContainer> schemaRegistry;
-  private final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
     this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false);
@@ -142,31 +141,19 @@ public class KafkaContainerCluster implements Startable {
   @Override
   public void start() {
     try {
-      Startables.deepStart(this.brokers.stream()).get(START_TIMEOUT_SECONDS, SECONDS);
-
-      // assert that cluster has formed
-      Unreliables.retryUntilTrue(
-          START_TIMEOUT_SECONDS,
-          TimeUnit.SECONDS,
-          () ->
-              Stream.of(this.zookeeper)
-                  .map(this::clusterBrokers)
-                  .anyMatch(brokers -> brokers.split(",").length == this.brokersNum));
+      Stream<Startable> startables = this.brokers.stream().map(Startable.class::cast);
+      Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
 
       this.brokers.stream()
           .findFirst()
           .ifPresent(
               broker -> {
                 broker.copyFileToContainer(
-                    Transferable.of(readinessCheckScript().getBytes(StandardCharsets.UTF_8), 700),
+                    Transferable.of(readinessCheckScript().getBytes(StandardCharsets.UTF_8), 0777),
                     READINESS_CHECK_SCRIPT);
               });
 
-      // test produce & consume message with full cluster involvement
-      Unreliables.retryUntilTrue(
-          START_TIMEOUT_SECONDS,
-          TimeUnit.SECONDS,
-          () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
+      waitForClusterFormation();
 
       this.schemaRegistry =
           useSchemaRegistry
@@ -184,19 +171,37 @@ public class KafkaContainerCluster implements Startable {
     }
   }
 
-  private String clusterBrokers(GenericContainer c) {
-    try {
-      Container.ExecResult result =
-          c.execInContainer(
-              "sh",
-              "-c",
-              "zookeeper-shell zookeeper:"
-                  + AlpakkaKafkaContainer.ZOOKEEPER_PORT
-                  + " ls /brokers/ids | tail -n 1");
-      return result.getStdout();
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
+  private void waitForClusterFormation() {
+    // assert that cluster has formed
+    Unreliables.retryUntilTrue(
+        START_TIMEOUT_SECONDS,
+        TimeUnit.SECONDS,
+        () -> {
+          Container.ExecResult result =
+              this.zookeeper.execInContainer(
+                  "sh",
+                  "-c",
+                  "zookeeper-shell zookeeper:"
+                      + AlpakkaKafkaContainer.ZOOKEEPER_PORT
+                      + " ls /brokers/ids | tail -n 1");
+          String brokers = result.getStdout();
+          return brokers != null && brokers.split(",").length == this.brokersNum;
+        });
+
+    // test produce & consume message with full cluster involvement
+    Unreliables.retryUntilTrue(
+        START_TIMEOUT_SECONDS,
+        TimeUnit.SECONDS,
+        () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
+  }
+
+  public void stopKafka() {
+    this.brokers.forEach(AlpakkaKafkaContainer::stopKafka);
+  }
+
+  public void startKafka() {
+    this.brokers.forEach(AlpakkaKafkaContainer::startKafka);
+    waitForClusterFormation();
   }
 
   private String readinessCheckScript() {
@@ -251,6 +256,7 @@ public class KafkaContainerCluster implements Startable {
   private Boolean runReadinessCheck(GenericContainer c) {
     try {
       Container.ExecResult result = c.execInContainer("sh", "-c", READINESS_CHECK_SCRIPT);
+
       if (result.getExitCode() != 0 || !result.getStdout().contains("test succeeded")) {
         log.debug(
             "Readiness check returned errors:\nSTDOUT:\n{}\nSTDERR\n{}",

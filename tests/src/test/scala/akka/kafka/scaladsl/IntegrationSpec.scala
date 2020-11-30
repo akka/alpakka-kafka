@@ -21,7 +21,7 @@ import akka.util.Timeout
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-import org.scalatest._
+import org.scalatest.Inside
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -138,7 +138,6 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       if (stream1messages + stream2messages != totalMessages)
         log.warn(
           "The consumers counted {} + {} = {} messages, not the total of {} messages",
-          // boxing for Scala 2.11
           Long.box(stream1messages),
           Long.box(stream2messages),
           Long.box(stream1messages + stream2messages),

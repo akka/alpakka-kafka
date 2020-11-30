@@ -10,11 +10,12 @@ import akka.kafka.tests.scaladsl.LogCapturing
 // #testkit
 import akka.kafka.testkit.scaladsl.ScalatestKafkaSpec
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.matchers.should.Matchers
 
 abstract class SpecBase(kafkaPort: Int)
     extends ScalatestKafkaSpec(kafkaPort)
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with ScalaFutures
     // #testkit

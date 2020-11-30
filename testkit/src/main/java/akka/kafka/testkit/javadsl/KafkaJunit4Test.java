@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.stream.Materializer;
 import akka.stream.testkit.javadsl.StreamTestKit;
 import org.junit.After;
@@ -14,9 +15,17 @@ import org.junit.Before;
 /** JUnit 4 base-class with some convenience for accessing a Kafka broker. */
 public abstract class KafkaJunit4Test extends BaseKafkaTest {
 
-  protected KafkaJunit4Test(
-      ActorSystem system, Materializer materializer, String bootstrapServers) {
-    super(system, materializer, bootstrapServers);
+  /**
+   * @deprecated Materializer no longer necessary in Akka 2.6, use
+   *     `KafkaJunit4Test(ClassicActorSystemProvider, String)` instead, since 2.1.0
+   */
+  @Deprecated
+  protected KafkaJunit4Test(ActorSystem system, Materializer mat, String bootstrapServers) {
+    super(system, mat, bootstrapServers);
+  }
+
+  protected KafkaJunit4Test(ClassicActorSystemProvider system, String bootstrapServers) {
+    super(system, bootstrapServers);
   }
 
   @Before

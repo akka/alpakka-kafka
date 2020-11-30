@@ -14,14 +14,12 @@ import akka.kafka.javadsl.Consumer;
 import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.testkit.javadsl.TestKit;
 import docs.scaladsl.SampleAvroClass;
 // #imports
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 // #imports
@@ -53,7 +51,6 @@ import static org.junit.Assert.assertThat;
 public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Test {
 
   private static final ActorSystem sys = ActorSystem.create("SchemaRegistrySerializationTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SchemaRegistrySerializationTest() {
@@ -65,7 +62,6 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
     // #schema-registry-settings
     super(
         sys,
-        mat,
         KafkaTestkitTestcontainersSettings.create(sys)
             .withInternalTopicsReplicationFactor(1)
             .withSchemaRegistry(true));
@@ -82,7 +78,7 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
 
     Map<String, Object> kafkaAvroSerDeConfig = new HashMap<>();
     kafkaAvroSerDeConfig.put(
-        AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
+        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryUrl());
     // #serializer #de-serializer
     // #de-serializer
     KafkaAvroDeserializer kafkaAvroDeserializer = new KafkaAvroDeserializer();
@@ -110,7 +106,7 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
     CompletionStage<Done> producerCompletion =
         Source.from(samples)
             .map(n -> new ProducerRecord<String, Object>(topic, n.key(), n))
-            .runWith(Producer.plainSink(producerSettings), mat);
+            .runWith(Producer.plainSink(producerSettings), sys);
     // #serializer
 
     // #de-serializer
@@ -119,7 +115,7 @@ public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Te
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
             .take(samples.size())
             .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(mat);
+            .run(sys);
     // #de-serializer
 
     assertThat(

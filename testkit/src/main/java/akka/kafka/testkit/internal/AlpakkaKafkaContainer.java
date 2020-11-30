@@ -6,10 +6,8 @@
 package akka.kafka.testkit.internal;
 
 import akka.annotation.InternalApi;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
@@ -17,7 +15,6 @@ import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,9 +27,12 @@ import java.util.stream.Stream;
 @InternalApi
 public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContainer> {
 
+  private static final String START_STOP_SCRIPT = "/testcontainers_start_stop_wrapper.sh";
+
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
-  public static final String DEFAULT_CP_PLATFORM_VERSION = "5.3.1";
+  // Align this with testkit/src/main/resources/reference.conf
+  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.0";
 
   public static final int KAFKA_PORT = 9093;
 
@@ -52,7 +52,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private boolean enableRemoteJmxService = false;
 
   public AlpakkaKafkaContainer() {
-    this(DEFAULT_CP_PLATFORM_VERSION);
+    this(DEFAULT_CONFLUENT_PLATFORM_VERSION);
   }
 
   public AlpakkaKafkaContainer(String confluentPlatformVersion) {
@@ -97,6 +97,24 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
     return super.getNetwork();
   }
 
+  public void stopKafka() {
+    try {
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/stop");
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  public void startKafka() {
+    try {
+      ExecResult execResult = execInContainer("sh", "-c", "touch /tmp/start");
+      if (execResult.getExitCode() != 0) throw new Exception(execResult.getStderr());
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
   public AlpakkaKafkaContainer withEmbeddedZookeeper() {
     externalZookeeperConnect = null;
     return self();
@@ -131,7 +149,9 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   @Override
   protected void doStart() {
     withCommand(
-        "sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + STARTER_SCRIPT);
+        "sh",
+        "-c",
+        "while [ ! -f " + START_STOP_SCRIPT + " ]; do sleep 0.1; done; " + START_STOP_SCRIPT);
 
     if (externalZookeeperConnect == null) {
       addExposedPort(ZOOKEEPER_PORT);
@@ -157,11 +177,16 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
         return;
       }
 
+      String command = "#!/bin/bash\n";
       final String zookeeperConnect;
       if (externalZookeeperConnect != null) {
         zookeeperConnect = externalZookeeperConnect;
       } else {
-        zookeeperConnect = startZookeeper();
+        zookeeperConnect = "localhost:" + ZOOKEEPER_PORT;
+        command += "echo 'clientPort=" + ZOOKEEPER_PORT + "' > zookeeper.properties\n";
+        command += "echo 'dataDir=/var/lib/zookeeper/data' >> zookeeper.properties\n";
+        command += "echo 'dataLogDir=/var/lib/zookeeper/log' >> zookeeper.properties\n";
+        command += "zookeeper-server-start zookeeper.properties &\n";
       }
 
       List<String> internalIps =
@@ -169,7 +194,6 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
               .map(ContainerNetwork::getIpAddress)
               .collect(Collectors.toList());
 
-      String command = "#!/bin/bash \n";
       command += "export KAFKA_ZOOKEEPER_CONNECT='" + zookeeperConnect + "'\n";
       command +=
           "export KAFKA_ADVERTISED_LISTENERS='"
@@ -193,33 +217,26 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
       command += "/etc/confluent/docker/launch \n";
 
       copyFileToContainer(
-          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 700), STARTER_SCRIPT);
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
-  }
+          Transferable.of(command.getBytes(StandardCharsets.UTF_8), 0777), STARTER_SCRIPT);
 
-  private String startZookeeper() {
-    try {
-      ExecCreateCmdResponse execCreateCmdResponse =
-          dockerClient
-              .execCreateCmd(getContainerId())
-              .withCmd(
-                  "sh",
-                  "-c",
-                  ""
-                      + "printf 'clientPort="
-                      + ZOOKEEPER_PORT
-                      + "\ndataDir=/var/lib/zookeeper/data\ndataLogDir=/var/lib/zookeeper/log' > /zookeeper.properties\n"
-                      + "zookeeper-server-start /zookeeper.properties\n")
-              .exec();
+      // start and stop the Kafka broker process without stopping the container
+      String startStopWrapper =
+          "#!/bin/bash\n"
+              + "STARTER_SCRIPT='"
+              + STARTER_SCRIPT
+              + "'\n"
+              + "touch /tmp/start\n"
+              + "while :; do\n"
+              + "\tif [ -f $STARTER_SCRIPT ]; then\n"
+              + "\t\tif [ -f /tmp/stop ]; then rm /tmp/stop; /usr/bin/kafka-server-stop;\n"
+              + "\t\telif [ -f /tmp/start ]; then rm /tmp/start; bash -c \"$STARTER_SCRIPT &\";fi\n"
+              + "\tfi\n"
+              + "\tsleep 0.1\n"
+              + "done\n";
 
-      dockerClient
-          .execStartCmd(execCreateCmdResponse.getId())
-          .start()
-          .awaitStarted(10, TimeUnit.SECONDS);
-
-      return "localhost:" + ZOOKEEPER_PORT;
+      copyFileToContainer(
+          Transferable.of(startStopWrapper.getBytes(StandardCharsets.UTF_8), 0777),
+          START_STOP_SCRIPT);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

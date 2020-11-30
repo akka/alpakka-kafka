@@ -12,6 +12,8 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 |Kafka client | Scala Versions | Akka version | Alpakka Kafka Connector
 |-------------|----------------|--------------|-------------------------
+|[2.6.0](https://dist.apache.org/repos/dist/release/kafka/2.6.0/RELEASE_NOTES.html) | 2.13, 2.12       | 2.6.10+         | @ref:[release 2.1.0](release-notes/2.1.x.md)
+|[2.4.1](https://dist.apache.org/repos/dist/release/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.31+, 2.6.6+ | @ref:[release 2.0.5](release-notes/2.0.x.md)
 |[2.4.1](https://dist.apache.org/repos/dist/release/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.6+ | @ref:[release 2.0.4](release-notes/2.0.x.md)
 |[2.4.1](https://dist.apache.org/repos/dist/release/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.3+ | @ref:[release 2.0.3](release-notes/2.0.x.md)
 |[2.4.0](https://dist.apache.org/repos/dist/release/kafka/2.4.0/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.23+, 2.6.x | @ref:[release 2.0.0](release-notes/2.0.x.md)
@@ -35,6 +37,13 @@ These client can communicate with brokers that are version 0.10.0 or newer. Olde
 
 ## Dependencies
 
+@@@ note
+
+As of [Apache Kafka 2.6.0](https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0) the `jackson-databind` dependency is marked as `provided`.
+It's up to the user to make sure this dependency is on the classpath.
+
+@@@
+
 @@dependency [Maven,sbt,Gradle] {
   group=com.typesafe.akka
   artifact=akka-stream-kafka_$scala.binary.version$
@@ -44,6 +53,11 @@ These client can communicate with brokers that are version 0.10.0 or newer. Olde
   group2=com.typesafe.akka
   artifact2=akka-stream_$scala.binary.version$
   version2=AkkaVersion
+  symbol3=JacksonVersion
+  value3=$jackson.version$
+  group3=com.fasterxml.jackson.core
+  artifact3=jackson-databind
+  version3=JacksonVersion
 }
 
 This connector depends on Akka 2.5.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.

@@ -5,35 +5,37 @@
 
 package akka.kafka.internal
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.function.UnaryOperator
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.tests.scaladsl.LogCapturing
-import akka.stream._
+import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl._
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
+import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, OptionValues}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 
 class PartitionedSourceSpec(_system: ActorSystem)
     extends TestKit(_system)
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with Matchers
     with BeforeAndAfterAll
     with OptionValues
@@ -44,12 +46,17 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
   import PartitionedSourceSpec._
 
-  def this() = this(ActorSystem())
+  def this() =
+    this(
+      ActorSystem("PartitionedSourceSpec",
+                  ConfigFactory
+                    .parseString("""akka.stream.materializer.debug.fuzzing-mode = on""")
+                    .withFallback(ConfigFactory.load()))
+    )
 
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val m = ActorMaterializer(ActorMaterializerSettings(_system).withFuzzing(true))
   implicit val ec = _system.dispatcher
 
   def consumerSettings(dummy: Consumer[K, V]): ConsumerSettings[K, V] =
@@ -77,7 +84,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     sink.requestNext().record.value() should be("value")
 
     eventually {
-      dummy.tpsResumed should contain allOf (tp0, tp1)
+      dummy.tpsResumed should contain.allOf(tp0, tp1)
       dummy.tpsPaused should be(Symbol("empty"))
     }
 
@@ -105,9 +112,9 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // Two (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
-    subSources.keys should contain allOf (tp0, tp1)
+    subSources.keys should contain.allOf(tp0, tp1)
     // No demand on sub-sources => paused
-    dummy.tpsPaused should contain allOf (tp0, tp1)
+    dummy.tpsPaused should contain.allOf(tp0, tp1)
 
     dummy.assignWithCallback(tp0)
 
@@ -131,9 +138,9 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
-    subSources.keys should contain allOf (tp0, tp1)
+    subSources.keys should contain.allOf(tp0, tp1)
     // No demand on sub-sources => paused
-    dummy.tpsPaused should contain allOf (tp0, tp1)
+    dummy.tpsPaused should contain.allOf(tp0, tp1)
 
     dummy.assignWithCallback(tp0)
 
@@ -166,9 +173,9 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources = Map(sink.requestNext(), sink.requestNext())
-    subSources.keys should contain allOf (tp0, tp1)
+    subSources.keys should contain.allOf(tp0, tp1)
     // No demand on sub-sources => paused
-    dummy.tpsPaused should contain allOf (tp0, tp1)
+    dummy.tpsPaused should contain.allOf(tp0, tp1)
 
     val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
     dummy.setNextPollData(tp0 -> singleRecord)
@@ -177,7 +184,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     probeTp0.requestNext().record.value() should be("value")
     // no demand anymore should lead to paused partition
     eventually {
-      dummy.tpsPaused should contain allOf (tp0, tp1)
+      dummy.tpsPaused should contain.allOf(tp0, tp1)
     }
     probeTp0.cancel()
     sink.cancel()
@@ -195,7 +202,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.assignWithCallback(tp0, tp1)
 
     val subSources = Map(sink.requestNext(), sink.requestNext())
-    subSources.keys should contain allOf (tp0, tp1)
+    subSources.keys should contain.allOf(tp0, tp1)
 
     // revoke tp1
     dummy.assignWithCallback(tp0)
@@ -219,7 +226,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // assign 1
     dummy.assignWithCallback(tp0, tp1)
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     // revoke tp1
     dummy.assignWithCallback(tp0)
@@ -233,7 +240,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources2 = Map(sink.requestNext(), sink.requestNext())
-    subSources2.keys should contain allOf (tp0, tp1)
+    subSources2.keys should contain.allOf(tp0, tp1)
 
     sink.cancel()
   }
@@ -259,13 +266,13 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     sink.cancel()
   }
@@ -291,13 +298,13 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     // revoke tp1
     assertGetOffsetsOnAssign = { tps =>
@@ -331,16 +338,16 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
       // this fails as of #570
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     eventually {
-      dummy.seeks should contain allOf (tp0 -> 300L, tp1 -> 300L)
+      dummy.seeks should contain.allOf(tp0 -> 300L, tp1 -> 300L)
     }
 
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     sink.cancel()
   }
@@ -472,13 +479,13 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     sink.cancel()
   }
@@ -506,13 +513,13 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     // (TopicPartition, Source) tuples should be issued
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     // revoke tp1
     assertGetOffsetsOnAssign = { tps =>
@@ -548,16 +555,16 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // assign 1
     assertGetOffsetsOnAssign = { tps =>
       // this fails as of #570
-      tps should contain allOf (tp0, tp1)
+      tps should contain.allOf(tp0, tp1)
     }
     dummy.assignWithCallback(tp0, tp1)
 
     eventually {
-      dummy.seeks should contain allOf (tp0 -> 300L, tp1 -> 300L)
+      dummy.seeks should contain.allOf(tp0 -> 300L, tp1 -> 300L)
     }
 
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     sink.cancel()
   }
@@ -610,7 +617,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.assignWithCallback(tp0, tp1)
 
     val subSources1 = Map(sink.requestNext(), sink.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     dummy.assignWithCallback(tp0)
     subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
@@ -634,7 +641,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.assignWithCallback(tp0, tp1)
 
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     // simulate partition re-balance
     val sink2 = Consumer
@@ -665,7 +672,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.assignWithCallback(tp0, tp1)
 
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
     val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
@@ -682,7 +689,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     probeTp1.expectNext().value should be("value")
     // no demand anymore should lead to paused partition
     eventually {
-      dummy.tpsPaused should contain allOf (tp0, tp1)
+      dummy.tpsPaused should contain.allOf(tp0, tp1)
     }
 
     sink1.cancel()
@@ -700,7 +707,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.assignWithCallback(tp0, tp1)
 
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
-    subSources1.keys should contain allOf (tp0, tp1)
+    subSources1.keys should contain.allOf(tp0, tp1)
 
     val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
     val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])

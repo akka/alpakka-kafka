@@ -52,11 +52,10 @@ import static org.junit.Assert.assertThat;
 public class SerializationTest extends TestcontainersKafkaTest {
 
   private static final ActorSystem sys = ActorSystem.create("SerializationTest");
-  private static final Materializer mat = ActorMaterializer.create(sys);
   private static final Executor ec = Executors.newSingleThreadExecutor();
 
   public SerializationTest() {
-    super(sys, mat);
+    super(sys);
   }
 
   @AfterAll
@@ -85,13 +84,13 @@ public class SerializationTest extends TestcontainersKafkaTest {
         Source.from(samples)
             .map(sampleDataWriter::writeValueAsString)
             .map(json -> new ProducerRecord<String, String>(topic, json))
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
     // #jackson-serializer
 
     CompletionStage<Done> badlyFormattedProducer =
         Source.single("{ this is no sample data")
             .map(json -> new ProducerRecord<String, String>(topic, json))
-            .runWith(Producer.plainSink(producerDefaults()), mat);
+            .runWith(Producer.plainSink(producerDefaults()), sys);
 
     // #jackson-deserializer
     final ObjectReader sampleDataReader = mapper.readerFor(SampleData.class);
@@ -115,7 +114,7 @@ public class SerializationTest extends TestcontainersKafkaTest {
             .take(samples.size())
             // #jackson-deserializer
             .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(mat);
+            .run(sys);
     // #jackson-deserializer
 
     assertThat(
@@ -152,13 +151,13 @@ public class SerializationTest extends TestcontainersKafkaTest {
     CompletionStage<Done> producerCompletion =
         Source.from(samples)
             .map(order -> new ProducerRecord<>(topic, order.getId(), order.toByteArray()))
-            .runWith(Producer.plainSink(producerSettings), mat);
+            .runWith(Producer.plainSink(producerSettings), sys);
     // #protobuf-serializer
 
     CompletionStage<Done> badlyFormattedProducer =
         Source.single("faulty".getBytes(StandardCharsets.UTF_8))
             .map(data -> new ProducerRecord<>(topic, "32", data))
-            .runWith(Producer.plainSink(producerSettings), mat);
+            .runWith(Producer.plainSink(producerSettings), sys);
 
     // #protobuf-deserializer
 
@@ -186,7 +185,7 @@ public class SerializationTest extends TestcontainersKafkaTest {
             .take(samples.size())
             // #protobuf-deserializer
             .toMat(Sink.seq(), Consumer::createDrainingControl)
-            .run(mat);
+            .run(sys);
     // #protobuf-deserializer
 
     assertThat(

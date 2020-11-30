@@ -16,10 +16,15 @@ This is just a start, please add your experiences to this list by [opening a Pul
 @@@
 
 
-## Monitoring
+## Monitoring and Tracing
 
 For performance monitoring consider [Lightbend Telemetry](https://developer.lightbend.com/docs/telemetry/current/home.html) which gives insights into Akka and Akka Streams.
 
+Lightbend Telemetry supports OpenTracing context propagation so that you can follow individual messages through Kafka producers and consumers.
+
+![OpenTracing with Alpakka Kafka](.../alpakka-kafka-stream-trace.png)
+
+See [Enabling OpenTracing in your app](https://developer.lightbend.com/docs/telemetry/current/extensions/opentracing/enabling.html#alpakka-kafka-configuration).
 
 ## Security setup
 

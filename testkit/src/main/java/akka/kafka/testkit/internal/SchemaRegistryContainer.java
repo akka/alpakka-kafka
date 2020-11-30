@@ -14,7 +14,7 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
   public static int SCHEMA_REGISTRY_PORT = 8081;
 
   public SchemaRegistryContainer() {
-    this(AlpakkaKafkaContainer.DEFAULT_CP_PLATFORM_VERSION);
+    this(AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION);
   }
 
   public SchemaRegistryContainer(String confluentPlatformVersion) {

@@ -6,22 +6,18 @@
 package akka.kafka.scaladsl
 
 import akka.Done
-import akka.kafka._
-import akka.kafka.testkit.scaladsl.EmbeddedKafkaLike
+import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete, Tcp}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.{KillSwitches, OverflowStrategy, UniqueKillSwitch}
-import com.github.ghik.silencer.silent
-import net.manub.embeddedkafka.EmbeddedKafka
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-@silent
-class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafkaLike {
+class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
 
-  val proxyPort = KafkaPorts.ReconnectSpecProxy
+  val proxyPort = 9034
 
   "A Producer" must {
 
@@ -30,8 +26,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       val group1 = createGroupId(1)
 
       // start a TCP proxy forwarding to Kafka
-      val (proxyBinding, proxyKillSwtich) = createProxy()
-      Await.ready(proxyBinding, remainingOrDefault)
+      val (_, proxyKillSwitch) = createProxy()
 
       val messagesProduced = 100
       val firstBatch = 10
@@ -54,8 +49,8 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
       probe.request(messagesProduced.toLong)
       probe.expectNextN(messages.take(firstBatch))
-      val proxyConnection = proxyKillSwtich.futureValue
-      proxyConnection.shutdown()
+
+      Await.result(proxyKillSwitch, remainingOrDefault).shutdown()
 
       probe.expectNoMessage(500.millis)
 
@@ -67,71 +62,6 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       producer.complete()
       probe.cancel()
     }
-
-    "pick up again when the Kafka server comes back up" ignore /* because it is flaky */ {
-      assertAllStagesStopped {
-        val topic1 = createTopic(1)
-        val group1 = createGroupId(1)
-
-        val messagesProduced = 10
-        val firstBatch = 2
-        val messages = (1 to messagesProduced).map(_.toString)
-        // start a producer flow with a queue as source
-        val producer: SourceQueueWithComplete[String] = Source
-          .queue[String](1, OverflowStrategy.backpressure)
-          .map(msg => new ProducerRecord(topic1, partition0, DefaultKey, msg))
-          .to(Producer.plainSink(producerDefaults))
-          .run()
-
-        def offerInOrder(msgs: Seq[String]): Future[_] =
-          if (msgs.isEmpty) Future.successful(Done)
-          else producer.offer(msgs.head).flatMap(_ => offerInOrder(msgs.tail))
-
-        // put one batch into the stream
-        offerInOrder(messages.take(firstBatch))
-
-        // construct a consumer directly to Kafka and request messages and kill the proxy-Kafka connection
-        val (_, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
-        probe.request(messagesProduced.toLong)
-        probe.expectNextN(messages.take(firstBatch))
-        EmbeddedKafka.stop()
-
-        probe.expectNoMessage(500.millis)
-
-        offerInOrder(messages.drop(firstBatch))
-        // expect some radio silence
-        probe.expectNoMessage(1.second)
-
-        EmbeddedKafka.start()
-
-        probe.request(messagesProduced.toLong)
-        // TODO sometime no messages arrive, sometimes order is not kept
-        probe.expectNextN(messagesProduced.toLong - firstBatch) should be(messages.drop(firstBatch))
-        /*
-        For me it produces three variations of results:
-        1. it works
-        2. All messages arrive, but in wrong order
-            List("6", "7", "8", "9", "10", "3", "4", "5") was not equal to Vector("3", "4", "5", "6", "7", "8", "9", "10")
-            ScalaTestFailureLocation: akka.kafka.scaladsl.ReconnectSpec at (ReconnectSpec.scala:118)
-            Expected :Vector("3", "4", "5", "6", "7", "8", "9", "10")
-            Actual   :List("6", "7", "8", "9", "10", "3", "4", "5")
-        3. Nothing arrives
-            assertion failed: timeout (10 seconds) during expectMsgClass waiting for class akka.stream.testkit.TestSubscriber$OnNext
-            java.lang.AssertionError: assertion failed: timeout (10 seconds) during expectMsgClass waiting for class akka.stream.testkit.TestSubscriber$OnNext
-              at scala.Predef$.assert(Predef.scala:219)
-              at akka.testkit.TestKitBase.expectMsgClass_internal(TestKit.scala:509)
-              at akka.testkit.TestKitBase.expectMsgType(TestKit.scala:482)
-              at akka.testkit.TestKitBase.expectMsgType$(TestKit.scala:482)
-              at akka.testkit.TestKit.expectMsgType(TestKit.scala:896)
-              at akka.stream.testkit.TestSubscriber$ManualProbe.expectNextN(StreamTestKit.scala:374)
-              at akka.kafka.scaladsl.ReconnectSpec.$anonfun$new$8(ReconnectSpec.scala:117)
-         */
-        // shut down
-        producer.complete()
-        probe.cancel()
-      }
-    }
-
   }
 
   "A Consumer" must {
@@ -145,8 +75,7 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       produce(topic1, 1 to messagesProduced)
 
       // create a TCP proxy and set up a consumer through it
-      val (proxyBinding, proxyKillSwitch) = createProxy()
-      Await.ready(proxyBinding, remainingOrDefault)
+      val (_, proxyKillSwitch) = createProxy()
       val consumerSettings = consumerDefaults
         .withGroupId(group1)
         .withBootstrapServers(s"localhost:$proxyPort")
@@ -154,14 +83,14 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
 
       // expect an element and kill the proxy
       probe.requestNext() should be("1")
-      proxyKillSwitch.futureValue.shutdown()
+      Await.result(proxyKillSwitch, remainingOrDefault).shutdown()
       sleep(100.millis)
 
       probe.request(messagesProduced.toLong)
       probe.expectNextN((2 to messagesProduced).map(_.toString))
 
       // shut down
-      control.shutdown().futureValue
+      Await.ready(control.shutdown(), remainingOrDefault)
     }
 
     "pick up again when the Kafka server comes back up" in assertAllStagesStopped {
@@ -173,28 +102,35 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
       produce(topic1, 1 to messagesProduced)
 
       // create a consumer
-      val (control, probe) = createProbe(consumerDefaults.withGroupId(group1), topic1)
+      val (control, probe) =
+        createProbe(consumerDefaults.withGroupId(group1), topic1)
 
-      // expect an element and kill the Kafka instance
+      // expect an element and make Kafka brokers unavailable
       probe.requestNext() should be("1")
-      EmbeddedKafka.stop()
+
+      // stop Kafka broker process
+      stopKafka()
       sleep(1.second)
 
       // by now all messages have arrived in the consumer
-      probe.request(messagesProduced.toLong - 1)
-      probe.receiveWithin(100.millis) should be((2 to messagesProduced).map(_.toString))
+      probe.request(99)
+      probe.receiveWithin(100.millis) should be((2 to 100).map(_.toString))
 
       // expect silence
       probe.request(1)
       probe.expectNoMessage(1.second)
 
-      // start a new Kafka server and produce another round
-      EmbeddedKafka.start()
-      sleep(1.second) // Got some messages dropped during startup
-      produce(topic1, messagesProduced + 1 to messagesProduced * 2)
+      // start Kafka broker process produce another round
+      startKafka()
 
-      probe.request(messagesProduced.toLong)
-      probe.receiveWithin(5.second) should be((messagesProduced + 1 to messagesProduced * 2).map(_.toString))
+      sleep(1.second) // Got some messages dropped during startup
+      produce(topic1, 101 to 200)
+
+      probe.request(messagesProduced.toLong * 2)
+      // because we are using a plainSink sometimes the disconnect will reset the consumer group generation and when the
+      // consumer reconnects it will seek back to the earliest offset 0 (because `auto.offset.reset=earliest`).
+      // therefore if we take the last `messageProduced` messages it should always be 101 to 200.
+      probe.receiveWithin(5.second).takeRight(messagesProduced) should be((101 to 200).map(_.toString))
 
       // shut down
       Await.ready(control.shutdown(), remainingOrDefault)
@@ -204,17 +140,17 @@ class ReconnectSpec extends SpecBase(KafkaPorts.ReconnectSpec) with EmbeddedKafk
   /**
    * Create a proxy so it can be shut down.
    */
-  def createProxy(): (Future[Tcp.ServerBinding], Future[UniqueKillSwitch]) = {
+  def createProxy(): (Tcp.ServerBinding, Future[UniqueKillSwitch]) = {
     // Create a proxy so it can be shut down
     val (proxyBinding, connection) =
       Tcp().bind("localhost", proxyPort).toMat(Sink.head)(Keep.both).run()
     val proxyKsFut = connection.map(
       _.handleWith(
         Tcp()
-          .outgoingConnection("localhost", kafkaPort)
+          .outgoingConnection(brokerContainers.head.getContainerIpAddress, kafkaPort)
           .viaMat(KillSwitches.single)(Keep.right)
       )
     )
-    (proxyBinding, proxyKsFut)
+    (Await.result(proxyBinding, remainingOrDefault), proxyKsFut)
   }
 }

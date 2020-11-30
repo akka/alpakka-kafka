@@ -18,7 +18,8 @@ import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -28,7 +29,7 @@ import scala.util.{Failure, Success}
 class TransactionsSourceSpec
     extends SpecBase
     with TestcontainersKafkaPerClassLike
-    with WordSpecLike
+    with AnyWordSpecLike
     with ScalaFutures
     with Matchers
     with TransactionsOps
@@ -79,7 +80,7 @@ class TransactionsSourceSpec
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
-          .onFailuresWithBackoff(10.millis, 100.millis, 0.2)(
+          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
               val transactionId = s"$group-$id"
               transactionalCopyStream(consumerSettings,

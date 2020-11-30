@@ -113,7 +113,7 @@ object AlpakkaCommittableSinkBenchmarks extends LazyLogging {
     val sinkTopic = fixture.sinkTopic
     val source = fixture.source
 
-    val promise = Promise[Unit]
+    val promise = Promise[Unit]()
     val logPercentStep = 1
     val loggedStep = if (msgCount > logPercentStep) 100 else 1
 
