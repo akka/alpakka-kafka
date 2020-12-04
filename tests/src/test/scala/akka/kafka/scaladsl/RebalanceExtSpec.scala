@@ -61,10 +61,8 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
                        partitionAssignmentStrategy: String): ConsumerSettings[String, String] =
     consumerDefaults
       .withGroupId(group)
-      .withCloseTimeout(5.seconds)
-      .withPollInterval(300.millis)
-      .withPollTimeout(200.millis)
-      .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords) // 500 is the default value
+      .withPollInterval(400.millis) // default 50.ms, failure is more prominent between (300 to 500).millis
+      .withProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords) // default 500
       .withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, partitionAssignmentStrategy)
 
   def subscribeAndConsumeMessages(clientId: String,
@@ -252,7 +250,6 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       topicMetadata.messageStoreAndAck(10).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(10).ackWaitUntil.future, remainingOrDefault)
       // consumer-2::SubSource-topic-1-1-1-A:verify messageId=10 is received in the business logic function
-      assert(topicMetadata.messageStoreAndAck(10).messageCounter.intValue() == 1)
 
       // consumer-2::define post-abort partition distribution
       AlpakkaAssignor.clientIdToPartitionMap.set(
@@ -264,7 +261,6 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       topicMetadata.messageStoreAndAck(2).waitUntil.complete(Try(Done))
       // consumer-1::SubSource-topic-1-1-0-A:verify messageId=2 thread is unblocked
       Await.result(topicMetadata.messageStoreAndAck(2).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(2).messageCounter.intValue() == 1)
 
       // consumer-1::SubSource-topic-1-1-0-A:abort at messageId=2 (uncommitted)
       sharedKillSwitch1.abort(new Throwable(s"abort $consumerClientId1 messageId=2"))
@@ -274,7 +270,6 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       // consumer-2::SubSource-topic-1-1-1-A:unblock second message from batch (10,11,12)
       topicMetadata.messageStoreAndAck(11).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(11).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(11).messageCounter.intValue() == 1)
 
       // consumer-2::SubSource-topic-1-1-0-B starts consuming at its first batch (2,3,4)
       // consumer-2::SubSource-topic-1-1-1-B starts consuming at its first batch (12,13,14)
@@ -286,26 +281,21 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
 
       // consumer-1::SubSource-topic-1-1-0-A:Terminates
 
-      // consumer-2::SubSource-topic-1-1-0-B:unblock last message from batch (2,3,4)
+      // consumer-2::SubSource-topic-1-1-0-B:unblock last message from batch (2,3,4), messages (2,3) are re-played
       topicMetadata.messageStoreAndAck(4).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(4).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(2).messageCounter.intValue() == 2) // message replay
-      assert(topicMetadata.messageStoreAndAck(3).messageCounter.intValue() == 2) // message replay
-      assert(topicMetadata.messageStoreAndAck(4).messageCounter.intValue() == 1)
 
       // consumer-2::SubSource-topic-1-1-0-B:issues RequestMessage for the next batch
 
       // consumer-2::SubSource-topic-1-1-0-B:unblock first message from batch (5,6,7)
       topicMetadata.messageStoreAndAck(5).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(5).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(5).messageCounter.intValue() == 1)
 
       // consumer-2::SubSource-topic-1-1-1-A:unblock last message from batch (10,11,12)
       // consumer-2::SubSource-topic-1-1-1-A:issues **problematic** RequestMessage requesting the next batch
-      // consumer-2::SubSource-topic-1-1-1-B:unblock first message from batch (12,13,14)
+      // consumer-2::SubSource-topic-1-1-1-B:unblock first message from batch (12,13,14), message 12 is re-played
       topicMetadata.messageStoreAndAck(12).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(12).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(12).messageCounter.intValue() == 2) // message replay
 
       // consumer-2::KafkaConsumerActor receives message batch (15,16,17) and forwards it to the **defunct** SubSource-topic-1-1-1-A
       // consumer-2::SubSource-topic-1-1-1-A:Terminates
@@ -315,19 +305,16 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       // consumer-2::SubSource-topic-1-1-1-B:unblock second message from batch (12,13,14)
       topicMetadata.messageStoreAndAck(13).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(13).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(13).messageCounter.intValue() == 1)
 
       // consumer-2::SubSource-topic-1-1-0-B:unblock second message from batch (5,6,7)
       // consumer-2::SubSource-topic-1-1-1-B:issues RequestMessage requesting the next batch
       topicMetadata.messageStoreAndAck(6).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(6).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(6).messageCounter.intValue() == 1)
 
       // consumer-2::SubSource-topic-1-1-1-B:unblock last message from batch (12,13,14)
       // consumer-2::SubSource-topic-1-1-1-B:issues RequestMessage requesting the next batch
       topicMetadata.messageStoreAndAck(14).waitUntil.complete(Try(Done))
       Await.result(topicMetadata.messageStoreAndAck(14).ackWaitUntil.future, remainingOrDefault)
-      assert(topicMetadata.messageStoreAndAck(14).messageCounter.intValue() == 1)
 
       // consumer-2::KafkaConsumerActor receives message batch (18) and forwards it to the SubSource-topic-1-1-1-B
 
