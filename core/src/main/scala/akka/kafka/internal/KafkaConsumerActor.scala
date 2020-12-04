@@ -22,21 +22,22 @@ import akka.actor.{
   Timers
 }
 import akka.annotation.InternalApi
+import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
-import akka.util.JavaDurationConverters._
 import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
+import scala.collection.compat._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.{Success, Try}
+import scala.util.control.NonFatal
 
 /**
  * Internal API.
