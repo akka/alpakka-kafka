@@ -43,6 +43,12 @@ class TransactionsSourceSpec
 
   "A multi-broker consume-transform-produce cycle" must {
     "provide consistency when multiple transactional streams are being restarted" in assertAllStagesStopped {
+      // It's possible to get into a livelock situation where the `restartAfter` interval causes transactions to abort
+      // over and over.  This can happen when there are a few partitions left to process and they can never be fully
+      // processed because we always restart the stream before the transaction can be completed successfully.
+      // The `maxRestarts` provides an upper bound for the maximum number of times we restart the stream so if we get
+      // into a livelock it can eventually be resolved by not restarting any more.
+      val maxRestarts = new AtomicInteger(1000)
       val sourcePartitions = 10
       val destinationPartitions = 4
       val consumers = 3
@@ -57,13 +63,16 @@ class TransactionsSourceSpec
 
       val partitionSize = elements / sourcePartitions
       val producers: immutable.Seq[Future[Done]] =
-        (0 until sourcePartitions).map(
-          part => produce(sourceTopic, ((part * partitionSize) + 1) to (partitionSize * (part + 1)), part)
-        )
+        (0 until sourcePartitions).map { part =>
+          val rangeStart = (part * partitionSize) + 1
+          val rangeEnd = partitionSize * (part + 1)
+          log.info(s"Producing [$rangeStart to $rangeEnd] to partition $part")
+          produce(sourceTopic, rangeStart to rangeEnd, part)
+        }
 
       Await.result(Future.sequence(producers), 1.minute)
 
-      val consumerSettings = consumerDefaults.withGroupId(group)
+      val consumerSettings = consumerDefaults.withGroupId(group).withStopTimeout(0.seconds)
 
       val completedCopy = new AtomicInteger(0)
       val completedWithTimeout = new AtomicInteger(0)
@@ -79,7 +88,8 @@ class TransactionsSourceSpec
                                       sinkTopic,
                                       transactionId,
                                       10.seconds,
-                                      Some(restartAfter))
+                                      Some(restartAfter),
+                                      Some(maxRestarts))
                 .recover {
                   case e: TimeoutException =>
                     if (completedWithTimeout.incrementAndGet() > 10)
@@ -109,7 +119,6 @@ class TransactionsSourceSpec
 
       val consumer = offsetValueSource(probeConsumerSettings(probeConsumerGroup), sinkTopic)
         .take(elements.toLong)
-        .idleTimeout(30.seconds)
         .alsoTo(
           Flow[(Long, String)]
             .scan(0) { case (count, _) => count + 1 }
@@ -150,7 +159,7 @@ class TransactionsSourceSpec
 
       val elementsWrote = new AtomicInteger(0)
 
-      val consumerSettings = consumerDefaults.withGroupId(group)
+      val consumerSettings = consumerDefaults.withGroupId(group).withStopTimeout(0.seconds)
 
       def runStream(id: String): Consumer.Control = {
         val control: Control =
