@@ -282,7 +282,7 @@ lazy val tests = project
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
-        "io.spray" %% "spray-json" % "1.3.5" % Test,
+        "io.spray" %% "spray-json" % "1.3.6" % Test,
         "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
