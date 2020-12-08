@@ -3,8 +3,14 @@ import sbt.Keys._
 import sbtwhitesource.WhiteSourcePlugin.autoImport._
 import sbtwhitesource._
 import scala.sys.process.Process
+import scala.util.Try
 
 object Whitesource extends AutoPlugin {
+  private lazy val gitCurrentBranch =
+    Try(Process("git rev-parse --abbrev-ref HEAD").!!.replaceAll("\\s", "")).recover {
+      case e => sys.error(s"Couldn't determine git branch for Whitesource: $e")
+    }.toOption
+
   override def requires = WhiteSourcePlugin
 
   override def trigger = allRequirements
@@ -15,7 +21,7 @@ object Whitesource extends AutoPlugin {
     whitesourceAggregateProjectName := {
       (moduleName in LocalRootProject).value + "-" + (
         if (isSnapshot.value)
-          if (describe(baseDirectory.value) contains "master") "master"
+          if (gitCurrentBranch.contains("master")) "master"
           else "adhoc"
         else majorMinor((version in LocalRootProject).value).map(_ + "-stable").getOrElse("adhoc")
       )
@@ -25,5 +31,4 @@ object Whitesource extends AutoPlugin {
   )
 
   private def majorMinor(version: String): Option[String] = """\d+\.\d+""".r.findFirstIn(version)
-  private def describe(base: File) = Process(Seq("git", "describe", "--all"), base).!!
 }

@@ -1,0 +1,38 @@
+name: Link Validator
+
+on:
+  pull_request_target:
+    branches: [master, main]
+  schedule:
+    - cron:  '0 6 * * 1'
+
+jobs:
+  validate-links:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # See https://github.com/actions/checkout/issues/299#issuecomment-677674415
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 100
+
+      - name: Fetch tags
+        run: git fetch --depth=100 origin +refs/tags/*:refs/tags/*
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: sbt site
+        run: sbt docs/makeSite
+
+      - name: Install Coursier command line tool
+        run: curl -fLo cs https://git.io/coursier-cli-linux && chmod +x cs && ./cs
+
+      - name: Run Link Validator
+        run: ./cs launch net.runne::site-link-validator:0.2.0 -- scripts/link-validator.conf

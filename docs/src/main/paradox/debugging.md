@@ -4,7 +4,7 @@ Debugging setups with the Alpakka Kafka Connector will be required at times. Thi
 
 ## Logging with SLF4J
 
-Akka, Akka Streams and thus the Alpakka Kafka Connector support [SLF4J logging API](https://www.slf4j.org/) by adding Akka's SLF4J module and an SLF4J compatible logging framework, eg. [Logback](http://logback.qos.ch/).
+Akka, Akka Streams and thus the Alpakka Kafka Connector support [SLF4J logging API](http://www.slf4j.org/) by adding Akka's SLF4J module and an SLF4J compatible logging framework, eg. [Logback](http://logback.qos.ch/).
 
 The Kafka client library used by the Alpakka Kafka connector uses SLF4J, as well.
 
