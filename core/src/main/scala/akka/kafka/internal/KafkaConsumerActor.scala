@@ -59,10 +59,9 @@ import scala.util.control.NonFatal
     // Could be optimized to contain a Pattern as it used during reconciliation now, tho only in exceptional circumstances
     final case class SubscribePattern(pattern: String, rebalanceHandler: PartitionAssignmentHandler)
         extends SubscriptionRequest
-    final case object RegisterSubStage extends NoSerializationVerificationNeeded
+    final case class RegisterSubStage(tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Seek(tps: Map[TopicPartition, Long]) extends NoSerializationVerificationNeeded
-    final case class RequestMessages(requestId: Int, topics: Set[TopicPartition])
-        extends NoSerializationVerificationNeeded
+    final case class RequestMessages(requestId: Int, tps: Set[TopicPartition]) extends NoSerializationVerificationNeeded
     val Stop = akka.kafka.KafkaConsumerActor.Stop
     final case class StopFromStage(stageId: String) extends StopLike
     final case class Commit(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
@@ -235,7 +234,7 @@ import scala.util.control.NonFatal
   private var requests = Map.empty[ActorRef, RequestMessages]
 
   /** ActorRefs of all stages that sent subscriptions requests or `RegisterSubStage` to this actor (removed on their termination). */
-  private var stageActors = Set.empty[ActorRef]
+  private var stageActorsMap = Map.empty[Set[TopicPartition], ActorRef]
   private var consumer: Consumer[K, V] = _
   private var commitsInProgress = 0
   private var commitRefreshing: CommitRefreshing = _
@@ -277,8 +276,8 @@ import scala.util.control.NonFatal
     case s: SubscriptionRequest =>
       handleSubscription(s)
 
-    case RegisterSubStage =>
-      stageActors += sender()
+    case RegisterSubStage(tps) =>
+      stageActorsMap = stageActorsMap.updated(tps, sender())
 
     case Seek(offsets) =>
       try {
@@ -293,9 +292,11 @@ import scala.util.control.NonFatal
 
     case req: RequestMessages =>
       context.watch(sender())
-      checkOverlappingRequests("RequestMessages", sender(), req.topics)
-      requests = requests.updated(sender(), req)
-      if (stageActors.size == 1)
+      checkOverlappingRequests("RequestMessages", sender(), req.tps)
+      // https://github.com/akka/alpakka-kafka/pull/1263
+      if (stageActorsMap.getOrElse(req.tps, sender()) == sender())
+        requests = requests.updated(sender(), req)
+      if (stageActorsMap.size == 1)
         poll()
       else requestDelayedPoll()
 
@@ -324,8 +325,8 @@ import scala.util.control.NonFatal
       }
 
     case Terminated(ref) =>
+      stageActorsMap = stageActorsMap.filterNot(_._2 == ref)
       requests -= ref
-      stageActors -= ref
 
     case req: Metadata.Request =>
       sender() ! handleMetadataRequest(req)
@@ -395,7 +396,7 @@ import scala.util.control.NonFatal
 
       }
       scheduleFirstPollTask()
-      stageActors += sender()
+      stageActorsMap = stageActorsMap.updated(consumer.assignment().asScala.toSet, sender())
     } catch {
       case NonFatal(ex) => sendFailure(ex, sender())
     }
@@ -405,8 +406,8 @@ import scala.util.control.NonFatal
     // which is an indication that something is wrong, but it might be alright when assignments change.
     if (requests.nonEmpty) requests.foreach {
       case (ref, r) =>
-        if (ref != fromStage && r.topics.exists(topics.apply)) {
-          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.topics)
+        if (ref != fromStage && r.tps.exists(topics.apply)) {
+          log.warning("{} from topic/partition {} already requested by other stage {}", updateType, topics, r.tps)
           ref ! Messages(r.requestId, Iterator.empty)
           requests -= ref
         }
@@ -417,7 +418,7 @@ import scala.util.control.NonFatal
       receivePoll(p)
     case _: StopLike =>
     case Terminated(ref) =>
-      stageActors -= ref
+      stageActorsMap = stageActorsMap.filterNot(_._2 == ref)
     case _ @(_: Commit | _: RequestMessages) =>
       sender() ! Status.Failure(StoppingException())
     case msg @ (_: Assign | _: AssignWithOffset | _: Subscribe | _: SubscribePattern) =>
@@ -545,7 +546,7 @@ import scala.util.control.NonFatal
         }
       } else {
         // resume partitions to fetch
-        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.topics).toSet
+        val partitionsToFetch: Set[TopicPartition] = requests.values.flatMap(_.tps).toSet
         val (resumeThese, pauseThese) = currentAssignmentsJava.asScala.partition(partitionsToFetch.contains)
         consumer.pause(pauseThese.asJava)
         consumer.resume(resumeThese.asJava)
@@ -647,7 +648,7 @@ import scala.util.control.NonFatal
           // Temporary fix to avoid https://github.com/scala/bug/issues/11807
           // Using `VectorIterator` avoids the error from `ConcatIterator`
           val b = Vector.newBuilder[ConsumerRecord[K, V]]
-          req.topics.foreach { tp =>
+          req.tps.foreach { tp =>
             val tpMessages = rawResult.records(tp).asScala
             b ++= tpMessages
           }
@@ -661,14 +662,14 @@ import scala.util.control.NonFatal
 
   private def sendFailure(exception: Throwable, stageActorRef: ActorRef): Unit = {
     stageActorRef ! Failure(exception)
+    stageActorsMap = stageActorsMap.filterNot(_._2 == stageActorRef)
     requests -= stageActorRef
-    stageActors -= stageActorRef
   }
 
   private def processErrors(exception: Throwable): Unit = {
-    val sendTo = (stageActors ++ owner).toSet
+    val sendTo = (stageActorsMap.values ++ owner).toSet
     log.debug(s"sending failure {} to {}", exception.getClass, sendTo.mkString(","))
-    stageActors.foreach { stageActorRef =>
+    stageActorsMap.values.foreach { stageActorRef =>
       sendFailure(exception, stageActorRef)
     }
   }
