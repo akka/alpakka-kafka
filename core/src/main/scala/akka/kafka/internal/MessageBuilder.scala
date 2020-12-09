@@ -144,7 +144,7 @@ private[kafka] trait OffsetContextBuilder[K, V]
 ) extends CommittableOffsetMetadata {
   override def commitScaladsl(): Future[Done] = commitInternal()
   override def commitJavadsl(): CompletionStage[Done] = commitInternal().toJava
-  override def commitInternal(): Future[Done] = committer.commitSingle(this)
+  override def commitInternal(): Future[Done] = KafkaAsyncConsumerCommitterRef.commit(this)
   override val batchSize: Long = 1
 }
 
@@ -227,21 +227,14 @@ private[kafka] final class CommittableOffsetBatchImpl(
 
   override def commitScaladsl(): Future[Done] = commitInternal()
 
-  override def commitInternal(): Future[Done] =
-    if (isEmpty)
-      Future.successful(Done)
-    else {
-      committers.head._2.commit(this)
-    }
+  override def commitInternal(): Future[Done] = KafkaAsyncConsumerCommitterRef.commit(this)
 
   override def tellCommit(): CommittableOffsetBatch = tellCommitWithPriority(emergency = false)
 
   override def tellCommitEmergency(): CommittableOffsetBatch = tellCommitWithPriority(emergency = true)
 
   private def tellCommitWithPriority(emergency: Boolean): CommittableOffsetBatch = {
-    if (batchSize != 0L) {
-      committers.head._2.tellCommit(this, emergency = emergency)
-    }
+    KafkaAsyncConsumerCommitterRef.tellCommit(this, emergency = emergency)
     this
   }
 

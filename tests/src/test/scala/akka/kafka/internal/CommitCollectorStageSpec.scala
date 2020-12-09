@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch, PartitionOffset}
+import akka.kafka.ConsumerMessage.{Committable, CommittableOffset, CommittableOffsetBatch}
 import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka.testkit.ConsumerResultFactory
 import akka.kafka.testkit.scaladsl.{ConsumerControlFactory, Slf4jToAkkaLoggingAdapter}
@@ -21,6 +21,8 @@ import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.testkit.TestKit
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.common.TopicPartition
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -220,7 +222,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         val commits = factory.committer.commits
 
-        commits.last.offset shouldBe 10 withClue "last offset commit should be exactly the one preceeding the error"
+        commits.last._2 shouldBe 10 withClue "last offset commit should be exactly the one preceeding the error"
 
         control.shutdown().futureValue shouldBe Done
       }
@@ -449,7 +451,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
       implicit system: ActorSystem
   ) {
 
-    var commits = List.empty[PartitionOffset]
+    var commits = List.empty[(TopicPartition, Long)]
 
     private def completeCommit(): Future[Done] = {
       val promisedCommit = Promise[Done]()
@@ -460,19 +462,26 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     }
 
     private[akka] val underlying =
-      new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval) {
-        override def commitSingle(offset: CommittableOffsetImpl): Future[Done] = {
-          commits = commits :+ offset.partitionOffset
+      new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval)(system.dispatcher) {
+
+        override def commitSingle(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = {
+          val commit = (topicPartition, offset.offset())
+          commits = commits :+ commit
           completeCommit()
         }
 
-        override def commit(batch: CommittableOffsetBatch): Future[Done] = {
-          val offsets = batch.offsets.toList.map { case (partition, offset) => PartitionOffset(partition, offset) }
-          commits = commits ++ offsets
+        override def commitOneOfMulti(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = {
+          // CommittableOffsetBatchImpl.offsetsAndMetadata points the next committed message.
+          // So to get committed message offset we need to subtract 1
+          val commitOffset = offset.offset() - 1
+          val commit = (topicPartition, commitOffset)
+          commits = commits :+ commit
           completeCommit()
         }
 
-        override def tellCommit(batch: CommittableOffsetBatch, emergency: Boolean): Unit = commit(batch)
+        override def tellCommit(topicPartition: TopicPartition, offset: OffsetAndMetadata, emergency: Boolean): Unit = {
+          commitOneOfMulti(topicPartition, offset)
+        }
       }
   }
 }
