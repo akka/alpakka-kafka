@@ -462,7 +462,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
     }
 
     private[akka] val underlying =
-      new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval) {
+      new KafkaAsyncConsumerCommitterRef(consumerActor = null, commitSettings.maxInterval)(system.dispatcher) {
 
         override def commitSingle(topicPartition: TopicPartition, offset: OffsetAndMetadata): Future[Done] = {
           val commit = (topicPartition, offset.offset())
