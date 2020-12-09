@@ -17,6 +17,7 @@ final class KafkaTestkitTestcontainersSettings private (
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
     val useSchemaRegistry: Boolean,
+    val containerLogging: Boolean,
     val configureKafka: Vector[AlpakkaKafkaContainer] => Unit = _ => (),
     val configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
       new Consumer[java.util.Collection[AlpakkaKafkaContainer]]() {
@@ -48,6 +49,11 @@ final class KafkaTestkitTestcontainersSettings private (
    * Java Api
    */
   def getSchemaRegistry(): Boolean = useSchemaRegistry
+
+  /**
+   * Java Api
+   */
+  def getContainerLogging(): Boolean = containerLogging
 
   /**
    * Sets the Confluent Platform Version
@@ -104,11 +110,18 @@ final class KafkaTestkitTestcontainersSettings private (
   def withSchemaRegistry(useSchemaRegistry: Boolean): KafkaTestkitTestcontainersSettings =
     copy(useSchemaRegistry = useSchemaRegistry);
 
+  /**
+   * Stream container output to SLF4J logger(s).
+   */
+  def withContainerLogging(containerLogging: Boolean): KafkaTestkitTestcontainersSettings =
+    copy(containerLogging = containerLogging)
+
   private def copy(
       confluentPlatformVersion: String = confluentPlatformVersion,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
       useSchemaRegistry: Boolean = useSchemaRegistry,
+      containerLogging: Boolean = containerLogging,
       configureKafka: Vector[AlpakkaKafkaContainer] => Unit = configureKafka,
       configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
         configureKafkaConsumer,
@@ -119,6 +132,7 @@ final class KafkaTestkitTestcontainersSettings private (
                                            numBrokers,
                                            internalTopicsReplicationFactor,
                                            useSchemaRegistry,
+                                           containerLogging,
                                            configureKafka,
                                            configureKafkaConsumer,
                                            configureZooKeeper,
@@ -129,7 +143,8 @@ final class KafkaTestkitTestcontainersSettings private (
     s"confluentPlatformVersion=$confluentPlatformVersion," +
     s"numBrokers=$numBrokers," +
     s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
-    s"useSchemaRegistry=$useSchemaRegistry)"
+    s"useSchemaRegistry=$useSchemaRegistry," +
+    s"containerLogging=$containerLogging)"
 }
 
 object KafkaTestkitTestcontainersSettings {
@@ -156,11 +171,13 @@ object KafkaTestkitTestcontainersSettings {
     val numBrokers = config.getInt("num-brokers")
     val internalTopicsReplicationFactor = config.getInt("internal-topics-replication-factor")
     val useSchemaRegistry = config.getBoolean("use-schema-registry")
+    val containerLogging = config.getBoolean("container-logging")
 
     new KafkaTestkitTestcontainersSettings(confluentPlatformVersion,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
-                                           useSchemaRegistry)
+                                           useSchemaRegistry,
+                                           containerLogging)
   }
 
   /**

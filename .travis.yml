@@ -81,7 +81,6 @@ stages:
     if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
 after_failure:
-  - docker-compose logs
   - find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
 
 before_cache:

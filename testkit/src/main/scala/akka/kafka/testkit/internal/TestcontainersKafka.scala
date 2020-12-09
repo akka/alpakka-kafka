@@ -69,7 +69,8 @@ object TestcontainersKafka {
         cluster = new KafkaContainerCluster(settings.confluentPlatformVersion,
                                             numBrokers,
                                             internalTopicsReplicationFactor,
-                                            settings.useSchemaRegistry)
+                                            settings.useSchemaRegistry,
+                                            settings.containerLogging)
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
