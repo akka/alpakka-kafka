@@ -44,6 +44,8 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   protected String externalZookeeperConnect = null;
 
+  private int brokerNum = 1;
+
   private int port = PORT_NOT_ASSIGNED;
   private int jmxPort = PORT_NOT_ASSIGNED;
 
@@ -60,7 +62,10 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
         TestcontainersConfiguration.getInstance().getKafkaImage() + ":" + confluentPlatformVersion);
 
     super.withNetwork(Network.SHARED);
+
     withExposedPorts(KAFKA_PORT);
+
+    withBrokerNum(this.brokerNum);
 
     // Use two listeners with different names, it will force Kafka to communicate with itself via
     // internal
@@ -70,7 +75,6 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
     withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT");
     withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER");
 
-    withEnv("KAFKA_BROKER_ID", "1");
     withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1");
     withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", "1");
     withEnv("KAFKA_LOG_FLUSH_INTERVAL_MESSAGES", Long.MAX_VALUE + "");
@@ -81,6 +85,15 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   public AlpakkaKafkaContainer withNetwork(Network network) {
     useImplicitNetwork = false;
     return super.withNetwork(network);
+  }
+
+  public AlpakkaKafkaContainer withBrokerNum(int brokerNum) {
+    if (brokerNum != this.brokerNum) {
+      this.brokerNum = brokerNum;
+      return super.withNetworkAliases("broker-" + this.brokerNum)
+          .withEnv("KAFKA_BROKER_ID", "" + this.brokerNum);
+    }
+    return this;
   }
 
   @Override
@@ -95,6 +108,10 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
               new Exception("Deprecated method"));
     }
     return super.getNetwork();
+  }
+
+  public int getBrokerNum() {
+    return brokerNum;
   }
 
   public void stopKafka() {

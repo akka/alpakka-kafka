@@ -26,6 +26,7 @@
 
     <logger name="akka" level="DEBUG"/>
     <logger name="akka.kafka" level="DEBUG"/>
+    <logger name="akka.kafka.test.testcontainers.logs" level="INFO" />
     <logger name="docs.scaladsl" levle="DEBUG"/>
 
     <logger name="org.apache.zookeeper" level="WARN"/>

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
@@ -19,6 +20,7 @@ import org.testcontainers.lifecycle.Startables;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -33,7 +35,9 @@ public class KafkaContainerCluster implements Startable {
   public static final String CONFLUENT_PLATFORM_VERSION =
       AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION;
   public static final int START_TIMEOUT_SECONDS = 120;
+  public static final int READINESS_CHECK_TIMEOUT = START_TIMEOUT_SECONDS;
 
+  private static final String LOGGING_NAMESPACE_PREFIX = "akka.kafka.testkit.testcontainers.logs";
   private static final String READINESS_CHECK_SCRIPT = "/testcontainers_readiness_check.sh";
   private static final String READINESS_CHECK_TOPIC = "ready-kafka-container-cluster";
   private static final Version BOOTSTRAP_PARAM_MIN_VERSION = new Version("5.2.0");
@@ -42,20 +46,22 @@ public class KafkaContainerCluster implements Startable {
   private final Version confluentPlatformVersion;
   private final int brokersNum;
   private final Boolean useSchemaRegistry;
+  private final Boolean containerLogging;
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
-  private Optional<SchemaRegistryContainer> schemaRegistry;
+  private Optional<SchemaRegistryContainer> schemaRegistry = Optional.empty();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
-    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false);
+    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false, false);
   }
 
   public KafkaContainerCluster(
       String confluentPlatformVersion,
       int brokersNum,
       int internalTopicsRf,
-      boolean useSchemaRegistry) {
+      boolean useSchemaRegistry,
+      boolean containerLogging) {
     if (brokersNum < 0) {
       throw new IllegalArgumentException("brokersNum '" + brokersNum + "' must be greater than 0");
     }
@@ -69,6 +75,7 @@ public class KafkaContainerCluster implements Startable {
     this.confluentPlatformVersion = new Version(confluentPlatformVersion);
     this.brokersNum = brokersNum;
     this.useSchemaRegistry = useSchemaRegistry;
+    this.containerLogging = containerLogging;
     this.network = Network.newNetwork();
 
     this.zookeeper =
@@ -83,7 +90,7 @@ public class KafkaContainerCluster implements Startable {
                 brokerNum ->
                     new AlpakkaKafkaContainer(confluentPlatformVersion)
                         .withNetwork(this.network)
-                        .withNetworkAliases("broker-" + brokerNum)
+                        .withBrokerNum(brokerNum)
                         .withRemoteJmxService()
                         .dependsOn(this.zookeeper)
                         .withExternalZookeeper("zookeeper:" + AlpakkaKafkaContainer.ZOOKEEPER_PORT)
@@ -139,6 +146,7 @@ public class KafkaContainerCluster implements Startable {
   @Override
   public void start() {
     try {
+      configureContainerLogging();
       Stream<Startable> startables = this.brokers.stream().map(Startable.class::cast);
       Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
 
@@ -169,11 +177,29 @@ public class KafkaContainerCluster implements Startable {
     }
   }
 
+  private void configureContainerLogging() {
+    if (containerLogging) {
+      log.debug("Testcontainer logging enabled");
+      this.brokers.forEach(
+          broker ->
+              setContainerLogger(
+                  LOGGING_NAMESPACE_PREFIX + ".broker.broker-" + broker.getBrokerNum(), broker));
+      setContainerLogger(LOGGING_NAMESPACE_PREFIX + ".zookeeper", this.zookeeper);
+      this.schemaRegistry.ifPresent(
+          container -> setContainerLogger(LOGGING_NAMESPACE_PREFIX + ".schemaregistry", container));
+    }
+  }
+
+  private void setContainerLogger(String loggerName, GenericContainer<?> container) {
+    Logger logger = LoggerFactory.getLogger(loggerName);
+    Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(logger);
+    container.withLogConsumer(logConsumer);
+  }
+
   private void waitForClusterFormation() {
     // assert that cluster has formed
-    Unreliables.retryUntilTrue(
-        START_TIMEOUT_SECONDS,
-        TimeUnit.SECONDS,
+    runReadinessCheck(
+        "Readiness check (1/2). ZooKeeper state updated.",
         () -> {
           Container.ExecResult result =
               this.zookeeper.execInContainer(
@@ -186,10 +212,8 @@ public class KafkaContainerCluster implements Startable {
           return brokers != null && brokers.split(",").length == this.brokersNum;
         });
 
-    // test produce & consume message with full cluster involvement
-    Unreliables.retryUntilTrue(
-        START_TIMEOUT_SECONDS,
-        TimeUnit.SECONDS,
+    runReadinessCheck(
+        "Readiness check (2/2). Run producer consumer with acks=all.",
         () -> this.brokers.stream().findFirst().map(this::runReadinessCheck).orElse(false));
   }
 
@@ -200,6 +224,17 @@ public class KafkaContainerCluster implements Startable {
   public void startKafka() {
     this.brokers.forEach(AlpakkaKafkaContainer::startKafka);
     waitForClusterFormation();
+  }
+
+  private void runReadinessCheck(String logLine, Callable<Boolean> fn) {
+    try {
+      log.debug("Start: {}", logLine);
+      Unreliables.retryUntilTrue(READINESS_CHECK_TIMEOUT, TimeUnit.SECONDS, fn);
+    } catch (Throwable t) {
+      log.error("Failed: {}", logLine);
+      throw t;
+    }
+    log.debug("Passed: {}", logLine);
   }
 
   private String readinessCheckScript() {
