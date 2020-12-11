@@ -1,8 +1,7 @@
 name: Link Validator
 
 on:
-  pull_request_target:
-    branches: [master, main]
+  pull_request:
   schedule:
     - cron:  '0 6 * * 1'
 
