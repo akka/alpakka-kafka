@@ -34,13 +34,13 @@ trait KafkaTestKit {
   val StringSerializer = new StringSerializer
   val StringDeserializer = new StringDeserializer
 
-  def producerDefaults: ProducerSettings[String, String] = producerDefaults(StringSerializer, StringSerializer)
+  def producerDefaults(): ProducerSettings[String, String] = producerDefaults(StringSerializer, StringSerializer)
 
   def producerDefaults[K, V](keySerializer: Serializer[K], valueSerializer: Serializer[V]): ProducerSettings[K, V] =
     ProducerSettings(system, keySerializer, valueSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  def consumerDefaults: ConsumerSettings[String, String] = consumerDefaults(StringDeserializer, StringDeserializer)
+  def consumerDefaults(): ConsumerSettings[String, String] = consumerDefaults(StringDeserializer, StringDeserializer)
 
   def consumerDefaults[K, V](keyDeserializer: Deserializer[K],
                              valueDeserializer: Deserializer[V]): ConsumerSettings[K, V] =
