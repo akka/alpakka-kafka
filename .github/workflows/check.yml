@@ -1,0 +1,43 @@
+name: Build and Check
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # FIXME: since we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+# FIXME: removed in favour of fetch-depth defined in Checkout step ^. i tried an arbitrarily large fetch depth 1000 and it still didn't work.
+#      - name: Fetch tags
+#        run: git fetch --depth=1000 origin +refs/tags/*:refs/tags/*
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: "Code style check and binary-compatibility check"
+        # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
+        run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
+
+      - name: "Compile all code with fatal warnings for Scala 2.13"
+        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
+        run: sbt "; Test/compile; It/compile"
+
+      - name: "Create all API docs for artifacts/website and all reference docs"
+        # Run locally with: sbt verifyDocs
+        run: sbt verifyDocs
