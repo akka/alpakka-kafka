@@ -11,6 +11,7 @@ import com.github.dockerjava.api.model.ContainerNetwork;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.nio.charset.StandardCharsets;
@@ -31,8 +32,9 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
+  private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
   // Align this with testkit/src/main/resources/reference.conf
-  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.0";
+  public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.1";
 
   public static final int KAFKA_PORT = 9093;
 
@@ -54,12 +56,15 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   private boolean enableRemoteJmxService = false;
 
   public AlpakkaKafkaContainer() {
-    this(DEFAULT_CONFLUENT_PLATFORM_VERSION);
+    this(DEFAULT_IMAGE_NAME.withTag(DEFAULT_CONFLUENT_PLATFORM_VERSION));
   }
 
   public AlpakkaKafkaContainer(String confluentPlatformVersion) {
-    super(
-        TestcontainersConfiguration.getInstance().getKafkaImage() + ":" + confluentPlatformVersion);
+    this(DEFAULT_IMAGE_NAME.withTag(confluentPlatformVersion));
+  }
+
+  public AlpakkaKafkaContainer(final DockerImageName dockerImageName) {
+    super(dockerImageName);
 
     super.withNetwork(Network.SHARED);
 
