@@ -18,7 +18,7 @@ val kafkaVersion = "2.6.0"
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5.1"
 val scalatestVersion = "3.1.4"
-val testcontainersVersion = "1.15.0"
+val testcontainersVersion = "1.15.1"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above

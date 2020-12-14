@@ -32,7 +32,8 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
 
   private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
 
-  private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
+  private static final DockerImageName DEFAULT_IMAGE_NAME =
+      DockerImageName.parse("confluentinc/cp-kafka");
   // Align this with testkit/src/main/resources/reference.conf
   public static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "6.0.1";
 
