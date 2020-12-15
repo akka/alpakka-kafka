@@ -8,6 +8,7 @@ package akka.kafka.testkit.internal
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.utility.DockerImageName
 
 import scala.compat.java8.OptionConverters._
 import scala.jdk.CollectionConverters._
@@ -66,11 +67,16 @@ object TestcontainersKafka {
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
-        cluster = new KafkaContainerCluster(settings.confluentPlatformVersion,
-                                            numBrokers,
-                                            internalTopicsReplicationFactor,
-                                            settings.useSchemaRegistry,
-                                            settings.containerLogging)
+        cluster = new KafkaContainerCluster(
+          DockerImageName.parse(settings.confluentPlatformZooKeeperImage),
+          DockerImageName.parse(settings.confluentPlatformKafkaImage),
+          DockerImageName.parse(settings.confluentPlatformSchemaRegistryImage),
+          settings.confluentPlatformVersion,
+          numBrokers,
+          internalTopicsReplicationFactor,
+          settings.useSchemaRegistry,
+          settings.containerLogging
+        )
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)

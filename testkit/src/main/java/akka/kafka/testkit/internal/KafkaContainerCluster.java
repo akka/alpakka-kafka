@@ -16,6 +16,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -34,6 +35,13 @@ public class KafkaContainerCluster implements Startable {
 
   public static final String CONFLUENT_PLATFORM_VERSION =
       AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION;
+  public static final DockerImageName DEFAULT_ZOOKEEPER_IMAGE_NAME =
+      AlpakkaKafkaContainer.DEFAULT_ZOOKEEPER_IMAGE_NAME;
+  public static final DockerImageName DEFAULT_KAFKA_IMAGE_NAME =
+      AlpakkaKafkaContainer.DEFAULT_KAFKA_IMAGE_NAME;
+  public static final DockerImageName DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME =
+      SchemaRegistryContainer.DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME;
+
   public static final int START_TIMEOUT_SECONDS = 120;
   public static final int READINESS_CHECK_TIMEOUT = START_TIMEOUT_SECONDS;
 
@@ -50,13 +58,25 @@ public class KafkaContainerCluster implements Startable {
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
+  private DockerImageName confluentPlatformSchemaRegistryImage;
   private Optional<SchemaRegistryContainer> schemaRegistry = Optional.empty();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
-    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false, false);
+    this(
+        DEFAULT_ZOOKEEPER_IMAGE_NAME,
+        DEFAULT_KAFKA_IMAGE_NAME,
+        DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME,
+        CONFLUENT_PLATFORM_VERSION,
+        brokersNum,
+        internalTopicsRf,
+        false,
+        false);
   }
 
   public KafkaContainerCluster(
+      DockerImageName confluentPlatformZooKeeperImage,
+      DockerImageName confluentPlatformKafkaImage,
+      DockerImageName confluentPlatformSchemaRegistryImage,
       String confluentPlatformVersion,
       int brokersNum,
       int internalTopicsRf,
@@ -77,9 +97,10 @@ public class KafkaContainerCluster implements Startable {
     this.useSchemaRegistry = useSchemaRegistry;
     this.containerLogging = containerLogging;
     this.network = Network.newNetwork();
+    this.confluentPlatformSchemaRegistryImage = confluentPlatformSchemaRegistryImage;
 
     this.zookeeper =
-        new GenericContainer("confluentinc/cp-zookeeper:" + confluentPlatformVersion)
+        new GenericContainer(confluentPlatformZooKeeperImage.withTag(confluentPlatformVersion))
             .withNetwork(network)
             .withNetworkAliases("zookeeper")
             .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(AlpakkaKafkaContainer.ZOOKEEPER_PORT));
@@ -88,7 +109,8 @@ public class KafkaContainerCluster implements Startable {
         IntStream.range(0, this.brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new AlpakkaKafkaContainer(confluentPlatformVersion)
+                    new AlpakkaKafkaContainer(
+                            confluentPlatformKafkaImage.withTag(confluentPlatformVersion))
                         .withNetwork(this.network)
                         .withBrokerNum(brokerNum)
                         .withRemoteJmxService()
@@ -161,13 +183,17 @@ public class KafkaContainerCluster implements Startable {
 
       waitForClusterFormation();
 
-      this.schemaRegistry =
-          useSchemaRegistry
-              ? Optional.of(
-                  new SchemaRegistryContainer(confluentPlatformVersion.get())
-                      .withNetworkAliases("schema-registry")
-                      .withCluster(this))
-              : Optional.empty();
+      if (useSchemaRegistry) {
+        this.schemaRegistry =
+            Optional.of(
+                new SchemaRegistryContainer(
+                        this.confluentPlatformSchemaRegistryImage.withTag(
+                            confluentPlatformVersion.get()))
+                    .withNetworkAliases("schema-registry")
+                    .withCluster(this));
+      } else {
+        this.schemaRegistry = Optional.empty();
+      }
 
       // start schema registry if the container is initialized
       Startables.deepStart(optionalStream(this.schemaRegistry)).get(START_TIMEOUT_SECONDS, SECONDS);

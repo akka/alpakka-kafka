@@ -7,9 +7,13 @@ package akka.kafka.testkit.internal;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.utility.DockerImageName;
 
 public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryContainer> {
-  public static final String ConfluentSchemaRegistryImage = "confluentinc/cp-schema-registry";
+  // Align these confluent platform constants with testkit/src/main/resources/reference.conf
+  public static final DockerImageName DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME =
+      DockerImageName.parse("confluentinc/cp-schema-registry")
+          .withTag(AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION);
 
   public static int SCHEMA_REGISTRY_PORT = 8081;
 
@@ -18,7 +22,11 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
   }
 
   public SchemaRegistryContainer(String confluentPlatformVersion) {
-    super(ConfluentSchemaRegistryImage + ":" + confluentPlatformVersion);
+    this(DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion));
+  }
+
+  public SchemaRegistryContainer(DockerImageName schemaRegistryImage) {
+    super(schemaRegistryImage);
 
     withNetwork(Network.SHARED);
     withExposedPorts(SCHEMA_REGISTRY_PORT);
