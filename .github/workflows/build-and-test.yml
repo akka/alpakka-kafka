@@ -1,0 +1,82 @@
+name: Build and Test
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  test-java8:
+    name: Build and Test (Java 8)
+    runs-on: ubuntu-18.04
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 8
+        uses: olafurpg/setup-scala@v10
+
+      - name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
+        run: sbt --client "++2.12.11 test"
+
+      - name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
+        run: sbt --client "++2.13.2 test"
+  test-java11:
+    name: Build and Test (Java 11)
+    runs-on: ubuntu-18.04
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
+        run: sbt --client "++2.12.11 test" -J-XX:+UnlockExperimentalVMOptions -J--XX:+UseJVMCICompiler
+
+      - name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
+        run: sbt --client "++2.13.2 test" -J-XX:+UnlockExperimentalVMOptions -J--XX:+UseJVMCICompiler
+  integration:
+    name: Integration tests
+    needs: check
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 8
+        uses: olafurpg/setup-scala@v10
+
+      - name: "Run multi-broker and long running integration tests"
+        run: sbt --client "tests/it:test"
+
+      - name: "Compile benchmark tests"
+        run: sbt --client "benchmarks/it:compile"
