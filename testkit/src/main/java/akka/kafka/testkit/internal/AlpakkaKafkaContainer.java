@@ -9,7 +9,7 @@ import akka.annotation.InternalApi;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
+import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
