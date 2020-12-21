@@ -8,6 +8,7 @@ package akka.kafka.testkit.internal
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.utility.DockerImageName
 
 import scala.compat.java8.OptionConverters._
 import scala.jdk.CollectionConverters._
@@ -20,16 +21,6 @@ object TestcontainersKafka {
 
     private def requireStarted(): Unit =
       require(kafkaPortInternal != -1, "Testcontainers Kafka hasn't been started via `setUp`")
-
-    /**
-     * Override this to select a different Kafka version be choosing the desired version of Confluent Platform:
-     * [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]],
-     * [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
-     *
-     * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
-     */
-    @deprecated("Use testcontainersSettings instead.", "2.0.0")
-    def confluentPlatformVersion: String = KafkaContainerCluster.CONFLUENT_PLATFORM_VERSION
 
     /**
      * Override this to change default settings for starting the Kafka testcontainers cluster.
@@ -66,11 +57,15 @@ object TestcontainersKafka {
       import settings._
       // check if already initialized
       if (kafkaPortInternal == -1) {
-        cluster = new KafkaContainerCluster(settings.confluentPlatformVersion,
-                                            numBrokers,
-                                            internalTopicsReplicationFactor,
-                                            settings.useSchemaRegistry,
-                                            settings.containerLogging)
+        cluster = new KafkaContainerCluster(
+          DockerImageName.parse(settings.zooKeeperImage).withTag(settings.zooKeeperImageTag),
+          DockerImageName.parse(settings.kafkaImage).withTag(settings.kafkaImageTag),
+          DockerImageName.parse(settings.schemaRegistryImage).withTag(settings.schemaRegistryImageTag),
+          numBrokers,
+          internalTopicsReplicationFactor,
+          settings.useSchemaRegistry,
+          settings.containerLogging
+        )
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
