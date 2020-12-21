@@ -64,10 +64,6 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
     this(DEFAULT_KAFKA_IMAGE_NAME);
   }
 
-  public AlpakkaKafkaContainer(String confluentPlatformVersion) {
-    this(DEFAULT_KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion));
-  }
-
   public AlpakkaKafkaContainer(final DockerImageName dockerImageName) {
     super(dockerImageName);
 

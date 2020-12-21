@@ -18,14 +18,10 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
   public static int SCHEMA_REGISTRY_PORT = 8081;
 
   public SchemaRegistryContainer() {
-    this(AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION);
+    this(DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME);
   }
 
-  public SchemaRegistryContainer(String confluentPlatformVersion) {
-    this(DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion));
-  }
-
-  public SchemaRegistryContainer(DockerImageName schemaRegistryImage) {
+  public SchemaRegistryContainer(final DockerImageName schemaRegistryImage) {
     super(schemaRegistryImage);
 
     withNetwork(Network.SHARED);

@@ -23,16 +23,6 @@ object TestcontainersKafka {
       require(kafkaPortInternal != -1, "Testcontainers Kafka hasn't been started via `setUp`")
 
     /**
-     * Override this to select a different Kafka version be choosing the desired version of Confluent Platform:
-     * [[https://hub.docker.com/r/confluentinc/cp-kafka/tags Available Docker images]],
-     * [[https://docs.confluent.io/current/installation/versions-interoperability.html Kafka versions in Confluent Platform]]
-     *
-     * Deprecated: set Confluent Platform version in [[KafkaTestkitTestcontainersSettings]]
-     */
-    @deprecated("Use testcontainersSettings instead.", "2.0.0")
-    def confluentPlatformVersion: String = KafkaContainerCluster.CONFLUENT_PLATFORM_VERSION
-
-    /**
      * Override this to change default settings for starting the Kafka testcontainers cluster.
      */
     val testcontainersSettings: KafkaTestkitTestcontainersSettings = KafkaTestkitTestcontainersSettings(system)
@@ -68,10 +58,9 @@ object TestcontainersKafka {
       // check if already initialized
       if (kafkaPortInternal == -1) {
         cluster = new KafkaContainerCluster(
-          DockerImageName.parse(settings.confluentPlatformZooKeeperImage),
-          DockerImageName.parse(settings.confluentPlatformKafkaImage),
-          DockerImageName.parse(settings.confluentPlatformSchemaRegistryImage),
-          settings.confluentPlatformVersion,
+          DockerImageName.parse(settings.zooKeeperImage).withTag(settings.zooKeeperImageTag),
+          DockerImageName.parse(settings.kafkaImage).withTag(settings.kafkaImageTag),
+          DockerImageName.parse(settings.schemaRegistryImage).withTag(settings.schemaRegistryImageTag),
           numBrokers,
           internalTopicsReplicationFactor,
           settings.useSchemaRegistry,

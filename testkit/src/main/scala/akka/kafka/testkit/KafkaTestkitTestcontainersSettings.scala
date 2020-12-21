@@ -13,10 +13,12 @@ import com.typesafe.config.Config
 import org.testcontainers.containers.GenericContainer
 
 final class KafkaTestkitTestcontainersSettings private (
-    val confluentPlatformZooKeeperImage: String,
-    val confluentPlatformKafkaImage: String,
-    val confluentPlatformSchemaRegistryImage: String,
-    val confluentPlatformVersion: String,
+    val zooKeeperImage: String,
+    val zooKeeperImageTag: String,
+    val kafkaImage: String,
+    val kafkaImageTag: String,
+    val schemaRegistryImage: String,
+    val schemaRegistryImageTag: String,
     val numBrokers: Int,
     val internalTopicsReplicationFactor: Int,
     val useSchemaRegistry: Boolean,
@@ -36,22 +38,32 @@ final class KafkaTestkitTestcontainersSettings private (
   /**
    * Java Api
    */
-  def getConfluentPlatformZooKeeperImage(): String = confluentPlatformZooKeeperImage
+  def getZooKeeperImage(): String = zooKeeperImage
 
   /**
    * Java Api
    */
-  def getConfluentPlatformKafkaImage(): String = confluentPlatformKafkaImage
+  def getZooKeeperImageTag(): String = zooKeeperImageTag
 
   /**
    * Java Api
    */
-  def getConfluentPlatformSchemaRegistryImage(): String = confluentPlatformSchemaRegistryImage
+  def getKafkaImage(): String = kafkaImage
 
   /**
    * Java Api
    */
-  def getConfluentPlatformVersion(): String = confluentPlatformVersion
+  def getKafkaImageTag(): String = kafkaImageTag
+
+  /**
+   * Java Api
+   */
+  def getSchemaRegistryImage(): String = schemaRegistryImage
+
+  /**
+   * Java Api
+   */
+  def getSchemaRegistryImageTag(): String = schemaRegistryImageTag
 
   /**
    * Java Api
@@ -74,30 +86,40 @@ final class KafkaTestkitTestcontainersSettings private (
   def getContainerLogging(): Boolean = containerLogging
 
   /**
-   * Sets the Confluent Platform ZooKeeper Image
+   * Sets the ZooKeeper image
    */
-  def withConfluentPlatformZooKeeperImage(confluentPlatformZooKeeperImage: String): KafkaTestkitTestcontainersSettings =
-    copy(confluentPlatformZooKeeperImage = confluentPlatformZooKeeperImage)
+  def withZooKeeperImage(zooKeeperImage: String): KafkaTestkitTestcontainersSettings =
+    copy(zooKeeperImage = zooKeeperImage)
 
   /**
-   * Sets the Confluent Platform Kafka Image
+   * Sets the ZooKeeper image tag
    */
-  def withConfluentPlatformKafkaImage(confluentPlatformKafkaImage: String): KafkaTestkitTestcontainersSettings =
-    copy(confluentPlatformKafkaImage = confluentPlatformKafkaImage)
+  def withZooKeeperImageTag(zooKeeperImageTag: String): KafkaTestkitTestcontainersSettings =
+    copy(zooKeeperImageTag = zooKeeperImageTag)
 
   /**
-   * Sets the Confluent Platform Schema Registry Image
+   * Sets the Kafka image
    */
-  def withConfluentPlatformSchemaRegistryImage(
-      confluentPlatformSchemaRegistryImage: String
-  ): KafkaTestkitTestcontainersSettings =
-    copy(confluentPlatformSchemaRegistryImage = confluentPlatformSchemaRegistryImage)
+  def withKafkaImage(kafkaImage: String): KafkaTestkitTestcontainersSettings =
+    copy(kafkaImage = kafkaImage)
 
   /**
-   * Sets the Confluent Platform Version
+   * Sets the Kafka image tag
    */
-  def withConfluentPlatformVersion(confluentPlatformVersion: String): KafkaTestkitTestcontainersSettings =
-    copy(confluentPlatformVersion = confluentPlatformVersion)
+  def withKafkaImageTag(kafkaImageTag: String): KafkaTestkitTestcontainersSettings =
+    copy(kafkaImageTag = kafkaImageTag)
+
+  /**
+   * Sets the Schema Registry image
+   */
+  def withSchemaRegistryImage(schemaRegistryImage: String): KafkaTestkitTestcontainersSettings =
+    copy(schemaRegistryImage = schemaRegistryImage)
+
+  /**
+   * Sets the Schema Registry image tag
+   */
+  def withSchemaRegistryImageTag(schemaRegistryImageTag: String): KafkaTestkitTestcontainersSettings =
+    copy(schemaRegistryImageTag = schemaRegistryImageTag)
 
   /**
    * Replaces the default number of Kafka brokers
@@ -155,10 +177,12 @@ final class KafkaTestkitTestcontainersSettings private (
     copy(containerLogging = containerLogging)
 
   private def copy(
-      confluentPlatformZooKeeperImage: String = confluentPlatformZooKeeperImage,
-      confluentPlatformKafkaImage: String = confluentPlatformKafkaImage,
-      confluentPlatformSchemaRegistryImage: String = confluentPlatformSchemaRegistryImage,
-      confluentPlatformVersion: String = confluentPlatformVersion,
+      zooKeeperImage: String = zooKeeperImage,
+      zooKeeperImageTag: String = zooKeeperImageTag,
+      kafkaImage: String = kafkaImage,
+      kafkaImageTag: String = kafkaImageTag,
+      schemaRegistryImage: String = schemaRegistryImage,
+      schemaRegistryImageTag: String = schemaRegistryImageTag,
       numBrokers: Int = numBrokers,
       internalTopicsReplicationFactor: Int = internalTopicsReplicationFactor,
       useSchemaRegistry: Boolean = useSchemaRegistry,
@@ -169,10 +193,12 @@ final class KafkaTestkitTestcontainersSettings private (
       configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper,
       configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] = configureZooKeeperConsumer
   ): KafkaTestkitTestcontainersSettings =
-    new KafkaTestkitTestcontainersSettings(confluentPlatformZooKeeperImage,
-                                           confluentPlatformKafkaImage,
-                                           confluentPlatformSchemaRegistryImage,
-                                           confluentPlatformVersion,
+    new KafkaTestkitTestcontainersSettings(zooKeeperImage,
+                                           zooKeeperImageTag,
+                                           kafkaImage,
+                                           kafkaImageTag,
+                                           schemaRegistryImage,
+                                           schemaRegistryImageTag,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
                                            useSchemaRegistry,
@@ -184,10 +210,12 @@ final class KafkaTestkitTestcontainersSettings private (
 
   override def toString: String =
     "KafkaTestkitTestcontainersSettings(" +
-    s"confluentPlatformZooKeeperImage=$confluentPlatformZooKeeperImage," +
-    s"confluentPlatformKafkaImage=$confluentPlatformKafkaImage," +
-    s"confluentPlatformSchemaRegistryImage=$confluentPlatformSchemaRegistryImage," +
-    s"confluentPlatformVersion=$confluentPlatformVersion," +
+    s"zooKeeperImage=$zooKeeperImage," +
+    s"zooKeeperImageTag=$zooKeeperImageTag," +
+    s"kafkaImage=$kafkaImage," +
+    s"kafkaImageTag=$kafkaImageTag," +
+    s"schemaRegistryImage=$schemaRegistryImage," +
+    s"schemaRegistryImageTag=$schemaRegistryImageTag," +
     s"numBrokers=$numBrokers," +
     s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
     s"useSchemaRegistry=$useSchemaRegistry," +
@@ -214,19 +242,23 @@ object KafkaTestkitTestcontainersSettings {
    * Create testkit testcontainres settings from a Config.
    */
   def apply(config: Config): KafkaTestkitTestcontainersSettings = {
-    val confluentPlatformZooKeeperImage = config.getString("confluent-platform-zookeeper-image")
-    val confluentPlatformKafkaImage = config.getString("confluent-platform-kafka-image")
-    val confluentPlatformSchemaRegistryImage = config.getString("confluent-platform-schema-registry-image")
-    val confluentPlatformVersion = config.getString("confluent-platform-version")
+    val zooKeeperImage = config.getString("zookeeper-image")
+    val zooKeeperImageTag = config.getString("zookeeper-image-tag")
+    val kafkaImage = config.getString("kafka-image")
+    val kafkaImageTag = config.getString("kafka-image-tag")
+    val schemaRegistryImage = config.getString("schema-registry-image")
+    val schemaRegistryImageTag = config.getString("schema-registry-image-tag")
     val numBrokers = config.getInt("num-brokers")
     val internalTopicsReplicationFactor = config.getInt("internal-topics-replication-factor")
     val useSchemaRegistry = config.getBoolean("use-schema-registry")
     val containerLogging = config.getBoolean("container-logging")
 
-    new KafkaTestkitTestcontainersSettings(confluentPlatformZooKeeperImage,
-                                           confluentPlatformKafkaImage,
-                                           confluentPlatformSchemaRegistryImage,
-                                           confluentPlatformVersion,
+    new KafkaTestkitTestcontainersSettings(zooKeeperImage,
+                                           zooKeeperImageTag,
+                                           kafkaImage,
+                                           kafkaImageTag,
+                                           schemaRegistryImage,
+                                           schemaRegistryImageTag,
                                            numBrokers,
                                            internalTopicsReplicationFactor,
                                            useSchemaRegistry,
