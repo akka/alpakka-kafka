@@ -6,6 +6,7 @@
 package akka.kafka.testkit.javadsl;
 
 import akka.actor.ActorSystem;
+import akka.actor.ClassicActorSystemProvider;
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings;
 import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
@@ -26,30 +27,22 @@ public abstract class TestcontainersKafkaTest extends KafkaTest {
   public static final KafkaTestkitTestcontainersSettings settings =
       TestcontainersKafka.Singleton().testcontainersSettings();
 
-  protected TestcontainersKafkaTest(ActorSystem system, Materializer materializer) {
-    super(system, materializer, startKafka(settings));
+  protected TestcontainersKafkaTest(ActorSystem system, Materializer mat) {
+    super(system, mat, startKafka(settings));
+  }
+
+  protected TestcontainersKafkaTest(ClassicActorSystemProvider system) {
+    super(system.classicSystem(), Materializer.matFromSystem(system), startKafka(settings));
   }
 
   protected TestcontainersKafkaTest(
-      ActorSystem system, Materializer materializer, KafkaTestkitTestcontainersSettings settings) {
-    super(system, materializer, startKafka(settings));
+      ActorSystem system, KafkaTestkitTestcontainersSettings settings) {
+    super(system, Materializer.matFromSystem(system), startKafka(settings));
   }
 
-  /** @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0 */
-  @Deprecated
   protected TestcontainersKafkaTest(
-      ActorSystem system, Materializer materializer, String confluentPlatformVersion) {
-    super(system, materializer, startKafka(confluentPlatformVersion));
-  }
-
-  /** @deprecated Use method with `testcontainersSettings` instead. since 2.0.0 */
-  @Deprecated
-  protected static String startKafka(String confluentPlatformVersion) {
-    KafkaTestkitTestcontainersSettings settings =
-        TestcontainersKafka.Singleton()
-            .testcontainersSettings()
-            .withConfluentPlatformVersion(confluentPlatformVersion);
-    return TestcontainersKafka.Singleton().startCluster(settings);
+      ActorSystem system, Materializer mat, KafkaTestkitTestcontainersSettings settings) {
+    super(system, mat, startKafka(settings));
   }
 
   protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {

@@ -1,0 +1,3 @@
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.KafkaTestkitTestcontainersSettings.confluentPlatformVersion")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.KafkaTestkitTestcontainersSettings.getConfluentPlatformVersion")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.testkit.KafkaTestkitTestcontainersSettings.withConfluentPlatformVersion")

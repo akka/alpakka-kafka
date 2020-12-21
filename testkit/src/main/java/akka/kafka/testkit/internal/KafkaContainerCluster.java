@@ -16,6 +16,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -32,8 +33,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @InternalApi
 public class KafkaContainerCluster implements Startable {
 
-  public static final String CONFLUENT_PLATFORM_VERSION =
-      AlpakkaKafkaContainer.DEFAULT_CONFLUENT_PLATFORM_VERSION;
+  public static final DockerImageName DEFAULT_ZOOKEEPER_IMAGE_NAME =
+      AlpakkaKafkaContainer.DEFAULT_ZOOKEEPER_IMAGE_NAME;
+  public static final DockerImageName DEFAULT_KAFKA_IMAGE_NAME =
+      AlpakkaKafkaContainer.DEFAULT_KAFKA_IMAGE_NAME;
+  public static final DockerImageName DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME =
+      SchemaRegistryContainer.DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME;
+
   public static final int START_TIMEOUT_SECONDS = 120;
   public static final int READINESS_CHECK_TIMEOUT = START_TIMEOUT_SECONDS;
 
@@ -43,21 +49,31 @@ public class KafkaContainerCluster implements Startable {
   private static final Version BOOTSTRAP_PARAM_MIN_VERSION = new Version("5.2.0");
 
   private final Logger log = LoggerFactory.getLogger(getClass());
-  private final Version confluentPlatformVersion;
+  private final Version kafkaImageTag;
   private final int brokersNum;
   private final Boolean useSchemaRegistry;
   private final Boolean containerLogging;
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
+  private DockerImageName schemaRegistryImage;
   private Optional<SchemaRegistryContainer> schemaRegistry = Optional.empty();
 
   public KafkaContainerCluster(int brokersNum, int internalTopicsRf) {
-    this(CONFLUENT_PLATFORM_VERSION, brokersNum, internalTopicsRf, false, false);
+    this(
+        DEFAULT_ZOOKEEPER_IMAGE_NAME,
+        DEFAULT_KAFKA_IMAGE_NAME,
+        DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME,
+        brokersNum,
+        internalTopicsRf,
+        false,
+        false);
   }
 
   public KafkaContainerCluster(
-      String confluentPlatformVersion,
+      DockerImageName zooKeeperImage,
+      DockerImageName kafkaImage,
+      DockerImageName schemaRegistryImage,
       int brokersNum,
       int internalTopicsRf,
       boolean useSchemaRegistry,
@@ -72,14 +88,15 @@ public class KafkaContainerCluster implements Startable {
               + "' must be less than brokersNum and greater than 0");
     }
 
-    this.confluentPlatformVersion = new Version(confluentPlatformVersion);
+    this.kafkaImageTag = new Version(kafkaImage.getVersionPart());
     this.brokersNum = brokersNum;
     this.useSchemaRegistry = useSchemaRegistry;
     this.containerLogging = containerLogging;
     this.network = Network.newNetwork();
+    this.schemaRegistryImage = schemaRegistryImage;
 
     this.zookeeper =
-        new GenericContainer("confluentinc/cp-zookeeper:" + confluentPlatformVersion)
+        new GenericContainer(zooKeeperImage)
             .withNetwork(network)
             .withNetworkAliases("zookeeper")
             .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(AlpakkaKafkaContainer.ZOOKEEPER_PORT));
@@ -88,7 +105,7 @@ public class KafkaContainerCluster implements Startable {
         IntStream.range(0, this.brokersNum)
             .mapToObj(
                 brokerNum ->
-                    new AlpakkaKafkaContainer(confluentPlatformVersion)
+                    new AlpakkaKafkaContainer(kafkaImage)
                         .withNetwork(this.network)
                         .withBrokerNum(brokerNum)
                         .withRemoteJmxService()
@@ -161,13 +178,15 @@ public class KafkaContainerCluster implements Startable {
 
       waitForClusterFormation();
 
-      this.schemaRegistry =
-          useSchemaRegistry
-              ? Optional.of(
-                  new SchemaRegistryContainer(confluentPlatformVersion.get())
-                      .withNetworkAliases("schema-registry")
-                      .withCluster(this))
-              : Optional.empty();
+      if (useSchemaRegistry) {
+        this.schemaRegistry =
+            Optional.of(
+                new SchemaRegistryContainer(this.schemaRegistryImage)
+                    .withNetworkAliases("schema-registry")
+                    .withCluster(this));
+      } else {
+        this.schemaRegistry = Optional.empty();
+      }
 
       // start schema registry if the container is initialized
       Startables.deepStart(optionalStream(this.schemaRegistry)).get(START_TIMEOUT_SECONDS, SECONDS);
@@ -279,7 +298,7 @@ public class KafkaContainerCluster implements Startable {
   }
 
   private String kafkaTopicConnectParam() {
-    if (this.confluentPlatformVersion.compareTo(BOOTSTRAP_PARAM_MIN_VERSION) >= 0) {
+    if (this.kafkaImageTag.compareTo(BOOTSTRAP_PARAM_MIN_VERSION) >= 0) {
       return "--bootstrap-server localhost:9092";
     } else {
       return "--zookeeper zookeeper:" + AlpakkaKafkaContainer.ZOOKEEPER_PORT;

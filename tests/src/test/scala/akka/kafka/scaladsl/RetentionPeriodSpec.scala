@@ -27,13 +27,15 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike {
+  private final val confluentPlatformVersion = "5.0.0"
 
   override val testcontainersSettings = KafkaTestkitTestcontainersSettings(system)
   // The bug commit refreshing circumvents was fixed in Kafka 2.1.0
   // https://issues.apache.org/jira/browse/KAFKA-4682
   // Confluent Platform 5.0.0 bundles Kafka 2.0.0
   // https://docs.confluent.io/current/installation/versions-interoperability.html
-    .withConfluentPlatformVersion("5.0.0")
+    .withKafkaImageTag(confluentPlatformVersion)
+    .withZooKeeperImageTag(confluentPlatformVersion)
     .withInternalTopicsReplicationFactor(1)
     .withConfigureKafka { brokerContainers =>
       brokerContainers.foreach {

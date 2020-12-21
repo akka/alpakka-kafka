@@ -12,7 +12,7 @@ Testcontainers also allow you to create a complete Kafka cluster (using Docker c
 You can override testcontainers settings to create multi-broker Kafka clusters, or to finetune Kafka Broker and ZooKeeper configuration, by updating @apidoc[KafkaTestkitTestcontainersSettings] in code or configuration.
 The @apidoc[KafkaTestkitTestcontainersSettings] type can be used to perform actions such as:
 
-* Set the version of Confluent Platform docker images to use
+* Set the docker image and tag of Kafka, ZooKeeper, and Schema Registry version to use (a recent Confluent Platform version is used by default)
 * Define number of Kafka brokers
 * Overriding container settings and environment variables (i.e. to change default Broker config)
 * Apply custom docker configuration to the Kafka and ZooKeeper containers used to create a cluster
