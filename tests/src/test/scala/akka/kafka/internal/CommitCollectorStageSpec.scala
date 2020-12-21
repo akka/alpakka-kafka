@@ -6,7 +6,6 @@
 package akka.kafka.internal
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
@@ -352,10 +351,15 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
         // batches are committed using mapAsyncUnordered, so it's possible to receive batch acknowledgements
         // downstream out of order.  get the last 2 batches.
-        val lastBatch :: secondLastBatch :: Nil = batches.sortBy(_.offsets.values.last).takeRight(2).reverse
+        val lastBatches = batches.sortBy(_.offsets.values.last).reverse.take(2)
+        lastBatches match {
+          case lastBatch :: secondLastBatch :: Nil =>
+            lastBatch.offsets(msg3.partitionOffset.key) shouldBe msg3.partitionOffset.offset withClue "expect the second offset of partition 1"
+            secondLastBatch.offsets(msg2.partitionOffset.key) shouldBe msg2.partitionOffset.offset withClue "expect the first offset of partition 2"
 
-        lastBatch.offsets(msg3.partitionOffset.key) shouldBe msg3.partitionOffset.offset withClue "expect the second offset of partition 1"
-        secondLastBatch.offsets(msg2.partitionOffset.key) shouldBe msg2.partitionOffset.offset withClue "expect the first offset of partition 2"
+          case list =>
+            fail(s"extracting the last batches failed: $list")
+        }
         offsetFactory.committer.commits.size shouldBe 3 withClue "expected only three commits"
 
         control.shutdown().futureValue shouldBe Done

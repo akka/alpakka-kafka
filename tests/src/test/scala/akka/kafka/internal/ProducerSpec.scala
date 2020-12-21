@@ -603,7 +603,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
           val callback = invocation.getArguments()(1).asInstanceOf[Callback]
           handler(record, callback).onComplete {
             case Success(value) if !closed => callback.onCompletion(value, null)
-            case Success(value) if closed => callback.onCompletion(null, new Exception("Kafka producer already closed"))
+            case Success(_) => callback.onCompletion(null, new Exception("Kafka producer already closed"))
             case Failure(ex: Exception) => callback.onCompletion(null, ex)
             case Failure(throwableUnsupported) => throw new Exception("Throwable failure are not supported")
           }
