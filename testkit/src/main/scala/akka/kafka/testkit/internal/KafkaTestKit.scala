@@ -40,7 +40,7 @@ trait KafkaTestKit {
     ProducerSettings(system, keySerializer, valueSerializer)
       .withBootstrapServers(bootstrapServers)
 
-  def consumerDefaults(): ConsumerSettings[String, String] = consumerDefaults(StringDeserializer, StringDeserializer)
+  def consumerDefaults: ConsumerSettings[String, String] = consumerDefaults(StringDeserializer, StringDeserializer)
 
   def consumerDefaults[K, V](keyDeserializer: Deserializer[K],
                              valueDeserializer: Deserializer[V]): ConsumerSettings[K, V] =
