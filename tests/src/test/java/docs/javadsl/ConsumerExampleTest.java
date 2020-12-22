@@ -407,23 +407,27 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     // #restartSource
     AtomicReference<Consumer.Control> control = new AtomicReference<>(Consumer.createNoopControl());
 
-    RestartSource.onFailuresWithBackoff(
-            RestartSettings.create(
-                java.time.Duration.ofSeconds(3), java.time.Duration.ofSeconds(30), 0.2),
-            () ->
-                Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
-                    .mapMaterializedValue(
-                        c -> {
-                          control.set(c);
-                          return c;
-                        })
-                    .via(business()))
-        .runWith(Sink.ignore(), system);
+    RestartSettings restartSettings =
+        RestartSettings.create(Duration.ofSeconds(3), Duration.ofSeconds(30), 0.2);
+    CompletionStage<Done> streamCompletion =
+        RestartSource.onFailuresWithBackoff(
+                restartSettings,
+                () ->
+                    Consumer.plainSource(consumerSettings, Subscriptions.topics(topic))
+                        .mapMaterializedValue(
+                            c -> {
+                              // this is a hack to get access to the Consumer.Control
+                              // instances of the latest Kafka Consumer source
+                              control.set(c);
+                              return c;
+                            })
+                        .via(business()))
+            .runWith(Sink.ignore(), system);
 
     // #restartSource
     assertDone(produceString(topic, 10, partition0));
     // #restartSource
-    control.get().shutdown();
+    control.get().drainAndShutdown(streamCompletion, system.getDispatcher());
     // #restartSource
   }
 

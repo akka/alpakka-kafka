@@ -471,24 +471,24 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     //#restartSource
     val control = new AtomicReference[Consumer.Control](Consumer.NoopControl)
 
-    val result = RestartSource
-      .onFailuresWithBackoff(RestartSettings(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2)) {
-        () =>
-          Consumer
-            .plainSource(consumerSettings, Subscriptions.topics(topic))
-            // this is a hack to get access to the Consumer.Control
-            // instances of the latest Kafka Consumer source
-            .mapMaterializedValue(c => control.set(c))
-            .via(businessFlow)
+    val restartSettings = RestartSettings(minBackoff = 3.seconds, maxBackoff = 30.seconds, randomFactor = 0.2)
+    val streamCompletion = RestartSource
+      .onFailuresWithBackoff(restartSettings) { () =>
+        Consumer
+          .plainSource(consumerSettings, Subscriptions.topics(topic))
+          // this is a hack to get access to the Consumer.Control
+          // instances of the latest Kafka Consumer source
+          .mapMaterializedValue(c => control.set(c))
+          .via(businessFlow)
       }
       .runWith(Sink.seq)
 
     //#restartSource
     awaitProduce(produce(topic, 1 to 10))
     //#restartSource
-    control.get().shutdown()
+    control.get().drainAndShutdown(streamCompletion)
     //#restartSource
-    Await.result(result, 5.seconds) should have size 10
+    Await.result(streamCompletion, 5.seconds) should have size 10
   }
 
   it should "work with committable source" in assertAllStagesStopped {
