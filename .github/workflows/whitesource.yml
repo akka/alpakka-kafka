@@ -3,6 +3,7 @@ name: Whitesource
 on:
   push:
     # runs on master and version-tagged commits
+    # FIXME: remove seglo/actions branch
     branches: [ master, seglo/actions ]
     tags: [ v.* ]
 

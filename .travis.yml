@@ -49,9 +49,9 @@ jobs:
 #      name: "Run multi-broker and long running integration tests"
 #    - env: CMD="benchmarks/it:compile"
 #      name: "Compile benchmark tests"
-
-    - stage: whitesource
-      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
+#
+#    - stage: whitesource
+#      env: CMD=";whitesourceCheckPolicies ;whitesourceUpdate"
 
     - stage: publish
       env: CMD="+publish"
@@ -71,10 +71,10 @@ stages:
 #  # runs on master commits and PRs
 #  - name: integration
 #    if: NOT tag =~ ^v
-
-  # runs on main repo master commits and version-tagged commits
-  - name: whitesource
-    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
+#
+#  # runs on main repo master commits and version-tagged commits
+#  - name: whitesource
+#    if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
   # runs on main repo master commits and version-tagged commits
   - name: publish

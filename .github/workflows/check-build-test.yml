@@ -23,6 +23,15 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/coursier
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.jabba
+
       - name: Set up JDK 11
         uses: olafurpg/setup-scala@v10
         with:
