@@ -33,5 +33,5 @@ jobs:
 
       - name: "Check Policies and Update"
         env:
-          - WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
+          WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
         run: sbt --client ";whitesourceCheckPolicies ;whitesourceUpdate"
