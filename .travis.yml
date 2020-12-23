@@ -12,6 +12,7 @@ before_install:
   - . ~/.jabba/jabba.sh
   - jabba install adopt@~1.8-0
   - jabba install adopt@~1.11-0
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
 script:
   - jabba use ${JDK:=adopt@~1.8-0}
@@ -102,5 +103,9 @@ env:
     - secure: "NLb9af0D3zS8UIHYqK86sLapFIN/iBpgXwjhc3t8e7bbVRVS1VKMNoqpzn75sd7rgYsComWboFUAo1oDMnGuOTf2onVOLDPWmp4QK568DVQTlEJ9rSI02RijjoPx4ViksI7wbh7Lz9VtupQVnBYU34Ozn7tuK12NGEHxQd9fCNE="
     # encrypt with: travis encrypt BINTRAY_PASS=...
     - secure: "DAhVvZ5hBy1MAznBCrQu6Rw6Pa7pCmqkpsYQFxG+y8Hsvi37WNMfyCOYcR6VnunMYWHDaFJ8LaqgWx8O4Usrl6JxZYt2J/jT7axKLqpsZg7xWaB2++tFWI2lZJewvb6EnPIZuEdr5oVKnazD5f55mxSqprOAHebim5IOXVaRGS0="
+    # encrypt with: travis encrypt DOCKER_USERNAME=...
+    - secure: "XiLDiiFChQexbeRPu9ZB7ck1yJDXOTRdOX1KzAW4UqUS6fDdWgZjSyT9l1bDzC9u2aV1fBBG85I4ilqKADGfHd0TkcFssFPstBkXqSxIFyp7jXTw6vBXO7ixtjEwmZXWZYFapAROl7HQKmFo5FJlpD8seIpJUgDTNxJUiAtpDqY="
+    # encrypt with: travis encrypt DOCKER_PASSWORD=...
+    - secure: "X7qWYzB5noRGNxd4bEIoGKwDn8VtZSHMi2FOuH0YVQqmstXC0HRZcPXqblBFkY/1gTunVMUdnj3FBQARhXqwJa7tpMhihIEjLiCgoccW9AHgvDg1B9rDkKwzTZoYTyxaQXJvkkOdkB66hHDdIQtCLl/QnL3ch3MgjuDmywik8kk="
     # override default akka.test.timefactor
     - AKKA_TEST_TIMEFACTOR=10.0
