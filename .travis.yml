@@ -80,19 +80,19 @@ stages:
   - name: publish
     if: repo = akka/alpakka-kafka AND ( ( branch = master AND type = push ) OR tag =~ ^v )
 
-after_failure:
-  - find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
+#after_failure:
+#  - find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
 
-before_cache:
-  - find $HOME/.ivy2/ -name "ivydata-*.properties" -print -delete
-  - find $HOME/.sbt   -name "*.lock"               -print -delete
-
-cache:
-  directories:
-    - $HOME/.cache/coursier
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt
-    - $HOME/.jabba
+#before_cache:
+#  - find $HOME/.ivy2/ -name "ivydata-*.properties" -print -delete
+#  - find $HOME/.sbt   -name "*.lock"               -print -delete
+#
+#cache:
+#  directories:
+#    - $HOME/.cache/coursier
+#    - $HOME/.ivy2/cache
+#    - $HOME/.sbt
+#    - $HOME/.jabba
 
 env:
   global:

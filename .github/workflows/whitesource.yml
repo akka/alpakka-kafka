@@ -36,7 +36,7 @@ jobs:
       - name: Cache Coursier cache
         uses: coursier/cache-action@v5
 
-      - name: "Check Policies and Update"
+      - name: Check Policies and Update
         env:
           WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
         run: sbt --client ";whitesourceCheckPolicies ;whitesourceUpdate"
