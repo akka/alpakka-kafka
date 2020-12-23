@@ -9,7 +9,7 @@ on:
 jobs:
   whitesource:
     # runs on main repo only
-    if: github.repository == 'akka/alpakka-kafka'
+    if: github.repository == 'foo/alpakka-kafka'
     name: Whitesource
     runs-on: ubuntu-18.04
     steps:
