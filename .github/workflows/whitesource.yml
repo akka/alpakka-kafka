@@ -11,6 +11,9 @@ jobs:
     # runs on main repo only
     if: github.repository == 'akka/alpakka-kafka'
     name: Whitesource
+    # the release environment provides access to secrets required in the release process
+    # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
+    environment: release
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -29,4 +32,6 @@ jobs:
         uses: olafurpg/setup-scala@v10
 
       - name: "Check Policies and Update"
+        env:
+          - WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
         run: sbt --client ";whitesourceCheckPolicies ;whitesourceUpdate"
