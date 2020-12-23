@@ -1,0 +1,32 @@
+name: Whitesource
+
+on:
+  push:
+    # runs on master and version-tagged commits
+    branches: [master,seglo/actions]
+    tags: [ v.* ]
+
+jobs:
+  whitesource:
+    # runs on main repo only
+    if: github.repository == 'akka/alpakka-kafka'
+    name: Whitesource
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+
+      - name: "Check Policies and Update"
+        run: sbt --client ";whitesourceCheckPolicies ;whitesourceUpdate"

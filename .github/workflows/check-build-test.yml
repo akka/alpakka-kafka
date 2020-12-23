@@ -1,9 +1,10 @@
-name: Check, Build, and Test
+name: CI
 
 on:
   pull_request:
   push:
     branches: [master]
+    tags-ignore: [ v.* ]
 
 jobs:
   check:
@@ -13,12 +14,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          # FIXME: since we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
           fetch-depth: 0
-
-      # FIXME: removed in favour of fetch-depth defined in Checkout step ^. i tried an arbitrarily large fetch depth 1000 and it still didn't work.
-      #      - name: Fetch tags
-      #        run: git fetch --depth=1000 origin +refs/tags/*:refs/tags/*
 
       - name: Checkout GitHub merge
         if: github.event.pull_request
