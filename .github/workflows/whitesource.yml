@@ -3,13 +3,13 @@ name: Whitesource
 on:
   push:
     # runs on master and version-tagged commits
-    branches: [master,seglo/actions]
+    branches: [ master ]
     tags: [ v.* ]
 
 jobs:
   whitesource:
     # runs on main repo only
-    if: github.repository == 'foo/alpakka-kafka'
+    if: github.repository == 'akka/alpakka-kafka'
     name: Whitesource
     runs-on: ubuntu-18.04
     steps:
