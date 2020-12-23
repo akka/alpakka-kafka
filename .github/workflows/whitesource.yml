@@ -3,7 +3,7 @@ name: Whitesource
 on:
   push:
     # runs on master and version-tagged commits
-    branches: [ master ]
+    branches: [ master, seglo/actions ]
     tags: [ v.* ]
 
 jobs:
