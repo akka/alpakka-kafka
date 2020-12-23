@@ -12,7 +12,7 @@ before_install:
   - . ~/.jabba/jabba.sh
   - jabba install adopt@~1.8-0
   - jabba install adopt@~1.11-0
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
 
 script:
   - jabba use ${JDK:=adopt@~1.8-0}
