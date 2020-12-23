@@ -23,19 +23,14 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cache/coursier
-            ~/.ivy2/cache
-            ~/.sbt
-            ~/.jabba
 
       - name: Set up JDK 11
         uses: olafurpg/setup-scala@v10
         with:
           java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
 
       - name: "Code style check and binary-compatibility check"
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
@@ -67,6 +62,9 @@ jobs:
       - name: Setup Scala with JDK 8
         uses: olafurpg/setup-scala@v10
 
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
       - name: "Run tests with Scala 2.12 and AdoptOpenJDK 8"
         run: sbt --client "++2.12.11 test"
   test-java8-scala213:
@@ -87,6 +85,9 @@ jobs:
 
       - name: Setup Scala with JDK 8
         uses: olafurpg/setup-scala@v10
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
 
       - name: "Run tests with Scala 2.13 and AdoptOpenJDK 8"
         run: sbt --client "++2.13.2 test"
@@ -110,6 +111,9 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
 
       - name: "Run tests with Scala 2.12 and AdoptOpenJDK 11"
         run: sbt --client "++2.12.11 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
@@ -135,6 +139,9 @@ jobs:
         with:
           java-version: adopt@1.11.0-9
 
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
       - name: "Run tests with Scala 2.13 and AdoptOpenJDK 11"
         run: sbt --client "++2.13.2 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
   integration-test:
@@ -156,6 +163,9 @@ jobs:
       - name: Setup Scala with JDK 8
         uses: olafurpg/setup-scala@v10
 
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
       - name: "Run multi-broker and long running integration tests"
         run: sbt --client "tests/it:test"
   build-benchmark:
@@ -176,6 +186,9 @@ jobs:
 
       - name: Setup Scala with JDK 8
         uses: olafurpg/setup-scala@v10
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
 
       - name: "Compile benchmark tests"
         run: sbt --client "benchmarks/it:compile"
