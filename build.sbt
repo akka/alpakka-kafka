@@ -13,7 +13,7 @@ val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "26"
 
 val akkaVersion = "2.6.10"
-val kafkaVersion = "2.6.0"
+val kafkaVersion = "2.7.0"
 // TODO Jackson is now a provided dependency of kafka-clients
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5.1"
