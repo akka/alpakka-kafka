@@ -40,15 +40,15 @@ jobs:
 
       - name: Code style check and binary-compatibility check
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
-        run: sbt --client "; verifyCodeStyle; mimaReportBinaryIssues"
+        run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
 
       - name: Compile all code with fatal warnings for Scala 2.13
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt --client "; Test/compile; It/compile"
+        run: sbt "; Test/compile; It/compile"
 
       - name: Create all API docs for artifacts/website and all reference docs
         # Run locally with: sbt verifyDocs
-        run: sbt --client verifyDocs
+        run: sbt verifyDocs
 
   test-java8-scala212:
     name: Build and Test (Java 8, Scala 2.12)
@@ -73,7 +73,7 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Run tests with Scala 2.12 and AdoptOpenJDK 8
-        run: sbt --client "++2.12.11 test"
+        run: sbt "++2.12.11 test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -101,7 +101,7 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Run tests with Scala 2.13 and AdoptOpenJDK 8
-        run: sbt --client "++2.13.2 test"
+        run: sbt "++2.13.2 test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -131,7 +131,7 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Run tests with Scala 2.12 and AdoptOpenJDK 11
-        run: sbt --client "++2.12.11 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
+        run: sbt "++2.12.11 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -161,7 +161,7 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Run tests with Scala 2.13 and AdoptOpenJDK 11
-        run: sbt --client "++2.13.2 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
+        run: sbt "++2.13.2 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -189,7 +189,7 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Run multi-broker and long running integration tests
-        run: sbt --client "tests/it:test"
+        run: sbt "tests/it:test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -217,4 +217,4 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: "Compile benchmark tests"
-        run: sbt --client "benchmarks/it:compile"
+        run: sbt "benchmarks/it:compile"
