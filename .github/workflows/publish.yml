@@ -38,9 +38,14 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Publish artifacts for all Scala versions
+        env:
+          BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
+          BINTRAY_PASS: ${{ secrets.BINTRAY_PASS }}
         run: sbt "+publish"
 
       - name: Publish API and reference documentation
+        env:
+          GUSTAV_KEY: ${{ secrets.GUSTAV_KEY }}
         run: |+
           cat $GUSTAV_KEY > .github/id_rsa
           eval "$(ssh-agent -s)"
