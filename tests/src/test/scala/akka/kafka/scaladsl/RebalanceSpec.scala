@@ -42,7 +42,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
     // this test added with https://github.com/akka/alpakka-kafka/pull/865
     "be removed from the source stage buffer when a partition is revoked" in assertAllStagesStopped {
       val count = 20L
-      // de-coupling consecutive test runs with crossScalaVersions on Travis
+      // de-coupling consecutive test runs with crossScalaVersions on build
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)
@@ -146,7 +146,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           .foreach { case (_, probe) => fun(probe) }
 
       val count = 20L
-      // de-coupling consecutive test runs with crossScalaVersions on Travis
+      // de-coupling consecutive test runs with crossScalaVersions on build
       val topicSuffix = Random.nextInt()
       val topic1 = createTopic(topicSuffix, partitions = 2)
       val group1 = createGroupId(1)

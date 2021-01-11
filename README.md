@@ -1,12 +1,12 @@
-Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![travis-badge][]][travis] [![gitter-badge][]][gitter]
+Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions] [![gitter-badge][]][gitter]
 =======================
 
 [scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka
 [scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/latest.svg
 [maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12
 [maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12/badge.svg
-[travis]:              https://travis-ci.com/akka/alpakka-kafka
-[travis-badge]:        https://travis-ci.com/akka/alpakka-kafka.svg?branch=master
+[gh-actions]:          https://github.com/akka/alpakka-kafka/actions
+[gh-actions-badge]:    https://github.com/akka/alpakka-kafka/workflows/CI/badge.svg?branch=master
 [gitter]:              https://gitter.im/akka/alpakka-kafka
 [gitter-badge]:        https://badges.gitter.im/akka/alpakka-kafka.svg
 

@@ -5,6 +5,12 @@ on:
   push:
     branches: [ master ]
     tags-ignore: [ v.* ]
+  schedule:
+    - cron:  '0 0 1 * *' # monthly
+
+env:
+  AKKA_TEST_TIMEFACTOR: 10.0
+  EVENT_NAME: ${{ github.event_name }}
 
 jobs:
   check:
