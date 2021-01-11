@@ -5,7 +5,6 @@ on:
     branches:
       - master
       - main
-      - seglo/actions # FIXME: remove
       - release-*
     tags: [ v.* ]
 
