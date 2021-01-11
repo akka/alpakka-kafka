@@ -9,6 +9,12 @@ on:
       - release-*
     tags: [ v.* ]
 
+env:
+  WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
+  BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
+  BINTRAY_PASS: ${{ secrets.BINTRAY_PASS }}
+  GUSTAV_KEY: ${{ secrets.GUSTAV_KEY }}
+
 jobs:
   release:
     # runs on main repo only
@@ -38,22 +44,15 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: Whitesource check policies and update
-        env:
-          WHITESOURCE_PASSWORD: ${{ secrets.WHITESOURCE_PASSWORD }}
         run: sbt --client ";whitesourceCheckPolicies ;whitesourceUpdate"
 
       - name: Publish artifacts for all Scala versions
-        env:
-          BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
-          BINTRAY_PASS: ${{ secrets.BINTRAY_PASS }}
         run: sbt --client "+publish"
 
       - name: Publish API and reference documentation
-        env:
-          GUSTAV_KEY: ${{ secrets.GUSTAV_KEY }}
         run: |+
           eval "$(ssh-agent -s)"
           echo $GUSTAV_KEY | base64 -di > .github/id_rsa
           chmod 600 .github/id_rsa
           ssh-add .github/id_rsa
-          sbt --client '++2.13.2 docs/publishRsync'
+          sbt --client "++2.13.2 docs/publishRsync"
