@@ -47,8 +47,8 @@ jobs:
         env:
           GUSTAV_KEY: ${{ secrets.GUSTAV_KEY }}
         run: |+
-          cat $GUSTAV_KEY > .github/id_rsa
           eval "$(ssh-agent -s)"
+          echo $GUSTAV_KEY | base64 -d > /tmp/id_rsa
           chmod 600 .github/id_rsa
           ssh-add .github/id_rsa
           sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
