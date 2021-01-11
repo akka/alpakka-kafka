@@ -11,7 +11,12 @@ on:
 
 jobs:
   publish:
-    name: Check
+    # runs on main repo only
+    if: github.repository == 'akka/alpakka-kafka'
+    name: Publish Artifacts
+    # the release environment provides access to secrets required in the release process
+    # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
+    environment: release
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
