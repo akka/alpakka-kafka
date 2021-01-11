@@ -7,7 +7,7 @@ name := "akka-stream-kafka"
 val Nightly = sys.env.get("TRAVIS_EVENT_TYPE").contains("cron")
 
 val Scala212 = "2.12.11"
-val Scala213 = "2.13.2"
+val Scala213 = "2.13.4"
 
 val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "26"
@@ -18,7 +18,7 @@ val kafkaVersion = "2.6.0"
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
 val jacksonVersion = "2.10.5.1"
 val scalatestVersion = "3.1.4"
-val testcontainersVersion = "1.15.0"
+val testcontainersVersion = "1.15.1"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
@@ -297,7 +297,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "3.6.28" % Test
+        "org.mockito" % "mockito-core" % "3.7.0" % Test
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>

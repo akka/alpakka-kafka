@@ -38,25 +38,9 @@ public abstract class TestcontainersKafkaJunit4Test extends KafkaJunit4Test {
     super(system, startKafka(settings));
   }
 
-  /** @deprecated Use constructor with `testcontainersSettings` instead. since 2.0.0 */
-  @Deprecated
-  protected TestcontainersKafkaJunit4Test(ActorSystem system, String confluentPlatformVersion) {
-    super(system, startKafka(confluentPlatformVersion));
-  }
-
   protected TestcontainersKafkaJunit4Test(
       ActorSystem system, KafkaTestkitTestcontainersSettings settings) {
     super(system, startKafka(settings));
-  }
-
-  /** @deprecated Use method with `testcontainersSettings` instead. since 2.0.0 */
-  @Deprecated
-  protected static String startKafka(String confluentPlatformVersion) {
-    KafkaTestkitTestcontainersSettings settings =
-        TestcontainersKafka.Singleton()
-            .testcontainersSettings()
-            .withConfluentPlatformVersion(confluentPlatformVersion);
-    return TestcontainersKafka.Singleton().startCluster(settings);
   }
 
   protected static String startKafka(KafkaTestkitTestcontainersSettings settings) {

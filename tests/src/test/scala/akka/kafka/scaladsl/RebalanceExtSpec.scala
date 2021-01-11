@@ -115,7 +115,7 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
       (0 until partitionCount).foreach(partitionIdx => {
         val tp1 = new TopicPartition(topic1, partitionIdx)
         tps = tps :+ tp1
-        tpFutureMap = tpFutureMap.updated(s"$topic1-$partitionIdx", Promise[Done])
+        tpFutureMap = tpFutureMap.updated(s"$topic1-$partitionIdx", Promise[Done]())
       })
     })
     val (producerTpsAck, messageStoreAndAck) = publishMessages(partitionCount, perPartitionMessageCount, topics)
@@ -139,9 +139,8 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
         val messageRange = startMessageIdx to endMessageIdx
         messageRange.foreach(messageId => {
           val partitionName = s"$topic1-$partitionIdx"
-          messageStoreAndAck =
-            messageStoreAndAck.updated(messageId,
-                                       MessageAck(partitionName, new AtomicInteger(0), Promise[Done], Promise[Done]))
+          messageStoreAndAck = messageStoreAndAck
+            .updated(messageId, MessageAck(partitionName, new AtomicInteger(0), Promise[Done](), Promise[Done]()))
         })
         produce(topic1, messageRange, partitionIdx).map { f =>
           val partitionName = s"$topic1-$partitionIdx"
