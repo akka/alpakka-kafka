@@ -260,10 +260,7 @@ lazy val clusterSharding = project
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
-          .getOrElse {
-            println(s"previous stable version: ${previousStableVersion.value}")
-            throw new Error("Unable to determine previous version")
-          }
+          .getOrElse(throw new Error("Unable to determine previous version"))
       )
   )
 
