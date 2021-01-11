@@ -1,0 +1,44 @@
+name: Publish Artifacts
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - seglo/actions # FIXME: remove
+      - release-*
+    tags: [ v.* ]
+
+jobs:
+  publish:
+    name: Check
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 8
+        uses: olafurpg/setup-scala@v10
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Publish artifacts for all Scala versions
+        run: sbt "+publish"
+
+      - name: Publish API and reference documentation
+        run: |+
+          cat $GUSTAV_KEY > .github/id_rsa
+          eval "$(ssh-agent -s)"
+          chmod 600 .github/id_rsa
+          ssh-add .github/id_rsa
+          sbt -jvm-opts .jvmopts-travis '++2.13.2 docs/publishRsync'
