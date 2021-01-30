@@ -172,7 +172,9 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
   @Override
   protected void doStart() {
     withCommand(
-        "sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + STARTER_SCRIPT);
+        "sh",
+        "-c",
+        "while [ ! -f " + START_STOP_SCRIPT + " ]; do sleep 0.1; done; " + START_STOP_SCRIPT);
 
     if (externalZookeeperConnect == null) {
       addExposedPort(ZOOKEEPER_PORT);
