@@ -11,6 +11,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 import scala.compat.java8.OptionConverters._
+import scala.jdk.DurationConverters._
 import scala.jdk.CollectionConverters._
 
 object TestcontainersKafka {
@@ -64,7 +65,9 @@ object TestcontainersKafka {
           numBrokers,
           internalTopicsReplicationFactor,
           settings.useSchemaRegistry,
-          settings.containerLogging
+          settings.containerLogging,
+          settings.clusterStartTimeout.toJava,
+          settings.readinessCheckTimeout.toJava
         )
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
