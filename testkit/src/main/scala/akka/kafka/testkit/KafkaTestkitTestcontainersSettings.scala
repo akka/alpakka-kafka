@@ -10,9 +10,10 @@ import java.util.function.Consumer
 
 import akka.actor.ActorSystem
 import akka.kafka.testkit.internal.AlpakkaKafkaContainer
+import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 import org.testcontainers.containers.GenericContainer
-import scala.jdk.DurationConverters._
+
 import scala.concurrent.duration.FiniteDuration
 
 final class KafkaTestkitTestcontainersSettings private (
@@ -93,12 +94,12 @@ final class KafkaTestkitTestcontainersSettings private (
   /**
    * Java Api
    */
-  def getClusterStartTimeout(): Duration = clusterStartTimeout.toJava
+  def getClusterStartTimeout(): Duration = clusterStartTimeout.asJava
 
   /**
    * Java Api
    */
-  def getReadinessCheckTimeout(): Duration = readinessCheckTimeout.toJava
+  def getReadinessCheckTimeout(): Duration = readinessCheckTimeout.asJava
 
   /**
    * Sets the ZooKeeper image
@@ -203,7 +204,7 @@ final class KafkaTestkitTestcontainersSettings private (
    * Kafka cluster start up timeout
    */
   def withClusterStartTimeout(timeout: Duration): KafkaTestkitTestcontainersSettings =
-    copy(clusterStartTimeout = timeout.toScala)
+    copy(clusterStartTimeout = timeout.asScala)
 
   /**
    * Kafka cluster readiness check timeout
@@ -217,7 +218,7 @@ final class KafkaTestkitTestcontainersSettings private (
    * Kafka cluster readiness check timeout
    */
   def withReadinessCheckTimeout(timeout: Duration): KafkaTestkitTestcontainersSettings =
-    copy(readinessCheckTimeout = timeout.toScala)
+    copy(readinessCheckTimeout = timeout.asScala)
 
   private def copy(
       zooKeeperImage: String = zooKeeperImage,
@@ -301,8 +302,8 @@ object KafkaTestkitTestcontainersSettings {
     val internalTopicsReplicationFactor = config.getInt("internal-topics-replication-factor")
     val useSchemaRegistry = config.getBoolean("use-schema-registry")
     val containerLogging = config.getBoolean("container-logging")
-    val clusterStartTimeout = config.getDuration("cluster-start-timeout").toScala
-    val readinessCheckTimeout = config.getDuration("readiness-check-timeout").toScala
+    val clusterStartTimeout = config.getDuration("cluster-start-timeout").asScala
+    val readinessCheckTimeout = config.getDuration("readiness-check-timeout").asScala
 
     new KafkaTestkitTestcontainersSettings(zooKeeperImage,
                                            zooKeeperImageTag,
