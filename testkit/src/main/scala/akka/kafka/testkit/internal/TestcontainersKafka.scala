@@ -7,6 +7,7 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
+import akka.util.JavaDurationConverters._
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -64,7 +65,9 @@ object TestcontainersKafka {
           numBrokers,
           internalTopicsReplicationFactor,
           settings.useSchemaRegistry,
-          settings.containerLogging
+          settings.containerLogging,
+          settings.clusterStartTimeout.asJava,
+          settings.readinessCheckTimeout.asJava
         )
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
