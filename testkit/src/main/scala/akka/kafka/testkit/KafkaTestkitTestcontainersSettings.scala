@@ -268,8 +268,8 @@ final class KafkaTestkitTestcontainersSettings private (
     s"internalTopicsReplicationFactor=$internalTopicsReplicationFactor," +
     s"useSchemaRegistry=$useSchemaRegistry," +
     s"containerLogging=$containerLogging, +" +
-    s"clusterStartTimeout=$clusterStartTimeout," +
-    s"readinessCheckTimeout=$readinessCheckTimeout)"
+    s"clusterStartTimeout=${clusterStartTimeout.toCoarsest}," +
+    s"readinessCheckTimeout=${readinessCheckTimeout.toCoarsest})"
 }
 
 object KafkaTestkitTestcontainersSettings {
