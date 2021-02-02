@@ -50,10 +50,17 @@ jobs:
         # Run locally with: sbt verifyDocs
         run: sbt verifyDocs
 
-  test-java8-scala212:
-    name: Build and Test (Java 8, Scala 2.12)
+  test:
+    name: Build and Test
     runs-on: ubuntu-18.04
     needs: check
+    strategy:
+      matrix:
+        include:
+          - { java-version: adopt@1.8,      scala-version: 2.12.11, sbt-opts: '' }
+          - { java-version: adopt@1.8,      scala-version: 2.13.2,  sbt-opts: '' }
+          - { java-version: adopt@1.11.0-9, scala-version: 2.12.11, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { java-version: adopt@1.11.0-9, scala-version: 2.13.2,  sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -66,106 +73,19 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Setup Scala with JDK 8
+      - name: Setup Scala with Java ${{ matrix.java-version }}
         uses: olafurpg/setup-scala@v10
 
       - name: Cache Coursier cache
         uses: coursier/cache-action@v5
 
-      - name: Run tests with Scala 2.12 and AdoptOpenJDK 8
-        run: sbt "++2.12.11 test"
+      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
+        run: sbt "++${{ matrix.scala-version }} test ${{ matrix.sbt-opts }}"
 
       - name: Print logs on failure
         if: ${{ failure() }}
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
-  test-java8-scala213:
-    name: Build and Test (Java 8, Scala 2.13)
-    runs-on: ubuntu-18.04
-    needs: check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
-      - name: Checkout GitHub merge
-        if: github.event.pull_request
-        run: |-
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
-          git checkout scratch
-
-      - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v10
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
-
-      - name: Run tests with Scala 2.13 and AdoptOpenJDK 8
-        run: sbt "++2.13.2 test"
-
-      - name: Print logs on failure
-        if: ${{ failure() }}
-        run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
-  test-java11-scala212:
-    name: Build and Test (Java 11, Scala 2.12)
-    runs-on: ubuntu-18.04
-    needs: check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Checkout GitHub merge
-        if: github.event.pull_request
-        run: |-
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
-          git checkout scratch
-
-      - name: Setup Scala with JDK 11
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: adopt@1.11.0-9
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
-
-      - name: Run tests with Scala 2.12 and AdoptOpenJDK 11
-        run: sbt "++2.12.11 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
-
-      - name: Print logs on failure
-        if: ${{ failure() }}
-        run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
-  test-java11-scala213:
-    name: Build and Test (Java 11, Scala 2.13)
-    runs-on: ubuntu-18.04
-    needs: check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Checkout GitHub merge
-        if: github.event.pull_request
-        run: |-
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
-          git checkout scratch
-
-      - name: Setup Scala with JDK 11
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: adopt@1.11.0-9
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
-
-      - name: Run tests with Scala 2.13 and AdoptOpenJDK 11
-        run: sbt "++2.13.2 test" -J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler
-
-      - name: Print logs on failure
-        if: ${{ failure() }}
-        run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
   integration-test:
     name: Integration tests
     needs: check
