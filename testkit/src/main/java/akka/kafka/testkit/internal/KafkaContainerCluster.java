@@ -19,6 +19,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -39,9 +40,8 @@ public class KafkaContainerCluster implements Startable {
       AlpakkaKafkaContainer.DEFAULT_KAFKA_IMAGE_NAME;
   public static final DockerImageName DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME =
       SchemaRegistryContainer.DEFAULT_SCHEMA_REGISTRY_IMAGE_NAME;
-
-  public static final int START_TIMEOUT_SECONDS = 120;
-  public static final int READINESS_CHECK_TIMEOUT = START_TIMEOUT_SECONDS;
+  public static final Duration DEFAULT_CLUSTER_START_TIMEOUT = Duration.ofSeconds(360);
+  public static final Duration DEFAULT_READINESS_CHECK_TIMEOUT = DEFAULT_CLUSTER_START_TIMEOUT;
 
   private static final String LOGGING_NAMESPACE_PREFIX = "akka.kafka.testkit.testcontainers.logs";
   private static final String READINESS_CHECK_SCRIPT = "/testcontainers_readiness_check.sh";
@@ -53,6 +53,8 @@ public class KafkaContainerCluster implements Startable {
   private final int brokersNum;
   private final Boolean useSchemaRegistry;
   private final Boolean containerLogging;
+  private final Duration clusterStartTimeout;
+  private final Duration readinessCheckTimeout;
   private final Network network;
   private final GenericContainer zookeeper;
   private final Collection<AlpakkaKafkaContainer> brokers;
@@ -67,7 +69,9 @@ public class KafkaContainerCluster implements Startable {
         brokersNum,
         internalTopicsRf,
         false,
-        false);
+        false,
+        DEFAULT_CLUSTER_START_TIMEOUT,
+        DEFAULT_READINESS_CHECK_TIMEOUT);
   }
 
   public KafkaContainerCluster(
@@ -77,7 +81,9 @@ public class KafkaContainerCluster implements Startable {
       int brokersNum,
       int internalTopicsRf,
       boolean useSchemaRegistry,
-      boolean containerLogging) {
+      boolean containerLogging,
+      Duration clusterStartTimeout,
+      Duration readinessCheckTimeout) {
     if (brokersNum < 0) {
       throw new IllegalArgumentException("brokersNum '" + brokersNum + "' must be greater than 0");
     }
@@ -92,6 +98,8 @@ public class KafkaContainerCluster implements Startable {
     this.brokersNum = brokersNum;
     this.useSchemaRegistry = useSchemaRegistry;
     this.containerLogging = containerLogging;
+    this.clusterStartTimeout = clusterStartTimeout;
+    this.readinessCheckTimeout = readinessCheckTimeout;
     this.network = Network.newNetwork();
     this.schemaRegistryImage = schemaRegistryImage;
 
@@ -165,7 +173,7 @@ public class KafkaContainerCluster implements Startable {
     try {
       configureContainerLogging();
       Stream<Startable> startables = this.brokers.stream().map(Startable.class::cast);
-      Startables.deepStart(startables).get(START_TIMEOUT_SECONDS, SECONDS);
+      Startables.deepStart(startables).get(clusterStartTimeout.getSeconds(), SECONDS);
 
       this.brokers.stream()
           .findFirst()
@@ -189,7 +197,8 @@ public class KafkaContainerCluster implements Startable {
       }
 
       // start schema registry if the container is initialized
-      Startables.deepStart(optionalStream(this.schemaRegistry)).get(START_TIMEOUT_SECONDS, SECONDS);
+      Startables.deepStart(optionalStream(this.schemaRegistry))
+          .get(clusterStartTimeout.getSeconds(), SECONDS);
 
     } catch (Exception ex) {
       throw new RuntimeException(ex);
@@ -248,7 +257,7 @@ public class KafkaContainerCluster implements Startable {
   private void runReadinessCheck(String logLine, Callable<Boolean> fn) {
     try {
       log.debug("Start: {}", logLine);
-      Unreliables.retryUntilTrue(READINESS_CHECK_TIMEOUT, TimeUnit.SECONDS, fn);
+      Unreliables.retryUntilTrue((int) readinessCheckTimeout.getSeconds(), TimeUnit.SECONDS, fn);
     } catch (Throwable t) {
       log.error("Failed: {}", logLine);
       throw t;
