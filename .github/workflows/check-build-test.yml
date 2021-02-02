@@ -13,47 +13,47 @@ env:
   EVENT_NAME: ${{ github.event_name }}
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-18.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
-          fetch-depth: 0
-
-      - name: Checkout GitHub merge
-        if: github.event.pull_request
-        run: |-
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
-          git checkout scratch
-
-
-      - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: adopt@1.11.0-9
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
-
-      - name: Code style check and binary-compatibility check
-        # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
-        run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
-
-      - name: Compile all code with fatal warnings for Scala 2.13
-        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt "; Test/compile; It/compile"
-
-      - name: Create all API docs for artifacts/website and all reference docs
-        # Run locally with: sbt verifyDocs
-        run: sbt verifyDocs
+#  check:
+#    name: Check
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v2
+#        with:
+#          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+#          fetch-depth: 0
+#
+#      - name: Checkout GitHub merge
+#        if: github.event.pull_request
+#        run: |-
+#          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+#          git checkout scratch
+#
+#
+#      - name: Set up JDK 11
+#        uses: olafurpg/setup-scala@v10
+#        with:
+#          java-version: adopt@1.11.0-9
+#
+#      - name: Cache Coursier cache
+#        uses: coursier/cache-action@v5
+#
+#      - name: Code style check and binary-compatibility check
+#        # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
+#        run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
+#
+#      - name: Compile all code with fatal warnings for Scala 2.13
+#        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
+#        run: sbt "; Test/compile; It/compile"
+#
+#      - name: Create all API docs for artifacts/website and all reference docs
+#        # Run locally with: sbt verifyDocs
+#        run: sbt verifyDocs
 
   test:
     name: Build and Test
     runs-on: ubuntu-18.04
-    needs: check
+#    needs: check
     strategy:
       matrix:
         include:
@@ -75,12 +75,14 @@ jobs:
 
       - name: Setup Scala with Java ${{ matrix.java-version }}
         uses: olafurpg/setup-scala@v10
+        with:
+          java-version: ${{ matrix.java-version }}
 
       - name: Cache Coursier cache
         uses: coursier/cache-action@v5
 
       - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt "++${{ matrix.scala-version }} test ${{ matrix.sbt-opts }}"
+        run: sbt "++${{ matrix.scala-version }} test" ${{ matrix.sbt-opts }}
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -88,7 +90,7 @@ jobs:
 
   integration-test:
     name: Integration tests
-    needs: check
+#    needs: check
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -116,7 +118,7 @@ jobs:
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
   build-benchmark:
     name: Build benchmarks
-    needs: check
+#    needs: check
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
