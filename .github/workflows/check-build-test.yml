@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - release-*
+    tags-ignore: [ v.* ]
+
+env:
+  AKKA_TEST_TIMEFACTOR: 10.0
+  EVENT_NAME: ${{ github.event_name }}
+
+jobs:
+  check-code-style:
+    name: Check Code Style
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Code style check and binary-compatibility check
+        # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
+        run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
+
+  check-code-compililation:
+    name: Check Code Compilation
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Compile all code with fatal warnings for Java 11 and Scala 2.13
+        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
+        run: sbt "; Test/compile; It/compile"
+
+  check-docs:
+    name: Check Docs
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Set up JDK 11
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Create all API docs for artifacts/website and all reference docs
+        # Run locally with: sbt verifyDocs
+        run: sbt verifyDocs
+
+  test:
+    name: Build and Test
+    runs-on: ubuntu-18.04
+    needs: [check-code-style, check-code-compililation, check-docs]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { java-version: adopt@1.8,      scala-version: 2.12.11, sbt-opts: '' }
+          - { java-version: adopt@1.8,      scala-version: 2.13.2,  sbt-opts: '' }
+          - { java-version: adopt@1.11.0-9, scala-version: 2.12.11, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { java-version: adopt@1.11.0-9, scala-version: 2.13.2,  sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with Java ${{ matrix.java-version }}
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: ${{ matrix.java-version }}
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
+        run: sbt "++${{ matrix.scala-version }} test" ${{ matrix.sbt-opts }}
+
+      - name: Print logs on failure
+        if: ${{ failure() }}
+        run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
+
+  integration-test:
+    name: Integration tests
+    needs: [check-code-style, check-code-compililation, check-docs]
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 8
+        uses: olafurpg/setup-scala@v10
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: Run multi-broker and long running integration tests
+        run: sbt "tests/it:test"
+
+      - name: Print logs on failure
+        if: ${{ failure() }}
+        run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
+  build-benchmark:
+    name: Build benchmarks
+    needs: [check-code-style, check-code-compililation, check-docs]
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 8
+        uses: olafurpg/setup-scala@v10
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v5
+
+      - name: "Compile benchmark tests"
+        run: sbt "benchmarks/it:compile"
