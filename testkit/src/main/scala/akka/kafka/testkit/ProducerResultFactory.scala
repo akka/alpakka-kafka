@@ -48,6 +48,14 @@ object ProducerResultFactory {
       passThrough: PassThrough
   ): ProducerMessage.MultiResult[K, V, PassThrough] = ProducerMessage.MultiResult(parts, passThrough)
 
+  def multiResult[K, V, PassThrough](
+      message: ProducerMessage.MultiMessage[K, V, PassThrough]
+  ): ProducerMessage.MultiResult[K, V, PassThrough] =
+    ProducerResultFactory.multiResult(
+      message.records.map(r => ProducerResultFactory.multiResultPart(recordMetadata(r), r)),
+      message.passThrough
+    )
+
   /** Java API */
   def multiResult[K, V, PassThrough](
       parts: java.util.Collection[ProducerMessage.MultiResultPart[K, V]],
