@@ -1,10 +1,10 @@
 Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions] [![gitter-badge][]][gitter]
 =======================
 
-[scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka
-[scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/latest.svg
-[maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12
-[maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.12/badge.svg
+[scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/
+[scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/latest.svg?target=_2.13
+[maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13
+[maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13/badge.svg
 [gh-actions]:          https://github.com/akka/alpakka-kafka/actions
 [gh-actions-badge]:    https://github.com/akka/alpakka-kafka/workflows/CI/badge.svg?branch=master
 [gitter]:              https://gitter.im/akka/alpakka-kafka
