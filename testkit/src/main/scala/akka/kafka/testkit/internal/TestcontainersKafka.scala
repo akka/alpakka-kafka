@@ -6,7 +6,7 @@
 package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
-import akka.kafka.testkit.scaladsl.{KafkaSpec, ScalatestKafkaSpec}
+import akka.kafka.testkit.scaladsl.KafkaSpec
 import akka.util.JavaDurationConverters._
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
@@ -101,7 +101,9 @@ object TestcontainersKafka {
         )
   }
 
-  private class SpecBase extends ScalatestKafkaSpec(-1) with Spec
+  // the test base type used for Singleton cannot reference ScalaTest types so that it's compatible with JUnit-only test projects
+  // see https://github.com/akka/alpakka-kafka/issues/1327
+  private class SpecBase extends KafkaSpec(-1) with Spec
 
   val Singleton: Spec = new SpecBase
 }
