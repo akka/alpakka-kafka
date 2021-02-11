@@ -57,7 +57,7 @@ object ResetProtectionSettings {
   def apply(config: Config): ResetProtectionSettings = {
     val enable = config.getBoolean("enable")
     if (enable) {
-      val offsetThreshold = config.getInt("offset-threshold")
+      val offsetThreshold = config.getLong("offset-threshold")
       val timeThreshold = config.getDuration("time-threshold").asScala
       apply(offsetThreshold, timeThreshold)
     } else Disabled

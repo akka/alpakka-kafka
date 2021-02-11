@@ -113,7 +113,7 @@ import scala.util.control.NonFatal
     }
     private final class Impl(commitRefreshInterval: FiniteDuration, progress: ConsumerProgressTracking)
         extends CommitRefreshing
-        with ConsumerProgressTrackingListener {
+        with ConsumerAssignmentTrackingListener {
       progress.addProgressTrackingCallback(this)
 
       private var refreshDeadlines: Map[TopicPartition, Deadline] = Map.empty[TopicPartition, Deadline]
@@ -320,7 +320,7 @@ import scala.util.control.NonFatal
           checkOverlappingRequests("Assign", sender(), assignedTps)
           val previousAssigned = consumer.assignment()
           consumer.assign((assignedTps.toSeq ++ previousAssigned.asScala).asJava)
-          progressTracker.assignedPositions(assignedTps, consumer, positionTimeout)
+          progressTracker.assignedPositionsAndSeek(assignedTps, consumer, positionTimeout)
 
         case AssignWithOffset(assignedOffsets) =>
           checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
@@ -768,7 +768,7 @@ import scala.util.control.NonFatal
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
-      progressTracker.assignedPositions(tps, consumer, positionTimeout)
+      progressTracker.assignedPositionsAndSeek(tps, consumer, positionTimeout)
       val startTime = System.nanoTime()
       partitionAssignmentHandler.onAssign(tps, restrictedConsumer)
       checkDuration(startTime, "onAssign")

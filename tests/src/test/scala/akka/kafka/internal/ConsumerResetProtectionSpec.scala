@@ -15,7 +15,6 @@ import akka.testkit.{ImplicitSender, TestKit}
 import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.TimestampType
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
@@ -27,7 +26,6 @@ class ConsumerResetProtectionSpec
     extends TestKit(ActorSystem("ConsumerResetProtectionSpec"))
     with ImplicitSender
     with AnyWordSpecLike
-    with BeforeAndAfterAll
     with Matchers
     with LogCapturing {
 
@@ -46,6 +44,21 @@ class ConsumerResetProtectionSpec
 
     val records = asConsumerRecords(m1)
 
+    def shouldHaveEqualRecords[K, V](expected: ConsumerRecords[K, V], actual: ConsumerRecords[K, V]): Unit = {
+      expected.count() should be(actual.count())
+      expected.iterator().asScala.zip(actual.iterator().asScala).zipWithIndex.foreach {
+        case ((expect, act), index) =>
+          val fail = s"Mismatch at index $index between expected: \n$expect and actual: \n$act"
+
+          assert(expect.topic.equals(act.topic), fail)
+          assert(expect.partition().equals(act.partition), fail)
+          assert(expect.key == act.key, fail)
+          assert(expect.value == act.value, fail)
+          assert(expect.offset.equals(act.offset), fail)
+          assert(expect.timestamp.equals(act.timestamp), fail)
+      }
+    }
+
     "seek offsets when getting an offset beyond offset threshold" in {
       val progress = new ConsumerProgressTrackerImpl()
       val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10, 1.day), () => progress)
@@ -55,7 +68,7 @@ class ConsumerResetProtectionSpec
       expectMsg(10.seconds, Seek(Map(tp -> 100L)))
     }
 
-    "skip validing offsets when have not received a message yet" in {
+    "skip validating offsets when have not received a message yet" in {
       val progress = new ConsumerProgressTrackerImpl()
       val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10000000, 1.day), () => progress)
 
@@ -96,15 +109,19 @@ class ConsumerResetProtectionSpec
     "ignore partitions for which there is no previous assignment" in {
       val progress = new ConsumerProgressTrackerImpl()
       val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10, 1.day), () => progress)
-      protection.protect[String, String](self, records).count() should be(1)
+      // no assignment, records are passed through
+      var protectedRecords = protection.protect[String, String](self, records)
+      shouldHaveEqualRecords(records, protectedRecords)
 
       // try assigning and then filtering
       val tp1 = new TopicPartition("tp1", 0)
       progress.assignedPositions(Set(tp1), Map(tp1 -> 100L))
-      // with an assignment, but no applicable "base" offsets in this batch, no change
-      protection.protect[String, String](self, records).count() should be(1)
-      // drop the old offsets in this batch, so batch to the original set of records
-      protection
+      // there was an assignment, but no applicable offsets in this batch (records is tp, not tp1), so the records are
+      // passed through
+      protectedRecords = protection.protect[String, String](self, records)
+      shouldHaveEqualRecords(records, protectedRecords)
+      // drop the old offsets in this batch, so back to the original set of records
+      protectedRecords = protection
         .protect(self,
                  new ConsumerRecords(
                    Map(
@@ -112,7 +129,7 @@ class ConsumerResetProtectionSpec
                      tp1 -> List(new ConsumerRecord(tp1.topic(), tp1.partition(), 10L, "k1", "kv")).asJava
                    ).asJava
                  ))
-        .count() should be(1)
+      shouldHaveEqualRecords(records, protectedRecords)
     }
 
     // This is a bit interesting, as we technically allow Kafka to send us records that are outside the allowed

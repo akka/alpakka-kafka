@@ -110,20 +110,27 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val tp0 = new TopicPartition("t", 0)
     val duration = java.time.Duration.ofSeconds(10)
     Mockito.when(consumer.position(tp0, duration)).thenReturn(5)
-    tracker.assignedPositions(Set(tp0), consumer, duration)
+    tracker.assignedPositionsAndSeek(Set(tp0), consumer, duration)
     tracker.requestedOffsets(tp0).offset() should be(5)
     tracker.committedOffsets(tp0).offset() should be(5)
   }
 
   it should "pass through requests to listeners" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    val delegate = new ConsumerProgressTrackerImpl()
-    tracker.addProgressTrackingCallback(delegate)
+    val listener = new ConsumerAssignmentTrackingListener {
+      var state = Map[TopicPartition, Long]()
+      override def revoke(revokedTps: Set[TopicPartition]): Unit = {
+        state = state.filter { case (tp, _) => !revokedTps.contains(tp) }
+      }
+      override def assignedPositions(assignedTps: Set[TopicPartition],
+                                     assignedOffsets: Map[TopicPartition, Long]): Unit = {
+        state = state ++ assignedOffsets
+      }
+    }
+    tracker.addProgressTrackingCallback(listener)
 
-    def verifyOffsetsAreTheSame(): Unit = {
-      delegate.requestedOffsets should be(tracker.requestedOffsets)
-      delegate.receivedMessages should be(tracker.receivedMessages)
-      delegate.committedOffsets should be(tracker.committedOffsets)
+    def verifyOffsets(offsets: Map[TopicPartition, Long]): Unit = {
+      listener.state should be(offsets)
     }
 
     // assign
@@ -132,32 +139,17 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val duration = java.time.Duration.ofSeconds(10)
     Mockito.when(consumer.position(tp, duration)).thenReturn(0)
     Mockito.when(consumer.position(tp1, duration)).thenReturn(10)
-    tracker.assignedPositions(Set(tp, tp1), consumer, duration)
+    tracker.assignedPositionsAndSeek(Set(tp, tp1), consumer, duration)
 
-    verifyOffsetsAreTheSame()
+    verifyOffsets(Map(tp -> 0, tp1 -> 10))
     Mockito.verify(consumer).position(tp, duration)
     Mockito.verify(consumer).position(tp1, duration)
 
-    // request
-    tracker.requested(Map(tp -> offset(1)))
-    verifyOffsetsAreTheSame()
-
-    // receive
-    tracker.received(
-      asConsumerRecords(tp, new ConsumerRecord[String, String](tp.topic(), tp.partition(), 10L, "k1", "kv"))
-    )
-    tracker.receivedMessages(tp).offset should be(10L)
-    verifyOffsetsAreTheSame()
-
-    // commit
-    tracker.committed(Map(tp -> offset(2)).asJava)
-    verifyOffsetsAreTheSame()
-
     // revoke
     tracker.revoke(Set(tp1))
-    verifyOffsetsAreTheSame()
+    verifyOffsets(Map(tp -> 0))
     tracker.revoke(Set(tp))
-    verifyOffsetsAreTheSame()
+    verifyOffsets(Map())
   }
 
   private def offset(off: Long) = new OffsetAndMetadata(off)

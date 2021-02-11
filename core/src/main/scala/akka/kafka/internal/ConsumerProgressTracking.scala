@@ -10,18 +10,17 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.jdk.CollectionConverters._
 
-// maintain our own OffsetAndTimestamp which can tolerate negative timestamps, which happen for old clients that
-// don't set timestamp explicitly.
-case class SafeOffsetAndTimestamp(offset: Long, timestamp: Long)
+/**
+ * Maintain our own OffsetAndTimestamp which can tolerate negative timestamps, which happen for old clients that
+ * don't set timestamp explicitly.
+ */
+final case class SafeOffsetAndTimestamp(offset: Long, timestamp: Long)
 
 /**
- * Listen for changes to the consumer progress.
+ * Listen for changes to the consumer assignments.
  */
 @InternalApi
-trait ConsumerProgressTrackingListener {
-  def requested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
-  def received[K, V](records: ConsumerRecords[K, V]): Unit = {}
-  def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+trait ConsumerAssignmentTrackingListener {
   def revoke(revokedTps: Set[TopicPartition]): Unit = {}
   def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {}
 }
@@ -33,15 +32,18 @@ trait ConsumerProgressTrackingListener {
  * configured offset-reset policy).
  */
 @InternalApi
-trait ConsumerProgressTracking extends ConsumerProgressTrackingListener {
+trait ConsumerProgressTracking extends ConsumerAssignmentTrackingListener {
   def requestedOffsets: Map[TopicPartition, OffsetAndMetadata] = null
   def receivedMessages: Map[TopicPartition, SafeOffsetAndTimestamp] = null
   def committedOffsets: Map[TopicPartition, OffsetAndMetadata] = null
 
-  def assignedPositions(assignedTps: Set[TopicPartition],
-                        consumer: Consumer[_, _],
-                        positionTimeout: java.time.Duration): Unit = {}
-  def addProgressTrackingCallback(callback: ConsumerProgressTrackingListener): Unit = {}
+  def requested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+  def received[K, V](records: ConsumerRecords[K, V]): Unit = {}
+  def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+  def assignedPositionsAndSeek(assignedTps: Set[TopicPartition],
+                               consumer: Consumer[_, _],
+                               positionTimeout: java.time.Duration): Unit = {}
+  def addProgressTrackingCallback(callback: ConsumerAssignmentTrackingListener): Unit = {}
 }
 
 @InternalApi
@@ -49,7 +51,7 @@ object ConsumerProgressTrackerNoop extends ConsumerProgressTracking {}
 
 @InternalApi
 final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
-  private var assignedOffsetsCallbacks: Seq[ConsumerProgressTrackingListener] = Seq()
+  private var assignedOffsetsCallbacks: Seq[ConsumerAssignmentTrackingListener] = Seq()
   private var requestedOffsetsImpl = Map.empty[TopicPartition, OffsetAndMetadata]
   private var receivedMessagesImpl = Map.empty[TopicPartition, SafeOffsetAndTimestamp]
   private var committedOffsetsImpl = Map.empty[TopicPartition, OffsetAndMetadata]
@@ -60,7 +62,7 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
 
   override def committedOffsets: Map[TopicPartition, OffsetAndMetadata] = committedOffsetsImpl
 
-  override def addProgressTrackingCallback(callback: ConsumerProgressTrackingListener): Unit = {
+  override def addProgressTrackingCallback(callback: ConsumerAssignmentTrackingListener): Unit = {
     assignedOffsetsCallbacks = assignedOffsetsCallbacks :+ callback
   }
 
@@ -74,17 +76,14 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
           case (partition, record) =>
             partition -> new SafeOffsetAndTimestamp(record.offset(), record.timestamp())
         }
-    assignedOffsetsCallbacks.foreach(_.received(received))
   }
 
   override def requested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {
     requestedOffsetsImpl = requestedOffsets ++ offsets
-    assignedOffsetsCallbacks.foreach(_.requested(offsets))
   }
 
   override def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {
     committedOffsetsImpl = committedOffsets ++ offsets.asScala.toMap
-    assignedOffsetsCallbacks.foreach(_.committed(offsets))
   }
 
   override def revoke(revokedTps: Set[TopicPartition]): Unit = {
@@ -106,9 +105,9 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
     assignedOffsetsCallbacks.foreach(_.assignedPositions(assignedTps, assignedOffsets))
   }
 
-  override def assignedPositions(assignedTps: Set[TopicPartition],
-                                 consumer: Consumer[_, _],
-                                 positionTimeout: java.time.Duration): Unit = {
+  override def assignedPositionsAndSeek(assignedTps: Set[TopicPartition],
+                                        consumer: Consumer[_, _],
+                                        positionTimeout: java.time.Duration): Unit = {
     val assignedOffsets = assignedTps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
     assignedPositions(assignedTps, assignedOffsets)
   }

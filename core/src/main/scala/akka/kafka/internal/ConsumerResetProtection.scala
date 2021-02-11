@@ -8,18 +8,29 @@ package akka.kafka.internal
 import java.util
 
 import akka.actor.ActorRef
+import akka.annotation.InternalApi
 import akka.event.LoggingAdapter
 import akka.kafka.ResetProtectionSettings
 import akka.kafka.internal.KafkaConsumerActor.Internal.Seek
-import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, OffsetAndTimestamp}
+import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 
 import scala.jdk.CollectionConverters._
 
+@InternalApi
 trait ConsumerResetProtection {
+
+  /**
+   * Check the offsets of the records for each partition are not "much older" than the records that we have seen thus
+   * far for the partition. Records/partitions that appear to have rewound to a much earlier time (as defined by the
+   * configured threshold) are dropped and the consumer is seeked back to the last safe offset for that partition - the
+   * last committed offset for the partition. Records that are newer - or within the rewind threshold - are passed
+   * through.
+   */
   def protect[K, V](consumer: ActorRef, records: ConsumerRecords[K, V]): ConsumerRecords[K, V]
 }
 
+@InternalApi
 object ConsumerResetProtection {
   def apply[K, V](log: LoggingAdapter,
                   resetProtection: ResetProtectionSettings,
@@ -36,8 +47,6 @@ object ConsumerResetProtection {
                            progress: ConsumerProgressTracking)
       extends ConsumerResetProtection {
     override def protect[K, V](consumer: ActorRef, records: ConsumerRecords[K, V]): ConsumerRecords[K, V] = {
-      // check the fetched offsets of the records for each partition are not much older than the
-      // records that we have seen thus far
       val safe: java.util.Map[TopicPartition, java.util.List[ConsumerRecord[K, V]]] =
         records
           .partitions()
@@ -97,22 +106,17 @@ object ConsumerResetProtection {
         if (resetProtection.offsetThreshold < Long.MaxValue &&
             requestVersusCommitted > resetProtection.offsetThreshold) {
           log.warning(
-            s"""
-              |Your last requested offset $requested is more than the configured threshold from the last committed
-              |offset ($committed) for $tp. See
-              |https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#setting-offset-threshold-appropriately
-              |for more info.
-              |""".stripMargin
+            s"Your last requested offset $requested is more than the configured threshold from the last" +
+            s"committed offset ($committed) for $tp. See " +
+            "https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#setting-offset-threshold-appropriately for more info."
           )
         }
         log.warning(
-          s"""
-             |Dropping offsets for partition $tp - received an offset which is less than allowed $threshold from the
-             |last requested offset (threshold: $threshold). Seeking to the latest known safe
-             |(committed or assigned) offset: $committed. See
-             |https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#unexpected-consumer-offset-reset
-             |for more information.
-             |""".stripMargin
+          s"Dropping offsets for partition $tp - received an offset which is less than allowed $threshold " +
+          s"from the  last requested offset (threshold: $threshold). Seeking to the latest known safe (committed " +
+          s"or assigned) offset: $committed. See  " +
+          "https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#unexpected-consumer-offset-reset" +
+          "for more information."
         )
         consumer ! Seek(Map(tp -> committed.offset()))
         None
