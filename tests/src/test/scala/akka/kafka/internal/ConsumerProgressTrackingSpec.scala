@@ -13,6 +13,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
+import scala.language.reflectiveCalls
 
 class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with LogCapturing {
 
@@ -23,23 +24,26 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
   }
   private val records = asConsumerRecords(tp, m1)
 
+  private def extractOffsetFromSafe(entry: (TopicPartition, SafeOffsetAndTimestamp)) = (entry._1, entry._2.offset)
+  private def extractOffset(entry: (TopicPartition, OffsetAndMetadata)) = (entry._1, entry._2.offset())
+
   it should "add requested offsets" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    tracker.requestedOffsets shouldBe empty
+    tracker.commitRequested shouldBe empty
     tracker.committedOffsets shouldBe empty
-    tracker.requested(Map(tp -> offset(0)))
-    tracker.requestedOffsets should have size 1
-    tracker.requestedOffsets(tp).offset() should be(0)
+    tracker.commitRequested(Map(tp -> offset(0)))
+    tracker.commitRequested should have size 1
+    tracker.commitRequested(tp).offset() should be(0)
     tracker.receivedMessages shouldBe empty
     tracker.committedOffsets shouldBe empty
   }
 
   it should "track received records" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    tracker.requested(Map(tp -> offset(0)))
+    tracker.commitRequested(Map(tp -> offset(0)))
     tracker.received(records)
 
-    tracker.requestedOffsets(tp).offset() should be(0)
+    tracker.commitRequested(tp).offset() should be(0)
     tracker.receivedMessages should have size 1
     tracker.receivedMessages(tp).offset should be(10L)
     tracker.receivedMessages(tp).timestamp should be(ConsumerRecord.NO_TIMESTAMP)
@@ -48,28 +52,92 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
   it should "skip tracking received records that are not assigned" in {
     val tracker = new ConsumerProgressTrackerImpl()
 
-    tracker.received(asConsumerRecords(tp, m1))
-
-    tracker.requestedOffsets shouldBe empty
-    tracker.receivedMessages shouldBe empty
-
+    // partition 2 is notified as 'requested' (assigned) and then makes progress, ignoring the unassigned partition
     val tp2 = new TopicPartition("t", 2)
-    tracker.requested(Map(tp2 -> offset(0)))
+    tracker.assignedPositions(Set(tp2), Map(tp2 -> 0L))
+    tracker.received(
+      new ConsumerRecords[String, String](
+        Map(
+          tp -> List(m1).asJava,
+          tp2 -> List(new ConsumerRecord[String, String](tp2.topic(), tp2.partition(), 10L, "k1", "kv")).asJava
+        ).asJava
+      )
+    )
+    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp2 -> 10L))
+    // we can request/commit for other partitions, but that does not affect the received state
+    val commits = Map(tp -> offset(1L), tp2 -> offset(12L))
+    tracker.commitRequested(commits)
+    tracker.committed(commits.asJava)
+    // but received should not have changed
+    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp2 -> 10L))
+  }
+
+  it should "received messages filter out non-assigned partitions" in {
+    val tracker = new ConsumerProgressTrackerImpl()
+    // received, but wasn't requested (assigned), so empty received/requested/committed
     tracker.received(asConsumerRecords(tp, m1))
-    tracker.requestedOffsets should have size 1
+    tracker.commitRequested shouldBe empty
     tracker.receivedMessages shouldBe empty
+    tracker.committedOffsets shouldBe empty
+
+    // once is is assigned, we should start tracking it
+    tracker.assignedPositions(Set(tp), Map(tp -> 0L))
+    // haven't received any records yet, stays empty
+    tracker.receivedMessages shouldBe empty
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
+
+    // gets a message, but not commit progress
+    tracker.received(records)
+    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp -> 10L))
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
+    tracker.committedOffsets.map(extractOffset) should be(Map(tp -> 0L))
+
+    // receive a message that is not assigned, that is ignored
+    val tp2 = new TopicPartition("t", 2)
+    tracker.received(
+      new ConsumerRecords[String, String](
+        Map(
+          tp2 -> List(new ConsumerRecord[String, String](tp2.topic(), tp2.partition(), 10L, "k1", "kv")).asJava
+        ).asJava
+      )
+    )
+    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp -> 10L))
+    // no change to the committing
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
+    tracker.committedOffsets.map(extractOffset) should be(Map(tp -> 0L))
   }
 
   it should "track offsets when they are committed" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    tracker.requestedOffsets shouldBe empty
+    tracker.commitRequested shouldBe empty
     tracker.committedOffsets shouldBe empty
     val tp = new TopicPartition("t", 0)
-    tracker.requested(Map(tp -> offset(0)))
+    tracker.commitRequested(Map(tp -> offset(0)))
     tracker.committed(Map(tp -> offset(1)).asJava)
     // requested shouldn't change, just the committed
-    tracker.requestedOffsets(tp).offset() should be(0)
+    tracker.commitRequested(tp).offset() should be(0)
     tracker.committedOffsets(tp).offset() should be(1)
+  }
+
+  /**
+   * This is expected behavior and safety is expected to be handled by caller. This test just ensures the behavior
+   * matches the docs; that is, we can request/commit to partitions that have not been assigned. This was done to
+   * keep the commit path uncomplicated and low latency.
+   */
+  it should "allow request/commit for non-tracked partitions" in {
+    val tracker = new ConsumerProgressTrackerImpl()
+    // request a commit
+    tracker.commitRequested(Map(tp -> new OffsetAndMetadata(10L)))
+    tracker.receivedMessages shouldBe empty
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 10L))
+    tracker.committedOffsets shouldBe empty
+
+    // commit completed, but still not actually 'assigned' that partition
+    tracker.committed(Map(tp -> new OffsetAndMetadata(10L)).asJava)
+    tracker.receivedMessages shouldBe empty
+    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 10L))
+    tracker.committedOffsets.map(extractOffset) should be(Map(tp -> 10L))
   }
 
   it should "not overwrite existing committed offsets when assigning" in {
@@ -83,12 +151,12 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
   it should "revoke assigned offsets" in {
     val tracker = new ConsumerProgressTrackerImpl()
     val tp1 = new TopicPartition("t", 1)
-    tracker.requested(Map(tp -> offset(0), tp1 -> offset(1)))
+    tracker.commitRequested(Map(tp -> offset(0), tp1 -> offset(1)))
     tracker.received(records)
     tracker.committed(Map(tp -> offset(1)).asJava)
     tracker.revoke(Set(tp))
-    tracker.requestedOffsets should have size 1
-    tracker.requestedOffsets(tp1).offset() should be(1)
+    tracker.commitRequested should have size 1
+    tracker.commitRequested(tp1).offset() should be(1)
     tracker.receivedMessages shouldBe empty
     tracker.committedOffsets shouldBe empty
   }
@@ -98,8 +166,8 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val tp0 = new TopicPartition("t", 0)
     val tp1 = new TopicPartition("t", 1)
     tracker.assignedPositions(Set(tp0, tp1), Map(tp0 -> 0L, tp1 -> 1L))
-    tracker.requestedOffsets(tp0).offset() should be(0)
-    tracker.requestedOffsets(tp1).offset() should be(1)
+    tracker.commitRequested(tp0).offset() should be(0)
+    tracker.commitRequested(tp1).offset() should be(1)
     tracker.committedOffsets(tp0).offset() should be(0)
     tracker.committedOffsets(tp1).offset() should be(1)
   }
@@ -111,7 +179,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val duration = java.time.Duration.ofSeconds(10)
     Mockito.when(consumer.position(tp0, duration)).thenReturn(5)
     tracker.assignedPositionsAndSeek(Set(tp0), consumer, duration)
-    tracker.requestedOffsets(tp0).offset() should be(5)
+    tracker.commitRequested(tp0).offset() should be(5)
     tracker.committedOffsets(tp0).offset() should be(5)
   }
 

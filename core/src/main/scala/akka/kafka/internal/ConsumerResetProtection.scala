@@ -10,7 +10,7 @@ import java.util
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.event.LoggingAdapter
-import akka.kafka.ResetProtectionSettings
+import akka.kafka.OffsetResetProtectionSettings
 import akka.kafka.internal.KafkaConsumerActor.Internal.Seek
 import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
@@ -33,9 +33,9 @@ trait ConsumerResetProtection {
 @InternalApi
 object ConsumerResetProtection {
   def apply[K, V](log: LoggingAdapter,
-                  resetProtection: ResetProtectionSettings,
+                  setttings: OffsetResetProtectionSettings,
                   progress: () => ConsumerProgressTracking): ConsumerResetProtection = {
-    if (resetProtection.enable) new Impl(log, resetProtection, progress()) else ConsumerResetProtection.Noop
+    if (setttings.enable) new Impl(log, setttings, progress()) else ConsumerResetProtection.Noop
   }
 
   private object Noop extends ConsumerResetProtection {
@@ -43,7 +43,7 @@ object ConsumerResetProtection {
   }
 
   private final class Impl(log: LoggingAdapter,
-                           resetProtection: ResetProtectionSettings,
+                           resetProtection: OffsetResetProtectionSettings,
                            progress: ConsumerProgressTracking)
       extends ConsumerResetProtection {
     override def protect[K, V](consumer: ActorRef, records: ConsumerRecords[K, V]): ConsumerRecords[K, V] = {
@@ -51,9 +51,7 @@ object ConsumerResetProtection {
         records
           .partitions()
           .asScala
-          .map(tp => maybeProtectRecords(consumer, tp, records))
-          .filter(_.isDefined)
-          .map(_.get)
+          .flatMap(maybeProtectRecords(consumer, _, records).toList)
           .toMap
           .asJava
 
@@ -73,7 +71,7 @@ object ConsumerResetProtection {
         records: ConsumerRecords[K, V]
     ): Option[(TopicPartition, util.List[ConsumerRecord[K, V]])] = {
       val partitionRecords: util.List[ConsumerRecord[K, V]] = records.records(tp)
-      progress.requestedOffsets.get(tp) match {
+      progress.commitRequested.get(tp) match {
         case Some(requested) => protectPartition(consumer, tp, requested, partitionRecords)
         case None =>
           // it's a partition that we have no information on, so assume it's safe and continue because it's likely
@@ -83,30 +81,30 @@ object ConsumerResetProtection {
     }
 
     /**
-     * We found that we have previously requested the [[OffsetAndMetadata]] for the [[TopicPartition]], check it
+     * We found that we have previously committed the [[OffsetAndMetadata]] for the [[TopicPartition]], check it
      * against the partition records to ensure that we haven't exceeded the threshold.  If the records are within the
      * threshold, we just return the given records. If there are records found outside the threshold:
      *
-     * 1. Drop the records returned for the partition (they are outside the threshold) by returning `None`)
+     * 1. Drop the records returned for the partition (they are outside the threshold) by returning `None`.
      * 2. Request a seek to the latest committed offset of the partition (known to be "safe").
      * 3. New records for the partition arrive with the next poll, which should be within the threshold.
      */
     private def protectPartition[K, V](
         consumer: ActorRef,
         tp: TopicPartition,
-        requested: OffsetAndMetadata,
+        previouslyCommitted: OffsetAndMetadata,
         partitionRecords: util.List[ConsumerRecord[K, V]]
     ): Option[(TopicPartition, util.List[ConsumerRecord[K, V]])] = {
-      val threshold = new RecordThreshold(requested.offset(), progress.receivedMessages.get(tp))
-      if (recordsExceedThreshold(threshold, partitionRecords)) {
+      val threshold = new RecordThreshold(previouslyCommitted.offset(), progress.receivedMessages.get(tp))
+      if (threshold.recordsExceedThreshold(threshold, partitionRecords)) {
         // requested and committed are assumed to be kept in-sync, so this _should_ be safe. Fails
         // catastrophically if this is not the case
         val committed = progress.committedOffsets(tp)
-        val requestVersusCommitted = requested.offset() - committed.offset()
+        val requestVersusCommitted = previouslyCommitted.offset() - committed.offset()
         if (resetProtection.offsetThreshold < Long.MaxValue &&
             requestVersusCommitted > resetProtection.offsetThreshold) {
           log.warning(
-            s"Your last requested offset $requested is more than the configured threshold from the last" +
+            s"Your last commit request $previouslyCommitted is more than the configured threshold from the last" +
             s"committed offset ($committed) for $tp. See " +
             "https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#setting-offset-threshold-appropriately for more info."
           )
@@ -126,27 +124,9 @@ object ConsumerResetProtection {
     }
 
     /**
-     * Check if the records' offsets exceed the allowed threshold.
-     * @return `true` if the records in the batch have gone outside the threshold, `false` otherwise.
-     */
-    private def recordsExceedThreshold[K, V](threshold: RecordThreshold,
-                                             partitionRecords: util.List[ConsumerRecord[K, V]]): Boolean = {
-      var exceedThreshold = false
-      // rather than check all the records in the batch, trust that Kafka has given them to us in order, and just
-      // check the first and last offsets in the batch.
-      if (partitionRecords.size() > 0) {
-        exceedThreshold = threshold.checkExceedsThreshold(partitionRecords.get(0))
-        if (!exceedThreshold && partitionRecords.size() > 1) {
-          exceedThreshold = threshold.checkExceedsThreshold(partitionRecords.get(partitionRecords.size() - 1))
-        }
-      }
-      exceedThreshold
-    }
-
-    /**
      * Determine if a record is within threshold for the partition.
      * @param previouslyRequestedOffset the offset that the consumer last requested
-     * @param maybeReceived the [[OffsetAndTimestamp]] we last received. If its the first time we receive a record
+     * @param maybeReceived the [[SafeOffsetAndTimestamp]] we last received. If its the first time we receive a record
      *                      for this partition, we cannot say if there has been a reset based on the timestamp, this
      *                      should be [[None]], in which case we skip the timestamp based check.
      */
@@ -156,10 +136,28 @@ object ConsumerResetProtection {
       // (A) the time threshold is very large (i.e. unset), or
       // (B) we haven't received a timestamp for the that partition, in which case also cannot make a claim to check.
       private val timeThreshold: Option[Long] = maybeReceived
-        .flatMap(maybe => {
-          val threshold = maybe.timestamp - resetProtection.timeThreshold.toMillis
+        .flatMap { safeOffset =>
+          val threshold = safeOffset.timestamp - resetProtection.timeThreshold.toMillis
           if (threshold > 0) Some(threshold) else None
-        })
+        }
+
+      /**
+       * Check if the records' offsets exceed the allowed threshold.
+       * @return `true` if the records in the batch have gone outside the threshold, `false` otherwise.
+       */
+      def recordsExceedThreshold[K, V](threshold: RecordThreshold,
+                                       partitionRecords: util.List[ConsumerRecord[K, V]]): Boolean = {
+        var exceedThreshold = false
+        // rather than check all the records in the batch, trust that Kafka has given them to us in order, and just
+        // check the first and last offsets in the batch.
+        if (partitionRecords.size() > 0) {
+          exceedThreshold = threshold.checkExceedsThreshold(partitionRecords.get(0))
+          if (!exceedThreshold && partitionRecords.size() > 1) {
+            exceedThreshold = threshold.checkExceedsThreshold(partitionRecords.get(partitionRecords.size() - 1))
+          }
+        }
+        exceedThreshold
+      }
 
       def checkExceedsThreshold[K, V](record: ConsumerRecord[K, V]): Boolean = {
         record.offset() < offsetThreshold ||

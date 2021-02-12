@@ -7,7 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.kafka.ResetProtectionSettings
+import akka.kafka.OffsetResetProtectionSettings
 import akka.kafka.internal.KafkaConsumerActor.Internal.Seek
 import akka.kafka.testkit.scaladsl.Slf4jToAkkaLoggingAdapter
 import akka.kafka.tests.scaladsl.LogCapturing
@@ -61,7 +61,7 @@ class ConsumerResetProtectionSpec
 
     "seek offsets when getting an offset beyond offset threshold" in {
       val progress = new ConsumerProgressTrackerImpl()
-      val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10, 1.day), () => progress)
+      val protection = ConsumerResetProtection(adapter, OffsetResetProtectionSettings(10, 1.day), () => progress)
 
       progress.assignedPositions(Set(tp), Map(tp -> 100L))
       protection.protect[String, String](self, records).count() should be(0)
@@ -70,7 +70,7 @@ class ConsumerResetProtectionSpec
 
     "skip validating offsets when have not received a message yet" in {
       val progress = new ConsumerProgressTrackerImpl()
-      val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10000000, 1.day), () => progress)
+      val protection = ConsumerResetProtection(adapter, OffsetResetProtectionSettings(10000000, 1.day), () => progress)
 
       progress.assignedPositions(Set(tp), Map(tp -> 100L))
       protection.protect[String, String](self, records).count() should be(1)
@@ -78,7 +78,8 @@ class ConsumerResetProtectionSpec
 
     "seeks offsets when getting beyond a time threshold" in {
       val progress = new ConsumerProgressTrackerImpl()
-      val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10000000, 50.millis), () => progress)
+      val protection =
+        ConsumerResetProtection(adapter, OffsetResetProtectionSettings(10000000, 50.millis), () => progress)
 
       // request offset at 100L
       progress.assignedPositions(Set(tp), Map(tp -> 100L))
@@ -108,7 +109,7 @@ class ConsumerResetProtectionSpec
 
     "ignore partitions for which there is no previous assignment" in {
       val progress = new ConsumerProgressTrackerImpl()
-      val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10, 1.day), () => progress)
+      val protection = ConsumerResetProtection(adapter, OffsetResetProtectionSettings(10, 1.day), () => progress)
       // no assignment, records are passed through
       var protectedRecords = protection.protect[String, String](self, records)
       shouldHaveEqualRecords(records, protectedRecords)
@@ -141,7 +142,7 @@ class ConsumerResetProtectionSpec
     // supporting a "strict" mode, if it's a problem.
     "just checks the first/last record in the batch" in {
       val progress = new ConsumerProgressTrackerImpl()
-      val protection = ConsumerResetProtection(adapter, ResetProtectionSettings(10, 1.day), () => progress)
+      val protection = ConsumerResetProtection(adapter, OffsetResetProtectionSettings(10, 1.day), () => progress)
       progress.assignedPositions(Set(tp), Map(tp -> 100L))
       val records = protection.protect[String, String](
         self,

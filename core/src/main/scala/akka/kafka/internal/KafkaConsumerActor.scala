@@ -127,7 +127,7 @@ import scala.util.control.NonFatal
         if (overdueTps.nonEmpty) {
           progress.committedOffsets.filter {
             case (tp, offset) if overdueTps.contains(tp) =>
-              progress.requestedOffsets.get(tp).contains(offset)
+              progress.commitRequested.get(tp).contains(offset)
             case _ =>
               false
           }
@@ -548,7 +548,7 @@ import scala.util.control.NonFatal
     // amounts of replayed data during a rebalance, but for low volume topics we can ensure that consumers never appear
     // 'stuck' because of out-of-order commits from slow consumers.
     val assignedOffsetsToCommit = aggregatedOffsets.filterKeys(consumer.assignment().contains).toMap
-    progressTracker.requested(assignedOffsetsToCommit)
+    progressTracker.commitRequested(assignedOffsetsToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
     commitMaps = List.empty

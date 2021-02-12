@@ -89,7 +89,9 @@ object ConsumerSettings {
     val drainingCheckInterval = config.getDuration("eos-draining-check-interval").asScala
     val connectionCheckerSettings = ConnectionCheckerSettings(config.getConfig(ConnectionCheckerSettings.configPath))
     val partitionHandlerWarning = config.getDuration("partition-handler-warning").asScala
-    val resetProtectionThreshold = ResetProtectionSettings(config.getConfig(ResetProtectionSettings.configPath))
+    val resetProtectionThreshold = OffsetResetProtectionSettings(
+      config.getConfig(OffsetResetProtectionSettings.configPath)
+    )
 
     new ConsumerSettings[K, V](
       properties,
@@ -269,7 +271,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
     val connectionCheckerSettings: ConnectionCheckerSettings,
     val partitionHandlerWarning: FiniteDuration,
-    val resetProtectionSettings: ResetProtectionSettings
+    val resetProtectionSettings: OffsetResetProtectionSettings
 ) {
 
   def this(
@@ -314,7 +316,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
          consumerFactory,
          connectionCheckerSettings,
          partitionHandlerWarning,
-         ResetProtectionSettings.Disabled)
+         OffsetResetProtectionSettings.Disabled)
 
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
@@ -575,7 +577,10 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       factory: ConsumerSettings[K, V] => Consumer[K, V]
   ): ConsumerSettings[K, V] = copy(consumerFactory = factory)
 
-  def withResetProtectionSettings(resetProtection: ResetProtectionSettings): ConsumerSettings[K, V] =
+  /**
+   * Set the protection for unintentional offset reset.
+   */
+  def withResetProtectionSettings(resetProtection: OffsetResetProtectionSettings): ConsumerSettings[K, V] =
     copy(resetProtectionSettings = resetProtection)
 
   /**
@@ -609,7 +614,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
       connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
       partitionHandlerWarning: FiniteDuration = partitionHandlerWarning,
-      resetProtectionSettings: ResetProtectionSettings = resetProtectionSettings
+      resetProtectionSettings: OffsetResetProtectionSettings = resetProtectionSettings
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,

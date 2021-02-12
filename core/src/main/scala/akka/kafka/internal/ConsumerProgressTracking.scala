@@ -33,11 +33,11 @@ trait ConsumerAssignmentTrackingListener {
  */
 @InternalApi
 trait ConsumerProgressTracking extends ConsumerAssignmentTrackingListener {
-  def requestedOffsets: Map[TopicPartition, OffsetAndMetadata] = null
+  def commitRequested: Map[TopicPartition, OffsetAndMetadata] = null
   def receivedMessages: Map[TopicPartition, SafeOffsetAndTimestamp] = null
   def committedOffsets: Map[TopicPartition, OffsetAndMetadata] = null
 
-  def requested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
+  def commitRequested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
   def received[K, V](records: ConsumerRecords[K, V]): Unit = {}
   def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {}
   def assignedPositionsAndSeek(assignedTps: Set[TopicPartition],
@@ -49,6 +49,16 @@ trait ConsumerProgressTracking extends ConsumerAssignmentTrackingListener {
 @InternalApi
 object ConsumerProgressTrackerNoop extends ConsumerProgressTracking {}
 
+/**
+ * Track the progress/state of the consumer. We generally try to be 'fast' with handling the partitions we track;
+ * most of the smarts are expected to be handled outside this class. For example, we will update any offsets to
+ * commit - [[commitRequested]] - without regard for what had previously been assigned
+ * or revoked from the consumer. Thus, care should be taken when managing state of the consumer and making updates.
+ *
+ * The only case we try and be "smart" is during [[received]], where we will filter out offsets that have not been
+ * requested previously. This matches downstream behavior where the [[SourceLogicBuffer]] filters out revoked
+ * partitions.
+ */
 @InternalApi
 final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
   private var assignedOffsetsCallbacks: Seq[ConsumerAssignmentTrackingListener] = Seq()
@@ -56,7 +66,7 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
   private var receivedMessagesImpl = Map.empty[TopicPartition, SafeOffsetAndTimestamp]
   private var committedOffsetsImpl = Map.empty[TopicPartition, OffsetAndMetadata]
 
-  override def requestedOffsets: Map[TopicPartition, OffsetAndMetadata] = requestedOffsetsImpl
+  override def commitRequested: Map[TopicPartition, OffsetAndMetadata] = requestedOffsetsImpl
 
   override def receivedMessages: Map[TopicPartition, SafeOffsetAndTimestamp] = receivedMessagesImpl
 
@@ -67,6 +77,9 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
   }
 
   override def received[K, V](received: ConsumerRecords[K, V]): Unit = {
+    // be a little smart here so we don't track partitions that no longer assigned to us. This can happen when a
+    // poll completes after a reassignment finishes. Otherwise, we could track a lot of partitions that don't matter
+    // to us. The downstream consumer handles revoked partition filtering  in the SourceLogicBuffer.
     receivedMessagesImpl = receivedMessagesImpl ++ requestedOffsetsImpl.keys
         .map(tp => (tp, received.records(tp)))
         .filter { case (_, records) => records.size() > 0 }
@@ -74,12 +87,12 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
         .map { case (partition, records) => (partition, records.get(records.size() - 1)) }
         .map {
           case (partition, record) =>
-            partition -> new SafeOffsetAndTimestamp(record.offset(), record.timestamp())
+            partition -> SafeOffsetAndTimestamp(record.offset(), record.timestamp())
         }
   }
 
-  override def requested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {
-    requestedOffsetsImpl = requestedOffsets ++ offsets
+  override def commitRequested(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {
+    requestedOffsetsImpl = commitRequested ++ offsets
   }
 
   override def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {
@@ -87,16 +100,19 @@ final class ConsumerProgressTrackerImpl extends ConsumerProgressTracking {
   }
 
   override def revoke(revokedTps: Set[TopicPartition]): Unit = {
-    requestedOffsetsImpl = requestedOffsetsImpl -- revokedTps
+    requestedOffsetsImpl = commitRequested -- revokedTps
     committedOffsetsImpl = committedOffsets -- revokedTps
     receivedMessagesImpl = receivedMessages -- revokedTps
     assignedOffsetsCallbacks.foreach(_.revoke(revokedTps))
   }
 
   override def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
+    // though we haven't actually request/committed on assignment, they form the low-water mark for consumer
+    // progress, so we update them when consumer is assigned. Consumer can always add more partitions - we only lose
+    // them on revoke(), which is why this operation is only additive.
     requestedOffsetsImpl = requestedOffsetsImpl ++ assignedOffsets.map {
         case (partition, offset) =>
-          partition -> requestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
+          partition -> commitRequested.getOrElse(partition, new OffsetAndMetadata(offset))
       }
     committedOffsetsImpl = committedOffsets ++ assignedOffsets.map {
         case (partition, offset) =>

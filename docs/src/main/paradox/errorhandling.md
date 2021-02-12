@@ -38,46 +38,38 @@ consuming raw byte arrays and deserializing in a subsequent `map` stage where yo
 
 ## Unexpected consumer offset reset
 
-Sometimes, due to various Kafka server bugs ([KAFKA-7414](https://issues.apache.org/jira/browse/KAFKA-7414),
-[KAFKA-7447](https://issues.apache.org/jira/browse/KAFKA-7447),
-[KAFKA-8896](https://issues.apache.org/jira/browse/KAFKA-8896),
-[KAFKA-8764](https://issues.apache.org/jira/browse/KAFKA-8746),
-[KAFKA-9543](https://issues.apache.org/jira/browse/KAFKA-9543),
-[KAFKA-9807](https://issues.apache.org/jira/browse/KAFKA-9807),
-[KAFKA-9824](https://issues.apache.org/jira/browse/KAFKA-9824),
-[KAFKA-9835](https://issues.apache.org/jira/browse/KAFKA-9835),
-[KAFKA-10313](https://issues.apache.org/jira/browse/KAFKA-10313)) the consumer will fail to fetch on offset that
+Sometimes, due to various Kafka server bugs (see below) the consumer will fail to fetch on offset that
  exists. In this case, the consumer has three approaches to handling the missing offset:
  
-  * No action: consumer fails and stops attempting to make progress
+  * No action: consumer fails and stops attempting to make progress.
   * Latest: consumer skips to the end of the partition and starts reading from there. 
     - **NOTE**: consumer can skip processing some data in the topic by going to the latest data
-  * Earliest: consumer restarts from the beginning of the partition
+  * Earliest: consumer restarts from the beginning of the partition.
     - **NOTE**: consumer will never skip data, but may reprocess many days of data, up to the topic's configured
    retention
 
-alpakka-kafka cannot do anything for the first two approaches. However, the `reset-protection` configuration in the
-`ConsumerSettings` can help detect the inadvertent loss of offset and subsequent reset. You can configure 
-`akka.kafka.consumer.reset-protection.offset-threshold` to a number of offsets back from the _latest requested offset_
- that would indicate one of these reset bugs has occurred. Similarly, setting 
-`akka.kafka.consumer.reset-protection.time-threshold` will reset the consumer back to the latest committed offset
- when a record older than is now - `time-threshold` older.
+Alpakka-kafka cannot do anything for the first two approaches. However, the `offset-reset-protection` configuration in
+ the `ConsumerSettings` can help detect the inadvertent loss of offsets and subsequent reset. You can configure 
+`akka.kafka.consumer.offset-reset-protection.offset-threshold` to a number of offsets back from the _latest requested
+ offset_ that would indicate one of these reset bugs has occurred. Similarly, setting 
+`akka.kafka.consumer.offset-reset-protection.time-threshold` will reset the consumer back to the latest committed offset
+ when a record is older than `now - time-threshold`; that is, `time-threshold` older than the last received offset.
 
 When the client notices that the offset from the next fetched batch is outside the threshold for a given partition, the
 consumer will be re-seeked back the latest committed offset; the last known 'safe' point in the data. The consumer will
 then start consuming from that offset forward. This can avoid a significant amount of wasted data processing and keep
- your consumers' progress moving forward (often helping avoid pagers for consumer lag).
+ your consumers' progress moving forward (and avoid being paged for high consumer lag).
 
 For example, lets assume there is a consumer that has committed offset 1000 on partition 1. The consumer is doing
 work in batches, so it doesn't commit and fetch every record, so now it attempts to fetch offset 1100. However, due
-to a server-side bug, Kafka returns offset 1 for partition 1. Without reset-protection, the consumer would then need
-to reprocess all the offsets from 1 to 1000 (this can often look like a consumer "rewinding"). With reset-protection
-enabled with a threshold of, for example, 200 the consumer would notice the reset and then fetch again from the
-latest offset. That means, the consumer would only need to process 100 messages to catch up, a 10x improvement from
-the 1000 messages it would have had to process with reset-protection enabled.
+to a server-side bug, Kafka returns offset 1 for partition 1. Without consumer reset protection, the consumer
+ would then need to reprocess all the offsets from 1 to 1000 (this can often look like a consumer "rewinding"). With 
+consumer reset protection enabled with a threshold of, for example, 200 the consumer would notice the reset and then
+fetch again from the latest offset. That means, the consumer would only need to process 100 messages to catch up, a
+10x improvement from the 1000 messages it would have had to process with offset-reset-protection enabled.
 
-By default, reset-protection is **off**. You must set `akka.kafka.consumer.reset-protection.enable` to `true` to
-turn on reset protection.
+By default, consumer reset protection is **off**. You must set 
+`akka.kafka.consumer.offset-reset-protection.enable = true`, and set one of the thresholds, to enable it.
 
 Internally, the consumer attempts to avoid too much overhead in checking each batch, so it verifies only that the first
 and the last offset in each received batch for each partition are within the threshold. This should have a minimal
@@ -85,13 +77,25 @@ impact on consumer performance, but as always, be sure to benchmark for your use
 
 ### Setting offset threshold appropriately
 
-If you set the offset threshold to less than the the frequency at which you commit, any reset protection that takes
-place will likely cause you reprocess more data than necessary. For instance, assume you commit every 1000 records, but
-have `reset-protection.offset-threshold` set to 500 records. A reset could then cause you to-reprocess up to 999
-records in the worst case. 
+Generally speaking offsets should only be used to define reset thresholds when consuming records whose timestamps are
+ `-1` (often only seen with old, 0.11 consumers); instead prefer to use `time-threshold`consumer reset protection
+ configuration. 
 
-You should set the reset protection to the number of offsets near the topic's configured. Alternatively, you can 
-(a) increase the frequency with which you commit or (b) increase the offset protection window.
+If you set the offset threshold to less than the frequency at which you commit, any reset protection that takes
+place will likely cause you reprocess more data than necessary. For example, assume you commit every 1000 records, but
+have `offset-reset-protection.offset-threshold` set to 500 records then a reset could then cause you to-reprocess up to
+999 records in the worst case. 
 
-Generally though, using offsets to define resets should only be used if consuming records whose timestamps are
- `-1` (often only seen with old, 0.11 consumers); instead prefer to use `time-threshold`reset-protection configuration. 
+You should set the consumer reset protection to the number of offsets near the topic's configured retention. 
+Alternatively, you can  (a) increase the frequency with which you commit or (b) increase the offset protection window.
+
+### Kafka broker offset reset issues
+
+ * [KAFKA-7414](https://issues.apache.org/jira/browse/KAFKA-7414)
+ * [KAFKA-7447](https://issues.apache.org/jira/browse/KAFKA-7447)
+ * [KAFKA-8896](https://issues.apache.org/jira/browse/KAFKA-8896)
+ * [KAFKA-9543](https://issues.apache.org/jira/browse/KAFKA-9543)
+ * [KAFKA-9807](https://issues.apache.org/jira/browse/KAFKA-9807)
+ * [KAFKA-9824](https://issues.apache.org/jira/browse/KAFKA-9824)
+ * [KAFKA-9835](https://issues.apache.org/jira/browse/KAFKA-9835)
+ * [KAFKA-10313](https://issues.apache.org/jira/browse/KAFKA-10313) 
