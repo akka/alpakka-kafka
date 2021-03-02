@@ -40,7 +40,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
 
   it should "track received records" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    tracker.commitRequested(Map(tp -> offset(0)))
+    tracker.assignedPositions(Set(tp), Map(tp -> 0L))
     tracker.received(records)
 
     tracker.commitRequested(tp).offset() should be(0)
@@ -49,30 +49,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     tracker.receivedMessages(tp).timestamp should be(ConsumerRecord.NO_TIMESTAMP)
   }
 
-  it should "skip tracking received records that are not assigned" in {
-    val tracker = new ConsumerProgressTrackerImpl()
-
-    // partition 2 is notified as 'requested' (assigned) and then makes progress, ignoring the unassigned partition
-    val tp2 = new TopicPartition("t", 2)
-    tracker.assignedPositions(Set(tp2), Map(tp2 -> 0L))
-    tracker.received(
-      new ConsumerRecords[String, String](
-        Map(
-          tp -> List(m1).asJava,
-          tp2 -> List(new ConsumerRecord[String, String](tp2.topic(), tp2.partition(), 10L, "k1", "kv")).asJava
-        ).asJava
-      )
-    )
-    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp2 -> 10L))
-    // we can request/commit for other partitions, but that does not affect the received state
-    val commits = Map(tp -> offset(1L), tp2 -> offset(12L))
-    tracker.commitRequested(commits)
-    tracker.committed(commits.asJava)
-    // but received should not have changed
-    tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp2 -> 10L))
-  }
-
-  it should "received messages filter out non-assigned partitions" in {
+  it should "filter out non-assigned partitions in received messages" in {
     val tracker = new ConsumerProgressTrackerImpl()
     // received, but wasn't requested (assigned), so empty received/requested/committed
     tracker.received(asConsumerRecords(tp, m1))
