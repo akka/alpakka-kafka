@@ -48,7 +48,7 @@ Sometimes, due to various Kafka server bugs (see below) the consumer will fail t
     - **NOTE**: consumer will never skip data, but may reprocess many days of data, up to the topic's configured
    retention
 
-Alpakka-kafka cannot do anything for the first two approaches. However, the `offset-reset-protection` configuration in
+Alpakka Kafka cannot do anything for the first two approaches. However, the `offset-reset-protection` configuration in
  the `ConsumerSettings` can help detect the inadvertent loss of offsets and subsequent reset. You can configure 
 `akka.kafka.consumer.offset-reset-protection.offset-threshold` to a number of offsets back from the _latest requested
  offset_ that would indicate one of these reset bugs has occurred. Similarly, setting 

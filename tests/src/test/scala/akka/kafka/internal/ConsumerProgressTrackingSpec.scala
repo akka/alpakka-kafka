@@ -62,7 +62,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     // haven't received any records yet, stays empty
     tracker.receivedMessages shouldBe empty
     tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
-    tracker.commitRequested.map(extractOffset) should be(Map(tp -> 0L))
+    tracker.committedOffsets.map(extractOffset) should be(Map(tp -> 0L))
 
     // gets a message, but not commit progress
     tracker.received(records)

@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 class OffsetResetProtectionSettings @InternalApi private[kafka] (val enable: Boolean,
                                                                  val offsetThreshold: Long,
                                                                  val timeThreshold: FiniteDuration) {
-  require(offsetThreshold > 0, "A offset threshold must be greater than 0")
+  require(offsetThreshold > 0, "An offset threshold must be greater than 0")
   require(timeThreshold.toMillis > 0, "A time threshold must be greater than 0")
 
   private def copy(enable: Boolean = enable,

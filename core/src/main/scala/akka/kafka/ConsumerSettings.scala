@@ -274,50 +274,6 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val resetProtectionSettings: OffsetResetProtectionSettings
 ) {
 
-  def this(
-      properties: Map[String, String],
-      keyDeserializerOpt: Option[Deserializer[K]],
-      valueDeserializerOpt: Option[Deserializer[V]],
-      pollInterval: FiniteDuration,
-      pollTimeout: FiniteDuration,
-      stopTimeout: FiniteDuration,
-      closeTimeout: FiniteDuration,
-      commitTimeout: FiniteDuration,
-      commitRefreshInterval: Duration,
-      dispatcher: String,
-      commitTimeWarning: FiniteDuration,
-      waitClosePartition: FiniteDuration,
-      positionTimeout: FiniteDuration,
-      offsetForTimesTimeout: FiniteDuration,
-      metadataRequestTimeout: FiniteDuration,
-      drainingCheckInterval: FiniteDuration,
-      enrichAsync: Option[ConsumerSettings[K, V] => Future[ConsumerSettings[K, V]]],
-      consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
-      connectionCheckerSettings: ConnectionCheckerSettings,
-      partitionHandlerWarning: FiniteDuration
-  ) =
-    this(properties,
-         keyDeserializerOpt,
-         valueDeserializerOpt,
-         pollInterval,
-         pollTimeout,
-         stopTimeout,
-         closeTimeout,
-         commitTimeout,
-         commitRefreshInterval,
-         dispatcher,
-         commitTimeWarning,
-         waitClosePartition,
-         positionTimeout,
-         offsetForTimesTimeout,
-         metadataRequestTimeout,
-         drainingCheckInterval,
-         enrichAsync,
-         consumerFactory,
-         connectionCheckerSettings,
-         partitionHandlerWarning,
-         OffsetResetProtectionSettings.Disabled)
-
   /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    */

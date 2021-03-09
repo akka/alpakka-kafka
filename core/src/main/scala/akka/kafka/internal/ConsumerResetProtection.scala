@@ -17,8 +17,12 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.jdk.CollectionConverters._
 
+/**
+ * Added as part of https://github.com/akka/alpakka-kafka/issues/1286 to avoid reprocessing data in case of Kafka
+ * temporarily "losing" an offset.
+ */
 @InternalApi
-trait ConsumerResetProtection {
+sealed trait ConsumerResetProtection {
 
   /**
    * Check the offsets of the records for each partition are not "much older" than the records that we have seen thus
