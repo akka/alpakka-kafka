@@ -236,7 +236,7 @@ lazy val testkit = project
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-        "junit" % "junit" % "4.13.1" % Provided,
+        "junit" % "junit" % "4.13.2" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
