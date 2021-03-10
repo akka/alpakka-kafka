@@ -33,7 +33,6 @@ import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Success, Try}
@@ -96,61 +95,39 @@ import scala.util.control.NonFatal
   }
 
   private[KafkaConsumerActor] trait CommitRefreshing {
-    def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
-    def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit
-    def revoke(revokedTps: Set[TopicPartition]): Unit
-    def refreshOffsets: Map[TopicPartition, OffsetAndMetadata]
     def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit
-    def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit
-    def assignedPositions(assignedTps: Set[TopicPartition],
-                          consumer: Consumer[_, _],
-                          positionTimeout: java.time.Duration): Unit
+    def refreshOffsets: Map[TopicPartition, OffsetAndMetadata]
   }
 
   private[KafkaConsumerActor] object CommitRefreshing {
-    def apply(commitRefreshInterval: Duration): CommitRefreshing =
+    def apply(commitRefreshInterval: Duration, progress: () => ConsumerProgressTracking): CommitRefreshing =
       commitRefreshInterval match {
-        case finite: FiniteDuration => new Impl(finite)
-        case _ => NoOp
+        case finite: FiniteDuration => new Impl(finite, progress())
+        case _ => new Noop()
       }
 
-    private object NoOp extends CommitRefreshing {
-      def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {}
-      def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = {}
-      def revoke(revokedTps: Set[TopicPartition]): Unit = {}
-      val refreshOffsets: Map[TopicPartition, OffsetAndMetadata] = Map.empty
-      def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {}
-      def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {}
-      def assignedPositions(assignedTps: Set[TopicPartition],
-                            consumer: Consumer[_, _],
-                            positionTimeout: java.time.Duration): Unit = {}
-    }
+    private final class Noop() extends CommitRefreshing {
+      override def updateRefreshDeadlines(tps: Set[TopicPartition]): Unit = {}
 
-    private final class Impl(commitRefreshInterval: FiniteDuration) extends CommitRefreshing {
-      private var requestedOffsets: Map[TopicPartition, OffsetAndMetadata] =
-        Map.empty[TopicPartition, OffsetAndMetadata]
-      private var committedOffsets: Map[TopicPartition, OffsetAndMetadata] =
-        Map.empty[TopicPartition, OffsetAndMetadata]
+      override val refreshOffsets: Map[TopicPartition, OffsetAndMetadata] = Map()
+    }
+    private final class Impl(commitRefreshInterval: FiniteDuration, progress: ConsumerProgressTracking)
+        extends CommitRefreshing
+        with ConsumerAssignmentTrackingListener {
+      progress.addProgressTrackingCallback(this)
+
       private var refreshDeadlines: Map[TopicPartition, Deadline] = Map.empty[TopicPartition, Deadline]
 
-      def add(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit =
-        requestedOffsets = requestedOffsets ++ offsets
-
-      def committed(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit =
-        committedOffsets = committedOffsets ++ offsets.asScala.toMap
-
-      def revoke(revokedTps: Set[TopicPartition]): Unit = {
-        requestedOffsets = requestedOffsets -- revokedTps
-        committedOffsets = committedOffsets -- revokedTps
+      override def revoke(revokedTps: Set[TopicPartition]): Unit = {
         refreshDeadlines = refreshDeadlines -- revokedTps
       }
 
       def refreshOffsets: Map[TopicPartition, OffsetAndMetadata] = {
         val overdueTps = refreshDeadlines.filter(_._2.isOverdue()).keySet
         if (overdueTps.nonEmpty) {
-          committedOffsets.filter {
+          progress.committedOffsets.filter {
             case (tp, offset) if overdueTps.contains(tp) =>
-              requestedOffsets.get(tp).contains(offset)
+              progress.commitRequested.get(tp).contains(offset)
             case _ =>
               false
           }
@@ -168,26 +145,11 @@ import scala.util.control.NonFatal
             (tp, commitRefreshInterval.fromNow)
           }
 
-      def assignedPositions(assignedTps: Set[TopicPartition], assignedOffsets: Map[TopicPartition, Long]): Unit = {
-        requestedOffsets = requestedOffsets ++ assignedOffsets.map {
-            case (partition, offset) =>
-              partition -> requestedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-          }
-        committedOffsets = committedOffsets ++ assignedOffsets.map {
-            case (partition, offset) =>
-              partition -> committedOffsets.getOrElse(partition, new OffsetAndMetadata(offset))
-          }
-        // assigned the partitions, to update all the of deadlines
+      override def assignedPositions(assignedTps: Set[TopicPartition],
+                                     assignedOffsets: Map[TopicPartition, Long]): Unit = {
+        // assigned the partitions, so update all the of deadlines
         refreshDeadlines = refreshDeadlines ++ assignedTps.map(_ -> commitRefreshInterval.fromNow)
       }
-
-      def assignedPositions(assignedTps: Set[TopicPartition],
-                            consumer: Consumer[_, _],
-                            positionTimeout: java.time.Duration): Unit = {
-        val assignedOffsets = assignedTps.map(tp => tp -> consumer.position(tp, positionTimeout)).toMap
-        assignedPositions(assignedTps, assignedOffsets)
-      }
-
     }
   }
 
@@ -238,6 +200,7 @@ import scala.util.control.NonFatal
   private var consumer: Consumer[K, V] = _
   private var commitsInProgress = 0
   private var commitRefreshing: CommitRefreshing = _
+  private var resetProtection: ConsumerResetProtection = _
   private var stopInProgress = false
 
   /**
@@ -252,6 +215,7 @@ import scala.util.control.NonFatal
 
   private var delayedPollInFlight = false
   private var partitionAssignmentHandler: RebalanceListener = RebalanceListener.Empty
+  private var progressTracker: ConsumerProgressTracking = ConsumerProgressTrackerNoop
 
   override val receive: Receive = regularReceive
 
@@ -356,7 +320,7 @@ import scala.util.control.NonFatal
           checkOverlappingRequests("Assign", sender(), assignedTps)
           val previousAssigned = consumer.assignment()
           consumer.assign((assignedTps.toSeq ++ previousAssigned.asScala).asJava)
-          commitRefreshing.assignedPositions(assignedTps, consumer, positionTimeout)
+          progressTracker.assignedPositionsAndSeek(assignedTps, consumer, positionTimeout)
 
         case AssignWithOffset(assignedOffsets) =>
           checkOverlappingRequests("AssignWithOffset", sender(), assignedOffsets.keySet)
@@ -366,14 +330,15 @@ import scala.util.control.NonFatal
             case (tp, offset) =>
               consumer.seek(tp, offset)
           }
-          commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+          progressTracker.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
         case AssignOffsetsForTimes(timestampsToSearch) =>
           checkOverlappingRequests("AssignOffsetsForTimes", sender(), timestampsToSearch.keySet)
           val previousAssigned = consumer.assignment()
           consumer.assign((timestampsToSearch.keys.toSeq ++ previousAssigned.asScala).asJava)
           val topicPartitionToOffsetAndTimestamp =
-            consumer.offsetsForTimes(timestampsToSearch.view.mapValues(long2Long).toMap.asJava, offsetForTimesTimeout)
+            consumer.offsetsForTimes(timestampsToSearch.map { case (k, v) => (k, long2Long(v)) }.toMap.asJava,
+                                     offsetForTimesTimeout)
           val assignedOffsets = topicPartitionToOffsetAndTimestamp.asScala.filter(_._2 != null).toMap.map {
             case (tp, oat: OffsetAndTimestamp) =>
               val offset = oat.offset()
@@ -382,7 +347,7 @@ import scala.util.control.NonFatal
               consumer.seek(tp, offset)
               tp -> offset
           }
-          commitRefreshing.assignedPositions(assignedOffsets.keySet, assignedOffsets)
+          progressTracker.assignedPositions(assignedOffsets.keySet, assignedOffsets)
 
         case Subscribe(topics, rebalanceHandler) =>
           val callback = new RebalanceListenerImpl(rebalanceHandler)
@@ -449,7 +414,9 @@ import scala.util.control.NonFatal
     pollTimeout = settings.pollTimeout.asJava
     offsetForTimesTimeout = settings.getOffsetForTimesTimeout
     positionTimeout = settings.getPositionTimeout
-    commitRefreshing = CommitRefreshing(settings.commitRefreshInterval)
+    val progressTrackingFactory: () => ConsumerProgressTracking = ensureProgressTracker
+    commitRefreshing = CommitRefreshing(settings.commitRefreshInterval, progressTrackingFactory)
+    resetProtection = ConsumerResetProtection(log, settings.resetProtectionSettings, progressTrackingFactory)
     try {
       if (log.isDebugEnabled)
         log.debug(s"Creating Kafka consumer with ${settings.toString}")
@@ -461,6 +428,13 @@ import scala.util.control.NonFatal
         owner.foreach(_ ! Failure(e))
         throw e
     }
+  }
+
+  private def ensureProgressTracker(): ConsumerProgressTracking = {
+    if (progressTracker == ConsumerProgressTrackerNoop) {
+      progressTracker = new ConsumerProgressTrackerImpl()
+    }
+    progressTracker
   }
 
   override def postStop(): Unit = {
@@ -574,7 +548,7 @@ import scala.util.control.NonFatal
     // amounts of replayed data during a rebalance, but for low volume topics we can ensure that consumers never appear
     // 'stuck' because of out-of-order commits from slow consumers.
     val assignedOffsetsToCommit = aggregatedOffsets.filterKeys(consumer.assignment().contains).toMap
-    commitRefreshing.add(assignedOffsetsToCommit)
+    progressTracker.commitRequested(assignedOffsetsToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
     commitMaps = List.empty
@@ -611,7 +585,7 @@ import scala.util.control.NonFatal
                             duration / 1000000L,
                             commitsInProgress)
               }
-              commitRefreshing.committed(offsets)
+              progressTracker.committed(offsets)
               replyTo.foreach(_ ! Done)
 
             case e: RebalanceInProgressException => retryCommits(duration, e)
@@ -640,6 +614,9 @@ import scala.util.control.NonFatal
           s"result: ${rawResult.partitions()}, consumer assignment: ${consumer.assignment()}"
         )
 
+      val safeRecords = resetProtection.protect(self, rawResult)
+      progressTracker.received(safeRecords)
+
       //send messages to actors
       requests.foreach {
         case (stageActorRef, req) =>
@@ -649,7 +626,7 @@ import scala.util.control.NonFatal
           // Using `VectorIterator` avoids the error from `ConcatIterator`
           val b = Vector.newBuilder[ConsumerRecord[K, V]]
           req.tps.foreach { tp =>
-            val tpMessages = rawResult.records(tp).asScala
+            val tpMessages = safeRecords.records(tp).asScala
             b ++= tpMessages
           }
           val messages = b.result().iterator
@@ -791,7 +768,7 @@ import scala.util.control.NonFatal
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {
       consumer.pause(partitions)
       val tps = partitions.asScala.toSet
-      commitRefreshing.assignedPositions(tps, consumer, positionTimeout)
+      progressTracker.assignedPositionsAndSeek(tps, consumer, positionTimeout)
       val startTime = System.nanoTime()
       partitionAssignmentHandler.onAssign(tps, restrictedConsumer)
       checkDuration(startTime, "onAssign")
@@ -802,7 +779,7 @@ import scala.util.control.NonFatal
       val startTime = System.nanoTime()
       partitionAssignmentHandler.onRevoke(revokedTps, restrictedConsumer)
       checkDuration(startTime, "onRevoke")
-      commitRefreshing.revoke(revokedTps)
+      progressTracker.revoke(revokedTps)
     }
 
     override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {
@@ -810,7 +787,7 @@ import scala.util.control.NonFatal
       val startTime = System.nanoTime()
       partitionAssignmentHandler.onLost(lostTps, restrictedConsumer)
       checkDuration(startTime, "onLost")
-      commitRefreshing.revoke(lostTps)
+      progressTracker.revoke(lostTps)
     }
 
     override def postStop(): Unit = {
