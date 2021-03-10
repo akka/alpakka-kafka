@@ -6,8 +6,8 @@ name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
-val Scala212 = "2.12.11"
-val Scala213 = "2.13.5"
+val Scala212 = "2.12.13"
+val Scala213 = "2.13.4"
 
 val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "26"
@@ -213,7 +213,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.2.0"
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
       ) ++ silencer,
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
     mimaPreviousArtifacts := Set(
@@ -231,12 +231,12 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    JupiterKeys.junitJupiterVersion := "5.7.0",
+    JupiterKeys.junitJupiterVersion := "5.7.1",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
         "org.scalatest" %% "scalatest" % scalatestVersion % Provided,
-        "junit" % "junit" % "4.13.1" % Provided,
+        "junit" % "junit" % "4.13.2" % Provided,
         "org.junit.jupiter" % "junit-jupiter-api" % JupiterKeys.junitJupiterVersion.value % Provided
       ) ++ silencer,
     mimaPreviousArtifacts := Set(
@@ -294,7 +294,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "3.7.7" % Test
+        "org.mockito" % "mockito-core" % "3.8.0" % Test
       ) ++ silencer ++ {
         scalaBinaryVersion.value match {
           case "2.13" =>
@@ -396,7 +396,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.17",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.18",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "2.0.2",
