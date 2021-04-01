@@ -42,7 +42,7 @@ jobs:
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
         run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
 
-  check-code-compililation:
+  check-code-compilation:
     name: Check Code Compilation
     runs-on: ubuntu-18.04
     steps:
