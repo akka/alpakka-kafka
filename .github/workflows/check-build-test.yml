@@ -42,7 +42,7 @@ jobs:
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
         run: sbt "; verifyCodeStyle; mimaReportBinaryIssues"
 
-  check-code-compililation:
+  check-code-compilation:
     name: Check Code Compilation
     runs-on: ubuntu-18.04
     steps:
@@ -99,7 +99,7 @@ jobs:
   test:
     name: Build and Test
     runs-on: ubuntu-18.04
-    needs: [check-code-style, check-code-compililation, check-docs]
+    needs: [check-code-style, check-code-compilation, check-docs]
     strategy:
       fail-fast: false
       matrix:
@@ -137,7 +137,7 @@ jobs:
 
   integration-test:
     name: Integration tests
-    needs: [check-code-style, check-code-compililation, check-docs]
+    needs: [check-code-style, check-code-compilation, check-docs]
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -165,7 +165,7 @@ jobs:
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
   build-benchmark:
     name: Build benchmarks
-    needs: [check-code-style, check-code-compililation, check-docs]
+    needs: [check-code-style, check-code-compilation, check-docs]
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
