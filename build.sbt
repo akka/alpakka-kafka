@@ -145,9 +145,6 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  bintrayOrganization := Some("akka"),
-  bintrayPackage := "alpakka-kafka",
-  bintrayRepository := (if (isSnapshot.value) "snapshots" else "maven"),
   projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
 )
 
@@ -318,7 +315,7 @@ lazy val tests = project
 
 lazy val docs = project
   .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin, PreprocessPlugin, PublishRsyncPlugin)
-  .disablePlugins(BintrayPlugin, MimaPlugin)
+  .disablePlugins(MimaPlugin)
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
