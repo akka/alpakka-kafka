@@ -210,7 +210,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.3"
       ) ++ silencer,
     Compile / compile / scalacOptions += "-P:silencer:globalFilters=[import scala.collection.compat._]",
     mimaPreviousArtifacts := Set(
