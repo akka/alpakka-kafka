@@ -42,9 +42,7 @@ Key links:
 
 - [ ] Wait until [master build finished](https://github.com/akka/alpakka-kafka/actions?query=branch%3Amaster) after merging the release notes 
 - [ ] Update the [draft release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description linking to the announcement, release notes and milestone
-- [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to Bintray)
-- [ ] Go to [Bintray](https://bintray.com/akka/maven/alpakka-kafka) and select the just released version
-- [ ] Go to the Maven Central tab and sync with Sonatype (using your Sonatype TOKEN key and password) (you may watch progress in the [Staging repository](https://oss.sonatype.org/#stagingRepositories))
+- [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to Sonatype)
 
 ### Check availability
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$VERSION$/) documentation
