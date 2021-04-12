@@ -28,13 +28,13 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getBeginningOffsets(partitions.asScala.toSet)
       .map { beginningOffsets =>
         beginningOffsets.view.mapValues(Long.box).toMap.asJava
-      }(ExecutionContexts.sameThreadExecutionContext)
+      }(ExecutionContexts.parasitic)
       .toJava
 
   def getBeginningOffsetForPartition[K, V](partition: TopicPartition): CompletionStage[java.lang.Long] =
     metadataClient
       .getBeginningOffsetForPartition(partition)
-      .map(Long.box)(ExecutionContexts.sameThreadExecutionContext)
+      .map(Long.box)(ExecutionContexts.parasitic)
       .toJava
 
   def getEndOffsets(
@@ -44,13 +44,13 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getEndOffsets(partitions.asScala.toSet)
       .map { endOffsets =>
         endOffsets.view.mapValues(Long.box).toMap.asJava
-      }(ExecutionContexts.sameThreadExecutionContext)
+      }(ExecutionContexts.parasitic)
       .toJava
 
   def getEndOffsetForPartition(partition: TopicPartition): CompletionStage[java.lang.Long] =
     metadataClient
       .getEndOffsetForPartition(partition)
-      .map(Long.box)(ExecutionContexts.sameThreadExecutionContext)
+      .map(Long.box)(ExecutionContexts.parasitic)
       .toJava
 
   def listTopics(): CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]] =
@@ -58,7 +58,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .listTopics()
       .map { topics =>
         topics.view.mapValues(partitionsInfo => partitionsInfo.asJava).toMap.asJava
-      }(ExecutionContexts.sameThreadExecutionContext)
+      }(ExecutionContexts.parasitic)
       .toJava
 
   def getPartitionsFor(topic: java.lang.String): CompletionStage[java.util.List[PartitionInfo]] =
@@ -66,7 +66,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getPartitionsFor(topic)
       .map { partitionsInfo =>
         partitionsInfo.asJava
-      }(ExecutionContexts.sameThreadExecutionContext)
+      }(ExecutionContexts.parasitic)
       .toJava
 
   @deprecated("use `getCommittedOffsets`", "2.0.3")
@@ -82,7 +82,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getCommittedOffsets(partitions.asScala.toSet)
       .map { committedOffsets =>
         committedOffsets.asJava
-      }(ExecutionContexts.sameThreadExecutionContext)
+      }(ExecutionContexts.parasitic)
       .toJava
 
   def close(): Unit =

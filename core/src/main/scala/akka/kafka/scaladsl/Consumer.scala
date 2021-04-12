@@ -104,8 +104,8 @@ object Consumer {
     override def shutdown(): Future[Done] =
       control
         .shutdown()
-        .flatMap(_ => streamCompletion)(ExecutionContexts.sameThreadExecutionContext)
-        .map(_ => Done)(ExecutionContexts.sameThreadExecutionContext)
+        .flatMap(_ => streamCompletion)(ExecutionContexts.parasitic)
+        .map(_ => Done)(ExecutionContexts.parasitic)
 
     override def drainAndShutdown[S](streamCompletion: Future[S])(implicit ec: ExecutionContext): Future[S] =
       control.drainAndShutdown(streamCompletion)
@@ -119,8 +119,8 @@ object Consumer {
 
     override def isShutdown: Future[Done] =
       control.isShutdown
-        .flatMap(_ => streamCompletion)(ExecutionContexts.sameThreadExecutionContext)
-        .map(_ => Done)(ExecutionContexts.sameThreadExecutionContext)
+        .flatMap(_ => streamCompletion)(ExecutionContexts.parasitic)
+        .map(_ => Done)(ExecutionContexts.parasitic)
 
     override def metrics: Future[Map[MetricName, Metric]] = control.metrics
   }
@@ -257,7 +257,7 @@ object Consumer {
   def atMostOnceSource[K, V](settings: ConsumerSettings[K, V],
                              subscription: Subscription): Source[ConsumerRecord[K, V], Control] =
     committableSource[K, V](settings, subscription).mapAsync(1) { m =>
-      m.committableOffset.commitInternal().map(_ => m.record)(ExecutionContexts.sameThreadExecutionContext)
+      m.committableOffset.commitInternal().map(_ => m.record)(ExecutionContexts.parasitic)
     }
 
   /**
