@@ -75,6 +75,8 @@ private trait MetricsControl extends scaladsl.Consumer.Control {
   protected def executionContext: ExecutionContext
   protected def consumerFuture: Future[ActorRef]
 
+  // FIXME: this can't be accessed until the stream has materialized because the `def executionContext` implementation
+  // takes the executioncontext from the materializer. should it throw an exception, or block, until materialization?
   def metrics: Future[Map[MetricName, Metric]] = {
     import akka.pattern.ask
 
@@ -84,7 +86,7 @@ private trait MetricsControl extends scaladsl.Consumer.Control {
         consumer
           .ask(RequestMetrics)(Timeout(1.minute))
           .mapTo[ConsumerMetrics]
-          .map(_.metrics)(ExecutionContexts.sameThreadExecutionContext)
+          .map(_.metrics)(ExecutionContexts.parasitic)
       }(executionContext)
   }
 }
@@ -103,7 +105,7 @@ final private[kafka] class ConsumerControlAsJava(underlying: scaladsl.Consumer.C
   override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
 
   override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] =
-    underlying.metrics.map(_.asJava)(ExecutionContexts.sameThreadExecutionContext).toJava
+    underlying.metrics.map(_.asJava)(ExecutionContexts.parasitic).toJava
 }
 
 /** Internal API */
