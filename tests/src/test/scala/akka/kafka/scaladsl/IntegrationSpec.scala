@@ -373,6 +373,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         .run()
 
       // Wait a tiny bit to avoid a race on "not yet initialized: only setHandler is allowed in GraphStageLogic constructor"
+      sleep(1.milli)
       eventually {
         val metrics: Future[Map[MetricName, Metric]] = control.metrics
         metrics.futureValue should not be Symbol("empty")

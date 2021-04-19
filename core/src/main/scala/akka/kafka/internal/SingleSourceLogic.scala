@@ -9,7 +9,7 @@ import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.kafka.{ConsumerSettings, RestrictedConsumer, Subscription}
-import akka.stream.{ActorMaterializerHelper, SourceShape}
+import akka.stream.SourceShape
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.{Future, Promise}
@@ -32,7 +32,7 @@ import scala.concurrent.{Future, Promise}
   final def consumerFuture: Future[ActorRef] = consumerPromise.future
 
   final def createConsumerActor(): ActorRef = {
-    val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
+    val extendedActorSystem = materializer.system.asInstanceOf[ExtendedActorSystem]
     val actor =
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
                                         s"kafka-consumer-$actorNumber")
