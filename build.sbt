@@ -141,7 +141,8 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
+  sonatypeProfileName := "com.typesafe"
 )
 
 lazy val `alpakka-kafka` =
