@@ -45,7 +45,9 @@ public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
   private static final Executor executor = Executors.newSingleThreadExecutor();
   private static final Timeout timeout = new Timeout(1, TimeUnit.SECONDS);
 
-  @Rule public ExpectedException expectedException = ExpectedException.none();
+  @SuppressWarnings("deprecation")
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
 
   public MetadataClientTest() {
     super(sys);

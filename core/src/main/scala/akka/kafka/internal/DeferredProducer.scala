@@ -71,7 +71,7 @@ private[kafka] trait DeferredProducer[K, V] {
               closeAndFailStageCb.invoke(e)
               e
             }
-          )(ExecutionContexts.sameThreadExecutionContext)
+          )(ExecutionContexts.parasitic)
         changeProducerAssignmentLifecycle(AsyncCreateRequestSent)
     }
   }

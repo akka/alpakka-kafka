@@ -45,7 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 // #schema-registry-settings
 public class SchemaRegistrySerializationTest extends TestcontainersKafkaJunit4Test {

@@ -1,12 +1,12 @@
 ---
-project.description: Snapshot builds of Alpakka Kafka are provided via a Bintray repository.
+project.description: Snapshot builds of Alpakka Kafka are provided via the Sonatype snapshot repository.
 ---
 # Snapshots
 
-[snapshots-badge]:  https://api.bintray.com/packages/akka/snapshots/alpakka-kafka/images/download.svg
-[snapshots]:        https://bintray.com/akka/snapshots/alpakka-kafka/_latestVersion
+[snapshots-badge]:  https://img.shields.io/nexus/s/com.typesafe.akka/akka-stream-kafka_2.13?server=https%3A%2F%2Foss.sonatype.org
+[snapshots]:        https://oss.sonatype.org/content/repositories/snapshots/com/typesafe/akka/akka-stream-kafka_2.13/
 
-Snapshots are published to a repository in Bintray after every successful build on master.
+Snapshots are published to the Sonatype Snapshot repository after every successful build on master.
 Add the following to your project build definition to resolve Alpakka Kafka connector snapshots:
 
 ## Configure repository
@@ -17,9 +17,9 @@ Maven
     ...
       <repositories>
         <repository>
-          <id>alpakka-kafka-snapshots</id>
-          <name>Alpakka Kafka Snapshots</name>
-          <url>https://dl.bintray.com/akka/snapshots</url>
+            <id>snapshots-repo</id>
+            <name>Sonatype snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </repository>
       </repositories>
     ...
@@ -28,14 +28,14 @@ Maven
 
 sbt
 :   ```scala
-    resolvers += Resolver.bintrayRepo("akka", "snapshots")
+    resolvers += Resolver.sonatypeRepo("snapshots")
     ```
 
 Gradle
 :   ```gradle
     repositories {
       maven {
-        url  "https://dl.bintray.com/akka/snapshots"
+        url  "https://oss.sonatype.org/content/repositories/snapshots"
       }
     }
     ```
@@ -48,4 +48,4 @@ The [snapshot documentation](https://doc.akka.io/docs/alpakka-kafka/snapshot/) i
 
 Latest published snapshot version is [![snapshots-badge][]][snapshots]
 
-The snapshot repository is cleaned from time to time with no further notice. Check [Bintray Alpakka Kafka files](https://bintray.com/akka/snapshots/alpakka-kafka#files/com/typesafe/akka) to see what versions are currently available.
+The snapshot repository is cleaned from time to time with no further notice. Check [Sonatype snapshots Alpakka Kafka files](https://oss.sonatype.org/content/repositories/snapshots/com/typesafe/akka/akka-stream-kafka_2.13/) to see what versions are currently available.

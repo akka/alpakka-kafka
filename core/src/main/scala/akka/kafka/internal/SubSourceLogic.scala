@@ -216,7 +216,7 @@ private class SubSourceLogic[K, V, Msg](
     new OutHandler {
       override def onPull(): Unit =
         emitSubSourcesForPendingPartitions()
-      override def onDownstreamFinish(): Unit = performShutdown()
+      override def onDownstreamFinish(cause: Throwable): Unit = performShutdown()
     }
   )
 
@@ -446,9 +446,9 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     shape.out,
     new OutHandler {
       override def onPull(): Unit = pump()
-      override def onDownstreamFinish(): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit = {
         subSourceCancelledCb.invoke(tp -> onDownstreamFinishSubSourceCancellationStrategy())
-        super.onDownstreamFinish()
+        super.onDownstreamFinish(cause)
       }
     }
   )

@@ -110,7 +110,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
   setHandler(shape.out, new OutHandler {
     override def onPull(): Unit = pump()
-    override def onDownstreamFinish(): Unit =
+    override def onDownstreamFinish(cause: Throwable): Unit =
       performShutdown()
   })
 
