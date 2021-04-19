@@ -6,7 +6,7 @@ on:
       - master
       - main
       - release-*
-    tags: [*]
+    tags: ["*"]
 
 jobs:
   release:
