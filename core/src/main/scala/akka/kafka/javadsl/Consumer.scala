@@ -280,7 +280,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
         _ => ()
       )
       .map {
@@ -311,7 +311,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {
@@ -350,7 +350,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
         _ => ()
       )
       .map {
@@ -375,7 +375,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.sameThreadExecutionContext),
+          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {

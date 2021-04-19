@@ -10,19 +10,20 @@ val Scala212 = "2.12.13"
 val Scala213 = "2.13.4"
 
 val AkkaBinaryVersionForDocs = "2.6"
-val KafkaVersionForDocs = "26"
+val KafkaVersionForDocs = "27"
 
-val akkaVersion = "2.6.10"
-val kafkaVersion = "2.6.0"
-// TODO Jackson is now a provided dependency of kafka-clients
-// https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.6.0
-val jacksonVersion = "2.10.5.1"
+val akkaVersion = "2.6.14"
+val kafkaVersion = "2.7.0"
+// Jackson is now a provided dependency of kafka-clients
+// This should align with the Jackson minor version used in Akka 2.6.x
+// https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
+val jacksonVersion = "2.11.4"
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.15.2"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
-val confluentAvroSerializerVersion = "6.0.1"
+val confluentAvroSerializerVersion = "6.1.1"
 val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11"
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
@@ -30,12 +31,7 @@ val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
   ExclusionRule("com.typesafe.scala-logging"),
-  ExclusionRule("org.apache.kafka"),
-  // a transient dependency of `kafka-avro-serializer` brings in a SNAPSHOT version of `javafx.base` that is no longer
-  // published to maven central.  this is a workaround for the upstream confluent `rest-utils` project (that
-  // `kafka-avro-serializer` depends on, upgrades their version of jersey.
-  // https://github.com/confluentinc/rest-utils/issues/170
-  ExclusionRule("org.openjfx", "javafx.base")
+  ExclusionRule("org.apache.kafka")
 )
 
 // Allows to silence scalac compilation warnings selectively by code block or file path

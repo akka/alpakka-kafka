@@ -6,7 +6,7 @@
 package docs.javadsl;
 
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import akka.NotUsed;
 import akka.actor.ActorSystem;

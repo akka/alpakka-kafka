@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(LogCapturingExtension.class)

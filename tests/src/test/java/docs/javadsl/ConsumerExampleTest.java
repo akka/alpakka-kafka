@@ -48,7 +48,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.Assert.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(LogCapturingExtension.class)
