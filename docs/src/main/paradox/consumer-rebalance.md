@@ -55,6 +55,14 @@ from consuming from specific topic partitions. Two kinds of messages will be sen
 * @apidoc[TopicPartitionsRevoked], like this:
 
 Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withTypedRebalanceListenerActor }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #withTypedRebalanceListenerActor }
+
+And with Classic Actors
+
+Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
 
 Java

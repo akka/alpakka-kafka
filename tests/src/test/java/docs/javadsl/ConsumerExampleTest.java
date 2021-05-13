@@ -482,6 +482,10 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
   }
 
+  // #withTypedRebalanceListenerActor
+  // fixme
+  // #withTypedRebalanceListenerActor
+
   @Test
   void withPartitionAssignmentHandler() throws Exception {
     ConsumerSettings<String, String> consumerSettings =
