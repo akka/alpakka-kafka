@@ -19,7 +19,7 @@ val kafkaVersion = "2.7.0"
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
 val jacksonVersion = "2.11.4"
 val scalatestVersion = "3.1.4"
-val testcontainersVersion = "1.15.2"
+val testcontainersVersion = "1.15.3"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
