@@ -435,7 +435,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     }
 
     val typed = akka.actor.typed.ActorSystem[Nothing](guardian, "typed-rebalance-listener-example")
-    typed.whenTerminated.futureValue
+    typed.whenTerminated.futureValue shouldBe Done
   }
 
   "Partition Assignment Listener" should "get notified" in assertAllStagesStopped {
