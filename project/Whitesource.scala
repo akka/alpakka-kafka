@@ -19,11 +19,11 @@ object Whitesource extends AutoPlugin {
     // do not change the value of whitesourceProduct
     whitesourceProduct := "Lightbend Reactive Platform",
     whitesourceAggregateProjectName := {
-      (moduleName in LocalRootProject).value + "-" + (
+      (LocalRootProject / moduleName).value + "-" + (
         if (isSnapshot.value)
           if (gitCurrentBranch.contains("master")) "master"
           else "adhoc"
-        else majorMinor((version in LocalRootProject).value).map(_ + "-stable").getOrElse("adhoc")
+        else majorMinor((LocalRootProject / version).value).map(_ + "-stable").getOrElse("adhoc")
       )
     },
     whitesourceForceCheckAllDependencies := true,
