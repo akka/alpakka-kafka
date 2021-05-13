@@ -45,7 +45,7 @@ val silencer = {
   )
 }
 
-resolvers in ThisBuild ++= Seq(
+ThisBuild / resolvers ++= Seq(
   // for Jupiter interface (JUnit 5)
   Resolver.jcenterRepo
 )
@@ -113,7 +113,7 @@ val commonSettings = Def.settings(
       "-doc-version",
       version.value,
       "-sourcepath",
-      (baseDirectory in ThisBuild).value.toString,
+      (ThisBuild / baseDirectory).value.toString,
       "-skip-packages",
       "akka.pattern:scala", // for some reason Scaladoc creates this
       "-doc-source-url", {
@@ -152,7 +152,7 @@ lazy val `alpakka-kafka` =
     .disablePlugins(SitePlugin, MimaPlugin)
     .settings(commonSettings)
     .settings(
-      skip in publish := true,
+      publish / skip := true,
       // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
       ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
       onLoadMessage :=
