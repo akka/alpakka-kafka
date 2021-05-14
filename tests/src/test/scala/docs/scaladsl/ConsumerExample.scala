@@ -8,6 +8,8 @@ package docs.scaladsl
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.Done
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.kafka._
 import akka.kafka.scaladsl.Consumer.DrainingControl
@@ -373,6 +375,73 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     result.futureValue should have size 10
     assignedPromise.future.futureValue should be(Done)
     revokedPromise.future.futureValue should be(Done)
+  }
+
+  "Typed Rebalance Listener" should "get messages" in assertAllStagesStopped {
+    val consumerSettings = consumerDefaults.withGroupId(createGroupId())
+    val topic = createTopic()
+    val assignedPromise = Promise[Done]()
+    val revokedPromise = Promise[Done]()
+
+    // format: off
+    //#withTypedRebalanceListenerActor
+    import akka.kafka.{TopicPartitionsAssigned, TopicPartitionsRevoked}
+    
+    def rebalanceListener(): Behavior[ConsumerRebalanceEvent] = Behaviors.receive {
+      case (context, TopicPartitionsAssigned(subscription, topicPartitions)) =>
+        context.log.info("Assigned: {}", topicPartitions)
+    //#withTypedRebalanceListenerActor
+        assignedPromise.success(Done)
+    //#withTypedRebalanceListenerActor
+        Behaviors.same
+
+      case (context, TopicPartitionsRevoked(subscription, topicPartitions)) =>
+        context.log.info("Revoked: {}", topicPartitions)
+    //#withTypedRebalanceListenerActor
+        revokedPromise.success(Done)
+    //#withTypedRebalanceListenerActor
+        Behaviors.same
+    }
+    //#withTypedRebalanceListenerActor
+
+    val guardian = Behaviors.setup[Nothing] { context =>
+    //#withTypedRebalanceListenerActor
+    
+    val typedRef: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
+      context.spawn(rebalanceListener(), "rebalance-listener")
+
+    // adds support for actors to a classic actor system and context
+    import akka.actor.typed.scaladsl.adapter._
+      
+    val classicRef: akka.actor.ActorRef = typedRef.toClassic  
+
+    val subscription = Subscriptions
+      .topics(topic)
+      // additionally, pass the actor reference:
+      .withRebalanceListener(classicRef)
+
+    // use the subscription as usual:
+    //#withTypedRebalanceListenerActor
+    val (control, result) =
+    //#withTypedRebalanceListenerActor
+    Consumer
+      .plainSource(consumerSettings, subscription)
+    //#withTypedRebalanceListenerActor
+          // format: on
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+      awaitProduce(produce(topic, 1 to 10))
+      Await.result(control.shutdown(), 5.seconds)
+      result.futureValue should have size 10
+      assignedPromise.future.futureValue should be(Done)
+      revokedPromise.future.futureValue should be(Done)
+
+      Behaviors.stopped
+    }
+
+    // fixme: get typed system from existing `system`
+    val typed = akka.actor.typed.ActorSystem[Nothing](guardian, "typed-rebalance-listener-example")
+    typed.whenTerminated.futureValue shouldBe Done
   }
 
   "Partition Assignment Listener" should "get notified" in assertAllStagesStopped {

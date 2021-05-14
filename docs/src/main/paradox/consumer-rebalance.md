@@ -49,10 +49,21 @@ Java
 ## Listening for rebalance events
 
 You may set up an rebalance event listener actor that will be notified when your consumer will be assigned or revoked 
-from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor 
+from consuming from specific topic partitions. Two kinds of messages will be sent to this listener actor:
 
-* @apidoc[TopicPartitionsAssigned] and
-* @apidoc[TopicPartitionsRevoked], like this:
+* @apidoc[TopicPartitionsAssigned]
+* @apidoc[TopicPartitionsRevoked]
+
+You can use a typed @apidoc[akka.actor.typed.ActorRef] to implement your rebalance event listener by converting it into a classic actor ref.
+See the example below and read the @extref[Coexistence](akka:/typed/coexisting.html) page of the Akka Documentation for more details on Akka Classic and Typed interoperability.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withTypedRebalanceListenerActor }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #withTypedRebalanceListenerActor }
+
+Or with Classic Actors
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/ConsumerExample.scala) { #withRebalanceListenerActor }
