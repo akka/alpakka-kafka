@@ -386,7 +386,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     // format: off
     //#withTypedRebalanceListenerActor
     import akka.kafka.{TopicPartitionsAssigned, TopicPartitionsRevoked}
-
+    
     def rebalanceListener(): Behavior[ConsumerRebalanceEvent] = Behaviors.receive {
       case (context, TopicPartitionsAssigned(subscription, topicPartitions)) =>
         context.log.info("Assigned: {}", topicPartitions)
@@ -407,13 +407,18 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     val guardian = Behaviors.setup[Nothing] { context =>
     //#withTypedRebalanceListenerActor
     
-    val rebalanceListenerRef: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
+    val typedRef: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
       context.spawn(rebalanceListener(), "rebalance-listener")
+
+    // adds support for actors to a classic actor system and context
+    import akka.actor.typed.scaladsl.adapter._
+      
+    val classicRef: akka.actor.ActorRef = typedRef.toClassic  
 
     val subscription = Subscriptions
       .topics(topic)
       // additionally, pass the actor reference:
-      .withRebalanceListener(rebalanceListenerRef)
+      .withRebalanceListener(classicRef)
 
     // use the subscription as usual:
     //#withTypedRebalanceListenerActor

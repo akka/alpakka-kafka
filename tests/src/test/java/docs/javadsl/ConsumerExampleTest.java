@@ -11,6 +11,13 @@ import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
+import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.Behaviors;
+// #withTypedRebalanceListenerActor
+// adds support for actors to a classic actor system and context
+import akka.actor.typed.javadsl.Adapter;
+// #withTypedRebalanceListenerActor
 import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Committer;
@@ -46,6 +53,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.*;
@@ -482,9 +490,73 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
   }
 
-  // #withTypedRebalanceListenerActor
-  // fixme
-  // #withTypedRebalanceListenerActor
+  @Test
+  void withTypedRebalanceListener() throws Exception {
+    ConsumerSettings<String, String> consumerSettings =
+        consumerDefaults().withGroupId(createGroupId());
+    String topic = createTopic();
+    int messageCount = 10;
+
+    // #withTypedRebalanceListenerActor
+
+    Function<ActorContext<ConsumerRebalanceEvent>, Behavior<ConsumerRebalanceEvent>>
+        rebalanceListener =
+            (ActorContext<ConsumerRebalanceEvent> context) ->
+                Behaviors.receive(ConsumerRebalanceEvent.class)
+                    .onMessage(
+                        TopicPartitionsAssigned.class,
+                        assigned -> {
+                          context.getLog().info("Assigned: {}", assigned);
+                          return Behaviors.same();
+                        })
+                    .onMessage(
+                        TopicPartitionsRevoked.class,
+                        revoked -> {
+                          context.getLog().info("Revoked: {}", revoked);
+                          return Behaviors.same();
+                        })
+                    .build();
+    // #withTypedRebalanceListenerActor
+
+    Behavior<Object> guardian =
+        Behaviors.setup(
+            guardianCtx -> {
+              // #withTypedRebalanceListenerActor
+              
+              Behavior<ConsumerRebalanceEvent> listener =
+                  Behaviors.setup(ctx -> rebalanceListener.apply(ctx));
+
+              akka.actor.typed.ActorRef<ConsumerRebalanceEvent> typedRef =
+                  guardianCtx.spawn(listener, "rebalance-listener");
+
+              akka.actor.ActorRef classicRef = Adapter.toClassic(typedRef);
+
+              Subscription subscription =
+                  Subscriptions.topics(topic)
+                      // additionally, pass the actor reference:
+                      .withRebalanceListener(classicRef);
+
+              Consumer.DrainingControl<List<ConsumerRecord<String, String>>> control =
+                  // use the subscription as usual:
+                  Consumer.plainSource(consumerSettings, subscription)
+                      // #withTypedRebalanceListenerActor
+                      .take(messageCount)
+                      // #withTypedRebalanceListenerActor
+                      .toMat(Sink.seq(), Consumer::createDrainingControl)
+                      .run(system);
+              // #withTypedRebalanceListenerActor
+
+              assertDone(produceString(topic, messageCount, partition0));
+              assertDone(control.isShutdown());
+              assertEquals(messageCount, resultOf(control.drainAndShutdown(executor)).size());
+
+              return Behaviors.stopped();
+            });
+
+    akka.actor.typed.ActorSystem<Object> typed =
+        akka.actor.typed.ActorSystem.create(guardian, "typed-rebalance-listener-example");
+    assertDone(typed.getWhenTerminated());
+  }
 
   @Test
   void withPartitionAssignmentHandler() throws Exception {

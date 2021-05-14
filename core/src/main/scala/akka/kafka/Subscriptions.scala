@@ -5,8 +5,7 @@
 
 package akka.kafka
 
-import akka.actor.{typed, ActorRef}
-import akka.actor.typed.scaladsl.adapter._
+import akka.actor.ActorRef
 import akka.annotation.{ApiMayChange, InternalApi}
 import akka.kafka.internal.PartitionAssignmentHelpers
 import akka.kafka.internal.PartitionAssignmentHelpers.EmptyPartitionAssignmentHandler
@@ -20,7 +19,7 @@ sealed trait Subscription {
   /** ActorRef which is to receive [[akka.kafka.ConsumerRebalanceEvent]] signals when rebalancing happens */
   def rebalanceListener: Option[ActorRef]
 
-  /** Configure this classic actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
+  /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
   def withRebalanceListener(ref: ActorRef): Subscription
 
   def renderStageAttribute: String
@@ -53,11 +52,8 @@ sealed trait AutoSubscription extends Subscription {
   @InternalApi
   def partitionAssignmentHandler: scaladsl.PartitionAssignmentHandler
 
-  /** Configure this classic actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
-  def withRebalanceListener(ref: ActorRef): AutoSubscription
-
   /** Configure this actor ref to receive [[akka.kafka.ConsumerRebalanceEvent]] signals */
-  def withRebalanceListener(ref: akka.actor.typed.ActorRef[ConsumerRebalanceEvent]): AutoSubscription
+  def withRebalanceListener(ref: ActorRef): AutoSubscription
 
   @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
   def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription
@@ -93,9 +89,6 @@ object Subscriptions {
     def withRebalanceListener(ref: ActorRef): TopicSubscription =
       copy(rebalanceListener = Some(ref))
 
-    def withRebalanceListener(ref: typed.ActorRef[ConsumerRebalanceEvent]): TopicSubscription =
-      copy(rebalanceListener = Some(ref.toClassic))
-
     @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
       copy(partitionAssignmentHandler = handler)
@@ -105,6 +98,7 @@ object Subscriptions {
       copy(partitionAssignmentHandler = PartitionAssignmentHelpers.WrappedJava(handler))
 
     def renderStageAttribute: String = s"${tps.mkString(" ")}$renderListener"
+
   }
 
   /** INTERNAL API */
@@ -116,9 +110,6 @@ object Subscriptions {
   ) extends AutoSubscription {
     def withRebalanceListener(ref: ActorRef): TopicSubscriptionPattern =
       copy(rebalanceListener = Some(ref))
-
-    def withRebalanceListener(ref: typed.ActorRef[ConsumerRebalanceEvent]): TopicSubscriptionPattern =
-      copy(rebalanceListener = Some(ref.toClassic))
 
     @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
     def withPartitionAssignmentHandler(handler: scaladsl.PartitionAssignmentHandler): AutoSubscription =
@@ -135,7 +126,6 @@ object Subscriptions {
   @akka.annotation.InternalApi
   private[kafka] final case class Assignment(tps: Set[TopicPartition]) extends ManualSubscription {
     def withRebalanceListener(ref: ActorRef): Assignment = this
-
     def renderStageAttribute: String = s"${tps.mkString(" ")}"
   }
 
