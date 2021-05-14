@@ -13,6 +13,7 @@ import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.kafka.{KafkaConsumerActor, Subscriptions}
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import com.github.ghik.silencer.silent
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.concurrent.duration._
@@ -93,6 +94,9 @@ class PartitionExamples extends DocsSpecBase with TestcontainersKafkaPerClassLik
       import akka.actor.typed.scaladsl.adapter._
 
       //Consumer is represented by actor
+      // #consumerActorTyped
+      @silent
+      // #consumerActorTyped
       val consumer: ActorRef =
         context.actorOf(KafkaConsumerActor.props(consumerSettings), "kafka-consumer-actor")
       // #consumerActorTyped
