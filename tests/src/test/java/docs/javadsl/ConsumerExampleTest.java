@@ -379,7 +379,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     int partition1 = 1;
     Behaviors.setup(ctx -> {
       // #consumerActorTyped
-      
+
       //Consumer is represented by actor
       ActorRef consumer = Adapter.actorOf(ctx, KafkaConsumerActor.props(consumerSettings));
       // #consumerActorTyped
