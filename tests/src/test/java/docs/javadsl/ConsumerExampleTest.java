@@ -377,15 +377,15 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     String topic = createTopic(1, 2);
     int partition0 = 0;
     int partition1 = 1;
-    Behaviors.setup(ctx -> {
-      // #consumerActorTyped
+    Behaviors.setup(
+        ctx -> {
+          // #consumerActorTyped
 
-      //Consumer is represented by actor
-      ActorRef consumer = Adapter.actorOf(ctx, KafkaConsumerActor.props(consumerSettings));
-      // #consumerActorTyped
-      return Behaviors.empty();
-    });
-
+          // Consumer is represented by actor
+          ActorRef consumer = Adapter.actorOf(ctx, KafkaConsumerActor.props(consumerSettings));
+          // #consumerActorTyped
+          return Behaviors.empty();
+        });
 
     // #consumerActor
     // Consumer is represented by actor
