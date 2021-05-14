@@ -6,7 +6,6 @@
 package akka.kafka.javadsl
 
 import akka.kafka.RestrictedConsumer
-import akka.annotation.ApiMayChange
 import org.apache.kafka.common.TopicPartition
 
 /**
@@ -22,7 +21,6 @@ import org.apache.kafka.common.TopicPartition
  * This complements the methods of Kafka's [[org.apache.kafka.clients.consumer.ConsumerRebalanceListener ConsumerRebalanceListener]] with
  * an `onStop` callback which is called before `Consumer.close`.
  */
-@ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/985")
 trait PartitionAssignmentHandler {
 
   /**
