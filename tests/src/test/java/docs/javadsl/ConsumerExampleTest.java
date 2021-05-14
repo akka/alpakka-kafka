@@ -15,8 +15,10 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 // #withTypedRebalanceListenerActor
+// #consumerActorTyped
 // adds support for actors to a classic actor system and context
 import akka.actor.typed.javadsl.Adapter;
+// #consumerActorTyped
 // #withTypedRebalanceListenerActor
 import akka.japi.Pair;
 import akka.kafka.*;
@@ -375,6 +377,16 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     String topic = createTopic(1, 2);
     int partition0 = 0;
     int partition1 = 1;
+    Behaviors.setup(ctx -> {
+      // #consumerActorTyped
+      
+      //Consumer is represented by actor
+      ActorRef consumer = Adapter.actorOf(ctx, KafkaConsumerActor.props(consumerSettings));
+      // #consumerActorTyped
+      return Behaviors.empty();
+    });
+
+
     // #consumerActor
     // Consumer is represented by actor
     ActorRef consumer = system.actorOf((KafkaConsumerActor.props(consumerSettings)));
@@ -522,7 +534,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
         Behaviors.setup(
             guardianCtx -> {
               // #withTypedRebalanceListenerActor
-              
+
               Behavior<ConsumerRebalanceEvent> listener =
                   Behaviors.setup(ctx -> rebalanceListener.apply(ctx));
 

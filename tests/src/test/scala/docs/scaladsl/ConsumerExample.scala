@@ -439,6 +439,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       Behaviors.stopped
     }
 
+    // fixme: get typed system from existing `system`
     val typed = akka.actor.typed.ActorSystem[Nothing](guardian, "typed-rebalance-listener-example")
     typed.whenTerminated.futureValue shouldBe Done
   }
