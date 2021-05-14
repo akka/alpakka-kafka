@@ -63,7 +63,8 @@ Java
 
 In addition to programmatic construction of the @apidoc[ProducerSettings$] it can also be created from configuration (`application.conf`). 
 
-When creating @apidoc[ProducerSettings$] with the @apidoc[akka.actor.ActorSystem] settings it uses the config section `akka.kafka.producer`. The format of these settings files are described in the [Typesafe Config Documentation](https://github.com/lightbend/config#using-hocon-the-json-superset).
+When creating @apidoc[ProducerSettings$] with a classic @apidoc[akka.actor.ActorSystem] or typed @apidoc[akka.actor.typed.ActorSystem] it uses the config section `akka.kafka.producer`. 
+The format of these settings files are described in the [Typesafe Config Documentation](https://github.com/lightbend/config#using-hocon-the-json-superset).
 
 @@ snip [snip](/core/src/main/resources/reference.conf) { #producer-settings }
 

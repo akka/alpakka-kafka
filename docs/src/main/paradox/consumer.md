@@ -267,8 +267,21 @@ Java
 
 ## Sharing the KafkaConsumer instance
 
-If you have many streams it can be more efficient to share the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) instance. It is shared by creating a @apidoc[akka.kafka.KafkaConsumerActor$]. You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. You pass the @apidoc[akka.actor.ActorRef] as a parameter to the @apidoc[Consumer](Consumer$)
- factory methods.
+If you have many streams it can be more efficient to share the underlying @javadoc[KafkaConsumer](org.apache.kafka.clients.consumer.KafkaConsumer) instance. 
+It is shared by creating a @apidoc[akka.kafka.KafkaConsumerActor$]. 
+You need to create the actor and stop it by sending `KafkaConsumerActor.Stop` when it is not needed any longer. 
+You pass the classic @apidoc[akka.actor.ActorRef] as a parameter to the @apidoc[Consumer](Consumer$) factory methods.
+
+When using a typed @apidoc[akka.actor.typed.ActorSystem] you can create the @apidoc[akka.kafka.KafkaConsumerActor$] by using the Akka typed adapter to create a classic @apidoc[akka.actor.ActorRef].
+Then you can carry on using the existing Alpakka Kafka API.
+
+Scala
+: @@ snip [snip](/tests/src/test/scala/docs/scaladsl/PartitionExamples.scala) { #consumerActorTyped }
+
+Java
+: @@ snip [snip](/tests/src/test/java/docs/javadsl/ConsumerExampleTest.java) { #consumerActorTyped }
+
+Using the @apidoc[akka.kafka.KafkaConsumerActor$].
 
 Scala
 : @@ snip [snip](/tests/src/test/scala/docs/scaladsl/PartitionExamples.scala) { #consumerActor }
