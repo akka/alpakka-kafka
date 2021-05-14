@@ -404,7 +404,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
     }
     //#withTypedRebalanceListenerActor
 
-    val guardian: Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
+    val guardian = Behaviors.setup[Nothing] { context =>
     //#withTypedRebalanceListenerActor
     
     val rebalanceListenerRef: akka.actor.typed.ActorRef[ConsumerRebalanceEvent] =
@@ -431,7 +431,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
       assignedPromise.future.futureValue should be(Done)
       revokedPromise.future.futureValue should be(Done)
 
-      Behaviors.stopped[Nothing]
+      Behaviors.stopped
     }
 
     val typed = akka.actor.typed.ActorSystem[Nothing](guardian, "typed-rebalance-listener-example")
