@@ -96,11 +96,7 @@ private final class CommitCollectorStageLogic[E, ACC](
         } catch {
           case NonFatal(e) =>
             // Commit buffered offsets as much as possible
-            if (activeBatchInProgress) {
-              offsetBatch.tellCommitEmergency()
-              accumulated = stage.seed
-              offsetBatch = CommittableOffsetBatch.empty
-            }
+            actionOnFailure()
             throw e
         }
         if (updateBatch(offset)) {
@@ -123,11 +119,7 @@ private final class CommitCollectorStageLogic[E, ACC](
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
         log.debug("onUpstreamFailure with exception {} with {} and {}", ex, offsetBatch, accumulated)
-        if (activeBatchInProgress) {
-          offsetBatch.tellCommitEmergency()
-          accumulated = stage.seed
-          offsetBatch = CommittableOffsetBatch.empty
-        }
+        actionOnFailure()
         failStage(ex)
       }
     }
@@ -152,6 +144,15 @@ private final class CommitCollectorStageLogic[E, ACC](
   }
 
   private def activeBatchInProgress: Boolean = !offsetBatch.isEmpty
+
+  private def actionOnFailure(): Unit = {
+    if (activeBatchInProgress) {
+      offsetBatch.tellCommitEmergency()
+      accumulated = stage.seed
+      offsetBatch = CommittableOffsetBatch.empty
+    }
+  }
+
 }
 
 private[akka] object CommitCollectorStage {
