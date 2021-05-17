@@ -181,7 +181,7 @@ class ConsumerExample extends DocsSpecBase with TestcontainersKafkaLike {
         .mapAsync(10) { record =>
           business(record.key, record.value)
         }
-        .via(Committer.flowWithOffsetContext(committerDefaults))
+        .via(Committer.flowWithOffsetContext(committerDefaults, Vector.empty[Done])((acc, elem) => acc :+ elem))
         .toMat(Sink.seq)(DrainingControl.apply)
         .run()
     awaitProduce(produce(topic, 1 to 10))

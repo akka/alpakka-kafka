@@ -11,6 +11,8 @@ import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.stream._
 import akka.stream.stage._
 
+import scala.util.control.NonFatal
+
 /**
  * INTERNAL API.
  *
@@ -18,12 +20,13 @@ import akka.stream.stage._
  * upstream failures. Support flushing on failure (for downstreams).
  */
 @InternalApi
-private[kafka] final class CommitCollectorStage(val committerSettings: CommitterSettings)
-    extends GraphStage[FlowShape[Committable, CommittableOffsetBatch]] {
+private[kafka] final class CommitCollectorStage[E, ACC](val committerSettings: CommitterSettings, val seed: ACC)(
+    val aggregate: (ACC, E) => ACC
+) extends GraphStage[FlowShape[(E, Committable), (ACC, CommittableOffsetBatch)]] {
 
-  val in: Inlet[Committable] = Inlet[Committable]("FlowIn")
-  val out: Outlet[CommittableOffsetBatch] = Outlet[CommittableOffsetBatch]("FlowOut")
-  val shape: FlowShape[Committable, CommittableOffsetBatch] = FlowShape(in, out)
+  val in: Inlet[(E, Committable)] = Inlet[(E, Committable)]("FlowIn")
+  val out: Outlet[(ACC, CommittableOffsetBatch)] = Outlet[(ACC, CommittableOffsetBatch)]("FlowOut")
+  val shape: FlowShape[(E, Committable), (ACC, CommittableOffsetBatch)] = FlowShape(in, out)
 
   override def createLogic(
       inheritedAttributes: Attributes
@@ -32,8 +35,8 @@ private[kafka] final class CommitCollectorStage(val committerSettings: Committer
   }
 }
 
-private final class CommitCollectorStageLogic(
-    stage: CommitCollectorStage,
+private final class CommitCollectorStageLogic[E, ACC](
+    stage: CommitCollectorStage[E, ACC],
     inheritedAttributes: Attributes
 ) extends TimerGraphStageLogic(stage.shape)
     with CommitObservationLogic
@@ -44,7 +47,10 @@ private final class CommitCollectorStageLogic(
 
   final val settings: CommitterSettings = stage.committerSettings
 
-  override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
+  var accumulated: ACC = stage.seed
+  final val aggregate = stage.aggregate
+
+  override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic[E, ACC]]
 
   private var pushOnNextPull = false
 
@@ -69,8 +75,12 @@ private final class CommitCollectorStageLogic(
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy): Unit = {
-    log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
-    push(stage.out, offsetBatch)
+    log.debug("pushDownStream triggered by {}, outstanding batch {} and accumulated {}",
+              triggeredBy,
+              offsetBatch,
+              accumulated)
+    push(stage.out, (accumulated, offsetBatch))
+    accumulated = stage.seed
     offsetBatch = CommittableOffsetBatch.empty
     scheduleCommit()
   }
@@ -79,8 +89,20 @@ private final class CommitCollectorStageLogic(
     stage.in,
     new InHandler {
       def onPush(): Unit = {
-        val offset = grab(stage.in)
-        log.debug("Consuming offset {}", offset)
+        val (elem, offset) = grab(stage.in)
+        log.debug("Consuming offset {} and element {}", offset, elem)
+        accumulated = try {
+          aggregate(accumulated, elem)
+        } catch {
+          case NonFatal(e) =>
+            // Commit buffered offsets as much as possible
+            if (activeBatchInProgress) {
+              offsetBatch.tellCommitEmergency()
+              accumulated = stage.seed
+              offsetBatch = CommittableOffsetBatch.empty
+            }
+            throw e
+        }
         if (updateBatch(offset)) {
           // Push only of the outlet is available, a commit on interval might have taken the pending demand.
           // This is very hard to get tested consistently, so it gets this big comment instead.
@@ -90,16 +112,20 @@ private final class CommitCollectorStageLogic(
 
       override def onUpstreamFinish(): Unit = {
         if (activeBatchInProgress) {
-          log.debug("pushDownStream triggered by {}, outstanding batch {}", UpstreamFinish, offsetBatch)
-          emit(stage.out, offsetBatch)
+          log.debug("pushDownStream triggered by {}, outstanding batch {} and accumulated {}",
+                    UpstreamFinish,
+                    offsetBatch,
+                    accumulated)
+          emit(stage.out, (accumulated, offsetBatch))
         }
         completeStage()
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        log.debug("onUpstreamFailure with exception {} with {}", ex, offsetBatch)
+        log.debug("onUpstreamFailure with exception {} with {} and {}", ex, offsetBatch, accumulated)
         if (activeBatchInProgress) {
           offsetBatch.tellCommitEmergency()
+          accumulated = stage.seed
           offsetBatch = CommittableOffsetBatch.empty
         }
         failStage(ex)

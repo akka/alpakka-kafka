@@ -27,21 +27,10 @@ object Committer {
    * Batches offsets and commits them to Kafka, emits `CommittableOffsetBatch` for every committed batch.
    */
   def batchFlow(settings: CommitterSettings): Flow[Committable, CommittableOffsetBatch, NotUsed] = {
-    val offsetBatches: Flow[Committable, CommittableOffsetBatch, NotUsed] =
-      Flow
-        .fromGraph(new CommitCollectorStage(settings))
-
-    // See https://github.com/akka/alpakka-kafka/issues/882
-    import akka.kafka.CommitDelivery._
-    settings.delivery match {
-      case WaitForAck =>
-        offsetBatches
-          .mapAsyncUnordered(settings.parallelism) { batch =>
-            batch.commitInternal().map(_ => batch)(ExecutionContexts.parasitic)
-          }
-      case SendAndForget =>
-        offsetBatches.map(_.tellCommit())
-    }
+    Flow[Committable]
+      .map(NotUsed -> _)
+      .via(flowWithOffsetContext[NotUsed, NotUsed](settings, NotUsed)((_, _) => NotUsed))
+      .map(_._2)
   }
 
   /**
@@ -51,14 +40,28 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithOffsetContext[E](
-      settings: CommitterSettings
-  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] = {
-    val value = Flow[(E, Committable)]
-      .map(_._2)
-      .via(batchFlow(settings))
-      .map(b => (NotUsed, b))
-    new FlowWithContext(value)
+  def flowWithOffsetContext[E, ACC](settings: CommitterSettings, seed: ACC)(
+      aggregate: (ACC, E) => ACC
+  ): FlowWithContext[E, Committable, ACC, CommittableOffsetBatch, NotUsed] = {
+    val offsetBatches: Flow[(E, Committable), (ACC, CommittableOffsetBatch), NotUsed] =
+      Flow.fromGraph(new CommitCollectorStage[E, ACC](settings, seed)(aggregate))
+
+    // See https://github.com/akka/alpakka-kafka/issues/882
+    import akka.kafka.CommitDelivery._
+    val tupledFlow = settings.delivery match {
+      case WaitForAck =>
+        offsetBatches
+          .mapAsyncUnordered(settings.parallelism) {
+            case (acc, batch) =>
+              batch.commitInternal().map(_ => (acc, batch))(ExecutionContexts.parasitic)
+          }
+      case SendAndForget =>
+        offsetBatches.map {
+          case (acc, batch) =>
+            (acc, batch.tellCommit())
+        }
+    }
+    FlowWithContext.fromTuples(tupledFlow)
   }
 
   /**
@@ -76,7 +79,7 @@ object Committer {
   @ApiMayChange
   def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
     Flow[(E, Committable)]
-      .via(flowWithOffsetContext(settings))
+      .via(flowWithOffsetContext[E, NotUsed](settings, NotUsed)((_, _) => NotUsed))
       .toMat(Sink.ignore)(Keep.right)
 
 }

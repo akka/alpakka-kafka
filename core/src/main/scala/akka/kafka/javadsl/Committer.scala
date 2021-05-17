@@ -5,7 +5,6 @@
 
 package akka.kafka.javadsl
 import java.util.concurrent.CompletionStage
-
 import akka.annotation.ApiMayChange
 import akka.japi.Pair
 import akka.{Done, NotUsed}
@@ -13,6 +12,8 @@ import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.{scaladsl, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 
+import java.util.function.BiFunction
+import scala.compat.java8.FunctionConverters.enrichAsScalaFromBiFunction
 import scala.compat.java8.FutureConverters.FutureOps
 
 object Committer {
@@ -36,10 +37,12 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithOffsetContext[E, C <: Committable](
-      settings: CommitterSettings
-  ): FlowWithContext[E, C, NotUsed, CommittableOffsetBatch, NotUsed] =
-    scaladsl.Committer.flowWithOffsetContext[E](settings).asJava
+  def flowWithOffsetContext[E, ACC, C <: Committable](
+      settings: CommitterSettings,
+      seed: ACC,
+      aggregate: BiFunction[ACC, E, ACC]
+  ): FlowWithContext[E, C, ACC, CommittableOffsetBatch, NotUsed] =
+    scaladsl.Committer.flowWithOffsetContext[E, ACC](settings, seed)(aggregate.asScala).asJava
 
   /**
    * Batches offsets and commits them to Kafka.

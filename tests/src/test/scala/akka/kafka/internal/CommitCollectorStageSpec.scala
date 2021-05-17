@@ -365,6 +365,60 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         control.shutdown().futureValue shouldBe Done
       }
     }
+
+    "was given `seed` and `aggregate` function" should {
+      val settings = DefaultCommitterSettings.withMaxBatch(2).withMaxInterval(10.hours)
+      "push aggregated elements and committed batches" in assertAllStagesStopped {
+        val (sourceProbe, control, sinkProbe, offsetFactory) =
+          streamWithContextProbesWithOffsetFactory[Int, Int](settings, 0)(_ + _)
+        val msg1 = (1, offsetFactory.makeOffset())
+        val msg2 = (1, offsetFactory.makeOffset())
+        val msg3 = (1, offsetFactory.makeOffset())
+        val msg4 = (2, offsetFactory.makeOffset())
+
+        sinkProbe.request(100)
+
+        sourceProbe.sendNext(msg1)
+        sourceProbe.sendNext(msg2)
+        sourceProbe.sendNext(msg3)
+        sourceProbe.sendNext(msg4)
+
+        val (acc1, committedBatch1) = sinkProbe.expectNext()
+        acc1 shouldBe 2
+
+        val (acc2, committedBatch2) = sinkProbe.expectNext()
+        acc2 shouldBe 3
+
+        offsetFactory.committer.commits.size shouldBe 2 withClue "expected two batch commits"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+
+      "commits buffered offsets if `aggregate` function throw non fatal exception" in assertAllStagesStopped {
+        val expectedError = new IllegalStateException("Exception from `aggregate` function")
+        val seed = 0
+        val (sourceProbe, control, sinkProbe, offsetFactory) =
+          streamWithContextProbesWithOffsetFactory[Int, Int](settings, seed) { (acc, elem) =>
+            if (acc == seed) acc + elem else throw expectedError
+          }
+        val msg1 = (1, offsetFactory.makeOffset())
+        val msg2 = (1, offsetFactory.makeOffset())
+
+        sinkProbe.request(100)
+
+        sourceProbe.sendNext(msg1)
+        sourceProbe.sendNext(msg2)
+
+        val receivedError = sinkProbe.expectError()
+        receivedError shouldBe expectedError
+
+        val lastCommittedOffset = offsetFactory.committer.commits.last._2
+        lastCommittedOffset shouldBe msg1._2.partitionOffset.offset withClue "last offset commit should be the one before the error"
+
+        control.shutdown().futureValue shouldBe Done
+      }
+
+    }
   }
 
   @scala.annotation.tailrec
@@ -409,6 +463,33 @@ class CommitCollectorStageSpec(_system: ActorSystem)
       TestSubscriber.Probe[CommittableOffsetBatch],
       TestOffsetFactory) = {
     val (source, control, sink) = streamProbes(committerSettings)
+    val factory = TestOffsetFactory(new TestBatchCommitter(committerSettings))
+    (source, control, sink, factory)
+  }
+
+  private def streamWithContextProbes[E, C](committerSettings: CommitterSettings, seed: C)(
+      aggregate: (C, E) => C
+  ): (TestPublisher.Probe[(E, Committable)], Consumer.Control, TestSubscriber.Probe[(C, CommittableOffsetBatch)]) = {
+
+    val flow = Committer.flowWithOffsetContext(committerSettings, seed)(aggregate)
+
+    val ((source, control), sink) = TestSource
+      .probe[(E, Committable)]
+      .viaMat(ConsumerControlFactory.controlFlow())(Keep.both)
+      .via(flow)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+
+    (source, control, sink)
+  }
+
+  private def streamWithContextProbesWithOffsetFactory[E, C](committerSettings: CommitterSettings, seed: C)(
+      aggregate: (C, E) => C
+  ): (TestPublisher.Probe[(E, Committable)],
+      Consumer.Control,
+      TestSubscriber.Probe[(C, CommittableOffsetBatch)],
+      TestOffsetFactory) = {
+    val (source, control, sink) = streamWithContextProbes(committerSettings, seed)(aggregate)
     val factory = TestOffsetFactory(new TestBatchCommitter(committerSettings))
     (source, control, sink, factory)
   }
