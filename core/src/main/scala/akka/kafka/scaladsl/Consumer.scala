@@ -200,7 +200,7 @@ object Consumer {
    * delivered one time but in failure cases could be duplicated.
    *
    * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
-   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
+   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithContext]].
    */
   @ApiMayChange
   def sourceWithOffsetContext[K, V](
@@ -221,7 +221,7 @@ object Consumer {
    * delivered one time but in failure cases could be duplicated.
    *
    * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
-   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
+   * [[Producer.flowWithContext]] and/or [[Committer.sinkWithContext]].
    *
    * This variant makes it possible to add additional metadata (in the form of a string)
    * when an offset is committed based on the record. This can be useful (for example) to store information about which

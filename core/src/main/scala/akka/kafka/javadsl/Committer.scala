@@ -37,12 +37,12 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
-  def flowWithOffsetContext[E, ACC, C <: Committable](
+  def flowWithContext[E, ACC, C <: Committable](
       settings: CommitterSettings,
       seed: ACC,
       aggregate: BiFunction[ACC, E, ACC]
   ): FlowWithContext[E, C, ACC, CommittableOffsetBatch, NotUsed] =
-    scaladsl.Committer.flowWithOffsetContext[E, ACC](settings, seed)(aggregate.asScala).asJava
+    scaladsl.Committer.flowWithContext[E, ACC](settings, seed)(aggregate.asScala).asJava
 
   /**
    * Batches offsets and commits them to Kafka.
@@ -56,13 +56,13 @@ object Committer {
    * Batches offsets from context and commits them to Kafka.
    */
   @ApiMayChange
-  def sinkWithOffsetContext[E, C <: Committable](
+  def sinkWithContext[E, C <: Committable](
       settings: CommitterSettings
   ): Sink[Pair[E, C], CompletionStage[Done]] =
     akka.stream.scaladsl
       .Flow[Pair[E, C]]
       .map(_.toScala)
-      .toMat(scaladsl.Committer.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
+      .toMat(scaladsl.Committer.sinkWithContext(settings))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue[CompletionStage[Done]](_.toJava)
       .asJava[Pair[E, C]]
 }

@@ -118,8 +118,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                   return multiMsg;
                 })
             .via(Producer.flowWithContext(producerSettings))
-            .toMat(
-                Committer.sinkWithOffsetContext(committerSettings), Consumer::createDrainingControl)
+            .toMat(Committer.sinkWithContext(committerSettings), Consumer::createDrainingControl)
             .run(system);
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> tuple =
         Consumer.plainSource(consumerSettings, Subscriptions.topics(topic2, topic3))
@@ -216,9 +215,7 @@ public class AtLeastOnceTest extends TestcontainersKafkaJunit4Test {
                 })
             .mapContext(ConsumerMessage::createCommittableOffsetBatch)
             .via(Producer.flowWithContext(producerDefaults()))
-            .toMat(
-                Committer.sinkWithOffsetContext(committerDefaults()),
-                Consumer::createDrainingControl)
+            .toMat(Committer.sinkWithContext(committerDefaults()), Consumer::createDrainingControl)
             .run(system);
 
     Pair<Consumer.Control, CompletionStage<List<ConsumerRecord<String, String>>>> pair =

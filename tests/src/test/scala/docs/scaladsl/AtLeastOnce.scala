@@ -149,7 +149,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
           out
         })
         .via(Producer.flowWithContext(producerSettings))
-        .toMat(Committer.sinkWithOffsetContext(committerSettings))(DrainingControl.apply)
+        .toMat(Committer.sinkWithContext(committerSettings))(DrainingControl.apply)
         .run()
 
     val (control2, result) = Consumer
@@ -180,7 +180,7 @@ class AtLeastOnce extends DocsSpecBase with TestcontainersKafkaLike {
         }
         .mapContext(CommittableOffsetBatch(_))
         .via(Producer.flowWithContext(producerDefaults))
-        .toMat(Committer.sinkWithOffsetContext(committerDefaults))(DrainingControl.apply)
+        .toMat(Committer.sinkWithContext(committerDefaults))(DrainingControl.apply)
         .run()
 
     val (control2, result) = Consumer

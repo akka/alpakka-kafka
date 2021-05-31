@@ -471,7 +471,7 @@ class CommitCollectorStageSpec(_system: ActorSystem)
       aggregate: (C, E) => C
   ): (TestPublisher.Probe[(E, Committable)], Consumer.Control, TestSubscriber.Probe[(C, CommittableOffsetBatch)]) = {
 
-    val flow = Committer.flowWithOffsetContext(committerSettings, seed)(aggregate)
+    val flow = Committer.flowWithContext(committerSettings, seed)(aggregate)
 
     val ((source, control), sink) = TestSource
       .probe[(E, Committable)]
