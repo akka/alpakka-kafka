@@ -40,6 +40,23 @@ object Committer {
    * `CommittableOffsetBatch` as context.
    */
   @ApiMayChange
+  def flowWithOffsetContext[E](
+      settings: CommitterSettings
+  ): FlowWithContext[E, Committable, NotUsed, CommittableOffsetBatch, NotUsed] = {
+    val value = Flow[(E, Committable)]
+      .map(_._2)
+      .via(batchFlow(settings))
+      .map(b => (NotUsed, b))
+    new FlowWithContext(value)
+  }
+
+  /**
+   * API MAY CHANGE
+   *
+   * Batches offsets from context and commits them to Kafka, emits no useful value, but keeps the committed
+   * `CommittableOffsetBatch` as context.
+   */
+  @ApiMayChange
   def flowWithContext[E, ACC](settings: CommitterSettings, seed: ACC)(
       aggregate: (ACC, E) => ACC
   ): FlowWithContext[E, Committable, ACC, CommittableOffsetBatch, NotUsed] = {
@@ -69,6 +86,17 @@ object Committer {
    */
   def sink(settings: CommitterSettings): Sink[Committable, Future[Done]] =
     flow(settings)
+      .toMat(Sink.ignore)(Keep.right)
+
+  /**
+   * API MAY CHANGE
+   *
+   * Batches offsets from context and commits them to Kafka.
+   */
+  @ApiMayChange
+  def sinkWithOffsetContext[E](settings: CommitterSettings): Sink[(E, Committable), Future[Done]] =
+    Flow[(E, Committable)]
+      .via(flowWithOffsetContext(settings))
       .toMat(Sink.ignore)(Keep.right)
 
   /**
