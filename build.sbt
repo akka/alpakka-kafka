@@ -7,7 +7,7 @@ name := "akka-stream-kafka"
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 val Scala212 = "2.12.13"
-val Scala213 = "2.13.4"
+val Scala213 = "2.13.6"
 
 val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "27"
