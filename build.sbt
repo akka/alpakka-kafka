@@ -389,7 +389,7 @@ lazy val benchmarks = project
     whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
         "io.dropwizard.metrics" % "metrics-core" % "4.1.21",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
