@@ -132,7 +132,9 @@ class CommitCollectorStageSpec(_system: ActorSystem)
         val msg = factory.makeOffset()
         sourceProbe.sendNext(msg)
         // triggered by interval
-        val committedBatch = sinkProbe.requestNext(80.millis)
+        val committedBatch = eventually {
+          sinkProbe.requestNext(80.millis)
+        }
 
         val msg2 = factory.makeOffset()
         sourceProbe.sendNext(msg2)
