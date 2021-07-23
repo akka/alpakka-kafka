@@ -56,7 +56,7 @@ import scala.concurrent.{Future, Promise}
       case (_, Messages(requestId, messages)) =>
         // Prevent stage failure during shutdown by ignoring Messages
         if (messages.hasNext)
-          log.debug("Unexpected message `Messages` received with requestId={} and a non-empty message iterator: {}",
+          log.debug("Unexpected `Messages` received with requestId={} and a non-empty message iterator: {}",
                     requestId,
                     messages.mkString(", "))
     })

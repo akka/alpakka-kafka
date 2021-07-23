@@ -155,6 +155,7 @@ class TransactionsSourceSpec
 
       val elements = 100
       val batchSize = 10
+      val maxBufferSize = 16 // must be power of two
       Await.result(produce(sourceTopic, 1 to elements), remainingOrDefault)
 
       val elementsWrote = new AtomicInteger(0)
@@ -171,7 +172,7 @@ class TransactionsSourceSpec
             }
             .take(batchSize.toLong)
             .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
-            .addAttributes(Attributes.inputBuffer(batchSize, batchSize + 1))
+            .addAttributes(Attributes.inputBuffer(10, maxBufferSize))
             .via(Transactional.flow(producerDefaults, s"$group-$id"))
             .map(_ => elementsWrote.incrementAndGet())
             .toMat(Sink.ignore)(Keep.left)
