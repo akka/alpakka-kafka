@@ -12,8 +12,8 @@ val Scala213 = "2.13.4"
 val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "27"
 
-val akkaVersion = "2.6.14"
-val kafkaVersion = "2.7.1"
+val akkaVersion = "2.6.15"
+val kafkaVersion = "2.7.0"
 // Jackson is now a provided dependency of kafka-clients
 // This should align with the Jackson minor version used in Akka 2.6.x
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
