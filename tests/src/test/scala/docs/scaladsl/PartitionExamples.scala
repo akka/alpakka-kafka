@@ -84,9 +84,6 @@ class PartitionExamples extends DocsSpecBase with TestcontainersKafkaPerClassLik
 
   "Typed Externally controlled kafka consumer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(suffix = 0, partitions = 3)
-    val partition1 = 1
-    val partition2 = 2
 
     val _ = Behaviors.setup[Nothing] { context =>
       // #consumerActorTyped
