@@ -84,9 +84,6 @@ class PartitionExamples extends DocsSpecBase with TestcontainersKafkaPerClassLik
 
   "Typed Externally controlled kafka consumer" should "work" in assertAllStagesStopped {
     val consumerSettings = consumerDefaults.withGroupId(createGroupId())
-    val topic = createTopic(suffix = 0, partitions = 3)
-    val partition1 = 1
-    val partition2 = 2
 
     val _ = Behaviors.setup[Nothing] { context =>
       // #consumerActorTyped
@@ -104,52 +101,6 @@ class PartitionExamples extends DocsSpecBase with TestcontainersKafkaPerClassLik
       Behaviors.empty
     }
 
-    {
-      // #consumerActor
-
-      //Consumer is represented by actor
-      val consumer: ActorRef = system.actorOf(KafkaConsumerActor.props(consumerSettings))
-
-      //Manually assign topic partition to it
-      val (controlPartition1, result1) = Consumer
-        .plainExternalSource[String, Array[Byte]](
-          consumer,
-          Subscriptions.assignment(new TopicPartition(topic, partition1))
-        )
-        .via(businessFlow)
-        .toMat(Sink.seq)(Keep.both)
-        .run()
-
-      //Manually assign another topic partition
-      val (controlPartition2, result2) = Consumer
-        .plainExternalSource[String, Array[Byte]](
-          consumer,
-          Subscriptions.assignment(new TopicPartition(topic, partition2))
-        )
-        .via(businessFlow)
-        .toMat(Sink.seq)(Keep.both)
-        .run()
-
-      // ....
-
-      // #consumerActor
-      awaitProduce(produce(topic, 1 to 10, partition1), produce(topic, 1 to 10, partition2))
-      awaitMultiple(2.seconds,
-                    // #consumerActor
-                    controlPartition1.shutdown()
-                    // #consumerActor
-                    ,
-                    // #consumerActor
-                    controlPartition2.shutdown()
-                    // #consumerActor
-      )
-      // #consumerActor
-      consumer ! KafkaConsumerActor.Stop
-      // #consumerActor
-
-      result1.futureValue should have size 10
-      result2.futureValue should have size 10
-    }
   }
 
   "Consumer Metrics" should "work" in assertAllStagesStopped {
