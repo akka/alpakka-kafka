@@ -104,9 +104,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: adopt@1.8,      scala-version: 2.12.13, sbt-opts: '' }
+          - { java-version: adopt@1.8,      scala-version: 2.12.15, sbt-opts: '' }
           - { java-version: adopt@1.8,      scala-version: 2.13.2,  sbt-opts: '' }
-          - { java-version: adopt@1.11.0-9, scala-version: 2.12.13, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { java-version: adopt@1.11.0-9, scala-version: 2.12.15, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
           - { java-version: adopt@1.11.0-9, scala-version: 2.13.2,  sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
     steps:
       - name: Checkout
