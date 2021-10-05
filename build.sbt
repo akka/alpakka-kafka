@@ -304,7 +304,6 @@ lazy val tests = project
         "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
       ),
     publish / skip := true,
-    whitesourceIgnore := true,
     Test / fork := true,
     Test / parallelExecution := false,
     IntegrationTest / parallelExecution := false
@@ -317,7 +316,6 @@ lazy val docs = project
   .settings(
     name := "Alpakka Kafka",
     publish / skip := true,
-    whitesourceIgnore := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
     previewPath := (Paradox / siteSubdirName).value,
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
@@ -386,7 +384,6 @@ lazy val benchmarks = project
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
-    whitesourceIgnore := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
