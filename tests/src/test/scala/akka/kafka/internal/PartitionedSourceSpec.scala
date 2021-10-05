@@ -79,7 +79,9 @@ class PartitionedSourceSpec(_system: ActorSystem)
     dummy.tpsPaused should be(Symbol("empty"))
     dummy.assignWithCallback(tp0, tp1)
     dummy.setNextPollData(tp0 -> singleRecord)
-    sink.requestNext().record.value() should be("value")
+    eventually {
+      sink.requestNext().record.value() should be("value")
+    }
     dummy.setNextPollData(tp1 -> singleRecord)
     sink.requestNext().record.value() should be("value")
 

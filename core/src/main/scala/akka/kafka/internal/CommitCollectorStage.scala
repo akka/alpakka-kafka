@@ -42,7 +42,12 @@ private final class CommitCollectorStageLogic(
   import CommitCollectorStage._
   import CommitTrigger._
 
-  final val settings: CommitterSettings = stage.committerSettings
+  val settings: CommitterSettings = stage.committerSettings
+
+  // Context propagation is needed to notify Lightbend Telemetry to keep the context in case of a deferred downstream
+  // push call that might not happen during onPush but later onTimer, onPull, or only during the next onPush call.
+  private val contextPropagation = akka.stream.impl.ContextPropagation()
+  private var contextSuspended = false
 
   override protected def logSource: Class[_] = classOf[CommitCollectorStageLogic]
 
@@ -57,19 +62,26 @@ private final class CommitCollectorStageLogic(
   private def scheduleCommit(): Unit =
     scheduleOnce(CommitNow, stage.committerSettings.maxInterval)
 
-  override protected def onTimer(timerKey: Any): Unit = timerKey match {
-    case CommitCollectorStage.CommitNow =>
-      if (activeBatchInProgress) {
-        // Push only of the outlet is available, as timers may occur outside of a push/pull cycle.
-        // Otherwise instruct `onPull` to emit what is there when the next pull occurs.
-        // This is very hard to get tested consistently, so it gets this big comment instead.
-        if (isAvailable(stage.out)) pushDownStream(Interval)
-        else pushOnNextPull = true
-      } else scheduleCommit()
+  override protected def onTimer(timerKey: Any): Unit = {
+    var pushed = false
+    timerKey match {
+      case CommitCollectorStage.CommitNow =>
+        if (activeBatchInProgress) {
+          // Push only of the outlet is available, as timers may occur outside of a push/pull cycle.
+          // Otherwise instruct `onPull` to emit what is there when the next pull occurs.
+          // This is very hard to get tested consistently, so it gets this big comment instead.
+          if (isAvailable(stage.out)) {
+            pushDownStream(Interval)
+            pushed = true
+          } else pushOnNextPull = true
+        } else scheduleCommit()
+    }
+    if (!pushed) suspendContext()
   }
 
   private def pushDownStream(triggeredBy: TriggerdBy): Unit = {
     log.debug("pushDownStream triggered by {}, outstanding batch {}", triggeredBy, offsetBatch)
+    resumeContext()
     push(stage.out, offsetBatch)
     offsetBatch = CommittableOffsetBatch.empty
     scheduleCommit()
@@ -79,18 +91,24 @@ private final class CommitCollectorStageLogic(
     stage.in,
     new InHandler {
       def onPush(): Unit = {
+        var pushed = false
         val offset = grab(stage.in)
         log.debug("Consuming offset {}", offset)
         if (updateBatch(offset)) {
           // Push only of the outlet is available, a commit on interval might have taken the pending demand.
           // This is very hard to get tested consistently, so it gets this big comment instead.
-          if (isAvailable(stage.out)) pushDownStream(BatchSize)
+          if (isAvailable(stage.out)) {
+            pushDownStream(BatchSize)
+            pushed = true
+          }
         } else tryPull(stage.in) // accumulating the batch
+        if (!pushed) suspendContext()
       }
 
       override def onUpstreamFinish(): Unit = {
         if (activeBatchInProgress) {
           log.debug("pushDownStream triggered by {}, outstanding batch {}", UpstreamFinish, offsetBatch)
+          resumeContext()
           emit(stage.out, offsetBatch)
         }
         completeStage()
@@ -126,6 +144,20 @@ private final class CommitCollectorStageLogic(
   }
 
   private def activeBatchInProgress: Boolean = !offsetBatch.isEmpty
+
+  private def suspendContext(): Unit = {
+    if (!contextSuspended) {
+      contextPropagation.suspendContext()
+      contextSuspended = true
+    }
+  }
+
+  private def resumeContext(): Unit = {
+    if (contextSuspended) {
+      contextPropagation.resumeContext()
+      contextSuspended = false
+    }
+  }
 }
 
 private[akka] object CommitCollectorStage {

@@ -7,6 +7,7 @@ package akka.kafka.internal
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Terminated}
 import akka.annotation.InternalApi
+import akka.kafka.internal.KafkaConsumerActor.Internal.Messages
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.kafka.{ConsumerSettings, RestrictedConsumer, Subscription}
 import akka.stream.SourceShape
@@ -51,7 +52,14 @@ import scala.concurrent.{Future, Promise}
     if (!isClosed(shape.out)) {
       complete(shape.out)
     }
-    sourceActor.become(shuttingDownReceive)
+    sourceActor.become(shuttingDownReceive.orElse {
+      case (_, Messages(requestId, messages)) =>
+        // Prevent stage failure during shutdown by ignoring Messages
+        if (messages.hasNext)
+          log.debug("Unexpected `Messages` received with requestId={} and a non-empty message iterator: {}",
+                    requestId,
+                    messages.mkString(", "))
+    })
     stopConsumerActor()
   }
 
