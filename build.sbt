@@ -18,7 +18,7 @@ val kafkaVersion = "2.7.0"
 // This should align with the Jackson minor version used in Akka 2.6.x
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
 val jacksonVersion = "2.11.4"
-val scalatestVersion = "3.1.4"
+val scalatestVersion = "3.2.10"
 val testcontainersVersion = "1.15.3"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
