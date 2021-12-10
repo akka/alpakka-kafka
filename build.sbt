@@ -20,7 +20,7 @@ val kafkaVersion = "2.7.0"
 val jacksonVersion = "2.11.4"
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.16.2"
-val slf4jVersion = "1.7.30"
+val slf4jVersion = "1.7.32"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 val confluentAvroSerializerVersion = "6.1.1"
