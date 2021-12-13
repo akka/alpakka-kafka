@@ -132,7 +132,8 @@ val commonSettings = Def.settings(
   // -q Suppress stdout for successful tests.
   // -s Try to decode Scala names in stack traces and test names.
   testOptions += Tests.Argument(jupiterTestFramework, "-a", "-v", "-q", "-s"),
-  scalafmtOnCompile := true,
+  scalafmtOnCompile := false,
+  javafmtOnCompile := false,
   ThisBuild / mimaReportSignatureProblems := true,
   headerLicense := Some(
       HeaderLicense.Custom(
