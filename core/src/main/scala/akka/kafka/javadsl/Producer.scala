@@ -6,16 +6,15 @@
 package akka.kafka.javadsl
 
 import java.util.concurrent.CompletionStage
-
 import akka.annotation.ApiMayChange
 import akka.kafka.ConsumerMessage.Committable
 import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, CommitterSettings, ConsumerMessage, ProducerSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 import akka.{japi, Done, NotUsed}
-import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.producer.ProducerRecord
 
+import scala.annotation.nowarn
 import scala.compat.java8.FutureConverters._
 
 /**
@@ -74,7 +73,8 @@ object Producer {
   def committableSink[K, V, IN <: Envelope[K, V, ConsumerMessage.Committable]](
       settings: ProducerSettings[K, V]
   ): Sink[IN, CompletionStage[Done]] = {
-    @silent val sink: Sink[IN, CompletionStage[Done]] = scaladsl.Producer
+    @nowarn("cat=deprecation")
+    val sink: Sink[IN, CompletionStage[Done]] = scaladsl.Producer
       .committableSink(settings)
       .mapMaterializedValue(_.toJava)
       .asJava
@@ -173,7 +173,8 @@ object Producer {
   def flow[K, V, PassThrough](
       settings: ProducerSettings[K, V]
   ): Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed] = {
-    @silent val flow = scaladsl.Producer
+    @nowarn("cat=deprecation")
+    val flow = scaladsl.Producer
       .flow(settings)
       .asJava
       .asInstanceOf[Flow[Message[K, V, PassThrough], Result[K, V, PassThrough], NotUsed]]

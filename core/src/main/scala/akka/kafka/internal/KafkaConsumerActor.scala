@@ -8,7 +8,6 @@ package akka.kafka.internal
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
-
 import akka.Done
 import akka.actor.Status.Failure
 import akka.actor.{
@@ -27,11 +26,11 @@ import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
-import com.github.ghik.silencer.silent
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -710,9 +709,9 @@ import scala.util.control.NonFatal
       )
 
     case Metadata.GetCommittedOffset(partition) =>
-      @silent val resp = Metadata.CommittedOffset(
+      @nowarn("msg=deprecated:s") val resp = Metadata.CommittedOffset(
         Try {
-          @silent val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
+          @nowarn("msg=deprecated:s") val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
           offset
         },
         partition
