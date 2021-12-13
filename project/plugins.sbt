@@ -1,11 +1,11 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
-addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.9")
+addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.10")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.9.1")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.6.0")
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.8.1")
-addSbtPlugin("com.lightbend.sbt" % "sbt-java-formatter" % "0.6.1")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.5")
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.0.1")
+addSbtPlugin("com.lightbend.sbt" % "sbt-java-formatter" % "0.7.0")
 // docs
 addSbtPlugin("com.lightbend.akka" % "sbt-paradox-akka" % "0.40")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.1")
