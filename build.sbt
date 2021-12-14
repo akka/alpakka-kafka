@@ -7,7 +7,7 @@ name := "akka-stream-kafka"
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align with versions in .github/workflows/check-build-test.yml
-val Scala212 = "2.12.13"
+val Scala212 = "2.12.15"
 val Scala213 = "2.13.4"
 
 val AkkaBinaryVersionForDocs = "2.6"
