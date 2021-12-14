@@ -58,4 +58,3 @@ class AlpakkaKafkaPlainProducer extends BenchmarksBase() {
     runPerfTest(cmd, ReactiveKafkaProducerFixtures.flowFixture(cmd), ReactiveKafkaProducerBenchmarks.plainFlow)
   }
 }
-
