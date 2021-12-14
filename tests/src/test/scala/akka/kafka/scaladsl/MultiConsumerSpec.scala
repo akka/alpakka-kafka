@@ -9,13 +9,11 @@ import akka.Done
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
-import com.github.ghik.silencer.silent
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-@silent
 class MultiConsumerSpec extends SpecBase with TestcontainersKafkaPerClassLike {
 
   override val testcontainersSettings =
