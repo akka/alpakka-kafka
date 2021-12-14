@@ -198,7 +198,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.6.0"
       ),
     Compile / compile / scalacOptions += "-Wconf:msg=[import scala.collection.compat._]:s",
     mimaPreviousArtifacts := Set(
