@@ -8,13 +8,13 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align with versions in .github/workflows/check-build-test.yml
 val Scala212 = "2.12.13"
-val Scala213 = "2.13.4"
+val Scala213 = "2.13.7"
 
 val AkkaBinaryVersionForDocs = "2.6"
 val KafkaVersionForDocs = "27"
 
 val akkaVersion = "2.6.15"
-val kafkaVersion = "2.7.0"
+val kafkaVersion = "3.0.0"
 // Jackson is now a provided dependency of kafka-clients
 // This should align with the Jackson minor version used in Akka 2.6.x
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
@@ -378,7 +378,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.21",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.27",
         "ch.qos.logback" % "logback-classic" % "1.2.7",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",

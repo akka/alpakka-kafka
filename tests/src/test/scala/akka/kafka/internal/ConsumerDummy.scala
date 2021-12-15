@@ -7,7 +7,6 @@ package akka.kafka.internal
 
 import java.time.Duration
 import java.util
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.Done
@@ -75,7 +74,6 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
       partitions: java.util.Collection[TopicPartition]
   ): java.util.Map[TopicPartition, java.lang.Long] = ???
   override def close(): Unit = {}
-  override def close(timeout: Long, unit: TimeUnit): Unit = {}
   override def close(timeout: java.time.Duration): Unit = {}
   override def wakeup(): Unit = ???
 
@@ -96,4 +94,5 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
   override def groupMetadata(): ConsumerGroupMetadata = ???
   override def enforceRebalance(): Unit = ???
+  override def currentLag(partition: TopicPartition): java.util.OptionalLong = ???
 }

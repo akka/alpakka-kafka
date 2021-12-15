@@ -14,7 +14,6 @@ import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.{ImplicitSender, TestKit}
 import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords}
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.record.TimestampType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
@@ -86,22 +85,13 @@ class ConsumerResetProtectionSpec
       // we have received 100L at ts = 100
       progress.received(
         asConsumerRecords(
-          new ConsumerRecord(tp.topic(),
-                             tp.partition(),
-                             100L,
-                             100L,
-                             TimestampType.LOG_APPEND_TIME,
-                             -1,
-                             -1,
-                             -1,
-                             "k1",
-                             "kv")
+          new ConsumerRecord(tp.topic(), tp.partition(), 100L, "k1", "kv")
         )
       )
 
       // later, we get offset 90L and timestamp 10, the latter of which is outside our 50 milli threshold
       val timeRecords = asConsumerRecords(
-        new ConsumerRecord(tp.topic(), tp.partition(), 90L, 10L, TimestampType.LOG_APPEND_TIME, -1, -1, -1, "k1", "kv")
+        new ConsumerRecord(tp.topic(), tp.partition(), 90L, "k1", "kv")
       )
       protection.protect[String, String](self, timeRecords).count() should be(0)
       expectMsg(10.seconds, Seek(Map(tp -> 100L)))
