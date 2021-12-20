@@ -1,5 +1,8 @@
 # Release Notes
 
+* All [GitHub releases](https://github.com/akka/alpakka-kafka/releases)
+* [2.2.0](https://github.com/akka/alpakka-kafka/releases/tag/v2.2.0)
+
 @@toc { depth=2 }
 
 @@@ index

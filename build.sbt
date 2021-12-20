@@ -357,10 +357,7 @@ lazy val docs = project
         "javadoc.org.testcontainers.containers.link_style" -> "direct"
       ),
     apidocRootPackage := "akka",
-    paradoxRoots := List("index.html",
-                         "release-notes/1.0-M1.html",
-                         "release-notes/1.0-RC1.html",
-                         "release-notes/1.0-RC2.html"),
+    paradoxRoots := List("index.html"),
     resolvers += Resolver.jcenterRepo,
     publishRsyncArtifacts += makeSite.value -> "www/",
     publishRsyncHost := "akkarepo@gustav.akka.io"
