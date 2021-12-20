@@ -8,14 +8,15 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align with versions in .github/workflows/check-build-test.yml
 val Scala212 = "2.12.13"
+// align ignore-prefixes in scripts/link-validator.conf
 val Scala213 = "2.13.7"
 
 val AkkaBinaryVersionForDocs = "2.6"
-val KafkaVersionForDocs = "27"
-
 val akkaVersion = "2.6.15"
+
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.0"
+val KafkaVersionForDocs = "30"
 // Jackson is now a provided dependency of kafka-clients
 // This should align with the Jackson minor version used in Akka 2.6.x
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
@@ -342,7 +343,7 @@ lazy val docs = project
         "jackson.version" -> jacksonVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
-        "javadoc.org.apache.kafka.link_style" -> "frames",
+        "javadoc.org.apache.kafka.link_style" -> "direct",
         // Java
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
         "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
