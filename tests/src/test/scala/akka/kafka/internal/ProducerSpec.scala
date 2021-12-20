@@ -58,8 +58,7 @@ class ProducerSpec(_system: ActorSystem)
 
   implicit val ec = _system.dispatcher
 
-  val checksum = java.lang.Long.valueOf(-1)
-  val group = "group"
+  private val group = "group"
 
   type K = String
   type V = String
