@@ -14,10 +14,13 @@ import akka.kafka.tests.scaladsl.LogCapturing
 import akka.testkit.{ImplicitSender, TestKit}
 import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.header.internals.RecordHeaders
+import org.apache.kafka.common.record.TimestampType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.Optional
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
@@ -82,16 +85,36 @@ class ConsumerResetProtectionSpec
 
       // request offset at 100L
       progress.assignedPositions(Set(tp), Map(tp -> 100L))
-      // we have received 100L at ts = 100
+      // we have received 100L at timestamp = 100
       progress.received(
         asConsumerRecords(
-          new ConsumerRecord(tp.topic(), tp.partition(), 100L, "k1", "kv")
+          new ConsumerRecord(tp.topic(),
+                             tp.partition(),
+                             /* offset= */ 100L,
+                             /* timestamp = */ 100L,
+                             TimestampType.LOG_APPEND_TIME,
+                             ConsumerRecord.NULL_SIZE,
+                             ConsumerRecord.NULL_SIZE,
+                             "k1",
+                             "kv",
+                             new RecordHeaders(),
+                             Optional.empty[Integer]())
         )
       )
 
       // later, we get offset 90L and timestamp 10, the latter of which is outside our 50 milli threshold
       val timeRecords = asConsumerRecords(
-        new ConsumerRecord(tp.topic(), tp.partition(), 90L, "k1", "kv")
+        new ConsumerRecord(tp.topic(),
+                           tp.partition(),
+                           /* offset= */ 90L,
+                           /* timestamp = */ 10L,
+                           TimestampType.LOG_APPEND_TIME,
+                           ConsumerRecord.NULL_SIZE,
+                           ConsumerRecord.NULL_SIZE,
+                           "k1",
+                           "kv",
+                           new RecordHeaders(),
+                           Optional.empty[Integer]())
       )
       protection.protect[String, String](self, timeRecords).count() should be(0)
       expectMsg(10.seconds, Seek(Map(tp -> 100L)))
