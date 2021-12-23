@@ -87,7 +87,7 @@ val commonSettings = Def.settings(
       "-Ywarn-dead-code",
       "-Ywarn-numeric-widen"
     ) ++ {
-      if (insideCI.value && !Nightly) Seq("-Xfatal-warnings")
+      if (insideCI.value && !Nightly) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(

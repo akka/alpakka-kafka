@@ -14,7 +14,7 @@ import akka.kafka.internal.ProducerStage.ProducerCompletionState
 import akka.kafka.{ConsumerMessage, ProducerSettings}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape}
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, OffsetAndMetadata}
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.TopicPartition
 
@@ -241,7 +241,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
               group,
               batch.offsets)
     val offsetMap = batch.offsetMap()
-    producer.sendOffsetsToTransaction(offsetMap.asJava, group)
+    producer.sendOffsetsToTransaction(offsetMap.asJava, new ConsumerGroupMetadata(group))
     producer.commitTransaction()
     log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
               transactionalId,

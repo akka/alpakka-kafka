@@ -296,7 +296,7 @@ import scala.util.control.NonFatal
   }
 
   def expectSettings: Receive = LoggingReceive.withLabel("expectSettings") {
-    case s: ConsumerSettings[K, V] =>
+    case s: ConsumerSettings[K @unchecked, V @unchecked] =>
       applySettings(s)
 
     case scala.util.Failure(e) =>

@@ -170,6 +170,7 @@ private[kafka] final class CommittableOffsetBatchImpl(
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)
     case batch: CommittableOffsetBatch => updatedWithBatch(batch)
+    case _ => this
   }
 
   private[internal] def committerFor(groupTopicPartition: GroupTopicPartition) =

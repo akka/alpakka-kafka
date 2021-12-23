@@ -424,7 +424,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
-    case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+    case (_, msg: KafkaConsumerActor.Internal.Messages[K @unchecked, V @unchecked]) =>
       requested = false
       buffer = buffer ++ msg.messages
       pump()

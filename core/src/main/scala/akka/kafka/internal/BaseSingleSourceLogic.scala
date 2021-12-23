@@ -63,7 +63,7 @@ import scala.concurrent.{ExecutionContext, Future}
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
-    case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+    case (_, msg: KafkaConsumerActor.Internal.Messages[K @unchecked, V @unchecked]) =>
       // might be more than one in flight when we assign/revoke tps
       if (msg.requestId == requestId)
         requested = false
