@@ -7,7 +7,7 @@ on:
 
 jobs:
   validate-links:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -20,12 +20,12 @@ jobs:
         run: git fetch --depth=100 origin +refs/tags/*:refs/tags/*
 
       - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: adopt@1.11.0-9
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: sbt site
         run: sbt docs/makeSite
@@ -34,4 +34,4 @@ jobs:
         run: curl -fLo cs https://git.io/coursier-cli-linux && chmod +x cs && ./cs
 
       - name: Run Link Validator
-        run: ./cs launch net.runne::site-link-validator:0.2.1 -- scripts/link-validator.conf
+        run: ./cs launch net.runne::site-link-validator:0.2.3 -- scripts/link-validator.conf

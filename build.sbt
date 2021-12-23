@@ -8,13 +8,15 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align with versions in .github/workflows/check-build-test.yml
 val Scala212 = "2.12.13"
-val Scala213 = "2.13.4"
+// align ignore-prefixes in scripts/link-validator.conf
+val Scala213 = "2.13.7"
 
 val AkkaBinaryVersionForDocs = "2.6"
-val KafkaVersionForDocs = "27"
-
 val akkaVersion = "2.6.15"
-val kafkaVersion = "2.7.0"
+
+// Keep .scala-steward.conf pin in sync
+val kafkaVersion = "3.0.0"
+val KafkaVersionForDocs = "30"
 // Jackson is now a provided dependency of kafka-clients
 // This should align with the Jackson minor version used in Akka 2.6.x
 // https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
@@ -152,6 +154,7 @@ lazy val `alpakka-kafka` =
             |
             |The build has three main modules:
             |  core - the Kafka connector sources
+            |  clusterSharding - Akka Cluster External Sharding with Alpakka Kafka
             |  tests - tests, Docker based integration tests, code for the documentation
             |  testkit - framework for testing the connector
             |
@@ -174,13 +177,13 @@ lazy val `alpakka-kafka` =
             |  test
             |    runs all the tests
             |
-            |  tests/it:test
+            |  tests/IntegrationTest/test
             |    run integration tests backed by Docker containers
             |
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
             |    run a single test with an exact name (use -z for partial match)
             |
-            |  benchmarks/it:testOnly *.AlpakkaKafkaPlainConsumer
+            |  benchmarks/IntegrationTest/testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
@@ -341,7 +344,7 @@ lazy val docs = project
         "jackson.version" -> jacksonVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
-        "javadoc.org.apache.kafka.link_style" -> "frames",
+        "javadoc.org.apache.kafka.link_style" -> "direct",
         // Java
         "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
         "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
@@ -355,10 +358,7 @@ lazy val docs = project
         "javadoc.org.testcontainers.containers.link_style" -> "direct"
       ),
     apidocRootPackage := "akka",
-    paradoxRoots := List("index.html",
-                         "release-notes/1.0-M1.html",
-                         "release-notes/1.0-RC1.html",
-                         "release-notes/1.0-RC2.html"),
+    paradoxRoots := List("index.html"),
     resolvers += Resolver.jcenterRepo,
     publishRsyncArtifacts += makeSite.value -> "www/",
     publishRsyncHost := "akkarepo@gustav.akka.io"
@@ -378,7 +378,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.21",
+        "io.dropwizard.metrics" % "metrics-core" % "4.1.27",
         "ch.qos.logback" % "logback-classic" % "1.2.7",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",

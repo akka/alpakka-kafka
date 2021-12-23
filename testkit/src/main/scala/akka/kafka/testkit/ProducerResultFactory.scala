@@ -23,11 +23,11 @@ object ProducerResultFactory {
     // null checks are required on Scala 2.11
     val partition = if (msg.partition == null) 0 else msg.partition.toInt
     val timestamp = if (msg.timestamp == null) 0L else msg.timestamp.toLong
-    new RecordMetadata(new TopicPartition(msg.topic, partition), -1L, 1L, timestamp, 233L, 2, 2)
+    new RecordMetadata(new TopicPartition(msg.topic, partition), -1, 1, timestamp, 2, 2)
   }
 
   def recordMetadata(topic: String, partition: Int, offset: Long): RecordMetadata =
-    new RecordMetadata(new TopicPartition(topic, partition), offset, 0L, 12345L, 233L, 2, 2)
+    new RecordMetadata(new TopicPartition(topic, partition), offset, 0, 12345L, 2, 2)
 
   def result[K, V, PassThrough](
       message: ProducerMessage.Message[K, V, PassThrough]

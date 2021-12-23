@@ -31,10 +31,10 @@ jobs:
           git checkout scratch
 
       - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
 #      - name: License checks
 

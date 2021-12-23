@@ -6,7 +6,6 @@
 package akka.kafka.internal
 
 import java.util.concurrent.CompletableFuture
-
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage._
@@ -34,6 +33,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -58,8 +58,7 @@ class ProducerSpec(_system: ActorSystem)
 
   implicit val ec = _system.dispatcher
 
-  val checksum = java.lang.Long.valueOf(-1)
-  val group = "group"
+  private val group = "group"
 
   type K = String
   type V = String
@@ -69,13 +68,7 @@ class ProducerSpec(_system: ActorSystem)
 
   def recordAndMetadata(seed: Int) =
     new ProducerRecord("test", seed.toString, seed.toString) ->
-    new RecordMetadata(new TopicPartition("test", seed),
-                       seed.toLong,
-                       seed.toLong,
-                       System.currentTimeMillis(),
-                       checksum,
-                       -1,
-                       -1)
+    new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed, System.currentTimeMillis(), -1, -1)
 
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) = {
@@ -649,6 +642,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     inOrder.verify(mock).beginTransaction()
   }
 
+  @nowarn("cat=deprecation")
   def verifyTxCommit(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
@@ -657,6 +651,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     inOrder.verify(mock).beginTransaction()
   }
 
+  @nowarn("cat=deprecation")
   def verifyTxCommitWhenShutdown(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava

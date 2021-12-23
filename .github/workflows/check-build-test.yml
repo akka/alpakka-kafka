@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - main
       - release-*
     tags-ignore: [ v.* ]
 
@@ -15,7 +16,7 @@ env:
 jobs:
   check-code-style:
     name: Check Code Style
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -31,12 +32,12 @@ jobs:
 
 
       - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: adopt@1.11.0-9
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: Code style check and binary-compatibility check
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
@@ -44,7 +45,7 @@ jobs:
 
   check-code-compilation:
     name: Check Code Compilation
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -58,12 +59,12 @@ jobs:
           git checkout scratch
 
       - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: adopt@1.11.0-9
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: Compile all code with fatal warnings for Java 11 and Scala 2.13
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
@@ -71,7 +72,7 @@ jobs:
 
   check-docs:
     name: Check Docs
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -85,12 +86,12 @@ jobs:
           git checkout scratch
 
       - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: adopt@1.11.0-9
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: Create all API docs for artifacts/website and all reference docs
         # Run locally with: sbt verifyDocs
@@ -121,12 +122,12 @@ jobs:
           git checkout scratch
 
       - name: Setup Scala with Java ${{ matrix.java-version }}
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.java-version }}
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
         run: sbt "++${{ matrix.scala-version }} test" ${{ matrix.sbt-opts }}
@@ -152,13 +153,13 @@ jobs:
           git checkout scratch
 
       - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: Run multi-broker and long running integration tests
-        run: sbt "tests/it:test"
+        run: sbt "tests/IntegrationTest/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -166,7 +167,7 @@ jobs:
   build-benchmark:
     name: Build benchmarks
     needs: [check-code-style, check-code-compilation, check-docs]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -180,10 +181,10 @@ jobs:
           git checkout scratch
 
       - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v13
 
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
 
       - name: "Compile benchmark tests"
-        run: sbt "benchmarks/it:compile"
+        run: sbt "benchmarks/IntegrationTest/compile"

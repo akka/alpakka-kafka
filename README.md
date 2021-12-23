@@ -36,8 +36,6 @@ Community
 You can join these groups and chats to discuss and ask Akka and Alpakka related questions:
 
 - Forums: [discuss.lightbend.com](https://discuss.lightbend.com/c/akka/streams-and-alpakka)
-- Chat room about **Akka and Alpakka**: [![gitter: akka/akka](https://img.shields.io/badge/gitter%3A-akka%2Fakka-blue.svg?style=flat-square)](https://gitter.im/akka/akka)
-- Chat room about **Alpakka Kafka connector**: [![gitter: akka/alpakka-kafka](https://img.shields.io/badge/gitter%3A-alpakka--kafka-blue.svg?style=flat-square)](https://gitter.im/akka/alpakka-kafka)
 - Issue tracker: [![github: akka/alpakka-kafka](https://img.shields.io/badge/github%3A-issues-blue.svg?style=flat-square)](https://github.com/akka/alpakka-kafka/issues)
 
 In addition to that, you may enjoy following:
