@@ -75,6 +75,7 @@ private final class CommitCollectorStageLogic(
             pushed = true
           } else pushOnNextPull = true
         } else scheduleCommit()
+      case _ =>
     }
     if (!pushed) suspendContext()
   }

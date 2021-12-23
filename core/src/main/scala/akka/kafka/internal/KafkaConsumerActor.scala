@@ -413,7 +413,7 @@ import scala.util.control.NonFatal
     pollTimeout = settings.pollTimeout.asJava
     offsetForTimesTimeout = settings.getOffsetForTimesTimeout
     positionTimeout = settings.getPositionTimeout
-    val progressTrackingFactory: () => ConsumerProgressTracking = ensureProgressTracker
+    val progressTrackingFactory: () => ConsumerProgressTracking = () => ensureProgressTracker()
     commitRefreshing = CommitRefreshing(settings.commitRefreshInterval, progressTrackingFactory)
     resetProtection = ConsumerResetProtection(log, settings.resetProtectionSettings, progressTrackingFactory)
     try {
@@ -546,7 +546,7 @@ import scala.util.control.NonFatal
     // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
     // amounts of replayed data during a rebalance, but for low volume topics we can ensure that consumers never appear
     // 'stuck' because of out-of-order commits from slow consumers.
-    val assignedOffsetsToCommit = aggregatedOffsets.filterKeys(consumer.assignment().contains).toMap
+    val assignedOffsetsToCommit = aggregatedOffsets.view.filterKeys(consumer.assignment().contains).toMap
     progressTracker.commitRequested(assignedOffsetsToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously
@@ -709,9 +709,9 @@ import scala.util.control.NonFatal
       )
 
     case Metadata.GetCommittedOffset(partition) =>
-      @nowarn("msg=deprecated:s") val resp = Metadata.CommittedOffset(
+      @nowarn("cat=deprecation") val resp = Metadata.CommittedOffset(
         Try {
-          @nowarn("msg=deprecated:s") val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
+          @nowarn("cat=deprecation") val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
           offset
         },
         partition
@@ -722,6 +722,7 @@ import scala.util.control.NonFatal
   private def stopFromMessage(msg: StopLike) = msg match {
     case Stop => sender()
     case StopFromStage(sourceStageId) => s"StageId [$sourceStageId]"
+    case other => s"unknown: [$other]"
   }
 
   /**

@@ -6,8 +6,6 @@ name := "akka-stream-kafka"
 
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
-// align with versions in .github/workflows/check-build-test.yml
-val Scala212 = "2.12.15"
 // align ignore-prefixes in scripts/link-validator.conf
 val Scala213 = "2.13.8"
 
@@ -26,9 +24,6 @@ val slf4jVersion = "1.7.32"
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
 val confluentAvroSerializerVersion = "7.0.1"
-val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11"
-val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
-
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -75,7 +70,7 @@ val commonSettings = Def.settings(
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq(Scala212, Scala213),
+  crossScalaVersions := Seq(Scala213),
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -92,9 +87,6 @@ val commonSettings = Def.settings(
       "-Ywarn-dead-code",
       "-Ywarn-numeric-widen"
     ) ++ {
-      if (scalaBinaryVersion.value == "2.13") Seq.empty
-      else Seq("-Yno-adapted-args", "-Xfuture")
-    } ++ {
       if (insideCI.value && !Nightly) Seq("-Xfatal-warnings")
       else Seq.empty
     },
@@ -199,10 +191,8 @@ lazy val core = project
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
-        "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.6.0"
+        "org.apache.kafka" % "kafka-clients" % kafkaVersion
       ),
-    Compile / compile / scalacOptions += "-Wconf:msg=[import scala.collection.compat._]:s",
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
           .getOrElse(throw new Error("Unable to determine previous version"))
@@ -281,18 +271,9 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "4.2.0" % Test
-      ) ++ {
-        scalaBinaryVersion.value match {
-          case "2.13" =>
-            Seq(scalapb)
-          case "2.12" =>
-            Seq(
-              scalapb,
-              kafkaBrokerWithoutSlf4jLog4j
-            )
-        }
-      },
+        "org.mockito" % "mockito-core" % "4.2.0" % Test,
+        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
+      ),
     resolvers ++= Seq(
         "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
       ),

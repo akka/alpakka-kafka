@@ -218,6 +218,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override protected def postSend(msg: Envelope[K, V, P]): Unit = msg.passThrough match {
     case o: ConsumerMessage.PartitionOffsetCommittedMarker => batchOffsets = batchOffsets.updated(o)
+    case _ =>
   }
 
   override def onCompletionSuccess(): Unit = {

@@ -12,7 +12,6 @@ import org.apache.kafka.clients.consumer.{OffsetAndMetadata, OffsetAndTimestamp}
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
 import scala.util.Try
 
 /**

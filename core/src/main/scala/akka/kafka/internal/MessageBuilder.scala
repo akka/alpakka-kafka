@@ -20,7 +20,6 @@ import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.collection.compat._
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._

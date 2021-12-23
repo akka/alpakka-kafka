@@ -25,7 +25,6 @@ import akka.util.Timeout
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.{IsolationLevel, TopicPartition}
 
-import scala.collection.compat._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
