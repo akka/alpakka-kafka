@@ -19,7 +19,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import akka.testkit.TestKit
 import akka.{Done, NotUsed}
 import com.typesafe.config.ConfigFactory
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, OffsetAndMetadata}
 import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringSerializer
@@ -33,7 +33,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -642,20 +641,18 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
     inOrder.verify(mock).beginTransaction()
   }
 
-  @nowarn("cat=deprecation")
   def verifyTxCommit(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
-    inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, new ConsumerGroupMetadata(po.key.groupId))
     inOrder.verify(mock).commitTransaction()
     inOrder.verify(mock).beginTransaction()
   }
 
-  @nowarn("cat=deprecation")
   def verifyTxCommitWhenShutdown(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
-    inOrder.verify(mock).sendOffsetsToTransaction(offsets, po.key.groupId)
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, new ConsumerGroupMetadata(po.key.groupId))
     inOrder.verify(mock).commitTransaction()
   }
 
