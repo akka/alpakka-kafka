@@ -23,7 +23,8 @@ val testcontainersVersion = "1.15.3"
 val slf4jVersion = "1.7.30"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
-val confluentAvroSerializerVersion = "6.1.4"
+// See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
+val confluentAvroSerializerVersion = "7.0.1"
 val scalapb = "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11"
 val kafkaBrokerWithoutSlf4jLog4j = "org.apache.kafka" %% "kafka" % kafkaVersion % Provided exclude ("org.slf4j", "slf4j-log4j12")
 
