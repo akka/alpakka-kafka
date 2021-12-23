@@ -78,19 +78,15 @@ val commonSettings = Def.settings(
       "-Xlint:unchecked"
     ),
   scalacOptions ++= Seq(
-      "-deprecation",
       "-encoding",
       "UTF-8", // yes, this is 2 args
-      "-feature",
-      "-unchecked",
-      "-Xlint",
-      "-Ywarn-dead-code",
-      "-Ywarn-numeric-widen"
+      "-Wconf:cat=feature:w,cat=deprecation:w,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
       if (insideCI.value && !Nightly) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
+      "-Wconf:cat=scaladoc:i",
       "-doc-title",
       "Alpakka Kafka",
       "-doc-version",
