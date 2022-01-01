@@ -15,7 +15,7 @@ val AkkaBinaryVersionForDocs = "2.6"
 val akkaVersion = "2.6.15"
 
 // Keep .scala-steward.conf pin in sync
-val kafkaVersion = "3.0.0"
+val kafkaVersion = "7.0.1-ce"
 val KafkaVersionForDocs = "30"
 // Jackson is now a provided dependency of kafka-clients
 // This should align with the Jackson minor version used in Akka 2.6.x
