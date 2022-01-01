@@ -279,7 +279,7 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "2.2" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.2.7" % Test,
+        "ch.qos.logback" % "logback-classic" % "1.2.10" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
@@ -380,7 +380,7 @@ lazy val benchmarks = project
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
         "io.dropwizard.metrics" % "metrics-core" % "4.1.27",
-        "ch.qos.logback" % "logback-classic" % "1.2.7",
+        "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
         "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % IntegrationTest,
