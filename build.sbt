@@ -380,7 +380,7 @@ lazy val benchmarks = project
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
         "io.dropwizard.metrics" % "metrics-core" % "4.1.29",
-        "ch.qos.logback" % "logback-classic" % "1.2.7",
+        "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
         "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % IntegrationTest,
