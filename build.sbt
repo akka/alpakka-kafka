@@ -380,7 +380,6 @@ lazy val benchmarks = project
         "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.1" % IntegrationTest,
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
