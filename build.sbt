@@ -17,10 +17,8 @@ val akkaVersion = "2.6.15"
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.0"
 val KafkaVersionForDocs = "30"
-// Jackson is now a provided dependency of kafka-clients
-// This should align with the Jackson minor version used in Akka 2.6.x
-// https://github.com/akka/akka/blob/master/project/Dependencies.scala#L23
-val jacksonVersion = "2.11.4"
+// This should align with the ScalaTest version used in the Akka 2.6.x testkit
+// https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.16.2"
 val slf4jVersion = "1.7.32"
@@ -272,7 +270,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.1" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -342,7 +340,6 @@ lazy val docs = project
         "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
-        "jackson.version" -> jacksonVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/%s",
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "direct",
@@ -383,7 +380,6 @@ lazy val benchmarks = project
         "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
-        "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion % IntegrationTest,
         "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
