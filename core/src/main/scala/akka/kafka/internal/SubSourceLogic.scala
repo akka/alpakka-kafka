@@ -18,7 +18,7 @@ import akka.pattern.{ask, AskTimeoutException}
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
-import akka.stream.{ActorMaterializerHelper, Attributes, Outlet, SourceShape}
+import akka.stream.{Attributes, Outlet, SourceShape}
 import akka.util.Timeout
 import org.apache.kafka.common.TopicPartition
 
@@ -83,9 +83,11 @@ private class SubSourceLogic[K, V, Msg](
         failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
+      case (_, msg) =>
+        log.warning("ignoring message [{}]", msg)
     }
     consumerActor = {
-      val extendedActorSystem = ActorMaterializerHelper.downcast(materializer).system.asInstanceOf[ExtendedActorSystem]
+      val extendedActorSystem = materializer.system.asInstanceOf[ExtendedActorSystem]
       extendedActorSystem.systemActorOf(akka.kafka.KafkaConsumerActor.props(sourceActor.ref, settings),
                                         s"kafka-consumer-$actorNumber")
     }
@@ -106,7 +108,8 @@ private class SubSourceLogic[K, V, Msg](
     case (formerlyUnknown, offsetMap) =>
       val updatedFormerlyUnknown = formerlyUnknown -- (partitionsToRevoke ++ partitionsInStartup ++ pendingPartitions)
       // Filter out the offsetMap so that we don't re-seek for partitions that have been revoked
-      seekAndEmitSubSources(updatedFormerlyUnknown, offsetMap.filterKeys(k => !partitionsToRevoke.contains(k)).toMap)
+      seekAndEmitSubSources(updatedFormerlyUnknown,
+                            offsetMap.view.filterKeys(k => !partitionsToRevoke.contains(k)).toMap)
   }
 
   private val partitionAssignedCB = getAsyncCallback[Set[TopicPartition]] { assigned =>
@@ -174,6 +177,7 @@ private class SubSourceLogic[K, V, Msg](
       partitionsToRevoke.flatMap(subSources.get).map(_.control).foreach(_.shutdown())
       subSources --= partitionsToRevoke
       partitionsToRevoke = Set.empty
+    case _ => log.warning("unexpected timer [{}]", timerKey)
   }
 
   private val subsourceCancelledCB: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)] =
@@ -273,6 +277,8 @@ private class SubSourceLogic[K, V, Msg](
       case (_, Terminated(ref)) if ref == consumerActor =>
         onShutdown()
         completeStage()
+      case (_, msg) =>
+        log.warning("ignoring message [{}]", msg)
     }
     materializer.scheduleOnce(
       settings.stopTimeout,
@@ -420,7 +426,7 @@ private abstract class SubSourceStageLogic[K, V, Msg](
   }
 
   protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] = {
-    case (_, msg: KafkaConsumerActor.Internal.Messages[K, V]) =>
+    case (_, msg: KafkaConsumerActor.Internal.Messages[K @unchecked, V @unchecked]) =>
       requested = false
       buffer = buffer ++ msg.messages
       pump()

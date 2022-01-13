@@ -20,7 +20,6 @@ import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
-import scala.collection.compat._
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -171,6 +170,8 @@ private[kafka] final class CommittableOffsetBatchImpl(
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)
     case batch: CommittableOffsetBatch => updatedWithBatch(batch)
+    case null => throw new IllegalArgumentException(s"unexpected Committable [null]")
+    case _ => throw new IllegalArgumentException(s"unexpected Committable [${committable.getClass}]")
   }
 
   private[internal] def committerFor(groupTopicPartition: GroupTopicPartition) =

@@ -167,6 +167,7 @@ private final class CommittingProducerSinkStageLogic[K, V, IN <: Envelope[K, V, 
 
   override protected def onTimer(timerKey: Any): Unit = timerKey match {
     case CommittingProducerSinkStage.CommitNow => commit(Interval)
+    case _ => log.warning("unexpected timer [{}]", timerKey)
   }
 
   private def collectOffset(offset: Committable): Unit =

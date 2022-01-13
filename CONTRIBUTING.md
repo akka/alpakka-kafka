@@ -1,4 +1,4 @@
-# Welcome! Thank you for contributing to the Alpakka Kafka connector!
+# Welcome! Thank you for contributing to Alpakka Kafka!
 
 We follow the standard GitHub [fork & pull](https://help.github.com/articles/using-pull-requests/#fork--pull) approach to pull requests. Just fork the official repo, develop in a branch, and submit a PR!
 
@@ -27,7 +27,7 @@ This is the process for committing code into master.
 
 1. After the review you should fix the issues (review comments, CI failures) by pushing a new commit for new review, iterating until the reviewers give their thumbs up and CI tests pass.
 
-1. When the branch conflicts with its merge target (either by way of git merge conflict or failing CI tests), do **not** merge the target branch into your feature branch. Instead rebase your branch onto the target branch and update it with `git push -f`.
+1. When the branch conflicts with its merge target (either by way of git merge conflict or failing CI tests), do **not** merge the target branch into your feature branch. Instead, rebase your branch onto the target branch and update it with `git push -f`.
 
 ## Pull Request Requirements
 
@@ -43,7 +43,7 @@ For a Pull Request to be considered at all it has to meet these requirements:
 
 1. Regardless if the code introduces new features or fixes bugs or regressions, it must have comprehensive tests.
 
-1. The code must be well documented in the Lightbend's standard documentation format (see the [Documentation](documentation) section below).
+1. The code must be well documented in the Lightbend's standard documentation format (see the [Documentation](#documentation) section below).
 
 1. The commit messages must properly describe the changes, see [further below](#creating-commits-and-writing-commit-messages).
 
@@ -59,8 +59,7 @@ Prepare code snippets to be integrated by Paradox in the tests. Such example sho
 
 Use ScalaDoc if you see the need to describe the API usage better than the naming does.
 
-Run `sbt docs/paradox` to generate reference docs while developing. Generated documentation can be 
-found in the `./docs/target/paradox/site/main` directory.
+Run `sbt verifyDocs` to generate reference docs while developing. The generated documentation will open in your browser.
 
 
 ## External Dependencies

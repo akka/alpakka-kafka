@@ -51,8 +51,7 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
       val drainingControl = DrainingControl.apply(control, Future.failed(new RuntimeException("expected")))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      // endWith to accustom Scala 2.11 and 2.12
-      value.getMessage should endWith("expected")
+      value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)
     }
 
@@ -62,8 +61,7 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
       val drainingControl = DrainingControl.apply(control, Future.failed(new RuntimeException("expected")))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      // endWith to accustom Scala 2.11 and 2.12
-      value.getMessage should endWith("expected")
+      value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)
     }
 
@@ -73,8 +71,7 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
       val drainingControl = DrainingControl.apply(control, Future.successful(Done))
       val value = drainingControl.drainAndShutdown().failed.futureValue
       value shouldBe a[RuntimeException]
-      // endWith to accustom Scala 2.11 and 2.12
-      value.getMessage should endWith("expected")
+      value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)
     }
   }

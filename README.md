@@ -1,5 +1,5 @@
-Alpakka Kafka Connector [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions]
-=======================
+Alpakka Kafka [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions]
+=============
 
 [scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/
 [scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/latest.svg?target=_2.13
@@ -25,7 +25,7 @@ Documentation
 
 - **[Alpakka Kafka connector reference](https://doc.akka.io/docs/akka-stream-kafka/current/) documentation**
 
-To keep up with the latest Alpakka releases check out [Alpakka releases](https://doc.akka.io/docs/alpakka/current/release-notes/index.html) and [Alpakka Kafka connector releases](https://doc.akka.io/docs/alpakka-kafka/current/release-notes/index.html).
+To keep up with the latest Alpakka releases check out [Alpakka releases](https://github.com/akka/alpakka/releases) and [Alpakka Kafka releases](https://github.com/akka/alpakka-kafka/releases).
 
 
 Community
@@ -41,7 +41,7 @@ In addition to that, you may enjoy following:
 - The [Akka Team Blog](https://akka.io/blog/)
 - [@akkateam](https://twitter.com/akkateam) on Twitter
 - Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
-- Questions tagged [**#alpakka-kafka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka-kafka)
+- Questions tagged [**#alpakka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
 
 The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://files.softwaremill.com/logo/logo.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
 
@@ -49,19 +49,21 @@ The Kafka connector was originally created as **Reactive Kafka** by [<img src="h
 Contributing
 ------------
 
-[Lightbend](https://www.lightbend.com/) is committed to Alpakka and the Akka team works on it.
+[Lightbend](https://www.lightbend.com/) is the steward of Akka and Alpakka.
 
-Contributions are *very* welcome! The Akka team appreciates community contributions by both those new to Alpakka and those more experienced.
+Contributions are *very* welcome! Lightbend appreciates community contributions by both those new to Alpakka and those more experienced.
+
 Alpakka depends on the community to keep up with the ever-growing number of technologies with which to integrate. Please step up and share the successful Akka Stream integrations you implement with the Alpakka community.
 
 If you find an issue that you'd like to see fixed, the quickest way to make that happen is to implement the fix and submit a pull request.
 
 Refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details about the workflow, and general hints on how to prepare your pull request.
 
+You can also ask for clarifications or guidance in GitHub issues directly.
 
 Caveat Emptor
 -------------
 
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
-Support for Alpakka Kafka is available via [Akka Platform Subscription](https://www.lightbend.com/akka-platform#subscription).
+Support for the Alpakka Kafka connector is available via Lightbend's [Akka Platform subscription](https://www.lightbend.com/akka-platform#subscription).

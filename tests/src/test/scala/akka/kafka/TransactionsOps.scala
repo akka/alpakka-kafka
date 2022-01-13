@@ -120,8 +120,10 @@ trait TransactionsOps extends TestSuite with Matchers {
             case (_, value) => duplicates.contains(value)
           }
           .groupBy(_._2) // message
-          // workaround for Scala collection refactoring of `mapValues` to remain compat with 2.12/2.13 cross build
-          .map { case (k, v) => (k, v.map(_._1)) } // keep offset
+          .view
+          .mapValues { v =>
+            v.map(_._1)
+          } // keep offset
           .filter {
             case (_, offsets) => offsets.distinct.size > 1
           }

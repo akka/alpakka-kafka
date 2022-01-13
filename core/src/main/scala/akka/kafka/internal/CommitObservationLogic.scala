@@ -42,10 +42,13 @@ private[internal] trait CommitObservationLogic { self: GraphStageLogic =>
             batch.filter(_.equals(gtp)),
             offsetAndMetadata.offset()
           )
-        case unknownBatchImpl: CommittableOffsetBatch =>
+        case null =>
           throw new IllegalArgumentException(
-            s"Unknown CommittableOffsetBatch, got [${unknownBatchImpl.getClass.getName}], " +
-            s"expected [${classOf[CommittableOffsetBatchImpl].getName}]"
+            s"Unknown Committable implementation, got [null]"
+          )
+        case unknownImpl =>
+          throw new IllegalArgumentException(
+            s"Unknown Committable implementation, got [${unknownImpl.getClass.getName}]"
           )
 
       }
