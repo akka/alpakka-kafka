@@ -9,10 +9,10 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align with versions in .github/workflows/check-build-test.yml
 val Scala212 = "2.12.15"
 // align ignore-prefixes in scripts/link-validator.conf
-val Scala213 = "2.13.7"
+val Scala213 = "2.13.8"
 
 val AkkaBinaryVersionForDocs = "2.6"
-val akkaVersion = "2.6.15"
+val akkaVersion = "2.6.18"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.0"
@@ -200,7 +200,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.6.0"
       ),
     Compile / compile / scalacOptions += "-Wconf:msg=[import scala.collection.compat._]:s",
     mimaPreviousArtifacts := Set(
@@ -376,7 +376,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-        "io.dropwizard.metrics" % "metrics-core" % "4.1.29",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.7",
         "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
