@@ -26,7 +26,6 @@ Key links:
 
 - [ ] Make sure all important / big PRs have been merged by now
 - [ ] Check versions listed in [home.md](https://github.com/akka/alpakka-kafka/blob/master/docs/src/main/paradox/home.md)
-- [ ] Communicate that a new version is about to be released in [Gitter Akka Dev Channel](https://gitter.im/akka/dev), so that no new Pull Requests are merged
 
 ### Preparing release notes in the documentation / announcement
 
@@ -68,7 +67,6 @@ Key links:
 - [ ] For non-patch releases: Merge draft news item for [akka.io](https://github.com/akka/akka.github.com)
 - [ ] Send a release notification to [Lightbend discuss](https://discuss.akka.io)
 - [ ] Tweet using the akkateam account (or ask someone to) about the new release
-- [ ] Announce on [Gitter akka/alpakka-kafka](https://gitter.im/akka/alpakka-kafka)
 - [ ] Announce internally
 
 ### Afterwards
