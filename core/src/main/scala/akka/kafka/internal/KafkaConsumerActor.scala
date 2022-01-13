@@ -708,13 +708,13 @@ import scala.util.control.NonFatal
         }
       )
 
-    case Metadata.GetCommittedOffset(partition) =>
+    case req: Metadata.GetCommittedOffset @nowarn("cat=deprecation") =>
       @nowarn("cat=deprecation") val resp = Metadata.CommittedOffset(
         Try {
-          @nowarn("cat=deprecation") val offset = consumer.committed(partition, settings.getMetadataRequestTimeout)
+          @nowarn("cat=deprecation") val offset = consumer.committed(req.partition, settings.getMetadataRequestTimeout)
           offset
         },
-        partition
+        req.partition
       )
       resp
   }
