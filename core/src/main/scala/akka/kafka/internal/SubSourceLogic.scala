@@ -83,7 +83,8 @@ private class SubSourceLogic[K, V, Msg](
         failStage(e)
       case (_, Terminated(ref)) if ref == consumerActor =>
         failStage(new ConsumerFailed)
-      case _ =>
+      case (_, msg) =>
+        log.warning("ignoring message [{}]", msg)
     }
     consumerActor = {
       val extendedActorSystem = materializer.system.asInstanceOf[ExtendedActorSystem]
@@ -176,7 +177,7 @@ private class SubSourceLogic[K, V, Msg](
       partitionsToRevoke.flatMap(subSources.get).map(_.control).foreach(_.shutdown())
       subSources --= partitionsToRevoke
       partitionsToRevoke = Set.empty
-    case _ =>
+    case _ => log.warning("unexpected timer [{}]", timerKey)
   }
 
   private val subsourceCancelledCB: AsyncCallback[(TopicPartition, SubSourceCancellationStrategy)] =
@@ -276,7 +277,8 @@ private class SubSourceLogic[K, V, Msg](
       case (_, Terminated(ref)) if ref == consumerActor =>
         onShutdown()
         completeStage()
-      case _ =>
+      case (_, msg) =>
+        log.warning("ignoring message [{}]", msg)
     }
     materializer.scheduleOnce(
       settings.stopTimeout,

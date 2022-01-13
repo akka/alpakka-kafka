@@ -75,7 +75,7 @@ private final class CommitCollectorStageLogic(
             pushed = true
           } else pushOnNextPull = true
         } else scheduleCommit()
-      case _ =>
+      case _ => log.warning("unexpected timer [{}]", timerKey)
     }
     if (!pushed) suspendContext()
   }
