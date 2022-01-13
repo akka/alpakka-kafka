@@ -1,4 +1,5 @@
 Alpakka Kafka [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions]
+=============
 
 [scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/
 [scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/latest.svg?target=_2.13
