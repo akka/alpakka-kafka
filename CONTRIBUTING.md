@@ -6,11 +6,9 @@ You're always welcome to submit your PR straight away and start the discussion (
 
 # The Akka Community
 
-In case of questions about the contribution process or for discussion of specific issues please visit the [akka/alpakka-kafka gitter chat](https://gitter.im/akka/alpakka-kafka) or the [akka/dev gitter chat](https://gitter.im/akka/dev).
+Please check out [Get Involved](https://akka.io/get-involved/).
 
-You may also check out these [other resources](https://akka.io/get-involved/).
-
-# Contributing to Alpakka Kafka Connector
+# Contributing to Alpakka Kafka
 
 ## General Workflow
 
@@ -30,10 +28,6 @@ This is the process for committing code into master.
 1. After the review you should fix the issues (review comments, CI failures) by pushing a new commit for new review, iterating until the reviewers give their thumbs up and CI tests pass.
 
 1. When the branch conflicts with its merge target (either by way of git merge conflict or failing CI tests), do **not** merge the target branch into your feature branch. Instead rebase your branch onto the target branch and update it with `git push -f`.
-
-
-In case of questions about the contribution process or for discussion of specific issues please visit the [akka/dev gitter chat](https://gitter.im/akka/dev).
-
 
 ## Pull Request Requirements
 

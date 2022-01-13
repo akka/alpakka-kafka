@@ -70,7 +70,7 @@ val commonSettings = Def.settings(
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
-                          "https://gitter.im/akka/dev",
+                          "",
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
   licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
