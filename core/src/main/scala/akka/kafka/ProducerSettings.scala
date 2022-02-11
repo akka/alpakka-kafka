@@ -280,6 +280,11 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(properties = properties.updated(key, value))
 
   /**
+   * Java API: Get a raw property. `null` if it is not defined.
+   */
+  def getProperty(key: String): String = properties.getOrElse(key, null)
+
+  /**
    * Duration to wait for `KafkaProducer.close` to finish.
    */
   def withCloseTimeout(closeTimeout: FiniteDuration): ProducerSettings[K, V] =
