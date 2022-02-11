@@ -243,6 +243,13 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   def producerFactory: ProducerSettings[K, V] => Producer[K, V] = _ => createKafkaProducer()
 
   /**
+   * An id string to pass to the server when making requests. The purpose of this is to be able to track the source
+   * of requests beyond just ip/port by allowing a logical application name to be included in server-side request logging.
+   */
+  def withClientId(clientId: String): ProducerSettings[K, V] =
+    withProperty(ProducerConfig.CLIENT_ID_CONFIG, clientId)
+
+  /**
    * A comma-separated list of host/port pairs to use for establishing the initial connection to the Kafka cluster.
    */
   def withBootstrapServers(bootstrapServers: String): ProducerSettings[K, V] =
