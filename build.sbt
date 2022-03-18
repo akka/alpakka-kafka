@@ -19,7 +19,7 @@ val KafkaVersionForDocs = "30"
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.16.2"
-val slf4jVersion = "1.7.32"
+val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
@@ -267,7 +267,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "4.2.0" % Test,
+        "org.mockito" % "mockito-core" % "4.3.1" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
       ),
     resolvers ++= Seq(
@@ -353,7 +353,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-        "io.dropwizard.metrics" % "metrics-core" % "4.2.7",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.8",
         "ch.qos.logback" % "logback-classic" % "1.2.10",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",

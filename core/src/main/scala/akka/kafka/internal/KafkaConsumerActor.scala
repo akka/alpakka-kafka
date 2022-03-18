@@ -568,7 +568,7 @@ import scala.util.control.NonFatal
             log.warning("Kafka commit is to be retried, after={} ms, commitsInProgress={}, cause={}",
                         duration / 1000000L,
                         commitsInProgress,
-                        e.getCause)
+                        e.toString)
             commitMaps = commitMap.toList ++ commitMaps
             commitSenders = commitSenders ++ replyTo
             requestDelayedPoll()
