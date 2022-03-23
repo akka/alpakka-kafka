@@ -10,7 +10,7 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 val Scala213 = "2.13.8"
 
 val AkkaBinaryVersionForDocs = "2.6"
-val akkaVersion = "2.6.18"
+val akkaVersion = "2.6.19"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.0"
