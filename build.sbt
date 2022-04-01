@@ -268,7 +268,7 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "4.3.1" % Test,
-        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
+        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.10" % Test
       ),
     resolvers ++= Seq(
         "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
