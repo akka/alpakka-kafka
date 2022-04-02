@@ -73,6 +73,10 @@ object TestcontainersKafka {
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)
         configureZooKeeper(zookeeperContainer)
         configureZooKeeperConsumer.accept(zookeeperContainer)
+        schemaRegistryContainer match {
+          case Some(container) => configureSchemaRegistry(container)
+          case _ =>
+        }
         log.info("Starting Kafka cluster with settings: {}", settings)
         cluster.start()
         kafkaBootstrapServersInternal = cluster.getBootstrapServers
