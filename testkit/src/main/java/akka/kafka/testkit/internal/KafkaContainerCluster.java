@@ -129,10 +129,10 @@ public class KafkaContainerCluster implements Startable {
 
     if (useSchemaRegistry) {
       this.schemaRegistry =
-              Optional.of(
-                      new SchemaRegistryContainer(this.schemaRegistryImage)
-                              .withNetworkAliases("schema-registry")
-                              .withCluster(this));
+          Optional.of(
+              new SchemaRegistryContainer(this.schemaRegistryImage)
+                  .withNetworkAliases("schema-registry")
+                  .withCluster(this));
     } else {
       this.schemaRegistry = Optional.empty();
     }
