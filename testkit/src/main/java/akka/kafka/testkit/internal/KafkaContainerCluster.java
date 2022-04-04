@@ -126,6 +126,16 @@ public class KafkaContainerCluster implements Startable {
                             "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", internalTopicsRf + "")
                         .withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", internalTopicsRf + ""))
             .collect(Collectors.toList());
+
+    if (useSchemaRegistry) {
+      this.schemaRegistry =
+          Optional.of(
+              new SchemaRegistryContainer(this.schemaRegistryImage)
+                  .withNetworkAliases("schema-registry")
+                  .withCluster(this));
+    } else {
+      this.schemaRegistry = Optional.empty();
+    }
   }
 
   public Network getNetwork() {
@@ -185,16 +195,6 @@ public class KafkaContainerCluster implements Startable {
               });
 
       waitForClusterFormation();
-
-      if (useSchemaRegistry) {
-        this.schemaRegistry =
-            Optional.of(
-                new SchemaRegistryContainer(this.schemaRegistryImage)
-                    .withNetworkAliases("schema-registry")
-                    .withCluster(this));
-      } else {
-        this.schemaRegistry = Optional.empty();
-      }
 
       // start schema registry if the container is initialized
       Startables.deepStart(optionalStream(this.schemaRegistry))

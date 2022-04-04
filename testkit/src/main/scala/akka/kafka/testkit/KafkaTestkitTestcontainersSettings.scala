@@ -38,7 +38,8 @@ final class KafkaTestkitTestcontainersSettings private (
     val configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] =
       new Consumer[GenericContainer[_]]() {
         override def accept(arg: GenericContainer[_]): Unit = ()
-      }
+      },
+    val configureSchemaRegistry: GenericContainer[_] => Unit = _ => ()
 ) {
 
   /**
@@ -181,6 +182,14 @@ final class KafkaTestkitTestcontainersSettings private (
     copy(configureZooKeeperConsumer = configureZooKeeperConsumer)
 
   /**
+   * Java Api
+   * Replaces the default schema registry testcontainers configuration logic
+   */
+  def withConfigureSchemaRegistry(
+      configureSchemaRegistry: GenericContainer[_] => Unit
+  ): KafkaTestkitTestcontainersSettings = copy(configureSchemaRegistry = configureSchemaRegistry)
+
+  /**
    * Use Schema Registry container.
    */
   def withSchemaRegistry(useSchemaRegistry: Boolean): KafkaTestkitTestcontainersSettings =
@@ -237,7 +246,8 @@ final class KafkaTestkitTestcontainersSettings private (
       configureKafkaConsumer: java.util.function.Consumer[java.util.Collection[AlpakkaKafkaContainer]] =
         configureKafkaConsumer,
       configureZooKeeper: GenericContainer[_] => Unit = configureZooKeeper,
-      configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] = configureZooKeeperConsumer
+      configureZooKeeperConsumer: java.util.function.Consumer[GenericContainer[_]] = configureZooKeeperConsumer,
+      configureSchemaRegistry: GenericContainer[_] => Unit = configureSchemaRegistry
   ): KafkaTestkitTestcontainersSettings =
     new KafkaTestkitTestcontainersSettings(zooKeeperImage,
                                            zooKeeperImageTag,
@@ -254,7 +264,8 @@ final class KafkaTestkitTestcontainersSettings private (
                                            configureKafka,
                                            configureKafkaConsumer,
                                            configureZooKeeper,
-                                           configureZooKeeperConsumer)
+                                           configureZooKeeperConsumer,
+                                           configureSchemaRegistry)
 
   override def toString: String =
     "KafkaTestkitTestcontainersSettings(" +
