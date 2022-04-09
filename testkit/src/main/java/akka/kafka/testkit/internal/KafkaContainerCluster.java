@@ -341,7 +341,7 @@ public class KafkaContainerCluster implements Startable {
 class Version implements Comparable<Version> {
 
   private String version;
-  private boolean comparable = false;
+  private boolean comparable = true;
 
   public final String get() {
     return this.version;
