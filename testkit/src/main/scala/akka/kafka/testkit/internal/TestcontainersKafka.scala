@@ -16,12 +16,16 @@ import scala.jdk.CollectionConverters._
 
 object TestcontainersKafka {
   trait Spec extends KafkaSpec {
-    private var cluster: KafkaContainerCluster = _
     private var kafkaBootstrapServersInternal: String = _
     private var kafkaPortInternal: Int = -1
 
     private def requireStarted(): Unit =
       require(kafkaPortInternal != -1, "Testcontainers Kafka hasn't been started via `setUp`")
+
+    private var cluster: KafkaContainerCluster = {
+      requireStarted()
+      null
+    }
 
     /**
      * Override this to change default settings for starting the Kafka testcontainers cluster.
