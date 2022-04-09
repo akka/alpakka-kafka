@@ -347,6 +347,10 @@ class Version implements Comparable<Version> {
     return this.version;
   }
 
+  public final boolean isComparable() {
+    return this.comparable;
+  }
+
   public Version(String version) {
     if (version == null) throw new IllegalArgumentException("Version can not be null");
     if (!version.matches("[0-9]+(\\.[0-9]+)*")) this.comparable = false;
@@ -356,7 +360,7 @@ class Version implements Comparable<Version> {
   @Override
   public int compareTo(Version that) {
     if (that == null) return 1;
-    if (!this.comparable) return 1;
+    if (!this.comparable || !that.isComparable()) return 1;
     String[] thisParts = this.get().split("\\.");
     String[] thatParts = that.get().split("\\.");
     int length = Math.max(thisParts.length, thatParts.length);
