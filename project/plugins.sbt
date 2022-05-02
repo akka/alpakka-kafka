@@ -8,7 +8,7 @@ addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.0.1")
 addSbtPlugin("com.lightbend.sbt" % "sbt-java-formatter" % "0.7.0")
 // docs
 addSbtPlugin("com.lightbend.akka" % "sbt-paradox-akka" % "0.42")
-addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.1")
+addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.2")
 addSbtPlugin("com.lightbend.sbt" % "sbt-publish-rsync" % "0.2")
 addSbtPlugin("com.github.sbt" % "sbt-unidoc" % "0.5.0")
 // Java 11 module names are not added https://github.com/ThoughtWorksInc/sbt-api-mappings/issues/58
