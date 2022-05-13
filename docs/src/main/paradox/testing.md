@@ -39,8 +39,8 @@ See the documentation for each for more details.
 
 | Type                                                                                                                                                    | Test Framework     | Cluster     | Lang         | Lifetime                 |
 |---------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|-------------|--------------|--------------------------|
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)         | JUnit 5            | Yes         | Java         | All tests, Per class     |
-| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)               | JUnit 4            | Yes         | Java         | All tests, Per class     |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)         | JUnit 4            | Yes         | Java         | All tests, Per class     |
+| @ref:[`akka.kafka.testkit.javadsl.TestcontainersKafkaTest`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-java-code)               | JUnit 5            | Yes         | Java         | All tests, Per class     |
 | @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)             | ScalaTest          | Yes         | Scala        | All tests                |
 | @ref:[`akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike`](testing-testcontainers.md#testing-with-a-docker-kafka-cluster-from-scala-code)     | ScalaTest          | Yes         | Scala        | Per class                |
 
