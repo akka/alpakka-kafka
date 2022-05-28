@@ -10,7 +10,7 @@ import akka.annotation.InternalApi
 import akka.kafka.internal.KafkaConsumerActor.Internal.Messages
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import akka.kafka.{ConsumerSettings, RestrictedConsumer, Subscription}
-import akka.stream.SourceShape
+import akka.stream.{SourceShape, SubscriptionWithCancelException}
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.{Future, Promise}
@@ -73,7 +73,8 @@ import scala.concurrent.{Future, Promise}
     def performImmediateShutdown(): Unit =
       consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
 
-    // TODO immediate shutdown for SubscriptionWithCancelException.NonFailureCancellation
+    // TODO faster shutdown for SubscriptionWithCancelException.NonFailureCancellation
+    // but ensure commits are submitted
     materializer.scheduleOnce(settings.stopTimeout, () => performImmediateShutdown())
   }
 

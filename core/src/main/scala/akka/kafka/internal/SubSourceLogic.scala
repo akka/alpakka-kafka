@@ -288,7 +288,8 @@ private class SubSourceLogic[K, V, Msg](
     def performImmediateShutdown(): Unit =
       consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
 
-    // TODO immediate shutdown for SubscriptionWithCancelException.NonFailureCancellation
+    // TODO faster shutdown for SubscriptionWithCancelException.NonFailureCancellation
+    // but ensure commits are submitted
     materializer.scheduleOnce(
       settings.stopTimeout,
       () => performImmediateShutdown()
