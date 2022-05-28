@@ -32,8 +32,8 @@ import scala.concurrent.Future
   final def configureSubscription(): Unit =
     configureManualSubscription(subscription)
 
-  final override def performShutdown(): Unit = {
-    super.performShutdown()
+  final override def performShutdown(cause: Throwable): Unit = {
+    super.performShutdown(cause)
     completeStage()
   }
 

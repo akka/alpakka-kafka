@@ -46,8 +46,8 @@ import scala.concurrent.{Future, Promise}
     super.postStop()
   }
 
-  final override def performShutdown(): Unit = {
-    super.performShutdown()
+  final override def performShutdown(cause: Throwable): Unit = {
+    super.performShutdown(cause)
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out)
@@ -60,7 +60,7 @@ import scala.concurrent.{Future, Promise}
                     requestId,
                     messages.mkString(", "))
     })
-    stopConsumerActor()
+    stopConsumerActor(cause)
   }
 
   protected def shuttingDownReceive: PartialFunction[(ActorRef, Any), Unit] = {
@@ -69,11 +69,13 @@ import scala.concurrent.{Future, Promise}
       completeStage()
   }
 
-  protected def stopConsumerActor(): Unit =
-    materializer.scheduleOnce(settings.stopTimeout, new Runnable {
-      override def run(): Unit =
-        consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
-    })
+  protected def stopConsumerActor(cause: Throwable): Unit = {
+    def performImmediateShutdown(): Unit =
+      consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
+
+    // TODO immediate shutdown for SubscriptionWithCancelException.NonFailureCancellation
+    materializer.scheduleOnce(settings.stopTimeout, () => performImmediateShutdown())
+  }
 
   /**
    * Opportunity for subclasses to add a different logic to the partition assignment callbacks.

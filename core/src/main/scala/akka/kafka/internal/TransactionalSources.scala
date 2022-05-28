@@ -145,7 +145,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override def onMessage(rec: ConsumerRecord[K, V]): Unit =
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
 
-  override protected def stopConsumerActor(): Unit =
+  override protected def stopConsumerActor(cause: Throwable): Unit =
     sourceActor.ref
       .tell(Drain(
               inFlightRecords.assigned(),
@@ -394,8 +394,8 @@ private final class TransactionalSubSourceStageLogic[K, V](
           failStage(new ConsumerFailed())
       }
 
-  override def performShutdown(): Unit = {
-    log.debug("#{} Completing SubSource for partition {}", actorNumber, tp)
+  override def performShutdown(cause: Throwable): Unit = {
+    log.debug("#{} Completing ({}) SubSource for partition {}", actorNumber, cause, tp)
     setKeepGoing(true)
     if (!isClosed(shape.out)) {
       complete(shape.out) // initiate shutdown of SubSource

@@ -221,7 +221,7 @@ private class SubSourceLogic[K, V, Msg](
     new OutHandler {
       override def onPull(): Unit =
         emitSubSourcesForPendingPartitions()
-      override def onDownstreamFinish(cause: Throwable): Unit = performShutdown()
+      override def onDownstreamFinish(cause: Throwable): Unit = performShutdown(cause)
     }
   )
 
@@ -264,8 +264,8 @@ private class SubSourceLogic[K, V, Msg](
     onStop()
   }
 
-  override def performShutdown(): Unit = {
-    log.info("Completing. Partitions [{}], StageActor {}", subSources.keys.mkString(","), sourceActor.ref)
+  override def performShutdown(cause: Throwable): Unit = {
+    log.info("Completing ({}). Partitions [{}], StageActor {}", cause, subSources.keys.mkString(","), sourceActor.ref)
     setKeepGoing(true)
     //todo we should wait for subsources to be shutdown and next shutdown main stage
     subSources.values.foreach {
@@ -281,12 +281,17 @@ private class SubSourceLogic[K, V, Msg](
       case (_, msg) =>
         log.warning("ignoring message [{}]", msg)
     }
+    stopConsumerActor(cause)
+  }
+
+  private def stopConsumerActor(cause: Throwable): Unit = {
+    def performImmediateShutdown(): Unit =
+      consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
+
+    // TODO immediate shutdown for SubscriptionWithCancelException.NonFailureCancellation
     materializer.scheduleOnce(
       settings.stopTimeout,
-      new Runnable {
-        override def run(): Unit =
-          consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), sourceActor.ref)
-      }
+      () => performImmediateShutdown()
     )
   }
 
@@ -460,8 +465,8 @@ private abstract class SubSourceStageLogic[K, V, Msg](
     }
   )
 
-  def performShutdown() = {
-    log.info("Completing. Partition {}", tp)
+  def performShutdown(cause: Throwable) = {
+    log.info("Completing ({}). Partition {}", cause, tp)
     completeStage()
   }
 

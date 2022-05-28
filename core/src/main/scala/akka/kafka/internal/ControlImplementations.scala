@@ -12,7 +12,7 @@ import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.{javadsl, scaladsl}
-import akka.stream.SourceShape
+import akka.stream.{SourceShape, SubscriptionWithCancelException}
 import akka.stream.stage.GraphStageLogic
 import akka.util.Timeout
 import org.apache.kafka.common.{Metric, MetricName}
@@ -33,7 +33,7 @@ private trait PromiseControl extends GraphStageLogic with scaladsl.Consumer.Cont
   import PromiseControl._
 
   def shape: SourceShape[_]
-  def performShutdown(): Unit
+  def performShutdown(cause: Throwable): Unit
   def performStop(): Unit = {
     setKeepGoing(true)
     complete(shape.out)
@@ -45,7 +45,7 @@ private trait PromiseControl extends GraphStageLogic with scaladsl.Consumer.Cont
 
   private val controlCallback = getAsyncCallback[ControlOperation]({
     case ControlStop => performStop()
-    case ControlShutdown => performShutdown()
+    case ControlShutdown => performShutdown(SubscriptionWithCancelException.NoMoreElementsNeeded)
   })
 
   def onStop() =
