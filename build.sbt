@@ -23,7 +23,7 @@ val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.0.3"
+val confluentAvroSerializerVersion = "7.0.5"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -267,7 +267,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "4.5.1" % Test,
+        "org.mockito" % "mockito-core" % "4.6.1" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
       ),
     resolvers ++= Seq(
@@ -352,7 +352,7 @@ lazy val benchmarks = project
     publish / skip := true,
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.8",
         "ch.qos.logback" % "logback-classic" % "1.2.11",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
