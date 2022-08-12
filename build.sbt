@@ -7,6 +7,7 @@ name := "akka-stream-kafka"
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
+// align in release.yml
 val Scala213 = "2.13.8"
 
 val AkkaBinaryVersionForDocs = "2.6"
