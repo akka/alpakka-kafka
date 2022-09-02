@@ -32,12 +32,11 @@ Key links:
 - [ ] Review the [draft release notes](https://github.com/akka/alpakka-kafka/releases)
 - [ ] For non-patch releases: Create a news item draft PR on [akka.github.com](https://github.com/akka/akka.github.com), using the milestone
 - [ ] Move all [unclosed issues](https://github.com/akka/alpakka-kafka/issues?q=is%3Aopen+is%3Aissue+milestone%3A$VERSION$) for this milestone to the next milestone
-- [ ] Release notes PR has been merged
 - [ ] Close the [$VERSION$ milestone](https://github.com/akka/alpakka-kafka/milestones?direction=asc&sort=due_date)
 
 ### Cutting the release
 
-- [ ] Wait until [master build finished](https://github.com/akka/alpakka-kafka/actions?query=branch%3Amaster) after merging the release notes 
+- [ ] Wait until [master build finished](https://github.com/akka/alpakka-kafka/actions?query=branch%3Amaster)
 - [ ] Update the [draft release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description linking to the announcement, release notes and milestone
 - [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to Sonatype)
 
@@ -52,14 +51,14 @@ Key links:
      ```
      ln -nsf $VERSION$ www/docs/alpakka-kafka/current
      ln -nsf $VERSION$ www/api/alpakka-kafka/current
-     ln -nsf $VERSION$ www/docs/alpakka-kafka/2.0
-     ln -nsf $VERSION$ www/api/alpakka-kafka/2.0
+     ln -nsf $VERSION$ www/docs/alpakka-kafka/3.0
+     ln -nsf $VERSION$ www/api/alpakka-kafka/3.0
      ```
   - [ ] check changes and commit the new version to the local git repository
      ```
      cd ~/www
-     git add docs/alpakka-kafka/2.0 docs/alpakka-kafka/current docs/alpakka-kafka/$VERSION$
-     git add api/alpakka-kafka/2.0 api/alpakka-kafka/current api/alpakka-kafka/$VERSION$
+     git add docs/alpakka-kafka/
+     git add api/alpakka-kafka/
      git commit -m "Alpakka Kafka $VERSION$"
      ```
      
