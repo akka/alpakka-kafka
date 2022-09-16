@@ -165,8 +165,7 @@ public class AlpakkaKafkaContainer extends GenericContainer<AlpakkaKafkaContaine
       throw new IllegalStateException("You should start Kafka container first");
     }
 
-    return String.format(
-        "service:jmx:rmi:///jndi/rmi://%s:%s/jmxrmi", getHost(), jmxPort);
+    return String.format("service:jmx:rmi:///jndi/rmi://%s:%s/jmxrmi", getHost(), jmxPort);
   }
 
   @Override
