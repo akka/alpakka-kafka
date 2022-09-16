@@ -147,7 +147,7 @@ class ReconnectSpec extends SpecBase with TestcontainersKafkaLike {
     val proxyKsFut = connection.map(
       _.handleWith(
         Tcp()
-          .outgoingConnection(brokerContainers.head.getContainerIpAddress, kafkaPort)
+          .outgoingConnection(brokerContainers.head.getHost, kafkaPort)
           .viaMat(KillSwitches.single)(Keep.right)
       )
     )
