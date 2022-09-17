@@ -18,7 +18,7 @@ jobs:
     # the release environment provides access to secrets required in the release process
     # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
     environment: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -56,4 +56,4 @@ jobs:
           echo $GUSTAV_KEY | base64 -di > .github/id_rsa
           chmod 600 .github/id_rsa
           ssh-add .github/id_rsa
-          sbt "++2.13.2 docs/publishRsync"
+          sbt "++2.13.8 docs/publishRsync"

@@ -99,7 +99,7 @@ jobs:
 
   test:
     name: Build and Test
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     needs: [check-code-style, check-code-compilation, check-docs]
     strategy:
       fail-fast: false
@@ -137,7 +137,7 @@ jobs:
   integration-test:
     name: Integration tests
     needs: [check-code-style, check-code-compilation, check-docs]
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2

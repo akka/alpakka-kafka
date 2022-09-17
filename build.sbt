@@ -7,6 +7,7 @@ name := "akka-stream-kafka"
 val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
+// align in release.yml
 val Scala213 = "2.13.8"
 
 val AkkaBinaryVersionForDocs = "2.6"
@@ -18,7 +19,7 @@ val KafkaVersionForDocs = "30"
 // This should align with the ScalaTest version used in the Akka 2.6.x testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.1.4"
-val testcontainersVersion = "1.16.3"
+val testcontainersVersion = "1.17.3"
 val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
@@ -68,7 +69,7 @@ val commonSettings = Def.settings(
                           "",
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
-  licenses := Seq("Apache-2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
+  licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v3.1.0/ when released
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Seq(Scala213),
   scalaVersion := Scala213,
@@ -256,7 +257,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.2.2" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.4" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -267,7 +268,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "4.6.1" % Test,
+        "org.mockito" % "mockito-core" % "4.7.0" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
       ),
     resolvers ++= Seq(
@@ -353,7 +354,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-        "io.dropwizard.metrics" % "metrics-core" % "4.2.8",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.12",
         "ch.qos.logback" % "logback-classic" % "1.2.11",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "3.0.4",
