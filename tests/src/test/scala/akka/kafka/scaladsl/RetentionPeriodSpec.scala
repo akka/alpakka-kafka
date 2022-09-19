@@ -17,7 +17,7 @@ import akka.stream.testkit.scaladsl.TestSink
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike {
   private final val confluentPlatformVersion = "5.0.0"

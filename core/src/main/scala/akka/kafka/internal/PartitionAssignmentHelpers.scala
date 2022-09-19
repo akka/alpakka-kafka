@@ -13,7 +13,7 @@ import akka.kafka.{AutoSubscription, RestrictedConsumer, TopicPartitionsAssigned
 import akka.stream.stage.AsyncCallback
 import org.apache.kafka.common.TopicPartition
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 /**
  * Internal API.

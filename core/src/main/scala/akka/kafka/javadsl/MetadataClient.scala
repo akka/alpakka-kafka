@@ -16,7 +16,7 @@ import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.ExecutionContextExecutor
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient) {
 
@@ -26,7 +26,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
     metadataClient
       .getBeginningOffsets(partitions.asScala.toSet)
       .map { beginningOffsets =>
-        beginningOffsets.view.mapValues(Long.box).toMap.asJava
+        beginningOffsets.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava
       }(ExecutionContexts.parasitic)
       .toJava
 
@@ -42,7 +42,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
     metadataClient
       .getEndOffsets(partitions.asScala.toSet)
       .map { endOffsets =>
-        endOffsets.view.mapValues(Long.box).toMap.asJava
+        endOffsets.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava
       }(ExecutionContexts.parasitic)
       .toJava
 
@@ -56,7 +56,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
     metadataClient
       .listTopics()
       .map { topics =>
-        topics.view.mapValues(partitionsInfo => partitionsInfo.asJava).toMap.asJava
+        topics.view.iterator.map { case (k, v) => k -> v.asJava }.toMap.asJava
       }(ExecutionContexts.parasitic)
       .toJava
 

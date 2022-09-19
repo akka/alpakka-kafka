@@ -9,6 +9,7 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
 val Scala213 = "2.13.8"
+val Scala212 = "2.12.16"
 
 val AkkaBinaryVersionForDocs = "2.6"
 val akkaVersion = "2.6.19"
@@ -71,7 +72,7 @@ val commonSettings = Def.settings(
   startYear := Some(2014),
   licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v3.1.0/ when released
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq(Scala213),
+  crossScalaVersions := Seq(Scala213, Scala212),
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -81,7 +82,7 @@ val commonSettings = Def.settings(
   scalacOptions ++= Seq(
       "-encoding",
       "UTF-8", // yes, this is 2 args
-      "-Wconf:cat=feature:w,cat=deprecation:w,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
+      "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
       if (insideCI.value && !Nightly) Seq("-Werror")
       else Seq.empty

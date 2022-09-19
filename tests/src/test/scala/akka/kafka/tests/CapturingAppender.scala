@@ -76,7 +76,7 @@ import ch.qos.logback.core.AppenderBase
    * Also clears the buffer..
    */
   def flush(): Unit = synchronized {
-    import scala.jdk.CollectionConverters._
+    import scala.collection.JavaConverters._
     val logbackLogger = getLogbackLogger(classOf[CapturingAppender].getName + "Delegate")
     val appenders = logbackLogger.iteratorForAppenders().asScala.filterNot(_ == this).toList
     for (event <- buffer; appender <- appenders) {

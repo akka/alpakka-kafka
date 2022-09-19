@@ -28,7 +28,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object ConsumerSpec {
   type K = String
