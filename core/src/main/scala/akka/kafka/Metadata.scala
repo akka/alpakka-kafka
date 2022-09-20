@@ -11,7 +11,7 @@ import akka.actor.NoSerializationVerificationNeeded
 import org.apache.kafka.clients.consumer.{OffsetAndMetadata, OffsetAndTimestamp}
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 /**
@@ -40,7 +40,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[String, java.util.List[PartitionInfo]]] =
       response
         .map { m =>
-          Optional.of(m.view.mapValues(_.asJava).toMap.asJava)
+          Optional.of(m.iterator.map { case (k, v) => k -> v.asJava }.toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }
@@ -90,7 +90,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[TopicPartition, java.lang.Long]] =
       response
         .map { m =>
-          Optional.of(m.view.mapValues(Long.box).toMap.asJava)
+          Optional.of(m.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }
@@ -120,7 +120,7 @@ object Metadata {
     def getResponse: Optional[java.util.Map[TopicPartition, java.lang.Long]] =
       response
         .map { m =>
-          Optional.of(m.view.mapValues(Long.box).toMap.asJava)
+          Optional.of(m.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava)
         }
         .getOrElse(Optional.empty())
   }
@@ -164,7 +164,7 @@ object Metadata {
    * Warning: KafkaConsumer documentation states that this method may block indefinitely if the partition does not exist.
    */
   def createGetOffsetForTimes(timestampsToSearch: java.util.Map[TopicPartition, java.lang.Long]): GetOffsetsForTimes =
-    GetOffsetsForTimes(timestampsToSearch.asScala.view.mapValues(_.toLong).toMap)
+    GetOffsetsForTimes(timestampsToSearch.asScala.iterator.map { case (k, v) => k -> v.toLong }.toMap)
 
   /**
    * [[org.apache.kafka.clients.consumer.KafkaConsumer#committed()]]

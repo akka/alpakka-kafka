@@ -113,7 +113,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
-      inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
+      inFlightRecords.committed(offsets.iterator.map { case (k, v) => k -> (v.offset() - 1L) }.toMap)
       sender.tell(Done, sourceActor.ref)
     case (sender, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")
@@ -409,7 +409,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   private def drainHandling: PartialFunction[(ActorRef, Any), Unit] = {
     case (sender, Committed(offsets)) =>
-      inFlightRecords.committed(offsets.view.mapValues(_.offset() - 1).toMap)
+      inFlightRecords.committed(offsets.iterator.map { case (k, v) => k -> (v.offset() - 1L) }.toMap)
       sender ! Done
     case (sender, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")

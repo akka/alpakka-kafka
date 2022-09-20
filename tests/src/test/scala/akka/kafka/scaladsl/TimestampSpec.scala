@@ -13,7 +13,7 @@ import org.apache.kafka.common.TopicPartition
 import org.scalatest.Inside
 import org.scalatest.concurrent.IntegrationPatience
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

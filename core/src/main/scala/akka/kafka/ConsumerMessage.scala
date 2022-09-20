@@ -182,7 +182,7 @@ object ConsumerMessage {
    * Create an offset batch out of a list of offsets.
    */
   def createCommittableOffsetBatch[T <: Committable](offsets: java.util.List[T]): CommittableOffsetBatch = {
-    import scala.jdk.CollectionConverters._
+    import scala.collection.JavaConverters._
     CommittableOffsetBatch(offsets.asScala.toList)
   }
 

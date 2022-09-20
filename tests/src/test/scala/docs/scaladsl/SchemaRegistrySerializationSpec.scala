@@ -32,7 +32,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 // #imports
 import org.apache.kafka.common.serialization._
 // #imports
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 // #schema-registry-settings
 class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKafkaPerClassLike {

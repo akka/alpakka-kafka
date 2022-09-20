@@ -22,7 +22,7 @@ import org.apache.kafka.common.requests.OffsetFetchResponse
 
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 /** Internal API */
 @InternalApi
@@ -165,7 +165,8 @@ private[kafka] final class CommittableOffsetBatchImpl(
     private val committers: Map[GroupTopicPartition, KafkaAsyncConsumerCommitterRef],
     override val batchSize: Long
 ) extends CommittableOffsetBatch {
-  def offsets: Map[GroupTopicPartition, Long] = offsetsAndMetadata.view.mapValues(_.offset() - 1L).toMap
+  def offsets: Map[GroupTopicPartition, Long] =
+    offsetsAndMetadata.iterator.map { case (k, v) => k -> (v.offset() - 1L) }.toMap
 
   def updated(committable: Committable): CommittableOffsetBatch = committable match {
     case offset: CommittableOffset => updatedWithOffset(offset)

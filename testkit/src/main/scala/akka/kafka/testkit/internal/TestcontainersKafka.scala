@@ -12,7 +12,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 import scala.compat.java8.OptionConverters._
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object TestcontainersKafka {
   trait Spec extends KafkaSpec {

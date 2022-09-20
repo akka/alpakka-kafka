@@ -31,7 +31,7 @@ import org.apache.kafka.common.errors.RebalanceInProgressException
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Success, Try}
@@ -546,7 +546,8 @@ import scala.util.control.NonFatal
     // commit partitions that are currently assigned to the consumer. For high volume topics, this can lead to small
     // amounts of replayed data during a rebalance, but for low volume topics we can ensure that consumers never appear
     // 'stuck' because of out-of-order commits from slow consumers.
-    val assignedOffsetsToCommit = aggregatedOffsets.view.filterKeys(consumer.assignment().contains).toMap
+    val assignedOffsetsToCommit =
+      aggregatedOffsets.iterator.filter { case (k, _) => consumer.assignment().contains(k) }.toMap
     progressTracker.commitRequested(assignedOffsetsToCommit)
     val replyTo = commitSenders
     // flush the data before calling `consumer.commitAsync` which might call the callback synchronously

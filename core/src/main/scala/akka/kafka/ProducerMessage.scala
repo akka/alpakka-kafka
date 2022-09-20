@@ -9,7 +9,7 @@ import akka.NotUsed
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
 import scala.collection.immutable
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 /**
  * Classes that are used in both [[javadsl.Producer]] and
