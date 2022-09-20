@@ -38,8 +38,6 @@ jobs:
       - name: Cache Coursier cache
         uses: coursier/cache-action@v6
 
-#      - name: License checks
-
       - name: Publish artifacts for all Scala versions
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
@@ -47,6 +45,35 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         run: sbt ci-release
+
+  documentation:
+    # runs on main repo only
+    if: github.repository == 'akka/alpakka-kafka'
+    name: Documentation
+    # the release environment provides access to secrets required in the release process
+    # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
+    environment: release
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Checkout GitHub merge
+        if: github.event.pull_request
+        run: |-
+          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
+          git checkout scratch
+
+      - name: Setup Scala with JDK 11
+        uses: olafurpg/setup-scala@v13
+        with:
+          java-version: adopt@1.11.0-9
+
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v6
 
       - name: Publish API and reference documentation
         env:
