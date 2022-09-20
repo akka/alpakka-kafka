@@ -11,13 +11,13 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 val Scala213 = "2.13.8"
 val Scala212 = "2.12.16"
 
-val AkkaBinaryVersionForDocs = "2.6"
-val akkaVersion = "2.6.19"
+val AkkaBinaryVersionForDocs = "2.7"
+val akkaVersion = "2.7.0-M1"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.1"
 val KafkaVersionForDocs = "30"
-// This should align with the ScalaTest version used in the Akka 2.6.x testkit
+// This should align with the ScalaTest version used in the Akka 2.7.x testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.1.4"
 val testcontainersVersion = "1.17.3"
