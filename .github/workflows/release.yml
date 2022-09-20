@@ -34,6 +34,8 @@ jobs:
 
       - name: Setup Scala with JDK 8
         uses: olafurpg/setup-scala@v13
+        with:
+          java-version: adopt@1.8.0-275
 
       - name: Cache Coursier cache
         uses: coursier/cache-action@v6
