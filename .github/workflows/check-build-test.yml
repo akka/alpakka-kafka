@@ -66,7 +66,7 @@ jobs:
       - name: Cache Coursier cache
         uses: coursier/cache-action@v6
 
-      - name: Compile all code with fatal warnings for Java 11 and Scala 2.13
+      - name: Compile all code with fatal warnings for Java 11 and all Scala versions
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
         run: sbt "++ Test/compile; It/compile"
 
