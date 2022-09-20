@@ -11,8 +11,6 @@ import java.util.concurrent.{ForkJoinPool, TimeUnit}
 import akka.kafka.benchmarks.InflightMetrics.{BrokerMetricRequest, ConsumerMetricRequest}
 import akka.kafka.benchmarks.app.RunTestCommand
 import akka.stream.Materializer
-import akka.stream.alpakka.csv.scaladsl.CsvFormatting
-import akka.stream.scaladsl.{FileIO, Sink, Source}
 import com.codahale.metrics._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -41,16 +39,19 @@ object Timed extends LazyLogging {
   def inflightMetricsReport(inflight: List[List[String]], testName: String)(
       implicit mat: Materializer
   ) = {
-    val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics.csv"))
-    val metricsReportDetailPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics-details.csv"))
-    require(inflight.size > 1, "At least 2 records (a header and a data row) are required to make a report.")
-    val summary = Source(List(inflight.head, inflight.last))
-      .via(CsvFormatting.format())
-      .alsoTo(Sink.foreach(bs => logger.info(bs.utf8String)))
-      .runWith(FileIO.toPath(metricsReportPath))
-    val details = Source(inflight).via(CsvFormatting.format()).runWith(FileIO.toPath(metricsReportDetailPath))
-    implicit val ec: ExecutionContext = mat.executionContext
-    Await.result(Future.sequence(List(summary, details)), 10.seconds)
+    ??? // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
+//    import akka.stream.alpakka.csv.scaladsl.CsvFormatting
+//    import akka.stream.scaladsl.{FileIO, Sink, Source}
+//    val metricsReportPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics.csv"))
+//    val metricsReportDetailPath = benchmarkReportBasePath.resolve(Paths.get(s"$testName-inflight-metrics-details.csv"))
+//    require(inflight.size > 1, "At least 2 records (a header and a data row) are required to make a report.")
+//    val summary = Source(List(inflight.head, inflight.last))
+//      //.via(CsvFormatting.format())
+//      .alsoTo(Sink.foreach(bs => logger.info(bs.utf8String)))
+//      .runWith(FileIO.toPath(metricsReportPath))
+//    val details = Source(inflight).via(CsvFormatting.format()).runWith(FileIO.toPath(metricsReportDetailPath))
+//    implicit val ec: ExecutionContext = mat.executionContext
+//    Await.result(Future.sequence(List(summary, details)), 10.seconds)
   }
 
   def runPerfTest[F](command: RunTestCommand, fixtureGen: FixtureGen[F], testBody: (F, Meter) => Unit): Unit = {
