@@ -14,14 +14,14 @@ object OrderProto extends _root_.scalapb.GeneratedFileObject {
   lazy val dependencies: Seq[_root_.scalapb.GeneratedFileObject] = Seq.empty
   lazy val messagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_ <: _root_.scalapb.GeneratedMessage]] =
     Seq[_root_.scalapb.GeneratedMessageCompanion[_ <: _root_.scalapb.GeneratedMessage]](
-      docs.scaladsl.proto.Order
+      docs.sample.order.Order
     )
-  private lazy val ProtoBytes: Array[Byte] =
+  private lazy val ProtoBytes: _root_.scala.Array[Byte] =
     scalapb.Encoding.fromBase64(
       scala.collection.immutable
         .Seq(
-          """CgtvcmRlci5wcm90byIgCgVPcmRlchIXCgJpZBgBIAEoCUIH4j8EEgJpZFICaWRCJAoTZG9jcy5zY2FsYWRzbC5wcm90b0INT
-  3JkZXJNZXNzYWdlc2IGcHJvdG8z"""
+          """CgtvcmRlci5wcm90byIgCgVPcmRlchIXCgJpZBgBIAEoCUIH4j8EEgJpZFICaWRCHAoLZG9jcy5zYW1wbGVCDU9yZGVyTWVzc
+      2FnZXNiBnByb3RvMw=="""
         )
         .mkString
     )
@@ -32,7 +32,7 @@ object OrderProto extends _root_.scalapb.GeneratedFileObject {
   lazy val javaDescriptor: com.google.protobuf.Descriptors.FileDescriptor = {
     val javaProto = com.google.protobuf.DescriptorProtos.FileDescriptorProto.parseFrom(ProtoBytes)
     com.google.protobuf.Descriptors.FileDescriptor.buildFrom(javaProto,
-                                                             Array(
+                                                             _root_.scala.Array(
                                                                ))
   }
   @deprecated("Use javaDescriptor instead. In a future version this will refer to scalaDescriptor.", "ScalaPB 0.5.47")
