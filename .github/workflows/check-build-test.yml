@@ -68,7 +68,7 @@ jobs:
 
       - name: Compile all code with fatal warnings for Java 11 and Scala 2.13
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt "; Test/compile; It/compile"
+        run: sbt "++ Test/compile; It/compile"
 
   check-docs:
     name: Check Docs
@@ -105,8 +105,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: adopt@1.8,      scala-version: 2.13.8,  sbt-opts: '' }
-          - { java-version: adopt@1.11.0-9, scala-version: 2.13.8,  sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { java-version: adopt@1.8,      sbt-opts: '' }
+          - { java-version: adopt@1.11.0-9, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -128,7 +128,7 @@ jobs:
         uses: coursier/cache-action@v6
 
       - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt "++${{ matrix.scala-version }} test" ${{ matrix.sbt-opts }}
+        run: sbt ${{ matrix.sbt-opts }} "test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
