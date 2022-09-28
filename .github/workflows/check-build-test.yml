@@ -68,7 +68,7 @@ jobs:
 
       - name: Compile all code with fatal warnings for Java 11 and all Scala versions
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt "++ Test/compile; It/compile"
+        run: sbt "+Test/compile; +It/compile"
 
   check-docs:
     name: Check Docs
