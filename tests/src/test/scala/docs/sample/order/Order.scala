@@ -8,7 +8,7 @@
 //
 // Protofile syntax: PROTO3
 
-package docs.scaladsl.proto
+package docs.sample.order
 
 @SerialVersionUID(0L)
 final case class Order(

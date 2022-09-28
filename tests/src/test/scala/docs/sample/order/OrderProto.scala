@@ -8,7 +8,7 @@
 //
 // Protofile syntax: PROTO3
 
-package docs.scaladsl.proto
+package docs.sample.order
 
 object OrderProto extends _root_.scalapb.GeneratedFileObject {
   lazy val dependencies: Seq[_root_.scalapb.GeneratedFileObject] = Seq.empty
