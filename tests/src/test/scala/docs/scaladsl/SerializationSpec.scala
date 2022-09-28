@@ -75,7 +75,7 @@ class SerializationSpec extends DocsSpecBase with TestcontainersKafkaLike {
   "Protobuf use" should "be documented" in assertAllStagesStopped {
     // #protobuf-imports
     // the Protobuf generated class
-    import docs.scaladsl.proto.Order
+    import docs.sample.order.Order
 
     // #protobuf-imports
     val group = createGroupId()

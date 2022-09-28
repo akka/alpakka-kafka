@@ -251,7 +251,7 @@ lazy val tests = project
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.19.1", // use the same version as in scalapb
+        "com.google.protobuf" % "protobuf-java" % "3.19.5", // use the same version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -270,7 +270,7 @@ lazy val tests = project
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
         "org.mockito" % "mockito-core" % "4.7.0" % Test,
-        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.10.11" % Test
+        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.11" % Test
       ),
     resolvers ++= Seq(
         "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
