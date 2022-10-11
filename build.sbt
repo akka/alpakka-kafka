@@ -12,7 +12,7 @@ val Scala213 = "2.13.8"
 val Scala212 = "2.12.16"
 
 val AkkaBinaryVersionForDocs = "2.7"
-val akkaVersion = "2.7.0-M1"
+val akkaVersion = "2.7.0-M3"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.0.1"
