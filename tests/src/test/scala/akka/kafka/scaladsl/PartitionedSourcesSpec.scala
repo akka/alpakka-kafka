@@ -45,7 +45,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                                             _ => Future.successful(Map.empty))
         .flatMapMerge(1, _._2)
         .map(_.value())
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(100)
@@ -66,7 +66,7 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
                                             tp => Future.successful(tp.map(_ -> 51L).toMap))
         .flatMapMerge(1, _._2)
         .map(_.value())
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(50)
@@ -328,13 +328,13 @@ class PartitionedSourcesSpec extends SpecBase with TestcontainersKafkaLike with 
         .flatMapMerge(1, _._2)
         .map(_.value())
 
-      val (control1, firstConsumer) = source.toMat(TestSink.probe)(Keep.both).run()
+      val (control1, firstConsumer) = source.toMat(TestSink())(Keep.both).run()
 
       eventually {
         assert(partitionsAssigned, "first consumer should get asked for offsets")
       }
 
-      val secondConsumer = source.runWith(TestSink.probe)
+      val secondConsumer = source.runWith(TestSink())
 
       eventually {
         revoked.value should have size partitions / 2L

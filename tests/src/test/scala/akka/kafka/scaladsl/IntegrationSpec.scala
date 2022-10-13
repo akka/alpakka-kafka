@@ -173,7 +173,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
           .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
           .mapAsync(producerDefaults.parallelism)(_.commitInternal())
 
-        val probe = source.runWith(TestSink.probe)
+        val probe = source.runWith(TestSink())
 
         probe.request(1).expectNext()
 
@@ -295,7 +295,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
         val probe = Consumer
           .plainExternalSource[Array[Byte], String](consumer, Subscriptions.assignment(partition0))
           .map(_.value())
-          .runWith(TestSink.probe)
+          .runWith(TestSink())
 
         probe
           .request(100)
@@ -318,7 +318,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val (control, probe) = Consumer
         .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
         .map(_.value())
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       probe
@@ -346,7 +346,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
                                 Subscriptions.topics(topic))
         .flatMapMerge(1, _._2)
         .map(_.value())
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       probe
@@ -369,7 +369,7 @@ class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside 
       val control = Consumer
         .plainSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
         .map(_.value())
-        .to(TestSink.probe)
+        .to(TestSink())
         .run()
 
       // Wait a tiny bit to avoid a race on "not yet initialized: only setHandler is allowed in GraphStageLogic constructor"

@@ -138,21 +138,21 @@ class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKa
       Consumer
         .plainExternalSource[String, SpecificRecord](consumerActor,
                                                      Subscriptions.assignment(new TopicPartition(topic, 0)))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
     val (control2, probe2) =
       Consumer
         .plainExternalSource[String, SpecificRecord](consumerActor,
                                                      Subscriptions.assignment(new TopicPartition(topic, 1)))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
     val (thisStreamStaysAlive, probe3) =
       Consumer
         .plainExternalSource[String, SpecificRecord](consumerActor,
                                                      Subscriptions.assignment(new TopicPartition(topic, 2)))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
     // request from 2 streams
@@ -185,12 +185,12 @@ class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKa
     val (control1, partitionedProbe) =
       Consumer
         .plainPartitionedSource(specificRecordConsumerSettings(group), Subscriptions.topics(topic))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
     partitionedProbe.request(1L)
     val (_, subSource) = partitionedProbe.expectNext()
-    val subStream = subSource.runWith(TestSink.probe)
+    val subStream = subSource.runWith(TestSink())
 
     subStream.request(1L)
 

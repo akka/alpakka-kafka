@@ -394,11 +394,10 @@ class CommitCollectorStageSpec(_system: ActorSystem)
 
     val flow = Committer.batchFlow(committerSettings)
 
-    val ((source, control), sink) = TestSource
-      .probe[Committable]
+    val ((source, control), sink) = TestSource[Committable]()
       .viaMat(ConsumerControlFactory.controlFlow())(Keep.both)
       .via(flow)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     (source, control, sink)
