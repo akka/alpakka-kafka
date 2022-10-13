@@ -8,7 +8,7 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
-val Scala213 = "2.13.8"
+val Scala213 = "2.13.10"
 val Scala212 = "2.12.16"
 
 val AkkaBinaryVersionForDocs = "2.7"
