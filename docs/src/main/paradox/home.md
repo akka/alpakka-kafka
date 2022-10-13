@@ -12,7 +12,7 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 | Kafka client                                                            | Scala Versions   | Akka version    | Alpakka Kafka Connector
 |-------------------------------------------------------------------------|------------------|-----------------|-------------------------
-| 3.3.1                                                                   | 2.13             | 2.7.0+          | [release 4.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v4.0.0-M1)
+| 3.3.1                                                                   | 2.13, 2.12       | 2.7.0+          | [release 4.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v4.0.0-M1)
 | 3.0.1                                                                   | 2.13             | 2.6.18+         | [release 3.0.1](https://github.com/akka/alpakka-kafka/releases/tag/v3.0.0)
 | [3.0.0](https://blogs.apache.org/kafka/entry/what-s-new-in-apache6)     | 2.13             | 2.6.18+         | [release 3.0.0 RC1](https://github.com/akka/alpakka-kafka/releases/tag/v3.0.0-RC1)
 | [2.7.0](https://archive.apache.org/dist/kafka/2.7.0/RELEASE_NOTES.html) | 2.13, 2.12       | 2.6.14+         | @ref:[release 2.1.0](release-notes/2.1.x.md)
