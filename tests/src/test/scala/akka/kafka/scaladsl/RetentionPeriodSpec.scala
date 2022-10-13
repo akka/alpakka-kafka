@@ -68,7 +68,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 //      val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
 //      val (control1, probe1) = Consumer
 //        .committableSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
-//        .toMat(TestSink.probe)(Keep.both)
+//        .toMat(TestSink())(Keep.both)
 //        .run()
 //
 //      log.debug("Await initial partition assignment")
@@ -87,7 +87,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 //      val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
 //      val (control2, probe2) = Consumer
 //        .committableSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
-//        .toMat(TestSink.probe)(Keep.both)
+//        .toMat(TestSink())(Keep.both)
 //        .run()
 //
 //      log.debug("Await a revoke to consumer 1")
@@ -120,7 +120,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
 //      val probe3subscription = Subscriptions.topics("__consumer_offsets")
 //      val (control3, probe3) = Consumer
 //        .plainSource(group2consumerSettings.withClientId(consumerClientId3), probe3subscription)
-//        .toMat(TestSink.probe)(Keep.both)
+//        .toMat(TestSink())(Keep.both)
 //        .run()
 //      val commits: Seq[ConsumerRecord[Array[Byte], Array[Byte]]] = probe3.request(100).expectNextN(10)
 //
@@ -190,7 +190,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
             Done
           }
         }
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       probe1
@@ -207,7 +207,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val probe2 = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       // Note that due to buffers and mapAsync(10) the committed offset is more
       // than 26, and that is not wrong
@@ -227,7 +227,7 @@ class RetentionPeriodSpec extends SpecBase with TestcontainersKafkaPerClassLike 
       val probe3 = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe3
         .request(100)

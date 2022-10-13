@@ -196,7 +196,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
     Consumer
       .plainSource(consumerSettings, Subscriptions.topics(topic.toSet))
       .map(_.value)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
 }

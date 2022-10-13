@@ -59,7 +59,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             elem.record.value
           }
         }
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       probe1
@@ -72,7 +72,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe2 = Consumer
         .committableSource(consumerSettings, Subscriptions.topics(topic1))
         .map(_.record.value)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       // Note that due to buffers and mapAsync(10) the committed offset is more
       // than 26, and that is not wrong
@@ -90,7 +90,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe3 = Consumer
         .committableSource(consumerSettings.withGroupId(group2), Subscriptions.topics(topic1))
         .map(_.record.value)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe3
         .request(100)
@@ -122,7 +122,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val subscription1 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor1.ref)
       val (control1, probe1) = Consumer
         .committableSource(consumerSettings, subscription1)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       // Await initial partition assignment
@@ -141,7 +141,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val subscription2 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor2.ref)
       val (control2, probe2) = Consumer
         .committableSource(consumerSettings, subscription2)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       // Await an assignment to the new rebalance listener
@@ -207,7 +207,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val subscription1 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor1.ref)
       val (control1, probe1) = Consumer
         .committableSource(consumerSettings, subscription1)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       // Await initial partition assignment
@@ -226,7 +226,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val subscription2 = Subscriptions.topics(topic1).withRebalanceListener(rebalanceActor2.ref)
       val (control2, probe2) = Consumer
         .committableSource(consumerSettings, subscription2)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       // Rebalance happens
@@ -274,7 +274,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
       val (control, probe1) = Consumer
         .committableSource(consumerDefaults.withGroupId(group), Subscriptions.topics(topic))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       // request one, only
@@ -315,7 +315,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           .map(_.committableOffset)
           .batch(max = 10, CommittableOffsetBatch.apply)(_.updated(_))
           .mapAsync(1)(_.commitInternal())
-          .toMat(TestSink.probe)(Keep.both)
+          .toMat(TestSink())(Keep.both)
           .run()
 
       val (control, probe) = consumeAndBatchCommit(topic)
@@ -572,7 +572,7 @@ class CommittingSpec extends SpecBase with TestcontainersKafkaLike with Inside {
             Committer
               .batchFlow(committerDefaults.withDelivery(CommitDelivery.SendAndForget).withMaxBatch(commitBatchSize))
           )
-          .toMat(TestSink.probe)(Keep.both)
+          .toMat(TestSink())(Keep.both)
           .run()
 
       val (control, probe) = consumeAndBatchCommit(topic)

@@ -66,7 +66,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
       val (control1, probe1) = Consumer
         .plainSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       log.debug("Await initial partition assignment")
@@ -90,7 +90,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
         .plainSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       log.debug("Await a revoke to consumer 1")
@@ -134,7 +134,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
           .expectNextN(partitions.toLong)
           .map {
             case (tp, subSource) =>
-              (tp, subSource.toMat(TestSink.probe)(Keep.right).run())
+              (tp, subSource.toMat(TestSink())(Keep.right).run())
           }
 
       def runForSubSource(
@@ -170,7 +170,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe1subscription = Subscriptions.topics(topic1).withRebalanceListener(probe1rebalanceActor.ref)
       val (control1, probe1) = Consumer
         .plainPartitionedSource(consumerSettings.withClientId(consumerClientId1), probe1subscription)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       log.debug("Await initial partition assignment")
@@ -200,7 +200,7 @@ class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {
       val probe2subscription = Subscriptions.topics(topic1).withRebalanceListener(probe2rebalanceActor.ref)
       val (control2, probe2) = Consumer
         .plainPartitionedSource(consumerSettings.withClientId(consumerClientId2), probe2subscription)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       probe2.request(1)

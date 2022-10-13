@@ -112,7 +112,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val mock = new ConsumerMock[K, V](commitLog)
 
     val (control, probe) = createSourceWithMetadata(mock.mock, (rec: ConsumerRecord[K, V]) => rec.offset.toString)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msg = createMessage(1)
@@ -143,7 +143,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val commitLog = new ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msg = createMessage(1)
@@ -173,7 +173,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msg = createMessage(1)
@@ -208,7 +208,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
       val commitLog = new ConsumerMock.LogHandler(onCompleteFailure)
       val mock = new ConsumerMock[K, V](commitLog)
       val (control, probe) = createCommittableSource(mock.mock)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       val msg = createMessage(1)
@@ -238,7 +238,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val commitLog = new ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock)
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val count = 100
@@ -268,7 +268,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val commitLog = new ConsumerMock.LogHandler()
     val mock = new ConsumerMock[K, V](commitLog)
     val (control, probe) = createCommittableSource(mock.mock, topics = Set("topic1", "topic2"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
@@ -305,7 +305,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val (control, probe) = createSourceWithMetadata(mock.mock,
                                                     (rec: ConsumerRecord[K, V]) => rec.offset.toString,
                                                     topics = Set("topic1", "topic2"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
@@ -344,7 +344,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val (control, probe) = createSourceWithMetadata(mock.mock,
                                                     (rec: ConsumerRecord[K, V]) => rec.offset.toString,
                                                     topics = Set("topic1", "topic2"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))
@@ -386,10 +386,10 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val mock1 = new ConsumerMock[K, V](commitLog1)
     val mock2 = new ConsumerMock[K, V](commitLog2)
     val (control1, probe1) = createCommittableSource(mock1.mock, "group1", Set("topic1", "topic2"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
     val (control2, probe2) = createCommittableSource(mock2.mock, "group2", Set("topic1", "topic3"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msgs1a = (1 to 3).map(createMessage(_, "topic1", "group1"))
@@ -446,7 +446,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
     val (control, probe) = createSourceWithMetadata(mock.mock,
                                                     (rec: ConsumerRecord[K, V]) => rec.offset.toString,
                                                     topics = Set("topic1", "topic2"))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val msgsTopic1 = (1 to 3).map(createMessage(_, "topic1"))

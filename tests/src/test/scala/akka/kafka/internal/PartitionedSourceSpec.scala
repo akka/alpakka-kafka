@@ -72,7 +72,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
       .flatMapMerge(breadth = 10, _._2)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -105,7 +105,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -131,7 +131,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -149,7 +149,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // No demand on sub-sources => paused
     dummy.tpsPaused should contain only tp0
 
-    val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
+    val probeTp0 = subSources(tp0).runWith(TestSink[CommittableMessage[K, V]]())
     dummy.setNextPollData(tp0 -> singleRecord)
 
     // demand a value
@@ -167,7 +167,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -179,7 +179,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // No demand on sub-sources => paused
     dummy.tpsPaused should contain.allOf(tp0, tp1)
 
-    val probeTp0 = subSources(tp0).runWith(TestSink.probe[CommittableMessage[K, V]])
+    val probeTp0 = subSources(tp0).runWith(TestSink[CommittableMessage[K, V]]())
     dummy.setNextPollData(tp0 -> singleRecord)
 
     // demand a value
@@ -197,7 +197,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -221,7 +221,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .committablePartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -262,7 +262,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -294,7 +294,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -333,7 +333,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -371,7 +371,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
                                           onRevoke = { tp =>
                                             revoked = revoked ++ tp
                                           })
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -405,7 +405,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -445,7 +445,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedManualOffsetSource(consumerSettings(dummy), Subscriptions.topics(topic), getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -475,7 +475,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
       .committablePartitionedManualOffsetSource(consumerSettings(dummy),
                                                 Subscriptions.topics(topic),
                                                 getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -509,7 +509,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
       .committablePartitionedManualOffsetSource(consumerSettings(dummy),
                                                 Subscriptions.topics(topic),
                                                 getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -550,7 +550,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
       .committablePartitionedManualOffsetSource(consumerSettings(dummy),
                                                 Subscriptions.topics(topic),
                                                 getOffsetsOnAssign)
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -588,7 +588,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
                                                 onRevoke = { tp =>
                                                   revoked = revoked ++ tp
                                                 })
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -612,7 +612,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink = Consumer
       .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -636,7 +636,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink1 = Consumer
       .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -648,7 +648,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
     // simulate partition re-balance
     val sink2 = Consumer
       .plainPartitionedSource(consumerSettings(dummy2), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.assignWithCallback(tp0)
     subSources1(tp1).runWith(Sink.ignore).futureValue should be(Done)
@@ -667,7 +667,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink1 = Consumer
       .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -676,8 +676,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
     subSources1.keys should contain.allOf(tp0, tp1)
 
-    val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
-    val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
+    val probeTp0 = subSources1(tp0).runWith(TestSink[ConsumerRecord[K, V]]())
+    val probeTp1 = subSources1(tp1).runWith(TestSink[ConsumerRecord[K, V]]())
 
     // trigger demand
     probeTp0.request(1L)
@@ -702,7 +702,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
 
     val sink1 = Consumer
       .plainPartitionedSource(consumerSettings(dummy), Subscriptions.topics(topic))
-      .runWith(TestSink.probe)
+      .runWith(TestSink())
 
     dummy.started.futureValue should be(Done)
 
@@ -711,8 +711,8 @@ class PartitionedSourceSpec(_system: ActorSystem)
     val subSources1 = Map(sink1.requestNext(), sink1.requestNext())
     subSources1.keys should contain.allOf(tp0, tp1)
 
-    val probeTp0 = subSources1(tp0).runWith(TestSink.probe[ConsumerRecord[K, V]])
-    val probeTp1 = subSources1(tp1).runWith(TestSink.probe[ConsumerRecord[K, V]])
+    val probeTp0 = subSources1(tp0).runWith(TestSink[ConsumerRecord[K, V]]())
+    val probeTp1 = subSources1(tp1).runWith(TestSink[ConsumerRecord[K, V]]())
 
     // trigger demand
     probeTp0.request(1L)

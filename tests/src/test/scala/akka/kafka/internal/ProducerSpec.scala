@@ -128,10 +128,9 @@ class ProducerSpec(_system: ActorSystem)
       }
       val committer = new CommittedMarkerMock
 
-      val (source, sink) = TestSource
-        .probe[TxMsg]
+      val (source, sink) = TestSource[TxMsg]()
         .via(testProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       val txMsg = toTxMessage(input, committer.mock)
@@ -173,7 +172,7 @@ class ProducerSpec(_system: ActorSystem)
       }
       val probe = Source(input.map(toMessage))
         .via(testProducerFlow(client))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(10)
@@ -193,10 +192,9 @@ class ProducerSpec(_system: ActorSystem)
       val inputMap = input.toMap
       new ProducerMock[K, V](ProducerMock.handlers.delayedMap(100.millis)(x => Try { inputMap(x) }))
     }
-    val (source, sink) = TestSource
-      .probe[Msg]
+    val (source, sink) = TestSource[Msg]()
       .via(testProducerFlow(client))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     input.map(toMessage).foreach(source.sendNext)
@@ -225,10 +223,9 @@ class ProducerSpec(_system: ActorSystem)
           else Success(inputMap(msg))
         })
       }
-      val (source, sink) = TestSource
-        .probe[Msg]
+      val (source, sink) = TestSource[Msg]()
         .via(testProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       sink.request(100)
@@ -254,10 +251,9 @@ class ProducerSpec(_system: ActorSystem)
           else Success(inputMap(msg))
         })
       }
-      val (source, sink) = TestSource
-        .probe[Msg]
+      val (source, sink) = TestSource[Msg]()
         .via(testProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       input.map(toMessage).foreach(source.sendNext)
@@ -287,12 +283,11 @@ class ProducerSpec(_system: ActorSystem)
           else Success(inputMap(msg))
         })
       }
-      val (source, sink) = TestSource
-        .probe[Msg]
+      val (source, sink) = TestSource[Msg]()
         .via(
           testProducerFlow(client).withAttributes(ActorAttributes.withSupervisionStrategy(Supervision.resumingDecider))
         )
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       input.map(toMessage).foreach(source.sendNext)
@@ -316,7 +311,7 @@ class ProducerSpec(_system: ActorSystem)
       val client = new ProducerMock[K, V](ProducerMock.handlers.fail)
       val probe = Source(input.map(toMessage))
         .via(testProducerFlow(client))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(10)
@@ -336,10 +331,9 @@ class ProducerSpec(_system: ActorSystem)
         val inputMap = input.toMap
         new ProducerMock[K, V](ProducerMock.handlers.delayedMap(5.seconds)(x => Try { inputMap(x) }))
       }
-      val (source, sink) = TestSource
-        .probe[Msg]
+      val (source, sink) = TestSource[Msg]()
         .via(testProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       sink.request(10)
@@ -362,7 +356,7 @@ class ProducerSpec(_system: ActorSystem)
       }
       val probe = Source(input.map(toMessage))
         .via(testProducerFlow(client, closeOnStop = false))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(10)
@@ -383,10 +377,9 @@ class ProducerSpec(_system: ActorSystem)
         Failure(error)
       })
 
-      val (source, sink) = TestSource
-        .probe[Msg]
+      val (source, sink) = TestSource[Msg]()
         .via(testProducerFlow(client, closeOnStop = false))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       sink.request(100)
@@ -406,7 +399,7 @@ class ProducerSpec(_system: ActorSystem)
       val probe = Source
         .empty[Msg]
         .via(testTransactionProducerFlow(client))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe
         .request(1)
@@ -426,10 +419,9 @@ class ProducerSpec(_system: ActorSystem)
       }
       val committer = new CommittedMarkerMock
 
-      val (source, sink) = TestSource
-        .probe[TxMsg]
+      val (source, sink) = TestSource[TxMsg]()
         .via(testTransactionProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       val txMsg = toTxMessage(input, committer.mock)
@@ -453,10 +445,9 @@ class ProducerSpec(_system: ActorSystem)
       }
       val committer = new CommittedMarkerMock
 
-      val (source, sink) = TestSource
-        .probe[TxMsg]
+      val (source, sink) = TestSource[TxMsg]()
         .via(testTransactionProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       val txMsg = toTxMessage(input, committer.mock)
@@ -481,11 +472,10 @@ class ProducerSpec(_system: ActorSystem)
       }
       val committer = new CommittedMarkerMock
 
-      val (source, sink) = TestSource
-        .probe[TxMsg]
+      val (source, sink) = TestSource[TxMsg]()
         .map(msg => ProducerMessage.passThrough[K, V, PartitionOffset](msg.passThrough))
         .via(testTransactionProducerFlow(client))
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
 
       val txMsg = toTxMessage(input, committer.mock)
@@ -509,10 +499,9 @@ class ProducerSpec(_system: ActorSystem)
     }
     val committedMarker = new CommittedMarkerMock
 
-    val (source, sink) = TestSource
-      .probe[TxMsg]
+    val (source, sink) = TestSource[TxMsg]()
       .via(testTransactionProducerFlow(client))
-      .toMat(TestSink.probe)(Keep.both)
+      .toMat(TestSink())(Keep.both)
       .run()
 
     val txMsg: TxMsg = toTxMessage(input, committedMarker.mock)
@@ -538,8 +527,7 @@ class ProducerSpec(_system: ActorSystem)
     }
     val committedMarker = new CommittedMarkerMock
 
-    val (source, sink) = TestSource
-      .probe[TxMsg]
+    val (source, sink) = TestSource[TxMsg]()
       .via(testTransactionProducerFlow(client))
       .toMat(Sink.lastOption)(Keep.both)
       .run()

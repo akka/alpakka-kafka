@@ -73,7 +73,7 @@ class ConnectionCheckerSpec extends SpecBase with TestcontainersKafkaPerClassLik
       val consumerSettings = noBrokerConsumerSettings.withBootstrapServers(bootstrapServers)
 
       val (control, probe) =
-        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic)).toMat(TestSink.probe)(Keep.both).run()
+        Consumer.plainSource(consumerSettings, Subscriptions.topics(topic)).toMat(TestSink())(Keep.both).run()
 
       probe.ensureSubscription().requestNext().value() shouldBe msg
 
