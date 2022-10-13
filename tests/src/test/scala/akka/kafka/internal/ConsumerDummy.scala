@@ -94,5 +94,6 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def poll(timeout: java.time.Duration): ConsumerRecords[K, V] = ???
   override def groupMetadata(): ConsumerGroupMetadata = ???
   override def enforceRebalance(): Unit = ???
+  override def enforceRebalance(reason: String): Unit = ???
   override def currentLag(partition: TopicPartition): java.util.OptionalLong = ???
 }
