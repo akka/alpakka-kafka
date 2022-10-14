@@ -108,11 +108,16 @@ import scala.concurrent.{ExecutionContext, Future}
     consumerActor.tell(KafkaConsumerActor.Internal.RequestMessages(requestId, tps), sourceActor.ref)
   }
 
-  setHandler(shape.out, new OutHandler {
-    override def onPull(): Unit = pump()
-    override def onDownstreamFinish(cause: Throwable): Unit =
-      performShutdown(cause)
-  })
+  setHandler(
+    shape.out,
+    new OutHandler {
+      override def onPull(): Unit = pump()
+      override def onDownstreamFinish(cause: Throwable): Unit = {
+        super.onDownstreamFinish(cause)
+        performShutdown(cause)
+      }
+    }
+  )
 
   override def postStop(): Unit = {
     onShutdown()

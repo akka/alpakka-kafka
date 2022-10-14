@@ -221,7 +221,10 @@ private class SubSourceLogic[K, V, Msg](
     new OutHandler {
       override def onPull(): Unit =
         emitSubSourcesForPendingPartitions()
-      override def onDownstreamFinish(cause: Throwable): Unit = performShutdown(cause)
+      override def onDownstreamFinish(cause: Throwable): Unit = {
+        super.onDownstreamFinish(cause)
+        performShutdown(cause)
+      }
     }
   )
 
