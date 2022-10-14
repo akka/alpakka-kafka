@@ -258,7 +258,7 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.4.1" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.4.2" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
