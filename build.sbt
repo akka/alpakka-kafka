@@ -9,10 +9,10 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
 val Scala213 = "2.13.10"
-val Scala212 = "2.12.16"
+val Scala212 = "2.12.17"
 
 val AkkaBinaryVersionForDocs = "2.7"
-val akkaVersion = "2.7.0-M4"
+val akkaVersion = "2.7.0-M5"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.3.1"
@@ -20,12 +20,12 @@ val KafkaVersionForDocs = "33"
 // This should align with the ScalaTest version used in the Akka 2.7.x testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.1.4"
-val testcontainersVersion = "1.17.3"
-val slf4jVersion = "1.7.36"
+val testcontainersVersion = "1.17.5"
+val slf4jVersion = "2.0.3" // test dependency
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.2.1"
+val confluentAvroSerializerVersion = "7.2.2"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -206,7 +206,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    JupiterKeys.junitJupiterVersion := "5.9.0",
+    JupiterKeys.junitJupiterVersion := "5.9.1",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
@@ -251,7 +251,7 @@ lazy val tests = project
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.21.1", // use the same, or later, version as in scalapb
+        "com.google.protobuf" % "protobuf-java" % "3.21.7", // use the same, or later, version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -269,7 +269,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "4.7.0" % Test,
+        "org.mockito" % "mockito-core" % "4.8.0" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.11" % Test
       ),
     resolvers ++= Seq(
