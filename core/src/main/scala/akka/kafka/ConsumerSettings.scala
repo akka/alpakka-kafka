@@ -439,7 +439,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    * Java API:
    * If set to a finite duration, the consumer will re-send the last committed offsets periodically
    * for all assigned partitions. @see https://issues.apache.org/jira/browse/KAFKA-4682
-   * Set to [[java.time.Duration.ZERO]] to switch it off.
+   * Set to `java.time.Duration.ZERO` to switch it off.
    *
    * @see https://issues.apache.org/jira/browse/KAFKA-4682
    */
