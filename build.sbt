@@ -70,7 +70,7 @@ val commonSettings = Def.settings(
                           "",
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
-  licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v3.1.0/ when released
+  licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v4.0.1/ when released
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Seq(Scala213, Scala212),
   scalaVersion := Scala213,
