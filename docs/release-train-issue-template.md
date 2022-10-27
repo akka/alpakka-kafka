@@ -21,6 +21,7 @@ Key links:
 - [ ] Create a new milestone for the [next version](https://github.com/akka/alpakka-kafka/milestones)
 - [ ] Close the [$VERSION$ milestone](https://github.com/akka/alpakka-kafka/milestones?direction=asc&sort=due_date)
 - [ ] Make sure all important PRs have been merged
+- [ ] Update the revision in Fossa in the Akka Group for the Akka umbrella version, e.g. `22.10`. Note that the revisions for the release is udpated by Akka Group > Projects > Edit. For recent dependency updates the Fossa validation can be triggered from the GitHub actions "Dependency License Scanning".
 - [ ] Wait until [main build finished](https://github.com/akka/alpakka-kafka/actions) after merging the latest PR
 - [ ] Update the [draft release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description. Use the `Publish release` button, which will create the tag.
 - [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to Maven central via Sonatype)
