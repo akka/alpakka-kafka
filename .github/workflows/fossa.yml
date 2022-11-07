@@ -9,24 +9,25 @@ jobs:
   fossa:
     name: Fossa
     runs-on: ubuntu-latest
+    if: github.repository == 'akka/alpakka-kafka'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
           fetch-depth: 0
 
-      - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v13
-        with:
-          java-version: adopt@1.11
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6.2
+        uses: coursier/cache-action@v6
+
+      - name: Set up JDK 11
+        uses: coursier/setup-action@v1
+        with:
+          jvm: adopt:11
 
       - name: FOSSA policy check
         run: |-
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/spectrometer/master/install.sh | bash
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze && fossa test
         env:
           FOSSA_API_KEY: "${{secrets.FOSSA_API_KEY}}"

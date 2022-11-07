@@ -1,16 +1,18 @@
 name: Link Validator
 
 on:
+  workflow_dispatch:
   pull_request:
-#  schedule:
-#    - cron:  '0 6 * * 1'
+  schedule:
+    - cron:  '0 6 * * 1'
 
 jobs:
   validate-links:
     runs-on: ubuntu-latest
+    if: github.repository == 'akka/alpakka-kafka'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # See https://github.com/actions/checkout/issues/299#issuecomment-677674415
           ref: ${{ github.event.pull_request.head.sha }}
@@ -19,19 +21,17 @@ jobs:
       - name: Fetch tags
         run: git fetch --depth=100 origin +refs/tags/*:refs/tags/*
 
-      - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v13
-        with:
-          java-version: adopt@1.11.0-9
-
       - name: Cache Coursier cache
         uses: coursier/cache-action@v6
+
+      - name: Set up JDK 11 and Coursier
+        uses: coursier/setup-action@v1
+        with:
+          jvm: adopt:11
+          apps: cs
 
       - name: sbt site
         run: sbt docs/makeSite
 
-      - name: Install Coursier command line tool
-        run: curl -fLo cs https://git.io/coursier-cli-linux && chmod +x cs && ./cs
-
       - name: Run Link Validator
-        run: ./cs launch net.runne::site-link-validator:0.2.2 -- scripts/link-validator.conf
+        run: cs launch net.runne::site-link-validator:0.2.3 -- scripts/link-validator.conf
