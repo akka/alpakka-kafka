@@ -23,7 +23,7 @@ jobs:
       - name: Set up JDK 11
         uses: coursier/setup-action@v1
         with:
-          jvm: adopt:11
+          jvm: adopt:1.11
 
       - name: FOSSA policy check
         run: |-
