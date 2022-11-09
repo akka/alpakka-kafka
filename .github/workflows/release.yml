@@ -8,6 +8,9 @@ on:
       - release-*
     tags: ["*"]
 
+permissions:
+  contents: read # allow actions/checkout
+
 jobs:
   release:
     # runs on main repo only

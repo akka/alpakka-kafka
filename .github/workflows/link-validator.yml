@@ -6,6 +6,9 @@ on:
   schedule:
     - cron:  '0 6 * * 1'
 
+permissions:
+  contents: read # allow actions/checkout
+
 jobs:
   validate-links:
     runs-on: ubuntu-latest
