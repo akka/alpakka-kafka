@@ -23,11 +23,10 @@ import akka.kafka.javadsl.Consumer;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.util.Timeout;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 
 public class ClusterShardingExample {
 
