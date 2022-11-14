@@ -1,5 +1,5 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
-addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.10")
+addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.11")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.7.0")
