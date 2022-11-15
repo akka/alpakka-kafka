@@ -9,6 +9,9 @@ on:
       - release-*
     tags-ignore: [ v.* ]
 
+permissions:
+  contents: read # allow actions/checkout
+
 env:
   AKKA_TEST_TIMEFACTOR: 10.0
   EVENT_NAME: ${{ github.event_name }}
@@ -16,10 +19,10 @@ env:
 jobs:
   check-code-style:
     name: Check Code Style
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
           fetch-depth: 0
@@ -30,14 +33,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
+      - name: Cache Coursier cache
+        uses: coursier/cache-action@v6.4.0
 
       - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v13
+        uses: coursier/setup-action@v1.3.0
         with:
-          java-version: adopt@1.11.0-9
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+          jvm: temurin:1.11
 
       - name: Code style check and binary-compatibility check
         # Run locally with: sbt 'verifyCodeStyle ; mimaReportBinaryIssues'
@@ -45,10 +47,10 @@ jobs:
 
   check-code-compilation:
     name: Check Code Compilation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
 
@@ -58,13 +60,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v13
-        with:
-          java-version: adopt@1.11.0-9
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v6.4.0
+
+      - name: Set up JDK 11
+        uses: coursier/setup-action@v1.3.0
+        with:
+          jvm: temurin:1.11
 
       - name: Compile all code with fatal warnings for Java 11 and all Scala versions
         # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
@@ -72,10 +74,10 @@ jobs:
 
   check-docs:
     name: Check Docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
 
@@ -85,13 +87,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Set up JDK 11
-        uses: olafurpg/setup-scala@v13
-        with:
-          java-version: adopt@1.11.0-9
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v6.4.0
+
+      - name: Set up JDK 11
+        uses: coursier/setup-action@v1.3.0
+        with:
+          jvm: temurin:1.11
 
       - name: Create all API docs for artifacts/website and all reference docs
         # Run locally with: sbt verifyDocs
@@ -105,11 +107,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: adopt@1.8,      sbt-opts: '' }
-          - { java-version: adopt@1.11.0-9, sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { java-version: 'temurin:1.8',  sbt-opts: '' }
+          - { java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
 
@@ -119,13 +121,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Setup Scala with Java ${{ matrix.java-version }}
-        uses: olafurpg/setup-scala@v13
-        with:
-          java-version: ${{ matrix.java-version }}
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v6.4.0
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: coursier/setup-action@v1.3.0
+        with:
+          jvm: ${{ matrix.java-version }}
 
       - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
         run: sbt ${{ matrix.sbt-opts }} "test"
@@ -140,7 +142,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
 
@@ -150,11 +152,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v13
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v6.4.0
+
+      - name: Set up JDK 8
+        uses: coursier/setup-action@v1.3.0
+        with:
+          jvm: temurin:1.8
 
       - name: Run multi-broker and long running integration tests
         run: sbt "tests/IntegrationTest/test"
@@ -165,10 +169,10 @@ jobs:
   build-benchmark:
     name: Build benchmarks
     needs: [check-code-style, check-code-compilation, check-docs]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
 
@@ -178,11 +182,13 @@ jobs:
           git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
           git checkout scratch
 
-      - name: Setup Scala with JDK 8
-        uses: olafurpg/setup-scala@v13
-
       - name: Cache Coursier cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v6.4.0
+
+      - name: Set up JDK 8
+        uses: coursier/setup-action@v1.3.0
+        with:
+          jvm: temurin:1.8
 
       - name: "Compile benchmark tests"
         run: sbt "benchmarks/IntegrationTest/compile"
