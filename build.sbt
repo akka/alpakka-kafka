@@ -82,6 +82,8 @@ val commonSettings = Def.settings(
   scalacOptions ++= Seq(
       "-encoding",
       "UTF-8", // yes, this is 2 args
+      "-release",
+      "8",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
       if (insideCI.value && !Nightly && scalaVersion.value != Scala212) Seq("-Werror")
