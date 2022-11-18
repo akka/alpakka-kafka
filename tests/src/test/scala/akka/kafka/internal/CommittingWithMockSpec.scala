@@ -22,7 +22,7 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.errors.RebalanceInProgressException
+import org.apache.kafka.common.errors.{RebalanceInProgressException, TimeoutException}
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterAll
@@ -196,6 +196,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
   }
 
   val exceptions = List(new RebalanceInProgressException(),
+                        new TimeoutException(),
                         new RetriableCommitFailedException(new CommitTimeoutException("injected15")))
   for (exception <- exceptions) {
     it should s"retry commit on ${exception.getClass.getSimpleName}" in assertAllStagesStopped {
