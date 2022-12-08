@@ -107,8 +107,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 'temurin:1.8',  sbt-opts: '' }
-          - { java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          # other combinations are covered in `scheduled-builds.yml`
+          - { scalaVersion: "2.12", jdkVersion: "1.8.0",  jvmName: "temurin:1.8.0",  extraOpts: '' }
+          # { scalaVersion: "2.12", jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          # { scalaVersion: "2.12", jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
+          # { scalaVersion: "2.13", jdkVersion: "1.8.0",  jvmName: "temurin:1.8.0", extraOpts: '' }
+          - { scalaVersion: "2.13", jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          # { scalaVersion: "2.13", jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
     steps:
       - name: Checkout
         uses: actions/checkout@v3.1.0
@@ -124,13 +129,13 @@ jobs:
       - name: Cache Coursier cache
         uses: coursier/cache-action@v6.4.0
 
-      - name: Set up JDK ${{ matrix.java-version }}
+      - name: Set up JDK ${{ matrix.jdkVersion }}
         uses: coursier/setup-action@v1.3.0
         with:
-          jvm: ${{ matrix.java-version }}
+          jvm: ${{ matrix.jvmName }}
 
-      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ${{ matrix.sbt-opts }} "test"
+      - name: sbt test
+        run: sbt ++${{ matrix.scalaVersion }} test ${{ matrix.extraOpts }}
 
       - name: Print logs on failure
         if: ${{ failure() }}
