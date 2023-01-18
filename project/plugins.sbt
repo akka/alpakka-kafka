@@ -1,9 +1,5 @@
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
-addSbtPlugin(
-  "com.github.sbt" % "sbt-ci-release" % "1.5.11"
-  // even sbt-site 1.5 pulls Scala Parser Combinators, but version 2
-  exclude ("org.scala-lang.modules", "scala-parser-combinators_2.12")
-)
+addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.11")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.9.0")
