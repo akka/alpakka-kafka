@@ -59,6 +59,12 @@ TaskKey[Unit]("verifyCodeFmt") := {
 addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
+// Java Platform version for JavaDoc creation
+lazy val JavaDocLinkVersion: Int = {
+  val version = System.getProperty("java.version")
+  (if (version.startsWith("1.")) version.substring(2, 3) else version).toInt
+}
+
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
@@ -105,6 +111,11 @@ val commonSettings = Def.settings(
       },
       "-doc-canonical-base-url",
       "https://doc.akka.io/api/alpakka-kafka/current/"
+    ),
+  // make use of https://github.com/scala/scala/pull/8663
+  Compile / doc / scalacOptions ++= Seq(
+      "-jdk-api-doc-base",
+      s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/"
     ),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
@@ -295,14 +306,7 @@ lazy val docs = project
     Preprocess / siteSubdirName := s"api/alpakka-kafka/${projectInfoVersion.value}",
     Preprocess / sourceDirectory := (LocalRootProject / ScalaUnidoc / unidoc / target).value,
     Preprocess / preprocessRules := Seq(
-        ("\\.java\\.scala".r, _ => ".java"),
-        ("https://javadoc\\.io/page/".r, _ => "https://javadoc\\.io/static/"),
-        // bug in Scaladoc
-        ("https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/java/time/Duration\\$.html".r,
-         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/java.base/java/time/Duration.html"),
-        // Add Java module name https://github.com/ThoughtWorksInc/sbt-api-mappings/issues/58
-        ("https://docs\\.oracle\\.com/en/java/javase/11/docs/api/".r,
-         _ => "https://docs\\.oracle\\.com/en/java/javase/11/docs/api/")
+        ("https://javadoc\\.io/page/".r, _ => "https://javadoc\\.io/static/")
       ),
     Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
