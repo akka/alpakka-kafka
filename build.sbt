@@ -57,7 +57,7 @@ TaskKey[Unit]("verifyCodeFmt") := {
 }
 
 addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
-addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
+addCommandAlias("verifyDocs", ";doc ;unidoc ;docs/paradoxBrowse")
 
 // Java Platform version for JavaDoc creation
 // sync with Java version in .github/workflows/release.yml#documentation
