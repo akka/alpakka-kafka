@@ -60,10 +60,8 @@ addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
 addCommandAlias("verifyDocs", ";+doc ;unidoc ;docs/paradoxBrowse")
 
 // Java Platform version for JavaDoc creation
-lazy val JavaDocLinkVersion: Int = {
-  val version = System.getProperty("java.version")
-  (if (version.startsWith("1.")) version.substring(2, 3) else version).toInt
-}
+// sync with Java version in .github/workflows/release.yml#documentation
+lazy val JavaDocLinkVersion = 17
 
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
