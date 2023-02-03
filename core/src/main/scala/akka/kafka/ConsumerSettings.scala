@@ -300,6 +300,26 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     withProperty(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, groupInstanceId)
 
   /**
+   * A list of class names or class types, ordered by preference, of supported
+   * partition assignment strategies that the client will use to distribute
+   * partition ownership amongst consumer instances when group management is used.
+   *
+   * See https://kafka.apache.org/documentation/#consumerconfigs_partition.assignment.strategy
+   */
+  def withPartitionAssignmentStrategy(strategy: String): ConsumerSettings[K, V] =
+    withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, strategy)
+
+  /**
+   * Sets the `CooperativeStickyAssignor` assignment strategy.
+   *
+   * @see https://kafka.apache.org/documentation/#consumerconfigs_partition.assignment.strategy
+   * @see https://kafka.apache.org/33/documentation.html#upgrade_300_notable
+   */
+  def withPartitionAssignmentStrategyCooperativeStickyAssignor(): ConsumerSettings[K, V] =
+    withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+      classOf[org.apache.kafka.clients.consumer.CooperativeStickyAssignor].getName)
+
+  /**
    * Scala API:
    * The raw properties of the kafka-clients driver, see constants in
    * [[org.apache.kafka.clients.consumer.ConsumerConfig]].
