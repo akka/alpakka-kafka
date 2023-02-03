@@ -636,17 +636,32 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
   def createKafkaConsumerCompletionStage(executor: Executor): CompletionStage[Consumer[K, V]] =
     enriched.map(consumerFactory)(ExecutionContext.fromExecutor(executor)).toJava
 
+  private final val propertiesAllowList = Set(
+    "auto.offset.reset",
+    "auto.commit.interval.ms",
+    "enable.auto.commit",
+    "bootstrap.servers",
+    "enable.auto.commit",
+    "fetch.max.wait.ms",
+    "fetch.min.bytes",
+    "group.id",
+    "heartbeat.interval.ms",
+    "max.poll.interval.ms",
+    "max.poll.records",
+    "security.protocol",
+    "session.timeout.ms"
+  )
+
   override def toString: String = {
     val kafkaClients = properties.toSeq
       .map {
-        case (key, _) if key.endsWith(".password") =>
-          key -> "[is set]"
-        case t => t
+        case p @ (key, _) if propertiesAllowList.contains(key) => p
+        case (key, _) => key -> "[reducted]"
       }
       .sortBy(_._1)
       .mkString(",")
     "akka.kafka.ConsumerSettings(" +
-    s"properties=$kafkaClients," +
+    s"properties={$kafkaClients}," +
     s"keyDeserializer=$keyDeserializerOpt," +
     s"valueDeserializer=$valueDeserializerOpt," +
     s"pollInterval=${pollInterval.toCoarsest}," +
@@ -661,8 +676,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     s"metadataRequestTimeout=${metadataRequestTimeout.toCoarsest}," +
     s"drainingCheckInterval=${drainingCheckInterval.toCoarsest}," +
     s"connectionCheckerSettings=$connectionCheckerSettings," +
-    s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}" +
-    s"resetProtectionSettings=$resetProtectionSettings" +
+    s"partitionHandlerWarning=${partitionHandlerWarning.toCoarsest}," +
+    s"resetProtectionSettings=$resetProtectionSettings," +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}" +
     ")"
   }
