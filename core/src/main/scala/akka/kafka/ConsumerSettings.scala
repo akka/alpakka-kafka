@@ -317,7 +317,7 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    */
   def withPartitionAssignmentStrategyCooperativeStickyAssignor(): ConsumerSettings[K, V] =
     withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-      classOf[org.apache.kafka.clients.consumer.CooperativeStickyAssignor].getName)
+                 classOf[org.apache.kafka.clients.consumer.CooperativeStickyAssignor].getName)
 
   /**
    * Scala API:
