@@ -8,15 +8,14 @@ package akka.kafka.testkit.internal;
 import akka.annotation.InternalApi;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.images.builder.Transferable;
-import org.testcontainers.utility.DockerImageName;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * This container wraps Confluent Kafka and Zookeeper (optionally)

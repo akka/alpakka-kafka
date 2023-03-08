@@ -5,6 +5,8 @@
 
 package docs.javadsl;
 
+import static org.junit.Assert.assertEquals;
+
 import akka.Done;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
@@ -16,20 +18,17 @@ import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.RestartSettings;
 import akka.stream.javadsl.*;
 import akka.testkit.javadsl.TestKit;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.junit.AfterClass;
-import org.junit.Rule;
-import org.junit.Test;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.Assert.assertEquals;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.AfterClass;
+import org.junit.Rule;
+import org.junit.Test;
 
 public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
 

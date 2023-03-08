@@ -17,6 +17,14 @@ import akka.kafka.testkit.internal.KafkaTestKitClass;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.MemberDescription;
@@ -28,15 +36,6 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.compat.java8.functionConverterImpls.FromJavaPredicate;
-
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
-import java.util.stream.IntStream;
 
 public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
