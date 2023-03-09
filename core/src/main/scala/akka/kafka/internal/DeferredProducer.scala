@@ -8,10 +8,12 @@ package akka.kafka.internal
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerSettings
+import akka.stream.Materializer
 import akka.stream.stage._
 import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.producer.Producer
 
+import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -37,8 +39,7 @@ private[kafka] object DeferredProducer {
  * INTERNAL API
  */
 @InternalApi
-private[kafka] trait DeferredProducer[K, V] {
-  self: GraphStageLogic with StageIdLogging =>
+private[kafka] trait DeferredProducer[K, V] extends GraphStageLogic with StageIdLogging {
 
   import DeferredProducer._
 

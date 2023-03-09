@@ -33,7 +33,6 @@ import org.apache.kafka.common.errors.{
   TimeoutException
 }
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
-
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -749,7 +748,6 @@ import scala.util.control.NonFatal
       with NoSerializationVerificationNeeded {
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit
-    override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit
 
     def postStop(): Unit = ()
   }

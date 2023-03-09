@@ -113,9 +113,6 @@ object ConsumerMessage {
     override def _2: Long = offset
 
     override def canEqual(that: Any): Boolean = that.isInstanceOf[PartitionOffset]
-
-    def copy(key: GroupTopicPartition = this.key, offset: Long = this.offset): PartitionOffset =
-      PartitionOffset(key, offset)
   }
 
   object PartitionOffset extends AbstractFunction2[GroupTopicPartition, Long, PartitionOffset] {
