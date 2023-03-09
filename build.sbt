@@ -10,6 +10,11 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align in release.yml
 val Scala213 = "2.13.10"
 val Scala212 = "2.12.17"
+val Scala3 = "3.1.3"
+val Scala2Versions = Seq(Scala213, Scala212)
+val ScalaVersions = Scala2Versions :+ Scala3
+
+val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
 val AkkaBinaryVersionForDocs = "2.7"
 val akkaVersion = "2.7.0"
@@ -19,7 +24,7 @@ val kafkaVersion = "3.3.1"
 val KafkaVersionForDocs = "33"
 // This should align with the ScalaTest version used in the Akka 2.7.x testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
-val scalatestVersion = "3.1.4"
+val scalatestVersion = "3.2.12"
 val testcontainersVersion = "1.17.6"
 val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
@@ -76,7 +81,7 @@ val commonSettings = Def.settings(
   startYear := Some(2014),
   licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v4.0.1/ when released
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Seq(Scala213, Scala212),
+  crossScalaVersions := Scala2Versions,
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
@@ -90,7 +95,7 @@ val commonSettings = Def.settings(
       "8",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
-      if (insideCI.value && !Nightly && scalaVersion.value != Scala212) Seq("-Werror")
+      if (insideCI.value && !Nightly && scalaVersion.value != Scala212 && scalaVersion.value != Scala3) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
@@ -101,20 +106,27 @@ val commonSettings = Def.settings(
       version.value,
       "-sourcepath",
       (ThisBuild / baseDirectory).value.toString,
-      "-skip-packages",
-      "akka.pattern:scala", // for some reason Scaladoc creates this
       "-doc-source-url", {
         val branch = if (isSnapshot.value) "master" else s"v${version.value}"
         s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
       },
       "-doc-canonical-base-url",
       "https://doc.akka.io/api/alpakka-kafka/current/"
-    ),
+    ) ++ {
+      if (scalaBinaryVersion.value.startsWith("3")) {
+        Seq("-skip-packages:akka.pattern") // different usage in scala3
+      } else {
+        Seq("-skip-packages", "akka.pattern") // for some reason Scaladoc creates this
+      }
+    },
   // make use of https://github.com/scala/scala/pull/8663
-  Compile / doc / scalacOptions ++= Seq(
-      "-jdk-api-doc-base",
-      s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/"
-    ),
+  Compile / doc / scalacOptions ++= {
+    if (scalaBinaryVersion.value.startsWith("3")) {
+      Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/") // different usage in scala3
+    } else {
+      Seq("-jdk-api-doc-base", s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/")
+    }
+  },
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
@@ -208,6 +220,7 @@ lazy val core = project
       ),
     mimaBinaryIssueFilters += ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
   )
+  .settings(Scala3Settings)
 
 lazy val testkit = project
   .dependsOn(core)
@@ -231,6 +244,7 @@ lazy val testkit = project
       ),
     mimaBinaryIssueFilters += ProblemFilters.exclude[Problem]("akka.kafka.testkit.internal.*")
   )
+  .settings(Scala3Settings)
 
 lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
@@ -249,6 +263,8 @@ lazy val clusterSharding = project
           .getOrElse(throw new Error("Unable to determine previous version"))
       )
   )
+  .configs(IntegrationTest) // make CI not fail
+  .settings(Scala3Settings)
 
 lazy val tests = project
   .dependsOn(core, testkit, clusterSharding)

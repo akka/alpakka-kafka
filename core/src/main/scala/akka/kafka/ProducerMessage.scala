@@ -212,10 +212,31 @@ object ProducerMessage {
     def passThrough: PassThrough = message.passThrough
   }
 
+  object Result {
+
+    /**
+     * Provide access to constructor which Scala3 makes private.
+     */
+    def apply[K, V, PassThrough](metadata: RecordMetadata,
+                                 message: Message[K, V, PassThrough]): Result[K, V, PassThrough] =
+      new Result(metadata, message)
+  }
+
   final case class MultiResultPart[K, V] private (
       metadata: RecordMetadata,
       record: ProducerRecord[K, V]
   )
+
+  object MultiResultPart {
+
+    /**
+     * Provide access to constructor which Scala3 makes private.
+     */
+    def apply[K, V](
+        metadata: RecordMetadata,
+        record: ProducerRecord[K, V]
+    ): MultiResultPart[K, V] = new MultiResultPart[K, V](metadata, record)
+  }
 
   /**
    * [[Results]] implementation emitted when all messages in a [[MultiMessage]] have been
@@ -233,11 +254,30 @@ object ProducerMessage {
     def getParts(): java.util.Collection[MultiResultPart[K, V]] = parts.asJavaCollection
   }
 
+  object MultiResult {
+
+    /**
+     * Provide access to constructor which Scala3 makes private.
+     */
+    def apply[K, V, PassThrough](parts: immutable.Seq[MultiResultPart[K, V]],
+                                 passThrough: PassThrough): MultiResult[K, V, PassThrough] =
+      new MultiResult(parts, passThrough)
+  }
+
   /**
    * [[Results]] implementation emitted when a [[PassThroughMessage]] has passed
    * through the flow.
    */
   final case class PassThroughResult[K, V, PassThrough] private (passThrough: PassThrough)
       extends Results[K, V, PassThrough]
+
+  object PassThroughResult {
+
+    /**
+     * Provide access to constructor which Scala3 makes private.
+     */
+    def apply[K, V, PassThrough](passThrough: PassThrough): PassThroughResult[K, V, PassThrough] =
+      new PassThroughResult(passThrough)
+  }
 
 }
