@@ -142,7 +142,7 @@ val commonSettings = Def.settings(
   headerLicense := Some(
       HeaderLicense.Custom(
         """|Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
-           |Copyright (C) 2016 - 2022 Lightbend Inc. <https://www.lightbend.com>
+           |Copyright (C) 2016 - 2023 Lightbend Inc. <https://www.lightbend.com>
            |""".stripMargin
       )
     ),
