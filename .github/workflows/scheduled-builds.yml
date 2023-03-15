@@ -12,7 +12,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-22.04
-    if: github.repository == 'akka/alpakka-kafka'
+    if: github.event.repository.fork == false
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +38,7 @@ jobs:
         with:
           jvm: ${{ matrix.jvmName }}
 
-      - name: sbt test
+      - name: sbt test on Scala ${{ matrix.scalaVersion }}
         run: sbt ++${{ matrix.scalaVersion }} \
           test ${{ matrix.extraOpts }}
 
