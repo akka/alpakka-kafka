@@ -17,13 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # cover relevant combinations not covered in `check-build-test.yml`
-          # { scalaVersion: "2.12", jdkVersion: "1.8.0",  jvmName: "temurin:1.8.0",  extraOpts: '' }
-          - { scalaVersion: "2.12", jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
-          - { scalaVersion: "2.12", jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
-          - { scalaVersion: "2.13", jdkVersion: "1.8.0",  jvmName: "temurin:1.8.0", extraOpts: '' }
-          # { scalaVersion: "2.13", jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
-          - { scalaVersion: "2.13", jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
+          # cover JDKs not covered in `check-build-test.yml`
+          # { jdkVersion: "1.8.0",  jvmName: "temurin:1.8.0",  extraOpts: '' }
+          # { jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
     steps:
       - name: Checkout
         uses: actions/checkout@v3.1.0
@@ -38,9 +35,8 @@ jobs:
         with:
           jvm: ${{ matrix.jvmName }}
 
-      - name: sbt test on Scala ${{ matrix.scalaVersion }}
-        run: sbt ++${{ matrix.scalaVersion }} \
-          test ${{ matrix.extraOpts }}
+      - name: sbt test
+        run: sbt test ${{ matrix.extraOpts }}
 
       - name: Print logs on failure
         if: ${{ failure() }}
