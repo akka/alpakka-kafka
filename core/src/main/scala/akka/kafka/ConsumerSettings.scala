@@ -306,8 +306,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
    *
    * See https://kafka.apache.org/documentation/#consumerconfigs_partition.assignment.strategy
    */
-  def withPartitionAssignmentStrategy(strategy: String): ConsumerSettings[K, V] =
-    withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, strategy)
+  def withPartitionAssignmentStrategies(strategies: Array[String]): ConsumerSettings[K, V] =
+    withProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, strategies.mkString(","))
 
   /**
    * Sets the `CooperativeStickyAssignor` assignment strategy.
