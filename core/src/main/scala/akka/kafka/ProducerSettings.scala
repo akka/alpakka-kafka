@@ -400,17 +400,34 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
                                enrichAsync,
                                producerFactorySync)
 
+  private final val propertiesAllowList = Set(
+    "acks",
+    "batch.num.messages",
+    "batch.size",
+    "bootstrap.servers",
+    "buffer.memory",
+    "client.dns.lookup",
+    "group.id",
+    "linger.ms",
+    "max.block.ms",
+    "max.in.flight.requests.per.connection",
+    "queue.buffering.max.messages",
+    "queue.buffering.max.ms",
+    "request.timeout.ms",
+    "retries",
+    "security.protocol"
+  )
+
   override def toString: String = {
     val kafkaClients = properties.toSeq
       .map {
-        case (key, _) if key.endsWith(".password") =>
-          key -> "[is set]"
-        case t => t
+        case p @ (key, _) if propertiesAllowList.contains(key) => p
+        case (key, _) => key -> "[reducted]"
       }
       .sortBy(_._1)
       .mkString(",")
     "akka.kafka.ProducerSettings(" +
-    s"properties=$kafkaClients," +
+    s"properties={$kafkaClients}," +
     s"keySerializer=$keySerializerOpt," +
     s"valueSerializer=$valueSerializerOpt," +
     s"closeTimeout=${closeTimeout.toCoarsest}," +
