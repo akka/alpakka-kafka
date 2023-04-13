@@ -49,6 +49,7 @@ When creating a consumer source you need to pass in @apidoc[ConsumerSettings] th
 * bootstrap servers of the Kafka cluster (see @ref:[Service discovery](discovery.md) to defer the server configuration)
 * group id for the consumer, note that offsets are always committed for a given consumer group
 * Kafka consumer tuning parameters
+* assignment strategies
 
 Alpakka Kafka's defaults for all settings are defined in `reference.conf` which is included in the library JAR.
 
@@ -58,6 +59,8 @@ Important consumer settings
 | stop-timeout | The stage will delay stopping the internal actor to allow processing of messages already in the stream (required for successful committing). This can be set to 0 for streams using @apidoc[Consumer.DrainingControl] |
 | kafka-clients | Section for properties passed unchanged to the Kafka client (see @extref:[Kafka's Consumer Configs](kafka:/documentation.html#consumerconfigs)) |
 | connection-checker | Configuration to let the stream fail if the connection to the Kafka broker fails. |
+
+Explicitly selecting a [Consumer Assignment Strategy](https://kafka.apache.org/documentation/#consumerconfigs_partition.assignment.strategy) such as @javadoc[CooperativeStickyAssignor](org.apache.kafka.clients.consumer.CooperativeStickyAssignor) is recommended. They were introduced in [Kafka 3.0](https://kafka.apache.org/33/documentation.html#upgrade_300_notable). Please check the [Kafka upgrade guide](https://cwiki.apache.org/confluence/display/KAFKA/KIP-429:+Kafka+Consumer+Incremental+Rebalance+Protocol#KIP429:KafkaConsumerIncrementalRebalanceProtocol-Consumer) before changing it.
 
 reference.conf (HOCON)
 : @@ snip [snip](/core/src/main/resources/reference.conf) { #consumer-settings }
