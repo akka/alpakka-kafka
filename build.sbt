@@ -79,7 +79,12 @@ val commonSettings = Def.settings(
                           "",
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
-  licenses := Seq(("BUSL-1.1", url("https://raw.githubusercontent.com/akka/alpakka-kafka/master/LICENSE"))), // FIXME change s/master/v4.0.1/ when released
+  licenses := {
+    val tagOrBranch =
+      if (version.value.endsWith("SNAPSHOT")) "main"
+      else "v" + version.value
+    Seq(("BUSL-1.1", url(s"https://raw.githubusercontent.com/akka/alpakka-kafka/${tagOrBranch}/LICENSE")))
+  },
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
   crossScalaVersions := Scala2Versions,
   scalaVersion := Scala213,
@@ -107,7 +112,7 @@ val commonSettings = Def.settings(
       "-sourcepath",
       (ThisBuild / baseDirectory).value.toString,
       "-doc-source-url", {
-        val branch = if (isSnapshot.value) "master" else s"v${version.value}"
+        val branch = if (isSnapshot.value) "main" else s"v${version.value}"
         s"https://github.com/akka/alpakka-kafka/tree/${branch}€{FILE_PATH_EXT}#L€{FILE_LINE}"
       },
       "-doc-canonical-base-url",
