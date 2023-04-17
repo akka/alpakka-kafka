@@ -6,7 +6,7 @@ Alpakka Kafka [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-c
 [maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13
 [maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13/badge.svg
 [gh-actions]:          https://github.com/akka/alpakka-kafka/actions
-[gh-actions-badge]:    https://github.com/akka/alpakka-kafka/workflows/CI/badge.svg?branch=master
+[gh-actions-badge]:    https://github.com/akka/alpakka-kafka/workflows/CI/badge.svg?branch=main
 
 
 Systems don't come alone. In the modern world of microservices and cloud deployment, new components must interact with legacy systems, making integration an important key to success. Reactive Streams give us a technology-independent tool to let these heterogeneous systems communicate without overwhelming each other.

@@ -6,7 +6,7 @@ project.description: Snapshot builds of Alpakka Kafka are provided via the Sonat
 [snapshots-badge]:  https://img.shields.io/nexus/s/com.typesafe.akka/akka-stream-kafka_2.13?server=https%3A%2F%2Foss.sonatype.org
 [snapshots]:        https://oss.sonatype.org/content/repositories/snapshots/com/typesafe/akka/akka-stream-kafka_2.13/
 
-Snapshots are published to the Sonatype Snapshot repository after every successful build on master.
+Snapshots are published to the Sonatype Snapshot repository after every successful build on main.
 Add the following to your project build definition to resolve Alpakka Kafka connector snapshots:
 
 ## Configure repository

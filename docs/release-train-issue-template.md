@@ -60,7 +60,7 @@ For minor or major releases:
 ### Afterwards
 
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository
-- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/build-dependencies.html) in [private project](https://github.com/lightbend/lightbend-technology-intro-doc/blob/master/docs/modules/getting-help/examples/build.sbt)
+- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/build-dependencies.html) in [private project](https://github.com/lightbend/lightbend-technology-intro-doc/blob/main/docs/modules/getting-help/examples/build.sbt)
 - [ ] Update [akka-dependencies bom](https://github.com/lightbend/akka-dependencies)
 - [ ] Update [Akka Guide samples](https://github.com/akka/akka-platform-guide)
 - Close this issue
