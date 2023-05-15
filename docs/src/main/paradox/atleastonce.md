@@ -55,6 +55,8 @@ However it can only lead to reordering between messages sent to different substr
 
 If a particular substream expects to see all messages regarding some entity, it then requires that writers to the source topic become responsible for placing messages about various entities in the appropriate partitions. If your application already has a requirement to preserve the order of messages about a particular entity within a Kafka topic, you will already need to ensure those messages go to the same partition since Kafka only preserves order information within a partition.
 
+Consider instead using `mapAsyncPartitioned` in place of a `groupBy` followed by `mergeSubstreams`.  Both allow for demultiplexing an input stream, but `mapAsyncPartitioned` will not reorder output messages and also allows its partitions to be finer-grained than a Kafka partition; partitions in `mapAsyncPartitioned` only apply within that stage.
+
 ## Conditional Message Processing
  
 Most flows will require some messages to be handled differently from others. Unfortunately this is difficult to do while preserving the at-least-once guarantee because the order of messages must be maintained.
