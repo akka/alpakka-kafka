@@ -30,7 +30,7 @@ val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.2.3"
+val confluentAvroSerializerVersion = "7.2.5"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -235,7 +235,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    JupiterKeys.junitJupiterVersion := "5.9.2",
+    JupiterKeys.junitJupiterVersion := "5.9.3",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
@@ -283,7 +283,7 @@ lazy val tests = project
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.21.12", // use the same, or later, version as in scalapb
+        "com.google.protobuf" % "protobuf-java" % "3.23.1", // use the same, or later, version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
