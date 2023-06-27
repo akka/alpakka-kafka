@@ -92,7 +92,12 @@ object Consumer {
     def drainAndShutdown(ec: Executor): CompletionStage[T] =
       control.drainAndShutdown(streamCompletion, ec)
 
-    override def isShutdown: CompletionStage[Done] = control.isShutdown
+    override def isShutdown: CompletionStage[Done] = _isShutdown
+
+    private[this] lazy val _isShutdown =
+      control.isShutdown.thenCompose { _ =>
+        streamCompletion.thenApply(_ => Done.done())
+      }
 
     override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] = control.getMetrics
   }
