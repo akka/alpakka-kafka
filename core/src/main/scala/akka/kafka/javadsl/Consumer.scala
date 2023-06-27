@@ -92,11 +92,11 @@ object Consumer {
     def drainAndShutdown(ec: Executor): CompletionStage[T] =
       control.drainAndShutdown(streamCompletion, ec)
 
-    override def isShutdown: CompletionStage[Done] = _isShutdown
-
-    private[this] lazy val _isShutdown =
-      control.isShutdown.thenCompose { _ =>
-        streamCompletion.thenApply(_ => Done.done())
+    override val isShutdown: CompletionStage[Done] =
+      control.isShutdown.thenCompose[Done] { _: Any =>  // Scala 2.12 needs the types here
+        streamCompletion.thenApply[Done] { _: Any => // Scala 2.12 needs the types here
+          Done.done()
+        }
       }
 
     override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] = control.getMetrics
