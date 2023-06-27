@@ -93,8 +93,8 @@ object Consumer {
       control.drainAndShutdown(streamCompletion, ec)
 
     override val isShutdown: CompletionStage[Done] =
-      control.isShutdown.thenCompose[Done] { _: Any =>  // Scala 2.12 needs the types here
-        streamCompletion.thenApply[Done] { _: Any => // Scala 2.12 needs the types here
+      control.isShutdown.thenCompose[Done] { (_: Any) => // Scala 2.12 needs the types here
+        streamCompletion.thenApply[Done] { (_: Any) => // Scala 2.12 needs the types here
           Done.done()
         }
       }
