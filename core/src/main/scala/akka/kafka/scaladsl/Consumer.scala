@@ -117,7 +117,7 @@ object Consumer {
      */
     def drainAndShutdown()(implicit ec: ExecutionContext): Future[T] = control.drainAndShutdown(streamCompletion)(ec)
 
-    override def isShutdown: Future[Done] =
+    override lazy val isShutdown: Future[Done] =
       control.isShutdown
         .flatMap(_ => streamCompletion)(ExecutionContexts.parasitic)
         .map(_ => Done)(ExecutionContexts.parasitic)
