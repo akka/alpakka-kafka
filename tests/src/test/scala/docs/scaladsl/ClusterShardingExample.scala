@@ -18,7 +18,7 @@ import akka.kafka.{ConsumerRebalanceEvent, ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.{Flow, Sink}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -29,10 +29,10 @@ import scala.util.{Failure, Success}
  * https://github.com/akka/akka-samples/tree/2.6/akka-sample-kafka-to-sharding-scala
  */
 object ClusterShardingExample {
-  implicit val system = ActorSystem(Behaviors.empty, "ClusterShardingExample")
+  implicit val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "ClusterShardingExample")
   val kafkaBootstrapServers = "localhost:9092"
 
-  implicit val ec = system.executionContext
+  implicit val ec: ExecutionContext = system.executionContext
 
   def userBehaviour(): Behavior[User] = Behaviors.empty[User]
   def userBusiness[T](): Flow[T, T, NotUsed] = Flow[T]
