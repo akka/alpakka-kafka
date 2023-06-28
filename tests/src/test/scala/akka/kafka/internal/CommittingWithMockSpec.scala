@@ -34,7 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object CommittingWithMockSpec {
   type K = String
@@ -79,7 +79,7 @@ class CommittingWithMockSpec(_system: ActorSystem)
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val ec = _system.dispatcher
+  implicit val ec: ExecutionContext = _system.dispatcher
   val messages = (1 to 1000).map(createMessage)
   val failure = new CommitFailedException()
   val onCompleteFailure: ConsumerMock.OnCompleteHandler = _ => (null, failure)

@@ -29,7 +29,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 
@@ -57,7 +57,7 @@ class PartitionedSourceSpec(_system: ActorSystem)
   override def afterAll(): Unit =
     shutdown(system)
 
-  implicit val ec = _system.dispatcher
+  implicit val ec: ExecutionContext = _system.dispatcher
 
   def consumerSettings(dummy: Consumer[K, V]): ConsumerSettings[K, V] =
     ConsumerSettings

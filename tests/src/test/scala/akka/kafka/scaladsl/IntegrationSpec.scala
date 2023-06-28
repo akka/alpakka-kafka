@@ -30,7 +30,7 @@ import scala.util.Success
 
 class IntegrationSpec extends SpecBase with TestcontainersKafkaLike with Inside {
 
-  implicit val patience = PatienceConfig(30.seconds, 500.millis)
+  implicit val patience: PatienceConfig = PatienceConfig(30.seconds, 500.millis)
 
   "Kafka connector" must {
     "produce to plainSink and consume from plainSource" in {
