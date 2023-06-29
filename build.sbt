@@ -80,8 +80,8 @@ val commonSettings = Def.settings(
                           url("https://github.com/akka/alpakka-kafka/graphs/contributors")),
   startYear := Some(2014),
   releaseNotesURL := (
-    if ((ThisBuild / isSnapshot).value) None
-    else Some(url(s"https://github.com/akka/alpakka-kafka/releases/tag/v${version.value}"))
+      if ((ThisBuild / isSnapshot).value) None
+      else Some(url(s"https://github.com/akka/alpakka-kafka/releases/tag/v${version.value}"))
     ),
   licenses := {
     val tagOrBranch =
