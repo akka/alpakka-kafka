@@ -8,8 +8,8 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
-val Scala213 = "2.13.10"
-val Scala212 = "2.12.17"
+val Scala213 = "2.13.11"
+val Scala212 = "2.12.18"
 val Scala3 = "3.2.2"
 val Scala2Versions = Seq(Scala213, Scala212)
 val ScalaVersions = Scala2Versions :+ Scala3
@@ -30,7 +30,7 @@ val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.2.3"
+val confluentAvroSerializerVersion = "7.2.5"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -235,7 +235,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    JupiterKeys.junitJupiterVersion := "5.9.2",
+    JupiterKeys.junitJupiterVersion := "5.9.3",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
@@ -283,14 +283,14 @@ lazy val tests = project
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.21.12", // use the same, or later, version as in scalapb
+        "com.google.protobuf" % "protobuf-java" % "3.23.3", // use the same, or later, version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.5" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.1" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "2.2" % Test,
@@ -380,7 +380,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-        "io.dropwizard.metrics" % "metrics-core" % "4.2.18",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.19",
         "ch.qos.logback" % "logback-classic" % "1.2.11",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle

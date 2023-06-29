@@ -29,7 +29,7 @@ object ControlSpec {
       shutdownCalled.set(true)
       shutdownFuture
     }
-    override def isShutdown: Future[Done] = ???
+    override def isShutdown: Future[Done] = Future.failed(new NotImplementedError(""))
     override def metrics: Future[Map[MetricName, Metric]] = ???
   }
 }

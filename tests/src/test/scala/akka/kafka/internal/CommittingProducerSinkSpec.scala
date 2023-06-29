@@ -34,6 +34,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
 
 class CommittingProducerSinkSpec(_system: ActorSystem)
     extends TestKit(_system)
@@ -57,7 +58,7 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
   // used by the .log(...) stream operator
   implicit val adapter: LoggingAdapter = new Slf4jToAkkaLoggingAdapter(log)
 
-  implicit val ec = _system.dispatcher
+  implicit val ec: ExecutionContext = _system.dispatcher
 
   val groupId = "group1"
   val topic = "topic1"

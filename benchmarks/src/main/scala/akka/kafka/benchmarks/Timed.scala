@@ -20,7 +20,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 object Timed extends LazyLogging {
   private val benchmarkReportBasePath = Paths.get("benchmarks", "target")
 
-  implicit val ec = ExecutionContext.fromExecutor(new ForkJoinPool)
+  implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(new ForkJoinPool)
 
   def reporter(metricRegistry: MetricRegistry): ScheduledReporter =
     Slf4jReporter
