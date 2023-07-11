@@ -62,7 +62,7 @@ Additionally, add the dependencies as below.
   version2=AkkaVersion
 }
 
-This connector depends on Akka 2.6.x and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
+This connector depends on Akka $akka.version$ and note that it is important that all `akka-*` dependencies are in the same version, so it is recommended to depend on them explicitly to avoid problems with transient dependencies causing an unlucky mix of versions.
 
 Alpakka Kafka APIs accept a typed @apidoc[akka.actor.typed.ActorSystem] or a classic @apidoc[akka.actor.ActorSystem] because both implement the @apidoc[akka.actor.ClassicActorSystemProvider] @scala[trait]@java[interface].
 There are some Alpakka Kafka APIs that only accept classic a @apidoc[akka.actor.ActorRef], such as the @ref[rebalance listener](./consumer-rebalance.md) API, but otherwise there is no difference between running Alpakka Kafka and any other Akka Streams implementation with a typed @apidoc[akka.actor.typed.ActorSystem]. 
