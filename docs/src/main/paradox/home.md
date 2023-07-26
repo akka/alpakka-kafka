@@ -46,7 +46,7 @@ The Akka dependencies are available from Akka's library repository. To access th
 @@repository [Maven,sbt,Gradle] {
   id="akka-repository"
   name="Akka library repository"
-  url="https://libs.akka.io"
+  url="https://repo.akka.io/maven"
 }
 
 Additionally, add the dependencies as below.
