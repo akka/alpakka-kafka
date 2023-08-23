@@ -22,9 +22,9 @@ val akkaVersion = "2.7.0"
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.5.1"
 val KafkaVersionForDocs = "35"
-// This should align with the ScalaTest version used in the Akka 2.7.x testkit
-// https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
-val scalatestVersion = "3.2.12"
+// This should align with the ScalaTest version used in the Akka testkit
+// https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
+val scalatestVersion = "3.2.16"
 val testcontainersVersion = "1.18.3"
 val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
