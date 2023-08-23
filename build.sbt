@@ -20,8 +20,8 @@ val AkkaBinaryVersionForDocs = "2.7"
 val akkaVersion = "2.7.0"
 
 // Keep .scala-steward.conf pin in sync
-val kafkaVersion = "3.3.2"
-val KafkaVersionForDocs = "33"
+val kafkaVersion = "3.5.1"
+val KafkaVersionForDocs = "35"
 // This should align with the ScalaTest version used in the Akka 2.7.x testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L41
 val scalatestVersion = "3.2.12"
@@ -30,7 +30,7 @@ val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.2.5"
+val confluentAvroSerializerVersion = "7.4.0"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
