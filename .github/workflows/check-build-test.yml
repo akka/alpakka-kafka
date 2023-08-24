@@ -191,7 +191,7 @@ jobs:
           jvm: temurin:1.11
 
       - name: Run multi-broker and long running integration tests
-        run: sbt "tests/IntegrationTest/test"
+        run: sbt "integrationTests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -227,4 +227,4 @@ jobs:
           jvm: temurin:1.11
 
       - name: "Compile benchmark tests"
-        run: sbt "benchmarks/IntegrationTest/compile"
+        run: sbt "benchmarks/Test/compile"
