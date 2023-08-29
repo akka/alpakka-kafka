@@ -25,7 +25,7 @@ val KafkaVersionForDocs = "35"
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
-val testcontainersVersion = "1.18.3"
+val testcontainersVersion = "1.19.0"
 val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
