@@ -9,9 +9,8 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
 val Scala213 = "2.13.11"
-val Scala212 = "2.12.18"
 val Scala3 = "3.3.1"
-val Scala2Versions = Seq(Scala213, Scala212)
+val Scala2Versions = Seq(Scala213)
 val ScalaVersions = Scala2Versions :+ Scala3
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
@@ -104,7 +103,7 @@ val commonSettings = Def.settings(
       "8",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
-      if (insideCI.value && !Nightly && scalaVersion.value != Scala212 && scalaVersion.value != Scala3) Seq("-Werror")
+      if (insideCI.value && !Nightly && scalaVersion.value != Scala3) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(
