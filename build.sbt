@@ -211,7 +211,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
+    .aggregate(core, testkit, clusterSharding, tests, integrationTests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -289,8 +289,8 @@ lazy val tests = project
         "org.scalatest" %% "scalatest" % scalatestVersion,
         "ch.qos.logback" % "logback-classic" % "1.2.12",
         // Test dependencies
-        "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.25.4", // use the same, or later, version as in scalapb
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Test,
+        "com.google.protobuf" % "protobuf-java" % "3.25.4" % Test, // use the same, or later, version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" % Test artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
