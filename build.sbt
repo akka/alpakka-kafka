@@ -94,13 +94,15 @@ val commonSettings = Def.settings(
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
       "-Xlint:deprecation",
-      "-Xlint:unchecked"
+      "-Xlint:unchecked",
+      "--release",
+      "11"
     ),
   scalacOptions ++= Seq(
       "-encoding",
       "UTF-8", // yes, this is 2 args
       "-release",
-      "8",
+      "11",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
       if (insideCI.value && !Nightly && scalaVersion.value != Scala3) Seq("-Werror")
@@ -394,3 +396,10 @@ lazy val benchmarks = project
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
       )
   )
+
+val isJdk11orHigher: Boolean = {
+  val result = VersionNumber(sys.props("java.specification.version")).matchesSemVer(SemanticSelector(">=11"))
+  if (!result)
+    throw new IllegalArgumentException("JDK 11 or higher is required")
+  result
+}
