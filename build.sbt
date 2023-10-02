@@ -94,13 +94,15 @@ val commonSettings = Def.settings(
   crossVersion := CrossVersion.binary,
   javacOptions ++= Seq(
       "-Xlint:deprecation",
-      "-Xlint:unchecked"
+      "-Xlint:unchecked",
+      "--release",
+      "11"
     ),
   scalacOptions ++= Seq(
       "-encoding",
       "UTF-8", // yes, this is 2 args
       "-release",
-      "8",
+      "11",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
       if (insideCI.value && !Nightly && scalaVersion.value != Scala3) Seq("-Werror")
