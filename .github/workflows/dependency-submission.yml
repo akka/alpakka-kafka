@@ -29,5 +29,5 @@ jobs:
         # v2.1.2
         uses: scalacenter/sbt-dependency-submission@c1a4bf7781721f012d92248cc7da60655d2e2880
         with:
-          modules-ignore: akka-stream-kafka-benchmarks_2.12 akka-stream-kafka-benchmarks_2.13 akka-stream-kafka-tests_2.12 akka-stream-kafka-tests_2.13
+          modules-ignore: akka-stream-kafka-benchmarks_2.13 akka-stream-kafka-tests_2.13
           configs-ignore: test It
