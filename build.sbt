@@ -95,6 +95,8 @@ val commonSettings = Def.settings(
   crossScalaVersions := Scala2Versions,
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
+  // append -SNAPSHOT to version when isSnapshot
+  ThisBuild / dynverSonatypeSnapshots := true,
   javacOptions ++= Seq(
       "-Xlint:deprecation",
       "-Xlint:unchecked",
