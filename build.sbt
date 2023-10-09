@@ -1,6 +1,8 @@
 import com.typesafe.tools.mima.core.{Problem, ProblemFilters}
+import com.geirsson.CiReleasePlugin
 
 enablePlugins(AutomateHeaderPlugin)
+disablePlugins(CiReleasePlugin)
 
 name := "akka-stream-kafka"
 
@@ -15,8 +17,8 @@ val ScalaVersions = Scala2Versions :+ Scala3
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
-val AkkaBinaryVersionForDocs = "2.7"
-val akkaVersion = "2.7.0"
+val AkkaBinaryVersionForDocs = "2.9"
+val akkaVersion = "2.9.0-M3"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.5.1"
@@ -38,6 +40,7 @@ val confluentLibsExclusionRules = Seq(
 )
 
 ThisBuild / resolvers ++= Seq(
+  "Akka library repository".at("https://repo.akka.io/maven"),
   // for Jupiter interface (JUnit 5)
   Resolver.jcenterRepo
 )
@@ -92,6 +95,8 @@ val commonSettings = Def.settings(
   crossScalaVersions := Scala2Versions,
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
+  // append -SNAPSHOT to version when isSnapshot
+  ThisBuild / dynverSonatypeSnapshots := true,
   javacOptions ++= Seq(
       "-Xlint:deprecation",
       "-Xlint:unchecked",
@@ -156,15 +161,14 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
-  sonatypeProfileName := "com.typesafe"
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
 )
 
 lazy val `alpakka-kafka` =
   project
     .in(file("."))
     .enablePlugins(ScalaUnidocPlugin)
-    .disablePlugins(SitePlugin, MimaPlugin)
+    .disablePlugins(SitePlugin, MimaPlugin, CiReleasePlugin)
     .settings(commonSettings)
     .settings(
       publish / skip := true,
@@ -213,7 +217,7 @@ lazy val `alpakka-kafka` =
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(SitePlugin)
+  .disablePlugins(SitePlugin, CiReleasePlugin)
   .settings(commonSettings)
   .settings(VersionGenerator.settings)
   .settings(
@@ -235,7 +239,7 @@ lazy val core = project
 lazy val testkit = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(SitePlugin)
+  .disablePlugins(SitePlugin, CiReleasePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-testkit",
@@ -260,7 +264,7 @@ lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(SitePlugin)
+  .disablePlugins(SitePlugin, CiReleasePlugin)
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-cluster-sharding",
@@ -279,7 +283,7 @@ lazy val clusterSharding = project
 lazy val tests = project
   .dependsOn(core, testkit, clusterSharding)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, SitePlugin)
+  .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
   .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
   .settings(Defaults.itSettings)
@@ -320,7 +324,7 @@ lazy val tests = project
 
 lazy val docs = project
   .enablePlugins(AkkaParadoxPlugin, ParadoxSitePlugin, SitePreviewPlugin, PreprocessPlugin, PublishRsyncPlugin)
-  .disablePlugins(MimaPlugin)
+  .disablePlugins(MimaPlugin, CiReleasePlugin)
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
@@ -374,7 +378,7 @@ lazy val docs = project
 lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
-  .disablePlugins(MimaPlugin, SitePlugin)
+  .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
   .configs(IntegrationTest)
   .settings(commonSettings)
   .settings(Defaults.itSettings)
