@@ -780,7 +780,7 @@ object PartitionedSourceSpec {
     }
 
     def setNextPollData(tpRecord: (TopicPartition, java.util.List[ConsumerRecord[K, V]])*): Unit = {
-      log.debug(s"data available for ${tpRecord.toMap.keys.mkString(", ")}")
+      logger.debug(s"data available for ${tpRecord.toMap.keys.mkString(", ")}")
       nextPollData.set(tpRecord.toMap)
     }
 
@@ -802,17 +802,17 @@ object PartitionedSourceSpec {
       }
       nextPollData.set(dataPaused)
       if (dataPaused.nonEmpty) {
-        log.debug(s"data for paused partitions $dataPaused")
+        logger.debug(s"data for paused partitions $dataPaused")
       }
       if (data2.nonEmpty) {
-        log.debug(s"poll result $data2")
+        logger.debug(s"poll result $data2")
       }
       new ConsumerRecords[K, V](data2.asJava)
     }
     override def position(partition: TopicPartition): Long = 0
     override def position(partition: TopicPartition, timeout: java.time.Duration): Long = 0
     override def seek(partition: TopicPartition, offset: Long): Unit = {
-      log.debug(s"seek($partition, $offset)")
+      logger.debug(s"seek($partition, $offset)")
       if (!assignment().contains(partition)) {
         throw new IllegalStateException(s"Seeking on partition $partition which is not currently assigned")
       }
@@ -824,12 +824,12 @@ object PartitionedSourceSpec {
     override def pause(partitions: java.util.Collection[TopicPartition]): Unit = {
       super.pause(partitions)
       val ps = partitions.asScala
-      log.debug(s"pausing ${ps.mkString("(", ", ", ")")}")
+      logger.debug(s"pausing ${ps.mkString("(", ", ", ")")}")
       tps.updateAndGet(unary(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Paused)))
     }
     override def resume(partitions: java.util.Collection[TopicPartition]): Unit = {
       val ps = partitions.asScala
-      log.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
+      logger.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
       tps.updateAndGet(unary(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Resumed)))
     }
   }

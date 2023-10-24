@@ -28,7 +28,7 @@ object ConsumerDummy {
 
 abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   def name: String
-  lazy val log: Logger = LoggerFactory.getLogger(name)
+  lazy val logger: Logger = LoggerFactory.getLogger(name)
 
   private val firstPausingPromise = Promise[Done]()
   def started = firstPausingPromise.future
