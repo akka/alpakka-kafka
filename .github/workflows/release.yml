@@ -49,13 +49,9 @@ jobs:
         run: sbt +publishSigned
 
   documentation:
-    # runs on main repo only
-    if: github.event.repository.fork == false
     name: Documentation
-    # the release environment provides access to secrets required in the release process
-    # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
-    environment: release
     runs-on: ubuntu-22.04
+    if: github.event.repository.fork == false
     steps:
       - name: Checkout
         uses: actions/checkout@v3.1.0
@@ -63,26 +59,17 @@ jobs:
           # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
           fetch-depth: 0
 
-      - name: Checkout GitHub merge
-        if: github.event.pull_request
-        run: |-
-          git fetch origin pull/${{ github.event.pull_request.number }}/merge:scratch
-          git checkout scratch
-
-      - name: Cache Coursier cache
-        uses: coursier/cache-action@v6.4.0
-
       - name: Set up JDK 17
         uses: coursier/setup-action@v1.3.0
         with:
           jvm: temurin:1.17.0.5
 
-      - name: Publish API and reference documentation
-        env:
-          GUSTAV_KEY: ${{ secrets.GUSTAV_KEY }}
-        run: |+
+      - name: Publish
+        run: |-
           eval "$(ssh-agent -s)"
-          echo $GUSTAV_KEY | base64 -di > .github/id_rsa
+          echo $AKKA_RSYNC_GUSTAV | base64 -d > .github/id_rsa
           chmod 600 .github/id_rsa
           ssh-add .github/id_rsa
-          sbt "docs/publishRsync"
+          sbt publishRsync
+        env:
+          AKKA_RSYNC_GUSTAV: ${{ secrets.AKKA_RSYNC_GUSTAV }}
