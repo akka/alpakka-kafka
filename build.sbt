@@ -199,10 +199,10 @@ lazy val `alpakka-kafka` =
             |    builds all of the docs
             |
             |  test
-            |    runs all the tests
+            |    runs all the tests, most using Kafka in TestContainers
             |
             |  integrationTests/test
-            |    run integration tests backed by Docker containers
+            |    run integration tests using multiple Kafka brokers via TestContainers
             |
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
             |    run a single test with an exact name (use -z for partial match)
