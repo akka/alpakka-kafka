@@ -1,10 +1,6 @@
-Alpakka Kafka [![scaladex-badge][]][scaladex] [![maven-central-badge][]][maven-central] [![gh-actions-badge][]][gh-actions]
+Alpakka Kafka [![gh-actions-badge][]][gh-actions]
 =============
 
-[scaladex]:            https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/
-[scaladex-badge]:      https://index.scala-lang.org/akka/alpakka-kafka/akka-stream-kafka/latest.svg?target=_2.13
-[maven-central]:       https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13
-[maven-central-badge]: https://maven-badges.herokuapp.com/maven-central/com.typesafe.akka/akka-stream-kafka_2.13/badge.svg
 [gh-actions]:          https://github.com/akka/alpakka-kafka/actions
 [gh-actions-badge]:    https://github.com/akka/alpakka-kafka/workflows/CI/badge.svg?branch=main
 
@@ -66,4 +62,4 @@ Caveat Emptor
 
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
-Support for the Alpakka Kafka connector is available via Lightbend's [Akka Platform subscription](https://www.lightbend.com/akka-platform#subscription).
+Support for the Alpakka Kafka connector is available via Lightbend's [Akka License](https://www.lightbend.com/akka/pricing).
