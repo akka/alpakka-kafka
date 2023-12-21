@@ -18,6 +18,7 @@ Key links:
 
 - [ ] Check that open PRs and issues assigned to the milestone are reasonable
 - [ ] For minor or major versions, update the Change date in the LICENSE file.
+- [ ] Consider if the version listing in [home.md](https://github.com/akka/alpakka-kafka/blob/main/docs/src/main/paradox/home.md#matching-kafka-versions) needs an addition.
 - [ ] Create a new milestone for the [next version](https://github.com/akka/alpakka-kafka/milestones)
 - [ ] Close the [$VERSION$ milestone](https://github.com/akka/alpakka-kafka/milestones?direction=asc&sort=due_date)
 - [ ] Make sure all important PRs have been merged
