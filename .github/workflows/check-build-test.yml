@@ -153,8 +153,8 @@ jobs:
         with:
           jvm: ${{ matrix.java-version }}
 
-      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
+      - name: Run tests/test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
+        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "tests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
