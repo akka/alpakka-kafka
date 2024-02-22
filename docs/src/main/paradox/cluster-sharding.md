@@ -9,7 +9,7 @@ When partitions and shards are co-located together then there is less chance tha
 
 ## Project Info
 
-@@project-info{ projectId="clusterSharding" }
+@@project-info{ projectId="cluster-sharding" }
 
 ## Dependency
 
