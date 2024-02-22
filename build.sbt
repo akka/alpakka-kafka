@@ -172,8 +172,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       publish / skip := true,
-      // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
-      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
+      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit, `cluster-sharding`),
       onLoadMessage :=
         """
             |** Welcome to the Alpakka Kafka connector! **
@@ -203,7 +202,7 @@ lazy val `alpakka-kafka` =
             |  test
             |    runs all the tests, most using Kafka in TestContainers
             |
-            |  integrationTests/test
+            |  integration-tests/test
             |    run integration tests using multiple Kafka brokers via TestContainers
             |
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
@@ -213,7 +212,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, integrationTests, benchmarks, docs)
+    .aggregate(core, testkit, `cluster-sharding`, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -260,8 +259,7 @@ lazy val testkit = project
   )
   .settings(Scala3Settings)
 
-lazy val clusterSharding = project
-  .in(file("./cluster-sharding"))
+lazy val `cluster-sharding` = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(SitePlugin, CiReleasePlugin)
@@ -280,7 +278,7 @@ lazy val clusterSharding = project
   .settings(Scala3Settings)
 
 lazy val tests = project
-  .dependsOn(core, testkit, clusterSharding)
+  .dependsOn(core, testkit, `cluster-sharding`)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
   .settings(commonSettings)
@@ -318,7 +316,8 @@ lazy val tests = project
     Test / parallelExecution := false
   )
 
-lazy val integrationTests = project
+
+lazy val `integration-tests` = project
   .dependsOn(core, testkit, tests)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
