@@ -3,9 +3,9 @@
  * Copyright (C) 2016 - 2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka
 
-import akka.kafka._
+import akka.kafka.scaladsl.{Consumer, SpecBase}
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.scaladsl.{Keep, Sink}
