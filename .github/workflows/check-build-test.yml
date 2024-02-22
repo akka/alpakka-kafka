@@ -80,8 +80,8 @@ jobs:
           jvm: temurin:1.11
 
       - name: Compile all code with fatal warnings for Java 11 and all Scala versions
-        # Run locally with: env CI=true sbt 'clean ; Test/compile'
-        run: sbt "+Test/compile"
+        # Run locally with: env CI=true sbt 'clean ; Test/compile; integration-tests/Test/compile'
+        run: sbt "+Test/compile; +integration-tests/Test/compile"
 
   check-docs:
     name: Check Docs
@@ -116,7 +116,7 @@ jobs:
         # Run locally with: sbt verifyDocs
         run: sbt docs/makeSite
 
-  test:
+  tests:
     name: Build and Test
     runs-on: ubuntu-22.04
     needs: [check-code-style, check-code-compilation, check-docs]
@@ -124,7 +124,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Scala 2.13, JDK 11", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { name: "Scala 2.13, JDK 11", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions' }
           - { name: "Scala 2.13, JDK 21", scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
           - { name: "Scala 3.3, JDK 21", scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
@@ -160,7 +160,7 @@ jobs:
         if: ${{ failure() }}
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
 
-  integration-test:
+  integration-tests:
     name: Integration tests
     needs: [check-code-style, check-code-compilation, check-docs]
     runs-on: ubuntu-22.04
@@ -191,11 +191,12 @@ jobs:
           jvm: temurin:1.11
 
       - name: Run multi-broker and long running integration tests
-        run: sbt "integrationTests/test"
+        run: sbt "integration-tests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
+
   build-benchmark:
     name: Build benchmarks
     needs: [check-code-style, check-code-compilation, check-docs]
