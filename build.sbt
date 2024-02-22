@@ -315,7 +315,6 @@ lazy val tests = project
     Test / parallelExecution := false
   )
 
-
 lazy val `integration-tests` = project
   .dependsOn(core, testkit, tests)
   .enablePlugins(AutomateHeaderPlugin)
