@@ -1,0 +1,15 @@
+version: 3
+
+# https://github.com/fossas/fossa-cli/blob/master/docs/references/files/fossa-yml.md
+# detect targets and paths with: `fossa list-targets`
+
+targets:
+  exclude:
+    - type: scala
+      path: tests
+    - type: scala
+      path: integration-tests
+    - type: scala
+      path: benchmarks
+    - type: scala
+      path: docs
