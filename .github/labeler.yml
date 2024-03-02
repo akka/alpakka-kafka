@@ -1,0 +1,21 @@
+# https://github.com/marketplace/actions/labeler
+
+core:
+  - changed-files:
+      - any-glob-to-any-file: core/**
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+
+testkit:
+  - changed-files:
+      - any-glob-to-any-file: testkit/**
+
+benchmarks:
+  - changed-files:
+      - any-glob-to-any-file: benchmarks/**
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: docs/**
