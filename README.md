@@ -45,7 +45,7 @@ The Kafka connector was originally created as **Reactive Kafka** by [<img src="h
 Contributing
 ------------
 
-[Lightbend](https://www.lightbend.com/) is the steward of Akka and Alpakka.
+The Akka family of projects is managed by teams at [Lightbend](https://www.lightbend.com/) with help from the community.
 
 Contributions are *very* welcome! Lightbend appreciates community contributions by both those new to Alpakka and those more experienced.
 
@@ -62,4 +62,4 @@ Caveat Emptor
 
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
-Support for the Alpakka Kafka connector is available via Lightbend's [Akka License](https://www.lightbend.com/akka/pricing).
+Akka is licensed under the Business Source License 1.1, please see the [Akka License FAQ](https://www.lightbend.com/akka/license-faq).

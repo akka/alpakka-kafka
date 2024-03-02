@@ -51,7 +51,6 @@ For important patch releases, and only if critical issues have been fixed:
 
 - [ ] Send a release notification to [Lightbend discuss](https://discuss.akka.io)
 - [ ] Tweet using the [@akkateam](https://twitter.com/akkateam/) account (or ask someone to) about the new release
-- [ ] Announce on [Gitter akka/akka](https://gitter.im/akka/akka)
 - [ ] Announce internally (with links to Tweet, discuss)
 
 For minor or major releases:
@@ -61,8 +60,7 @@ For minor or major releases:
 ### Afterwards
 
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository
-- [ ] Update version for [Lightbend Supported Modules](https://developer.lightbend.com/docs/lightbend-platform/introduction/getting-help/build-dependencies.html) in [private project](https://github.com/lightbend/lightbend-technology-intro-doc/blob/master/docs/modules/getting-help/examples/build.sbt)
-- [ ] Update [akka-dependencies bom](https://github.com/lightbend/akka-dependencies)
+- [ ] Update [akka-dependencies bom](https://github.com/akka/akka-dependencies) and version for [Akka module versions](https://doc.akka.io/docs/akka-dependencies/current/) in [akka-dependencies repo](https://github.com/akka/akka-dependencies)
 - [ ] Update [Akka Guide samples](https://github.com/akka/akka-platform-guide)
 - Close this issue
 
