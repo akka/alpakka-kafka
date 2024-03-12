@@ -153,6 +153,9 @@ jobs:
         with:
           jvm: ${{ matrix.java-version }}
 
+      - name: 'Clear action cache'
+        uses: ./.github/actions/clear-action-cache
+
       - name: Run test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
         run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
 
@@ -189,6 +192,9 @@ jobs:
         uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
         with:
           jvm: temurin:1.11
+
+      - name: 'Clear action cache'
+        uses: ./.github/actions/clear-action-cache
 
       - name: Run multi-broker and long running integration tests
         run: sbt "integration-tests/test"
