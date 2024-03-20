@@ -33,6 +33,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   private val firstPausingPromise = Promise[Done]()
   def started = firstPausingPromise.future
 
+  override def clientInstanceId(timeout: java.time.Duration): org.apache.kafka.common.Uuid = ???
   override def assignment(): java.util.Set[TopicPartition] = ???
   override def subscription(): java.util.Set[String] = ???
   override def subscribe(topics: java.util.Collection[String]): Unit = ???
