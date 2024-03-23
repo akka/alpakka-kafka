@@ -124,7 +124,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -152,7 +153,7 @@ jobs:
           jvm: ${{ matrix.java-version }}
 
       - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ${{ matrix.sbt-opts }} "test"
+        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
