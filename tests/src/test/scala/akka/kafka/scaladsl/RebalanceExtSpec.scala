@@ -133,21 +133,23 @@ class RebalanceExtSpec extends SpecBase with TestcontainersKafkaLike with Inside
     val producerTpsAck: Seq[Future[Done]] = topics.flatMap { topic1 =>
       val topicIdx = topics.indexOf(topic1)
       val topicOffset = topicIdx * partitionCount * perPartitionMessageCount
-      (0 until partitionCount).map { partitionIdx: Int =>
-        val startMessageIdx = partitionIdx * perPartitionMessageCount + 1 + topicOffset
-        val endMessageIdx = startMessageIdx + perPartitionMessageCount - 1
-        val messageRange = startMessageIdx to endMessageIdx
-        messageRange.foreach(messageId => {
-          val partitionName = s"$topic1-$partitionIdx"
-          messageStoreAndAck = messageStoreAndAck
-            .updated(messageId, MessageAck(partitionName, new AtomicInteger(0), Promise[Done](), Promise[Done]()))
-        })
-        produce(topic1, messageRange, partitionIdx).map { f =>
-          val partitionName = s"$topic1-$partitionIdx"
-          log.debug(
-            s"publishMessages::published messages from ($startMessageIdx to $endMessageIdx) to partitionName $partitionName"
-          )
-          f
+      (0 until partitionCount).map { partitionIdx =>
+        {
+          val startMessageIdx = partitionIdx * perPartitionMessageCount + 1 + topicOffset
+          val endMessageIdx = startMessageIdx + perPartitionMessageCount - 1
+          val messageRange = startMessageIdx to endMessageIdx
+          messageRange.foreach(messageId => {
+            val partitionName = s"$topic1-$partitionIdx"
+            messageStoreAndAck = messageStoreAndAck
+              .updated(messageId, MessageAck(partitionName, new AtomicInteger(0), Promise[Done](), Promise[Done]()))
+          })
+          produce(topic1, messageRange, partitionIdx).map { f =>
+            val partitionName = s"$topic1-$partitionIdx"
+            log.debug(
+              s"publishMessages::published messages from ($startMessageIdx to $endMessageIdx) to partitionName $partitionName"
+            )
+            f
+          }
         }
       }
     }
