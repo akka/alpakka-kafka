@@ -162,7 +162,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
 
   it should "pass through requests to listeners" in {
     val tracker = new ConsumerProgressTrackerImpl()
-    val listener = new ConsumerAssignmentTrackingListener {
+    class Listener extends ConsumerAssignmentTrackingListener {
       var state = Map[TopicPartition, Long]()
       override def revoke(revokedTps: Set[TopicPartition]): Unit = {
         state = state.filter { case (tp, _) => !revokedTps.contains(tp) }
@@ -172,6 +172,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
         state = state ++ assignedOffsets
       }
     }
+    val listener = new Listener()
     tracker.addProgressTrackingCallback(listener)
 
     def verifyOffsets(offsets: Map[TopicPartition, Long]): Unit = {

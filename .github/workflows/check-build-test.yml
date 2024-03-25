@@ -126,6 +126,7 @@ jobs:
         include:
           - { scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
           - { scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
+          - { scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases

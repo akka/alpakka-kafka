@@ -124,12 +124,12 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
       awaitProduce(produce(topic1, 1 to 10, partition = 1))
       awaitProduce(produce(topic2, 1 to 10, partition = 0))
 
-      val topics = metadataClient.listTopics().futureValue
+      val topics: Map[String, List[PartitionInfo]] = metadataClient.listTopics().futureValue
       val expectedPartitionsForTopic1 = (topic1, 0) :: (topic1, 1) :: Nil
       val expectedPartitionsForTopic2 = (topic2, 0) :: Nil
 
-      topics(topic1).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic1
-      topics(topic2).leftSideValue.map(mapToTopicPartition) shouldBe expectedPartitionsForTopic2
+      topics(topic1).map(mapToTopicPartition) shouldBe expectedPartitionsForTopic1
+      topics(topic2).map(mapToTopicPartition) shouldBe expectedPartitionsForTopic2
 
       metadataClient.close()
     }
@@ -145,7 +145,7 @@ class MetadataClientSpec extends SpecBase with TestcontainersKafkaLike {
 
       val partitionsInfo = metadataClient.getPartitionsFor(topic).futureValue
 
-      partitionsInfo.leftSideValue.map(_.partition()) shouldBe List(0, 1)
+      partitionsInfo.map(_.partition()) shouldBe List(0, 1)
 
       metadataClient.close()
     }

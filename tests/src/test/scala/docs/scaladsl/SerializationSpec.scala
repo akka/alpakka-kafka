@@ -25,7 +25,7 @@ import spray.json._
 final case class SampleData(name: String, value: Int)
 
 object SampleDataSprayProtocol extends DefaultJsonProtocol {
-  implicit val sampleDataProtocol: RootJsonFormat[SampleData] = jsonFormat2(SampleData)
+  implicit val sampleDataProtocol: RootJsonFormat[SampleData] = jsonFormat2(SampleData.apply)
 }
 
 import SampleDataSprayProtocol._

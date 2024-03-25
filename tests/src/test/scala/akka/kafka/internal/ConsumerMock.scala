@@ -155,27 +155,41 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
     result
   }
 
-  def enqueue(records: Seq[ConsumerRecord[K, V]]) =
+  def enqueue(records: Seq[ConsumerRecord[K, V]]): Unit =
     synchronized {
       responses :+= records
     }
 
-  def verifyClosed(mode: VerificationMode = Mockito.times(1)) =
+  def verifyClosed(mode: VerificationMode = Mockito.times(1)): Unit =
     verify(mock, mode).close(ConsumerMock.closeTimeout.asJava)
 
-  def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()) =
+  def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()): ConsumerRecords[K, V] =
     verify(mock, mode).poll(ArgumentMatchers.any[java.time.Duration])
 
-  def assignPartitions(tps: Set[TopicPartition]) =
+  def assignPartitions(tps: Set[TopicPartition]): Unit =
     tps.groupBy(_.topic()).foreach {
       case (topic, localTps) =>
-        pendingSubscriptions.find(_._1 == topic).get._2.onPartitionsAssigned(localTps.asJavaCollection)
+        pendingSubscriptions
+          .find {
+            case (topics: List[String], _) =>
+              topics.contains(topic)
+          }
+          .get
+          ._2
+          .onPartitionsAssigned(localTps.asJavaCollection)
     }
 
-  def revokePartitions(tps: Set[TopicPartition]) =
+  def revokePartitions(tps: Set[TopicPartition]): Unit =
     tps.groupBy(_.topic()).foreach {
       case (topic, localTps) =>
-        pendingSubscriptions.find(_._1 == topic).get._2.onPartitionsRevoked(localTps.asJavaCollection)
+        pendingSubscriptions
+          .find {
+            case (topics: List[String], _) =>
+              topics.contains(topic)
+          }
+          .get
+          ._2
+          .onPartitionsRevoked(localTps.asJavaCollection)
     }
 
   def releaseAndAwaitCommitCallbacks(testkit: TestKit, minOffset: Long): Unit = {
@@ -195,7 +209,7 @@ class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) ex
   Mockito
     .when(mock.poll(ArgumentMatchers.any[java.time.Duration]))
     .thenAnswer(new Answer[ConsumerRecords[K, V]] {
-      override def answer(invocation: InvocationOnMock) = FailingConsumerMock.this.synchronized {
+      override def answer(invocation: InvocationOnMock): ConsumerRecords[K, V] = FailingConsumerMock.this.synchronized {
         callNumber = callNumber + 1
         if (failOnCallNumber.contains(callNumber))
           throw throwable
