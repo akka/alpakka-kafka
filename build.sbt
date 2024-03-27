@@ -172,8 +172,7 @@ lazy val `alpakka-kafka` =
     .settings(commonSettings)
     .settings(
       publish / skip := true,
-      // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
-      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
+      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit, `cluster-sharding`),
       onLoadMessage :=
         """
             |** Welcome to the Alpakka Kafka connector! **
@@ -201,19 +200,19 @@ lazy val `alpakka-kafka` =
             |    builds all of the docs
             |
             |  test
-            |    runs all the tests
+            |    runs all the tests, most using Kafka in TestContainers
             |
-            |  tests/IntegrationTest/test
-            |    run integration tests backed by Docker containers
+            |  integration-tests/test
+            |    run integration tests using multiple Kafka brokers via TestContainers
             |
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
             |    run a single test with an exact name (use -z for partial match)
             |
-            |  benchmarks/IntegrationTest/testOnly *.AlpakkaKafkaPlainConsumer
+            |  benchmarks/testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
+    .aggregate(core, testkit, `cluster-sharding`, tests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -260,8 +259,7 @@ lazy val testkit = project
   )
   .settings(Scala3Settings)
 
-lazy val clusterSharding = project
-  .in(file("./cluster-sharding"))
+lazy val `cluster-sharding` = project
   .dependsOn(core)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(SitePlugin, CiReleasePlugin)
@@ -277,27 +275,25 @@ lazy val clusterSharding = project
           .getOrElse(throw new Error("Unable to determine previous version"))
       )
   )
-  .configs(IntegrationTest) // make CI not fail
   .settings(Scala3Settings)
 
 lazy val tests = project
-  .dependsOn(core, testkit, clusterSharding)
+  .dependsOn(core, testkit, `cluster-sharding`)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
-        "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
-        "com.google.protobuf" % "protobuf-java" % "3.25.3", // use the same, or later, version as in scalapb
+        "org.testcontainers" % "kafka" % testcontainersVersion,
+        "org.scalatest" %% "scalatest" % scalatestVersion,
+        "ch.qos.logback" % "logback-classic" % "1.2.12",
+        // Test dependencies
+        "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Test,
+        "com.google.protobuf" % "protobuf-java" % "3.24.3" % Test, // use the same, or later, version as in scalapb
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
-        "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
-        "org.scalatest" %% "scalatest" % scalatestVersion % Test,
+        "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" % Test artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
         "io.spray" %% "spray-json" % "1.3.6" % Test,
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.4" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
@@ -306,7 +302,6 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "2.2" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.2.13" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
@@ -318,8 +313,19 @@ lazy val tests = project
       ),
     publish / skip := true,
     Test / fork := true,
-    Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false
+    Test / parallelExecution := false
+  )
+
+lazy val `integration-tests` = project
+  .dependsOn(core, testkit, tests)
+  .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-integration-tests",
+    publish / skip := true,
+    Test / fork := true,
+    Test / parallelExecution := false
   )
 
 lazy val docs = project
@@ -379,14 +385,11 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest)
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
-    IntegrationTest / parallelExecution := false,
+    Test / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.25",
@@ -394,10 +397,10 @@ lazy val benchmarks = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
         // "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "4.0.0",
-        "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
+        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
+        "org.scalatest" %% "scalatest" % scalatestVersion % Test
       )
   )
 
