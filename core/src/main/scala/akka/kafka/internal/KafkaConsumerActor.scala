@@ -73,6 +73,10 @@ import scala.util.control.NonFatal
     /** Special case commit for non-batched committing. */
     final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
+
+    // Used for transactions/EOS returns the current ConsumerGroupMetadata
+    final case object GetConsumerGroupMetadata extends NoSerializationVerificationNeeded
+
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
     final case class Revoked(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -293,6 +297,9 @@ import scala.util.control.NonFatal
     case Terminated(ref) =>
       stageActorsMap = stageActorsMap.filterNot(_._2 == ref)
       requests -= ref
+
+    case GetConsumerGroupMetadata =>
+      sender() ! consumer.groupMetadata()
 
     case req: Metadata.Request =>
       sender() ! handleMetadataRequest(req)

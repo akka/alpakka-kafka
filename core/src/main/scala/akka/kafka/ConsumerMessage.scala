@@ -7,11 +7,10 @@ package akka.kafka
 
 import java.util.Objects
 import java.util.concurrent.CompletionStage
-
 import akka.Done
 import akka.annotation.{DoNotInherit, InternalApi}
 import akka.kafka.internal.{CommittableOffsetBatchImpl, CommittedMarker}
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
 
 import scala.concurrent.Future
@@ -133,7 +132,8 @@ object ConsumerMessage {
       override val key: GroupTopicPartition,
       override val offset: Long,
       private[kafka] val committedMarker: CommittedMarker,
-      private[kafka] val fromPartitionedSource: Boolean
+      private[kafka] val fromPartitionedSource: Boolean,
+      requestConsumerGroupMetadata: () => Future[ConsumerGroupMetadata]
   ) extends PartitionOffset(key, offset)
 
   /**

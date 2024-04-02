@@ -6,7 +6,6 @@
 package akka.kafka.internal
 
 import java.util.Locale
-
 import akka.{Done, NotUsed}
 import akka.actor.{ActorRef, Status, Terminated}
 import akka.actor.Status.Failure
@@ -22,10 +21,10 @@ import akka.stream.SourceShape
 import akka.stream.scaladsl.Source
 import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import akka.util.Timeout
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerGroupMetadata, ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.{IsolationLevel, TopicPartition}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Internal API */
@@ -187,6 +186,13 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       case t: Throwable =>
         false
     }
+  }
+
+  def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
+    import akka.pattern.ask
+    implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
+    ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)
+      .mapTo[ConsumerGroupMetadata]
   }
 }
 
@@ -437,6 +443,14 @@ private final class TransactionalSubSourceStageLogic[K, V](
     val ec = materializer.executionContext
     CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)(ec)
   }
+
+  def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
+    import akka.pattern.ask
+    implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
+    ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)
+      .mapTo[ConsumerGroupMetadata]
+  }
+
 }
 
 private object TransactionalSubSourceStageLogic {
