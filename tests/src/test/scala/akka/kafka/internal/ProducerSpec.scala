@@ -83,7 +83,7 @@ class ProducerSpec(_system: ActorSystem)
                                      consumerMessage.offset,
                                      committer,
                                      fromPartitionedSource = false,
-        () => Future.successful(consumerGroupMetadata))
+                                     () => Future.successful(consumerGroupMetadata))
     ProducerMessage.Message(
       tuple._1,
       partitionOffsetCommittedMarker

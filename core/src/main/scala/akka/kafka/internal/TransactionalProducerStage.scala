@@ -92,7 +92,9 @@ private object TransactionalProducerStage {
     }
   }
 
-  final case class CommitTransaction(batch: NonemptyTransactionBatch, beginNewTransaction: Boolean, consumerGroupMetadata: ConsumerGroupMetadata)
+  final case class CommitTransaction(batch: NonemptyTransactionBatch,
+                                     beginNewTransaction: Boolean,
+                                     consumerGroupMetadata: ConsumerGroupMetadata)
 
 }
 
@@ -168,8 +170,11 @@ private final class TransactionalProducerStageLogic[K, V, P](
     val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
-        batch.head.requestConsumerGroupMetadata()
-          .map(consumerGroupMetadata => CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata))(ExecutionContexts.parasitic)
+        batch.head
+          .requestConsumerGroupMetadata()
+          .map(consumerGroupMetadata => CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata))(
+            ExecutionContexts.parasitic
+          )
           .onComplete(commitTransactionCB)(ExecutionContexts.parasitic)
       case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
         abortTransaction("Transaction is empty and stage is completing")
@@ -239,26 +244,26 @@ private final class TransactionalProducerStageLogic[K, V, P](
         failStage(new RuntimeException("Failed to fetch consumer group metadata", ex))
       case Success(CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata)) =>
         log.debug("Committing transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-          transactionalId,
-          consumerGroupMetadata,
-          batch.offsets)
+                  transactionalId,
+                  consumerGroupMetadata,
+                  batch.offsets)
         val offsetMap = batch.offsetMap()
         producer.sendOffsetsToTransaction(offsetMap.asJava, consumerGroupMetadata)
         producer.commitTransaction()
         log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-          transactionalId,
-          consumerGroupMetadata,
-          batch.offsets)
+                  transactionalId,
+                  consumerGroupMetadata,
+                  batch.offsets)
         batchOffsets = TransactionBatch.empty
         batch
           .internalCommit()
           .onComplete { _ =>
             onInternalCommitAckCb.invoke(())
           }(materializer.executionContext)
-      if (beginNewTransaction) {
-        beginTransaction()
-        resumeDemand()
-      }
+        if (beginNewTransaction) {
+          beginTransaction()
+          resumeDemand()
+        }
     }
 
   }

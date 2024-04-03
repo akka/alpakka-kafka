@@ -8,7 +8,13 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage
-import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetMetadata, GroupTopicPartition, TransactionalMessage, _}
+import akka.kafka.ConsumerMessage.{
+  CommittableMessage,
+  CommittableOffsetMetadata,
+  GroupTopicPartition,
+  TransactionalMessage,
+  _
+}
 import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
