@@ -59,7 +59,6 @@ class TransactionsPartitionedSourceSpec
       val sourceTopic = createTopic(1, sourcePartitions, replication)
       val sinkTopic = createTopic(2, destinationPartitions, replication)
       val group = createGroupId(1)
-      val transactionalId = createTransactionalId()
 
       val elements = 100 * 1000 // 100 * 1,000 = 100,000
       val restartAfter = (10 * 1000) / sourcePartitions // (10 * 1,000) / 10 = 100
@@ -76,7 +75,8 @@ class TransactionsPartitionedSourceSpec
       val completedCopy = new AtomicInteger(0)
       val completedWithTimeout = new AtomicInteger(0)
 
-      def runStream(id: String): UniqueKillSwitch =
+      def runStream(id: String): UniqueKillSwitch = {
+        val transactionalId = s"$group-$id"
         RestartSource
           .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
@@ -106,6 +106,7 @@ class TransactionsPartitionedSourceSpec
             case Failure(_) => // restart
           })(Keep.left)
           .run()
+      }
 
       val controls: Seq[UniqueKillSwitch] = (0 until consumers)
         .map(_.toString)

@@ -213,7 +213,10 @@ private final class TransactionalProducerStageLogic[K, V, P](
       ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
       // FIXME only requirement is unique within cluster, is it fine leaving that up to the user?
       ProducerConfig.TRANSACTIONAL_ID_CONFIG -> transactionalId,
-      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
+      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString,
+      // KIP-447: "We shall set `transaction.timout.ms` default to 10000 ms (10 seconds) on Kafka Streams. For non-stream users,
+      // we highly recommend you to do the same if you want to use the new semantics."
+      ProducerConfig.TRANSACTION_TIMEOUT_CONFIG -> 10000.toString
     )
   }
 

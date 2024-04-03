@@ -6,13 +6,12 @@
 package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ProducerMessage, _}
-import akka.stream.{OverflowStrategy, RestartSettings}
+import akka.stream.{OverflowStrategy, QueueOfferResult, RestartSettings}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -123,7 +122,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
             }
             // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
             .mapMaterializedValue(innerControl = _)
-            .via(Transactional.flow(producerDefaults, group))
+            .via(Transactional.flow(producerDefaults, transactionalId = group))
         }
 
         restartSource.runWith(Sink.ignore)
@@ -152,6 +151,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
 
       var restartCount = 0
       var innerControl = null.asInstanceOf[Control]
+      val transactionalId = createTransactionalId()
 
       val restartSource = RestartSource.onFailuresWithBackoff(
         RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
@@ -179,7 +179,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
           }
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
           .mapMaterializedValue(innerControl = _)
-          .via(Transactional.flow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults, transactionalId))
       }
 
       restartSource.runWith(Sink.ignore)
@@ -296,7 +296,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val sourceTopic = createTopic(1, maxPartitions)
         val sinkTopic = createTopic(2, maxPartitions)
         val group = createGroupId(1)
-        val transactionalId = createTransactionalId()
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
@@ -313,7 +312,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                               msg.record.value),
                                            msg.partitionOffset)
                   }
-                  .runWith(Transactional.sink(producerDefaults, transactionalId))
+                  .runWith(Transactional.sink(producerDefaults, createTransactionalId()))
             }
             .toMat(Sink.ignore)(Keep.left)
             .run()
@@ -354,7 +353,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val sourceTopic = createTopic(1, maxPartitions)
         val sinkTopic = createTopic(2, maxPartitions)
         val group = createGroupId(1)
-        val transactionalId = createTransactionalId()
 
         val testProducerSettings = producerDefaults.withProducer(testProducer)
         val consumerSettings = consumerDefaults
@@ -381,12 +379,12 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                               msg.record.value),
                                            msg.partitionOffset)
                   }
-                  .runWith(Transactional.sink(producerDefaults, transactionalId))
+                  .runWith(Transactional.sink(producerDefaults, createTransactionalId()))
             }
             .toMat(Sink.ignore)(Keep.both)
             .run()
 
-        log.info("Running 2 transactional workloads with prefix transactional id: {}", transactionalId)
+        log.info("Running 2 transactional workloads")
         val (control1, streamResult1) = runTransactional()
         val (control2, streamResult2) = runTransactional()
 
@@ -436,7 +434,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       val topic = createTopic(1, partitions)
       val outTopic = createTopic(2, partitions)
       val group = createGroupId(1)
-      val transactionalId = createTransactionalId()
       val sourceSettings = consumerDefaults
         .withGroupId(group)
 
@@ -455,7 +452,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                             msg.record.value() + "-out"),
                                          msg.partitionOffset)
                 }
-                .to(Transactional.sink(producerDefaults, transactionalId))
+                .to(Transactional.sink(producerDefaults, createTransactionalId()))
                 .run()
           }
           .toMat(Sink.ignore)(DrainingControl.apply)
