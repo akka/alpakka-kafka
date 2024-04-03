@@ -66,7 +66,6 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
         consumerDefaults().withGroupId(createGroupId());
     String sourceTopic = createTopic(1);
     String targetTopic = createTopic(2);
-    String transactionalId = createTransactionalId();
     // #transactionalSink
     Consumer.DrainingControl<Done> control =
         Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
@@ -77,7 +76,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.partitionOffset()))
             .toMat(
-                Transactional.sink(producerSettings, transactionalId),
+                Transactional.sink(producerSettings),
                 Consumer::createDrainingControl)
             .run(system);
 

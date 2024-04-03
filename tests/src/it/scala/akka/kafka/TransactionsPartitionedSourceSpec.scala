@@ -76,7 +76,6 @@ class TransactionsPartitionedSourceSpec
       val completedWithTimeout = new AtomicInteger(0)
 
       def runStream(id: String): UniqueKillSwitch = {
-        val transactionalId = s"$group-$id"
         RestartSource
           .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
             () => {
@@ -85,7 +84,6 @@ class TransactionsPartitionedSourceSpec
                 txProducerDefaults,
                 sourceTopic,
                 sinkTopic,
-                transactionalId,
                 idleTimeout = 10.seconds,
                 maxPartitions = sourcePartitions,
                 restartAfter = Some(restartAfter),

@@ -58,7 +58,6 @@ trait TransactionsOps extends TestSuite with Matchers {
       producerSettings: ProducerSettings[String, String],
       sourceTopic: String,
       sinkTopic: String,
-      transactionalId: String,
       idleTimeout: FiniteDuration,
       maxPartitions: Int,
       restartAfter: Option[Int] = None,
@@ -85,7 +84,7 @@ trait TransactionsOps extends TestSuite with Matchers {
                                                                           msg.record.value),
                                        msg.partitionOffset)
               }
-              .via(Transactional.flow(producerSettings, transactionalId))
+              .via(Transactional.flow(producerSettings))
             results
         }
       )

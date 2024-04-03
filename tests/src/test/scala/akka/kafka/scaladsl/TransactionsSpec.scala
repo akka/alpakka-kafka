@@ -73,7 +73,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
             ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
           }
         }
-        .via(Transactional.flow(producerDefaults, group))
+        .via(Transactional.flow(producerDefaults))
         .toMat(Sink.ignore)(Keep.left)
         .run()
 
@@ -262,7 +262,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
               msgs.map(_.partitionOffset).maxBy(_.offset)
             )
           }
-          .via(Transactional.flow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults))
           .toMat(Sink.ignore)(Keep.left)
           .run()
       }

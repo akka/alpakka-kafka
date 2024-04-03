@@ -29,7 +29,6 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
     val producerSettings = txProducerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
-    val transactionalId = createTransactionalId()
     // #transactionalSink
     val control =
       Transactional
@@ -38,7 +37,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
         .map { msg =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
         }
-        .toMat(Transactional.sink(producerSettings, transactionalId))(DrainingControl.apply)
+        .toMat(Transactional.sink(producerSettings))(DrainingControl.apply)
         .run()
 
     // ...
@@ -91,7 +90,6 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
     val producerSettings = txProducerDefaults
     val sourceTopic = createTopic(1)
     val sinkTopic = createTopic(2)
-    val transactionalId = createTransactionalId()
     // #transactionalFailureRetry
     val innerControl = new AtomicReference[Control](Consumer.NoopControl)
 
@@ -110,7 +108,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
         }
         // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
         .mapMaterializedValue(c => innerControl.set(c))
-        .via(Transactional.flow(producerSettings, transactionalId))
+        .via(Transactional.flow(producerSettings))
     }
 
     stream.runWith(Sink.ignore)

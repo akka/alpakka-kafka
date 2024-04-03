@@ -169,7 +169,7 @@ class TransactionsSourceSpec
             .take(batchSize.toLong)
             .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
             .addAttributes(Attributes.inputBuffer(10, maxBufferSize))
-            .via(Transactional.flow(producerDefaults, s"$group-$id"))
+            .via(Transactional.flow(producerDefaults))
             .map(_ => elementsWritten.incrementAndGet())
             .toMat(Sink.ignore)(Keep.left)
             .run()
