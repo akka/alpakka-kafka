@@ -19,7 +19,7 @@ import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, OffsetAndMetada
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.TopicPartition
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -170,12 +170,9 @@ private final class TransactionalProducerStageLogic[K, V, P](
     val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
-        batch.head
-          .requestConsumerGroupMetadata()
-          .map(consumerGroupMetadata => CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata))(
-            ExecutionContexts.parasitic
-          )
-          .onComplete(commitTransactionCB)(ExecutionContexts.parasitic)
+        // FIXME if I try to make this async, the stage stops while waiting for response from the consumer actor
+        val consumerGroupMetadata = Await.result(batch.head.requestConsumerGroupMetadata(), 10.seconds)
+        commitTransaction(Success(CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata)))
       case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
         abortTransaction("Transaction is empty and stage is completing")
       case _ if awaitingConf > 0 =>
