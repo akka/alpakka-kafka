@@ -79,26 +79,22 @@ class TransactionsSourceSpec
 
       def runStream(id: String): UniqueKillSwitch =
         RestartSource
-          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2))(
-            () => {
-              val transactionId = s"$group-$id"
-              transactionalCopyStream(consumerSettings,
-                                      txProducerDefaults,
-                                      sourceTopic,
-                                      sinkTopic,
-                                      transactionId,
-                                      10.seconds,
-                                      Some(restartAfter),
-                                      Some(maxRestarts))
-                .recover {
-                  case e: TimeoutException =>
-                    if (completedWithTimeout.incrementAndGet() > 10)
-                      "no more messages to copy"
-                    else
-                      throw new Error("Continue restarting copy stream")
-                }
-            }
-          )
+          .onFailuresWithBackoff(RestartSettings(10.millis, 100.millis, 0.2)) { () =>
+            transactionalCopyStream(consumerSettings,
+                                    txProducerDefaults,
+                                    sourceTopic,
+                                    sinkTopic,
+                                    10.seconds,
+                                    Some(restartAfter),
+                                    Some(maxRestarts))
+              .recover {
+                case e: TimeoutException =>
+                  if (completedWithTimeout.incrementAndGet() > 10)
+                    "no more messages to copy"
+                  else
+                    throw new Error("Continue restarting copy stream")
+              }
+          }
           .viaMat(KillSwitches.single)(Keep.right)
           .toMat(Sink.onComplete {
             case Success(_) =>

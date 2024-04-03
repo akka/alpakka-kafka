@@ -71,7 +71,7 @@ class TransactionsExample extends DocsSpecBase with TestcontainersKafkaLike with
         .map { record =>
           ProducerMessage.single(new ProducerRecord(sinkTopic, record.key, record.value))
         }
-        .toMat(Transactional.sinkWithOffsetContext(producerSettings, createTransactionalId()))(DrainingControl.apply)
+        .toMat(Transactional.sinkWithOffsetContext(producerSettings))(DrainingControl.apply)
         .run()
 
     val testConsumerGroup = createGroupId(2)

@@ -233,7 +233,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   }
 
   override def onCompletionFailure(ex: Throwable): Unit = {
-    abortTransaction("Stage failure")
+    abortTransaction(s"Stage failure (${ex})")
     batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
   }
