@@ -78,6 +78,7 @@ object Transactional {
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
+  @nowarn("msg=deprecated")
   @deprecated("Use the 'sink' factory method without a transactionalId parameter")
   def sink[K, V](
       settings: ProducerSettings[K, V],
@@ -115,7 +116,7 @@ object Transactional {
    * emits a [[ConsumerMessage.TransactionalMessage]]. The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
-  @nowarn("msg=deprecation")
+  @nowarn("msg=deprecated")
   def flow[K, V](
       settings: ProducerSettings[K, V]
   ): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
