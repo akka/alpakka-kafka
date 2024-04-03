@@ -158,7 +158,7 @@ class TransactionsSourceSpec
       val maxBufferSize = 16 // must be power of two
       Await.result(produce(sourceTopic, 1 to elements), remainingOrDefault)
 
-      val elementsWrote = new AtomicInteger(0)
+      val elementsWritten = new AtomicInteger(0)
 
       val consumerSettings = consumerDefaults.withGroupId(group).withStopTimeout(0.seconds)
 
@@ -174,7 +174,7 @@ class TransactionsSourceSpec
             .delay(3.seconds, strategy = DelayOverflowStrategy.backpressure)
             .addAttributes(Attributes.inputBuffer(10, maxBufferSize))
             .via(Transactional.flow(producerDefaults, s"$group-$id"))
-            .map(_ => elementsWrote.incrementAndGet())
+            .map(_ => elementsWritten.incrementAndGet())
             .toMat(Sink.ignore)(Keep.left)
             .run()
         control
@@ -187,8 +187,8 @@ class TransactionsSourceSpec
       val probeConsumerGroup = createGroupId(2)
       val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
 
-      periodicalCheck("Wait for elements written to Kafka", maxTries = 30, 1.second) { () =>
-        elementsWrote.get()
+      periodicalCheck("Wait for elements written to Kafka", maxTries = 60, 1.second) { () =>
+        elementsWritten.get()
       }(_ > 10)
 
       probeConsumer

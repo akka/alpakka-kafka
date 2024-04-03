@@ -196,7 +196,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
         firstMessage = Some(msg)
         // initiate async async producer request _after_ first message is stashed in case future eagerly resolves
         // instead of asynccallback
-        resolveProducer(generatedTransactionalConfig(msg))
+        resolveProducer(generatedTransactionalConfig)
         // suspend demand after we receive the first message until the producer is assigned
         suspendDemand()
         false
@@ -206,19 +206,11 @@ private final class TransactionalProducerStageLogic[K, V, P](
         )
     }
 
-  private def generatedTransactionalConfig(msg: Envelope[K, V, P]): ProducerSettings[K, V] = {
-    val txId = msg.passThrough match {
-      case committedMarker: PartitionOffsetCommittedMarker if committedMarker.fromPartitionedSource =>
-        val gtp = committedMarker.key
-        val txId = s"$transactionalId-${gtp.groupId}-${gtp.topic}-${gtp.partition}"
-        log.debug("Generated transactional id from partitioned source '{}'", txId)
-        txId
-      case _ => transactionalId
-    }
-
+  private def generatedTransactionalConfig: ProducerSettings[K, V] = {
     stage.settings.withProperties(
       ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
-      ProducerConfig.TRANSACTIONAL_ID_CONFIG -> txId,
+      // FIXME only requirement is unique within cluster, is it fine leaving that up to the user?
+      ProducerConfig.TRANSACTIONAL_ID_CONFIG -> transactionalId,
       ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString
     )
   }
