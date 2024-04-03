@@ -75,9 +75,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.partitionOffset()))
-            .toMat(
-                Transactional.sink(producerSettings),
-                Consumer::createDrainingControl)
+            .toMat(Transactional.sink(producerSettings), Consumer::createDrainingControl)
             .run(system);
 
     // ...
