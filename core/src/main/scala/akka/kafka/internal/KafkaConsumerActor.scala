@@ -75,7 +75,7 @@ import scala.util.control.NonFatal
         extends NoSerializationVerificationNeeded
 
     // Used for transactions/EOS returns the current ConsumerGroupMetadata
-    final case object GetConsumerGroupMetadata extends NoSerializationVerificationNeeded
+    case object GetConsumerGroupMetadata extends NoSerializationVerificationNeeded
 
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
