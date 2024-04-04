@@ -110,7 +110,7 @@ val commonSettings = Def.settings(
       "11",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
-      if (insideCI.value && !Nightly && scalaVersion.value != Scala3) Seq("-Werror")
+      if (scalaVersion.value != Scala3) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(

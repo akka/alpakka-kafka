@@ -115,16 +115,25 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   private val commitSchedulerKey = "commit"
   private val messageDrainInterval = 10.milliseconds
-
   private var batchOffsets = TransactionBatch.empty
-
   private var demandSuspended = false
 
   private var firstMessage: Option[Envelope[K, V, P]] = None
-  private val commitTransactionCB = createAsyncCallback[Try[CommitTransaction]](commitTransaction _).invoke _
+
+  private val commitTransactionCB: Try[CommitTransaction] => Unit =
+    createAsyncCallback[Try[CommitTransaction]](commitTransaction _).invoke _
+  private val onInternalCommitAckCb: Try[Done] => Unit =
+    getAsyncCallback[Try[Done]] { maybeDone =>
+      maybeDone match {
+        case Failure(ex) => log.debug("Internal commit failed: {}", ex)
+        case _ =>
+      }
+      scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
+    }.invoke _
 
   override protected def logSource: Class[_] = classOf[TransactionalProducerStage[_, _, _]]
 
+  // FIXME no longer true
   // we need to peek at the first message to generate the producer transactional id for partitioned sources
   override def preStart(): Unit = resumeDemand()
 
@@ -186,6 +195,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   /**
    * When using partitioned sources we extract the transactional id, group id, and topic partition information from
    * the first message in order to define a `transacitonal.id` before constructing the [[org.apache.kafka.clients.producer.KafkaProducer]]
+   * FIXME this is probably no longer true
    */
   private def parseFirstMessage(msg: Envelope[K, V, P]): Boolean =
     producerAssignmentLifecycle match {
@@ -211,11 +221,10 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private def generatedTransactionalConfig: ProducerSettings[K, V] = {
     stage.settings.withProperties(
       ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG -> true.toString,
-      // FIXME only requirement is unique within cluster, is it fine leaving that up to the user?
       ProducerConfig.TRANSACTIONAL_ID_CONFIG -> transactionalId,
       ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> 1.toString,
       // KIP-447: "We shall set `transaction.timout.ms` default to 10000 ms (10 seconds) on Kafka Streams. For non-stream users,
-      // we highly recommend you to do the same if you want to use the new semantics."
+      //           we highly recommend you to do the same if you want to use the new semantics."
       ProducerConfig.TRANSACTION_TIMEOUT_CONFIG -> 10000.toString
     )
   }
@@ -257,21 +266,13 @@ private final class TransactionalProducerStageLogic[K, V, P](
         batchOffsets = TransactionBatch.empty
         batch
           .internalCommit()
-          .onComplete { _ =>
-            onInternalCommitAckCb.invoke(())
-          }(materializer.executionContext)
+          .onComplete(onInternalCommitAckCb)(ExecutionContexts.parasitic)
         if (beginNewTransaction) {
           beginTransaction()
           resumeDemand()
         }
     }
 
-  }
-
-  private val onInternalCommitAckCb: AsyncCallback[Unit] = {
-    getAsyncCallback[Unit](
-      _ => scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
-    )
   }
 
   private def initTransactions(): Unit = {

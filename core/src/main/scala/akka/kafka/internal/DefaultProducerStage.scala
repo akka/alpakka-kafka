@@ -71,7 +71,6 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   override def preStart(): Unit = {
-    super.preStart()
     resolveProducer(stage.settings)
   }
 
