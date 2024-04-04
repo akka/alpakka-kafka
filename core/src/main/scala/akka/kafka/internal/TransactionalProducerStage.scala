@@ -117,6 +117,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private val messageDrainInterval = 10.milliseconds
   private var batchOffsets = TransactionBatch.empty
   private var demandSuspended = false
+  private var commitInProgress = false
 
   private var firstMessage: Option[Envelope[K, V, P]] = None
 
@@ -179,9 +180,17 @@ private final class TransactionalProducerStageLogic[K, V, P](
     val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
-        // FIXME if I try to make this async, the stage stops while waiting for response from the consumer actor
-        val consumerGroupMetadata = Await.result(batch.head.requestConsumerGroupMetadata(), 10.seconds)
-        commitTransaction(Success(CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata)))
+        if (commitInProgress) {
+          // batch will end up in next commit
+          log.debug("Commit already in progress, ignoring request to commit")
+        } else {
+          commitInProgress = true
+          batch.head
+            .requestConsumerGroupMetadata()
+            .onComplete { consumerGroupMetadataTry =>
+              commitTransactionCB(consumerGroupMetadataTry.map(CommitTransaction(batch, beginNewTransaction, _)))
+            }(ExecutionContexts.parasitic)
+        }
       case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
         abortTransaction("Transaction is empty and stage is completing")
       case _ if awaitingConf > 0 =>
@@ -236,18 +245,23 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")
+    if (commitInProgress)
+      log.warning(
+        "Stage onCompleteSuccess with commit in flight, this is a bug, please report at https://github.com/akka/alpakka-kafka/issues"
+      )
     cancelTimer(commitSchedulerKey)
     maybeCommitTransaction(beginNewTransaction = false, abortEmptyTransactionOnComplete = true)
     super.onCompletionSuccess()
   }
 
   override def onCompletionFailure(ex: Throwable): Unit = {
-    abortTransaction(s"Stage failure (${ex})")
+    abortTransaction(s"Stage failure ($ex)")
     batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
   }
 
   private def commitTransaction(t: Try[CommitTransaction]): Unit = {
+    commitInProgress = false
     t match {
       case Failure(ex) =>
         failStage(new RuntimeException("Failed to fetch consumer group metadata", ex))
@@ -272,7 +286,8 @@ private final class TransactionalProducerStageLogic[K, V, P](
           resumeDemand()
         }
     }
-
+    // in case stage wats to shut down but was waiting for commit to complete
+    checkForCompletion()
   }
 
   private def initTransactions(): Unit = {
@@ -288,5 +303,15 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private def abortTransaction(reason: String): Unit = {
     log.debug("Aborting transaction: {}", reason)
     if (producerAssignmentLifecycle == Assigned) producer.abortTransaction()
+  }
+
+  override protected def readyToShutdown(): Boolean = !commitInProgress
+
+  override def postStop(): Unit = {
+    if (commitInProgress)
+      log.warning(
+        "Stage postStop with commit in flight, this is a bug, please report at https://github.com/akka/alpakka-kafka/issues"
+      )
+    super.postStop()
   }
 }
