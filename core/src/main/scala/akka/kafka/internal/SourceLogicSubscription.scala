@@ -68,6 +68,8 @@ private[kafka] trait SourceLogicSubscription {
 
   /**
    * Opportunity for subclasses to add a different logic to the partition assignment callbacks.
+   *
+   * Note: called from consumer actor, returned handler must be thread safe
    */
   protected def addToPartitionAssignmentHandler(handler: PartitionAssignmentHandler): PartitionAssignmentHandler =
     handler

@@ -305,12 +305,14 @@ private class SubSourceLogic[K, V, Msg](
       override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         for {
           tp <- lastRevoked -- assignedTps
+          // FIXME subSources is mutable internal state of logic, this is not thread safe
           control <- subSources.get(tp)
         } control.filterRevokedPartitionsCB.invoke(Set(tp))
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         for {
           tp <- lostTps
+          // FIXME subSources is mutable internal state of logic, this is not thread safe
           control <- subSources.get(tp)
         } control.filterRevokedPartitionsCB.invoke(Set(tp))
 

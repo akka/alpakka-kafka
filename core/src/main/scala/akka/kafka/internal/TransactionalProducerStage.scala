@@ -257,6 +257,10 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override def onCompletionFailure(ex: Throwable): Unit = {
     abortTransaction(s"Stage failure ($ex)")
+    if (commitInProgress)
+      log.warning(
+        "Stage onCompleteFailure with commit in flight"
+      )
     batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
   }
