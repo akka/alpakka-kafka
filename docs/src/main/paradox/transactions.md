@@ -55,7 +55,7 @@ For more details see [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA
 The @apidoc[Transactional.sink](Transactional$) is similar to the @apidoc[Producer.committableSink](Producer$) in that messages will be automatically committed as part of a transaction.  The @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$) are required when connecting a consumer to a producer to achieve a transactional workflow.
 
 They override producer properties `enable.idempotence` to `true` and `max.in.flight.requests.per.connection` to `1` as required by the Kafka producer to enable transactions.
-The `transaction.timeout.ms` is set to 10s as recommended in KIP-447.
+The `transaction.timeout.ms` is set to 10s as recommended in [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA/KIP-447%3A+Producer+scalability+for+exactly+once+semantics).
 
 ## Consume-Transform-Produce Workflow
 

@@ -186,7 +186,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
   }
 
-  def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
+  override def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
     import akka.pattern.ask
     implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
     ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)
@@ -375,7 +375,8 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   private val inFlightRecords = InFlightRecords.empty
 
-  lazy val committedMarker: CommittedMarker = CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)
+  override lazy val committedMarker: CommittedMarker =
+    CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)
 
   override val fromPartitionedSource: Boolean = true
   override def groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
@@ -436,7 +437,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
       completeStage()
   }
 
-  def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
+  override def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
     implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
     akka.pattern
       .ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)

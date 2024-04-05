@@ -113,8 +113,8 @@ object Transactional {
 
   /**
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
-   * emits a [[ConsumerMessage.TransactionalMessage]]. The flow requires a unique `transactional.id` across all app
-   * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
+   * emits a [[ConsumerMessage.TransactionalMessage]].
+   * The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
   @nowarn("msg=deprecated")
   def flow[K, V](

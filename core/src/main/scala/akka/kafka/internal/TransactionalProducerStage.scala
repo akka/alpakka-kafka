@@ -123,6 +123,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   private val commitTransactionCB: Try[CommitTransaction] => Unit =
     createAsyncCallback[Try[CommitTransaction]](commitTransaction _).invoke _
+
   private val onInternalCommitAckCb: Try[Done] => Unit =
     getAsyncCallback[Try[Done]] { maybeDone =>
       maybeDone match {
@@ -286,7 +287,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
           resumeDemand()
         }
     }
-    // in case stage wats to shut down but was waiting for commit to complete
+    // in case stage wants to shut down but was waiting for commit to complete
     checkForCompletion()
   }
 

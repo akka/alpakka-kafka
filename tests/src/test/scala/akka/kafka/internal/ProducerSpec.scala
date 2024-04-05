@@ -50,7 +50,6 @@ class ProducerSpec(_system: ActorSystem)
     with Matchers
     with BeforeAndAfterAll
     with LogCapturing {
-  import ProducerSpec._
 
   def this() =
     this(
@@ -83,7 +82,7 @@ class ProducerSpec(_system: ActorSystem)
                                      consumerMessage.offset,
                                      committer,
                                      fromPartitionedSource = false,
-                                     () => Future.successful(consumerGroupMetadata))
+                                     () => Future.successful(ProducerSpec.consumerGroupMetadata))
     ProducerMessage.Message(
       tuple._1,
       partitionOffsetCommittedMarker
