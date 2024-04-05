@@ -76,7 +76,7 @@ class ProducerSpec(_system: ActorSystem)
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) = {
     val consumerMessage = ConsumerMessage
-      .PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+      .PartitionOffset(GroupTopicPartition(ProducerSpec.group, tuple._1.topic(), 1), tuple._2.offset())
     val partitionOffsetCommittedMarker =
       PartitionOffsetCommittedMarker(consumerMessage.key,
                                      consumerMessage.offset,
