@@ -84,6 +84,19 @@ object Transactional {
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
   def sink[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
+      settings: ProducerSettings[K, V]
+  ): Sink[IN, CompletionStage[Done]] =
+    scaladsl.Transactional
+      .sink(settings)
+      .mapMaterializedValue(_.toJava)
+      .asJava
+
+  /**
+   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
+   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  @deprecated("Use the 'sink' factory method without a transactionalId parameter")
+  def sink[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): Sink[IN, CompletionStage[Done]] =
@@ -100,13 +113,12 @@ object Transactional {
    */
   @ApiMayChange
   def sinkWithOffsetContext[K, V](
-      settings: ProducerSettings[K, V],
-      transactionalId: String
+      settings: ProducerSettings[K, V]
   ): Sink[Pair[Envelope[K, V, NotUsed], PartitionOffset], CompletionStage[Done]] =
     akka.stream.scaladsl
       .Flow[Pair[Envelope[K, V, NotUsed], PartitionOffset]]
       .map(_.toScala)
-      .toMat(scaladsl.Transactional.sinkWithOffsetContext(settings, transactionalId))(akka.stream.scaladsl.Keep.right)
+      .toMat(scaladsl.Transactional.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
       .mapMaterializedValue(_.toJava)
       .asJava
 
@@ -115,6 +127,17 @@ object Transactional {
    * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
+  def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
+      settings: ProducerSettings[K, V]
+  ): Flow[IN, Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+    scaladsl.Transactional.flow(settings).asJava
+
+  /**
+   * Publish records to Kafka topics and then continue the flow.  The flow can only be used with a [[Transactional.source]] that
+   * emits a [[ConsumerMessage.TransactionalMessage]].  The flow requires a unique `transactional.id` across all app
+   * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
+   */
+  @deprecated("Use the 'flow' factory method without a transactionalId parameter")
   def flow[K, V, IN <: Envelope[K, V, ConsumerMessage.PartitionOffset]](
       settings: ProducerSettings[K, V],
       transactionalId: String
@@ -133,12 +156,11 @@ object Transactional {
    */
   @ApiMayChange
   def flowWithOffsetContext[K, V](
-      settings: ProducerSettings[K, V],
-      transactionalId: String
+      settings: ProducerSettings[K, V]
   ): FlowWithContext[Envelope[K, V, NotUsed],
                      ConsumerMessage.PartitionOffset,
                      Results[K, V, ConsumerMessage.PartitionOffset],
                      ConsumerMessage.PartitionOffset,
                      NotUsed] =
-    scaladsl.Transactional.flowWithOffsetContext(settings, transactionalId).asJava
+    scaladsl.Transactional.flowWithOffsetContext(settings).asJava
 }

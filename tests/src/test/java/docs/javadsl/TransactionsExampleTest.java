@@ -66,7 +66,6 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
         consumerDefaults().withGroupId(createGroupId());
     String sourceTopic = createTopic(1);
     String targetTopic = createTopic(2);
-    String transactionalId = createTransactionalId();
     // #transactionalSink
     Consumer.DrainingControl<Done> control =
         Transactional.source(consumerSettings, Subscriptions.topics(sourceTopic))
@@ -76,9 +75,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, msg.record().key(), msg.record().value()),
                         msg.partitionOffset()))
-            .toMat(
-                Transactional.sink(producerSettings, transactionalId),
-                Consumer::createDrainingControl)
+            .toMat(Transactional.sink(producerSettings), Consumer::createDrainingControl)
             .run(system);
 
     // ...
@@ -102,7 +99,6 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
         consumerDefaults().withGroupId(createGroupId());
     String sourceTopic = createTopic(1);
     String targetTopic = createTopic(2);
-    String transactionalId = createTransactionalId();
     Consumer.DrainingControl<Done> control =
         Transactional.sourceWithOffsetContext(consumerSettings, Subscriptions.topics(sourceTopic))
             .via(business())
@@ -111,7 +107,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                     ProducerMessage.single(
                         new ProducerRecord<>(targetTopic, record.key(), record.value())))
             .toMat(
-                Transactional.sinkWithOffsetContext(producerSettings, transactionalId),
+                Transactional.sinkWithOffsetContext(producerSettings),
                 Consumer::createDrainingControl)
             .run(system);
 
@@ -131,7 +127,6 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
         consumerDefaults().withGroupId(createGroupId());
     String sourceTopic = createTopic(1);
     String targetTopic = createTopic(2);
-    String transactionalId = createTransactionalId();
     // #transactionalFailureRetry
     AtomicReference<Consumer.Control> innerControl =
         new AtomicReference<>(Consumer.createNoopControl());
@@ -159,7 +154,7 @@ public class TransactionsExampleTest extends TestcontainersKafkaJunit4Test {
                               innerControl.set(control);
                               return control;
                             })
-                        .via(Transactional.flow(producerSettings, transactionalId)));
+                        .via(Transactional.flow(producerSettings)));
 
     CompletionStage<Done> streamCompletion = stream.runWith(Sink.ignore(), system);
 

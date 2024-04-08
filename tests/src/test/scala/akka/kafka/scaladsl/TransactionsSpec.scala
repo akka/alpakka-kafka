@@ -6,15 +6,15 @@
 package akka.kafka.scaladsl
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.Done
 import akka.kafka.ConsumerMessage.PartitionOffset
 import akka.kafka.scaladsl.Consumer.{Control, DrainingControl}
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaLike
 import akka.kafka.{ProducerMessage, _}
-import akka.stream.{OverflowStrategy, RestartSettings}
+import akka.stream.{OverflowStrategy, QueueOfferResult, RestartSettings}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import akka.testkit.TestException
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.RecoverMethods._
@@ -38,7 +38,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val consumerSettings = consumerDefaults.withGroupId(group)
 
         val control =
-          transactionalCopyStream(consumerSettings, txProducerDefaults, sourceTopic, sinkTopic, group, 10.seconds)
+          transactionalCopyStream(consumerSettings, txProducerDefaults, sourceTopic, sinkTopic, 10.seconds)
             .toMat(Sink.ignore)(Keep.left)
             .run()
 
@@ -73,7 +73,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
             ProducerMessage.single(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value), msg.partitionOffset)
           }
         }
-        .via(Transactional.flow(producerDefaults, group))
+        .via(Transactional.flow(producerDefaults))
         .toMat(Sink.ignore)(Keep.left)
         .run()
 
@@ -99,8 +99,8 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
-        var restartCount = 0
-        var innerControl = null.asInstanceOf[Control]
+        @volatile var restartCount = 0
+        @volatile var innerControl = null.asInstanceOf[Control]
 
         val restartSource = RestartSource.onFailuresWithBackoff(
           RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
@@ -123,7 +123,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
             }
             // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
             .mapMaterializedValue(innerControl = _)
-            .via(Transactional.flow(producerDefaults, group))
+            .via(Transactional.flow(producerDefaults))
         }
 
         restartSource.runWith(Sink.ignore)
@@ -150,8 +150,8 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
 
       val consumerSettings = consumerDefaults.withGroupId(group)
 
-      var restartCount = 0
-      var innerControl = null.asInstanceOf[Control]
+      @volatile var restartCount = 0
+      @volatile var innerControl = null.asInstanceOf[Control]
 
       val restartSource = RestartSource.onFailuresWithBackoff(
         RestartSettings(minBackoff = 0.1.seconds, maxBackoff = 1.seconds, randomFactor = 0.2)
@@ -161,12 +161,12 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
           .source(consumerSettings, Subscriptions.topics(sourceTopic))
           .map { msg =>
             if (msg.record.value().toInt == 50 && restartCount < 2) {
-              // add a delay that equals or exceeds EoS commit interval to trigger a commit for everything
-              // up until this record (0 -> 500)
-              Thread.sleep(producerDefaults.eosCommitInterval.toMillis + 10)
+              // add a delay that equals or exceeds EoS commit interval (10s as recommended in KIP-447)
+              // to trigger a commit for everything up until this record (0 -> 500)
+              Thread.sleep(10100)
             }
             if (msg.record.value().toInt == 51 && restartCount < 2) {
-              throw new RuntimeException("Uh oh..")
+              throw TestException("Uh oh")
             } else {
               ProducerMessage.Message(new ProducerRecord(sinkTopic, msg.record.key, msg.record.value),
                                       msg.partitionOffset)
@@ -179,7 +179,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
           }
           // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
           .mapMaterializedValue(innerControl = _)
-          .via(Transactional.flow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults))
       }
 
       restartSource.runWith(Sink.ignore)
@@ -209,12 +209,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
 
       def runStream(id: String): Consumer.Control = {
         val control: Control =
-          transactionalCopyStream(consumerSettings,
-                                  txProducerDefaults,
-                                  sourceTopic,
-                                  sinkTopic,
-                                  s"$group-$id",
-                                  10.seconds)
+          transactionalCopyStream(consumerSettings, txProducerDefaults, sourceTopic, sinkTopic, 10.seconds)
             .toMat(Sink.ignore)(Keep.left)
             .run()
         control
@@ -267,7 +262,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
               msgs.map(_.partitionOffset).maxBy(_.offset)
             )
           }
-          .via(Transactional.flow(producerDefaults, group))
+          .via(Transactional.flow(producerDefaults))
           .toMat(Sink.ignore)(Keep.left)
           .run()
       }
@@ -296,7 +291,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val sourceTopic = createTopic(1, maxPartitions)
         val sinkTopic = createTopic(2, maxPartitions)
         val group = createGroupId(1)
-        val transactionalId = createTransactionalId()
 
         val consumerSettings = consumerDefaults.withGroupId(group)
 
@@ -313,7 +307,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                               msg.record.value),
                                            msg.partitionOffset)
                   }
-                  .runWith(Transactional.sink(producerDefaults, transactionalId))
+                  .runWith(Transactional.sink(producerDefaults))
             }
             .toMat(Sink.ignore)(Keep.left)
             .run()
@@ -354,7 +348,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val sourceTopic = createTopic(1, maxPartitions)
         val sinkTopic = createTopic(2, maxPartitions)
         val group = createGroupId(1)
-        val transactionalId = createTransactionalId()
 
         val testProducerSettings = producerDefaults.withProducer(testProducer)
         val consumerSettings = consumerDefaults
@@ -381,12 +374,12 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                               msg.record.value),
                                            msg.partitionOffset)
                   }
-                  .runWith(Transactional.sink(producerDefaults, transactionalId))
+                  .runWith(Transactional.sink(producerDefaults))
             }
             .toMat(Sink.ignore)(Keep.both)
             .run()
 
-        log.info("Running 2 transactional workloads with prefix transactional id: {}", transactionalId)
+        log.info("Running 2 transactional workloads")
         val (control1, streamResult1) = runTransactional()
         val (control2, streamResult2) = runTransactional()
 
@@ -436,7 +429,6 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       val topic = createTopic(1, partitions)
       val outTopic = createTopic(2, partitions)
       val group = createGroupId(1)
-      val transactionalId = createTransactionalId()
       val sourceSettings = consumerDefaults
         .withGroupId(group)
 
@@ -455,7 +447,7 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
                                                                             msg.record.value() + "-out"),
                                          msg.partitionOffset)
                 }
-                .to(Transactional.sink(producerDefaults, transactionalId))
+                .to(Transactional.sink(producerDefaults))
                 .run()
           }
           .toMat(Sink.ignore)(DrainingControl.apply)

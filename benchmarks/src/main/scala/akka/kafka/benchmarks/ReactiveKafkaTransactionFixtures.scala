@@ -63,7 +63,7 @@ object ReactiveKafkaTransactionFixtures extends PerfFixtureHelpers {
           Transactional.source(consumerSettings, Subscriptions.topics(c.filledTopic.topic))
 
         val producerSettings = createProducerSettings(c.kafkaHost).withEosCommitInterval(commitInterval)
-        val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings, randomId())
+        val flow: Flow[KProducerMessage, KResult, NotUsed] = Transactional.flow(producerSettings)
 
         ReactiveKafkaTransactionTestFixture[KTransactionMessage, KProducerMessage, KResult](c.filledTopic.topic,
                                                                                             sinkTopic,
