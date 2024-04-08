@@ -117,14 +117,13 @@ jobs:
         run: sbt docs/makeSite
 
   tests:
-    name: Build and Test
     runs-on: ubuntu-22.04
     needs: [check-code-style, check-code-compilation, check-docs]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: "Scala 2.13, JDK 11", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions' }
+          - { name: "Scala 2.13, JDK 11", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -XX:-UseJVMCICompiler' }
           - { name: "Scala 2.13, JDK 21", scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
           - { name: "Scala 3.3, JDK 21", scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
@@ -157,7 +156,7 @@ jobs:
         uses: ./.github/actions/clear-action-cache
 
       - name: Run test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
+        run: sbt ++${{ matrix.scala-version }} ${{ matrix.sbt-opts }} "test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
