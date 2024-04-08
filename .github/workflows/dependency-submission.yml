@@ -26,8 +26,12 @@ jobs:
           fetch-depth: 0
       - name: Submit dependencies to GitHub
         # https://github.com/scalacenter/sbt-dependency-submission/releases
-        # v2.1.2
-        uses: scalacenter/sbt-dependency-submission@c1a4bf7781721f012d92248cc7da60655d2e2880
+        # v2.3.1
+        uses: scalacenter/sbt-dependency-submission@f3c0455a87097de07b66c3dc1b8619b5976c1c89
         with:
-          modules-ignore: akka-stream-kafka-benchmarks_2.13 akka-stream-kafka-tests_2.13
+          modules-ignore:
+            - akka-stream-kafka-benchmarks_2.13
+            - akka-stream-kafka-benchmarks_3
+            - akka-stream-kafka-tests_2.13
+            - akka-stream-kafka-tests_3
           configs-ignore: test It
