@@ -137,7 +137,7 @@ object Transactional {
 
     val flow = Flow
       .fromGraph(
-        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](settings, transactionalId)
+        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](settings, settings.transactionIdPrefix + transactionalId)
       )
       .mapAsync(settings.parallelism)(identity)
 
