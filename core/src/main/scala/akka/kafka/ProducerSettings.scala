@@ -342,6 +342,10 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   def withEosCommitInterval(eosCommitInterval: java.time.Duration): ProducerSettings[K, V] =
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
+  /**
+   * Java API:
+   * The prefix to append to the generated transaction id when using the `Transactional.sink` or `Transactional.flow`.
+   */
   def withTransactionIdPrefix(transactionIdPrefix: String): ProducerSettings[K, V] =
     copy(transactionIdPrefix = transactionIdPrefix)
 
