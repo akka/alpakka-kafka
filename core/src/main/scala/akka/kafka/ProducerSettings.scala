@@ -448,7 +448,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}," +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}," +
     s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})" +
-    s"transactionIdPrefix=$transactionIdPrefix"
+    s",transactionIdPrefix=$transactionIdPrefix"
   }
 
   /**
