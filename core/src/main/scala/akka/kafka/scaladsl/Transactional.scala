@@ -115,12 +115,13 @@ object Transactional {
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
    * emits a [[ConsumerMessage.TransactionalMessage]].
    * The flow will override producer properties to enable Kafka exactly-once transactional support.
+   * A UUID is used for transaction id, optionally prefixed through [[ProducerSettings.transactionIdPrefix]]
    */
   @nowarn("msg=deprecated")
   def flow[K, V](
       settings: ProducerSettings[K, V]
   ): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
-    flow(settings, UUID.randomUUID().toString)
+    flow(settings, settings.transactionIdPrefix + UUID.randomUUID().toString)
 
   /**
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
@@ -137,7 +138,7 @@ object Transactional {
 
     val flow = Flow
       .fromGraph(
-        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](settings, settings.transactionIdPrefix + transactionalId)
+        new TransactionalProducerStage[K, V, ConsumerMessage.PartitionOffset](settings, transactionalId)
       )
       .mapAsync(settings.parallelism)(identity)
 

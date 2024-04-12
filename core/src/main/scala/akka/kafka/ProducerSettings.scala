@@ -236,7 +236,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val eosCommitInterval: FiniteDuration,
     val enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]],
     val producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]],
-    val transactionIdPrefix: String = ""
+    val transactionIdPrefix: String
 ) {
 
   @deprecated(
