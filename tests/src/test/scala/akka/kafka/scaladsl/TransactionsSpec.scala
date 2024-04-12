@@ -66,7 +66,11 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
         val consumerSettings = consumerDefaults.withGroupId(group)
 
         val control =
-          transactionalCopyStream(consumerSettings, txProducerDefaults.withTransactionIdPrefix("my-prefix-"), sourceTopic, sinkTopic, 10.seconds)
+          transactionalCopyStream(consumerSettings,
+                                  txProducerDefaults.withTransactionIdPrefix("my-prefix-"),
+                                  sourceTopic,
+                                  sinkTopic,
+                                  10.seconds)
             .toMat(Sink.ignore)(Keep.left)
             .run()
 
