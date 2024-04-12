@@ -55,6 +55,34 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       }
     }
 
+    "complete in happy-path scenario with a transaction prefix" in {
+      assertAllStagesStopped {
+        val sourceTopic = createTopic(1)
+        val sinkTopic = createTopic(2)
+        val group = createGroupId(1)
+
+        Await.result(produce(sourceTopic, 1 to 100), remainingOrDefault)
+
+        val consumerSettings = consumerDefaults.withGroupId(group)
+
+        val control =
+          transactionalCopyStream(consumerSettings, txProducerDefaults.withTransactionIdPrefix("my-prefix-"), sourceTopic, sinkTopic, 10.seconds)
+            .toMat(Sink.ignore)(Keep.left)
+            .run()
+
+        val probeConsumerGroup = createGroupId(2)
+
+        val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
+
+        probeConsumer
+          .request(100)
+          .expectNextN((1 to 100).map(_.toString))
+
+        probeConsumer.cancel()
+        Await.result(control.shutdown(), remainingOrDefault)
+      }
+    }
+
     "complete when messages are filtered out" in assertAllStagesStopped {
       val sourceTopic = createTopic(1)
       val sinkTopic = createTopic(2)
