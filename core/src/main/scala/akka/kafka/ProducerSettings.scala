@@ -78,6 +78,7 @@ object ProducerSettings {
     val parallelism = config.getInt("parallelism")
     val dispatcher = config.getString("use-dispatcher")
     val eosCommitInterval = config.getDuration("eos-commit-interval").asScala
+    val transactionIdPrefix = config.getString("transaction-id-prefix")
     new ProducerSettings[K, V](
       properties,
       keySerializer,
@@ -88,7 +89,8 @@ object ProducerSettings {
       dispatcher,
       eosCommitInterval,
       enrichAsync = None,
-      producerFactorySync = None
+      producerFactorySync = None,
+      transactionIdPrefix = transactionIdPrefix
     )
   }
 
@@ -233,7 +235,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val dispatcher: String,
     val eosCommitInterval: FiniteDuration,
     val enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]],
-    val producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]]
+    val producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]],
+    val transactionIdPrefix: String
 ) {
 
   @deprecated(
@@ -340,6 +343,12 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(eosCommitInterval = eosCommitInterval.asScala)
 
   /**
+   * The prefix to append to the generated transaction id when using the `Transactional.sink` or `Transactional.flow`.
+   */
+  def withTransactionIdPrefix(transactionIdPrefix: String): ProducerSettings[K, V] =
+    copy(transactionIdPrefix = transactionIdPrefix)
+
+  /**
    * Scala API.
    * A hook to allow for resolving some settings asynchronously.
    * @since 2.0.0
@@ -387,7 +396,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       dispatcher: String = dispatcher,
       eosCommitInterval: FiniteDuration = eosCommitInterval,
       enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]] = enrichAsync,
-      producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]] = producerFactorySync
+      producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]] = producerFactorySync,
+      transactionIdPrefix: String = transactionIdPrefix
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
                                keySerializer,
@@ -398,7 +408,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
                                dispatcher,
                                eosCommitInterval,
                                enrichAsync,
-                               producerFactorySync)
+                               producerFactorySync,
+                               transactionIdPrefix)
 
   private final val propertiesAllowList = Set(
     "acks",
@@ -436,7 +447,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"dispatcher=$dispatcher," +
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}," +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}," +
-    s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})"
+    s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})" +
+    s",transactionIdPrefix=$transactionIdPrefix"
   }
 
   /**
