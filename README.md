@@ -62,4 +62,9 @@ Caveat Emptor
 
 Alpakka components are not always binary compatible between releases. API changes that are not backward compatible might be introduced as we refine and simplify based on your feedback. A module may be dropped in any release without prior deprecation. 
 
+License
+-------
+
 Akka is licensed under the Business Source License 1.1, please see the [Akka License FAQ](https://www.lightbend.com/akka/license-faq).
+
+Tests and documentation are under a separate license, see the LICENSE file in each documentation and test root directory for details.
