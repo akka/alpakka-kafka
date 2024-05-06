@@ -74,8 +74,9 @@ import scala.util.control.NonFatal
     final case class CommitSingle(tp: TopicPartition, offsetAndMetadata: OffsetAndMetadata)
         extends NoSerializationVerificationNeeded
 
-    // Used for transactions/EOS returns the current ConsumerGroupMetadata
-    case object GetConsumerGroupMetadata extends NoSerializationVerificationNeeded
+    // Used for transactions/EOS periodically and when needed, pushes the current ConsumerGroupMetadata to the subscriber (producer stage)
+    case class SubscribeToGroupMetaData(subscriber: ActorRef) extends NoSerializationVerificationNeeded
+    case object GroupMetadataTick extends NoSerializationVerificationNeeded
 
     //responses
     final case class Assigned(partition: List[TopicPartition]) extends NoSerializationVerificationNeeded
@@ -209,6 +210,8 @@ import scala.util.control.NonFatal
   private var resetProtection: ConsumerResetProtection = _
   private var stopInProgress = false
 
+  private var metadataSubscribers = Set.empty[ActorRef]
+
   /**
    * Collect commit offset maps until the next poll.
    */
@@ -298,11 +301,22 @@ import scala.util.control.NonFatal
       stageActorsMap = stageActorsMap.filterNot(_._2 == ref)
       requests -= ref
 
-    case GetConsumerGroupMetadata =>
-      sender() ! consumer.groupMetadata()
+    case SubscribeToGroupMetaData(subscriber) =>
+      if (metadataSubscribers.isEmpty)
+        timers.startTimerAtFixedRate(GroupMetadataTick, GroupMetadataTick, 100.millis) // FIXME configurable interval?
+      metadataSubscribers += subscriber
+      subscriber ! consumer.groupMetadata()
+
+    case GroupMetadataTick =>
+     sendConsumerGroupMetadataToSubscribers()
 
     case req: Metadata.Request =>
       sender() ! handleMetadataRequest(req)
+  }
+
+  private def sendConsumerGroupMetadataToSubscribers(): Unit = {
+    val metaData = consumer.groupMetadata()
+    metadataSubscribers.foreach(_ ! metaData)
   }
 
   def expectSettings: Receive = LoggingReceive.withLabel("expectSettings") {
@@ -788,6 +802,7 @@ import scala.util.control.NonFatal
     override def onPartitionsRevoked(partitions: java.util.Collection[TopicPartition]): Unit = {
       val revokedTps = partitions.asScala.toSet
       val startTime = System.nanoTime()
+      updateGroupMetadataSubscribers()
       partitionAssignmentHandler.onRevoke(revokedTps, restrictedConsumer)
       checkDuration(startTime, "onRevoke")
       progressTracker.revoke(revokedTps)
@@ -796,6 +811,7 @@ import scala.util.control.NonFatal
     override def onPartitionsLost(partitions: java.util.Collection[TopicPartition]): Unit = {
       val lostTps = partitions.asScala.toSet
       val startTime = System.nanoTime()
+      updateGroupMetadataSubscribers()
       partitionAssignmentHandler.onLost(lostTps, restrictedConsumer)
       checkDuration(startTime, "onLost")
       progressTracker.revoke(lostTps)
@@ -805,6 +821,7 @@ import scala.util.control.NonFatal
       val currentTps = consumer.assignment()
       consumer.pause(currentTps)
       val startTime = System.nanoTime()
+      updateGroupMetadataSubscribers()
       partitionAssignmentHandler.onStop(currentTps.asScala.toSet, restrictedConsumer)
       checkDuration(startTime, "onStop")
     }
@@ -815,6 +832,12 @@ import scala.util.control.NonFatal
         log.warning("Partition assignment handler `{}` took longer than `partition-handler-warning`: {} ms",
                     method,
                     duration / 1000000L)
+      }
+    }
+
+    def updateGroupMetadataSubscribers(): Unit = {
+      if (metadataSubscribers.nonEmpty) {
+        sendConsumerGroupMetadataToSubscribers()
       }
     }
   }

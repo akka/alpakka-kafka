@@ -221,8 +221,9 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeGroup), sinkTopic)
 
       probeConsumer
-        .request(100)
+        .request(101)
         .expectNextN((1 to 100).filterNot(_ % 10 == 0).map(_.toString))
+      probeConsumer.expectNoMessage(500.millis) // exactly as many as produced (no +1), no duplicates
 
       probeConsumer.cancel()
       Await.result(innerControl.shutdown(), remainingOrDefault)
@@ -256,8 +257,9 @@ class TransactionsSpec extends SpecBase with TestcontainersKafkaLike with Transa
       val probeConsumer = valuesProbeConsumer(probeConsumerSettings(probeConsumerGroup), sinkTopic)
 
       probeConsumer
-        .request(elements.toLong)
+        .request(elements.toLong + 1)
         .expectNextUnorderedN((1 to elements).map(_.toString))
+      probeConsumer.expectNoMessage(500.millis) // exactly as many as produced (no +1), no duplicates
 
       probeConsumer.cancel()
 

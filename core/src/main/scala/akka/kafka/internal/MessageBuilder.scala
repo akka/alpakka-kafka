@@ -6,16 +6,11 @@
 package akka.kafka.internal
 import java.util.concurrent.CompletionStage
 import akka.Done
+import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage
-import akka.kafka.ConsumerMessage.{
-  CommittableMessage,
-  CommittableOffsetMetadata,
-  GroupTopicPartition,
-  TransactionalMessage,
-  _
-}
-import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, ConsumerRecord, OffsetAndMetadata}
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffsetMetadata, GroupTopicPartition, TransactionalMessage, _}
+import org.apache.kafka.clients.consumer.{ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.requests.OffsetFetchResponse
 
@@ -46,7 +41,7 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
 
   def fromPartitionedSource: Boolean
 
-  def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata]
+  def consumerActorRef(): ActorRef
 }
 
 /** Internal API */
@@ -64,7 +59,7 @@ private[kafka] trait TransactionalMessageBuilder[K, V]
       offset = rec.offset,
       committedMarker,
       fromPartitionedSource,
-      requestConsumerGroupMetadata _
+      consumerActorRef()
     )
     ConsumerMessage.TransactionalMessage(rec, offset)
   }
@@ -85,7 +80,7 @@ private[kafka] trait TransactionalOffsetContextBuilder[K, V]
       offset = rec.offset,
       committedMarker,
       fromPartitionedSource,
-      requestConsumerGroupMetadata _
+      consumerActorRef()
     )
     (rec, offset)
   }

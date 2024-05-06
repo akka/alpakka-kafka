@@ -8,6 +8,7 @@ package akka.kafka
 import java.util.Objects
 import java.util.concurrent.CompletionStage
 import akka.Done
+import akka.actor.ActorRef
 import akka.annotation.{DoNotInherit, InternalApi}
 import akka.kafka.internal.{CommittableOffsetBatchImpl, CommittedMarker}
 import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, ConsumerRecord}
@@ -133,7 +134,7 @@ object ConsumerMessage {
       override val offset: Long,
       private[kafka] val committedMarker: CommittedMarker,
       private[kafka] val fromPartitionedSource: Boolean,
-      requestConsumerGroupMetadata: () => Future[ConsumerGroupMetadata]
+      consumerActor: ActorRef
   ) extends PartitionOffset(key, offset)
 
   /**

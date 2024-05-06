@@ -98,6 +98,9 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   @volatile protected var threadSafeSourceActor: ActorRef = _
   @volatile protected var threadSafeConsumerActor: ActorRef = _
 
+  // called in-stage (no need for volatile)
+  override def consumerActorRef(): ActorRef = this.consumerActor
+
   override def preStart(): Unit = {
     super.preStart()
     // actually the stage actor of this stage, initialized in super preStart
@@ -192,13 +195,6 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
       }
     }
     new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
-  }
-
-  override def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
-    import akka.pattern.ask
-    implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
-    ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)
-      .mapTo[ConsumerGroupMetadata]
   }
 }
 
@@ -453,13 +449,7 @@ private final class TransactionalSubSourceStageLogic[K, V](
       completeStage()
   }
 
-  override def requestConsumerGroupMetadata(): Future[ConsumerGroupMetadata] = {
-    implicit val timeout: Timeout = 5.seconds // FIXME specific timeout config for this?
-    akka.pattern
-      .ask(consumerActor, KafkaConsumerActor.Internal.GetConsumerGroupMetadata)(timeout)
-      .mapTo[ConsumerGroupMetadata]
-  }
-
+  override def consumerActorRef(): ActorRef = consumerActor
 }
 
 private object TransactionalSubSourceStageLogic {
