@@ -124,7 +124,6 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private var latestSeenConsumerGroupMetadata: ConsumerGroupMetadata = null
 
   private var firstMessage: Option[Envelope[K, V, P]] = None
-  private var waitingForLastCommitAck = false
 
   private val onInternalCommitAckCb: Try[Done] => Unit =
     getAsyncCallback[Try[Done]] { maybeDone =>
@@ -132,8 +131,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
         case Failure(ex) => log.debug("Internal commit failed: {}", ex)
         case _ =>
       }
-      if (waitingForLastCommitAck) completeStage()
-      else scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
+      scheduleOnce(commitSchedulerKey, producerSettings.eosCommitInterval)
     }.invoke _
 
   override protected def logSource: Class[_] = classOf[TransactionalProducerStage[_, _, _]]
