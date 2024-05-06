@@ -303,7 +303,7 @@ import scala.util.control.NonFatal
 
     case SubscribeToGroupMetaData(subscriber) =>
       if (metadataSubscribers.isEmpty)
-        timers.startTimerAtFixedRate(GroupMetadataTick, GroupMetadataTick, 100.millis) // FIXME configurable interval?
+        timers.startTimerAtFixedRate(GroupMetadataTick, GroupMetadataTick, _settings.consumerGroupUpdateInterval)
       metadataSubscribers += subscriber
       subscriber ! consumer.groupMetadata()
 

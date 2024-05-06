@@ -92,6 +92,7 @@ object ConsumerSettings {
     val resetProtectionThreshold = OffsetResetProtectionSettings(
       config.getConfig(OffsetResetProtectionSettings.configPath)
     )
+    val consumerGroupUpdateInterval = config.getDuration("consumer-group-update-interval").asScala
 
     new ConsumerSettings[K, V](
       properties,
@@ -114,7 +115,8 @@ object ConsumerSettings {
       ConsumerSettings.createKafkaConsumer,
       connectionCheckerSettings,
       partitionHandlerWarning,
-      resetProtectionThreshold
+      resetProtectionThreshold,
+      consumerGroupUpdateInterval
     )
   }
 
@@ -271,7 +273,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     val consumerFactory: ConsumerSettings[K, V] => Consumer[K, V],
     val connectionCheckerSettings: ConnectionCheckerSettings,
     val partitionHandlerWarning: FiniteDuration,
-    val resetProtectionSettings: OffsetResetProtectionSettings
+    val resetProtectionSettings: OffsetResetProtectionSettings,
+    val consumerGroupUpdateInterval: FiniteDuration
 ) {
 
   /**
@@ -560,6 +563,22 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
     copy(resetProtectionSettings = resetProtection)
 
   /**
+   * Scala API: For transactional flows only, how often to push consumer group metadata to the producers
+   * a shorter interval makes the risk of dropping batched elements smaller but at the cost
+   * of more work sending those updates.
+   */
+  def withConsumerGroupUpdateInterval(interval: FiniteDuration): ConsumerSettings[K, V] =
+    copy(consumerGroupUpdateInterval = interval)
+
+  /**
+   * Java API: For transactional flows only, how often to push consumer group metadata to the producers
+   * a shorter interval makes the risk of dropping batched elements smaller but at the cost
+   * of more work sending those updates.
+   */
+  def withConsumerGroupUpdateInterval(interval: java.time.Duration): ConsumerSettings[K, V] =
+    copy(consumerGroupUpdateInterval = interval.asScala)
+
+  /**
    * Get the Kafka consumer settings as map.
    */
   def getProperties: java.util.Map[String, AnyRef] = properties.asInstanceOf[Map[String, AnyRef]].asJava
@@ -590,7 +609,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       consumerFactory: ConsumerSettings[K, V] => Consumer[K, V] = consumerFactory,
       connectionCheckerConfig: ConnectionCheckerSettings = connectionCheckerSettings,
       partitionHandlerWarning: FiniteDuration = partitionHandlerWarning,
-      resetProtectionSettings: OffsetResetProtectionSettings = resetProtectionSettings
+      resetProtectionSettings: OffsetResetProtectionSettings = resetProtectionSettings,
+      consumerGroupUpdateInterval: FiniteDuration = consumerGroupUpdateInterval
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -613,7 +633,8 @@ class ConsumerSettings[K, V] @InternalApi private[kafka] (
       consumerFactory,
       connectionCheckerConfig,
       partitionHandlerWarning,
-      resetProtectionSettings
+      resetProtectionSettings,
+      consumerGroupUpdateInterval
     )
 
   /**
