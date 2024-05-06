@@ -186,22 +186,22 @@ private final class TransactionalProducerStageLogic[K, V, P](
     }
 
   private def commitTransaction(beginNewTransaction: Boolean = true,
-                                     abortEmptyTransactionOnComplete: Boolean = false): Unit = {
+                                abortEmptyTransactionOnComplete: Boolean = false): Unit = {
     val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
         try {
           log.debug("Committing transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-            transactionalId,
-            latestSeenConsumerGroupMetadata,
-            batch.offsets)
+                    transactionalId,
+                    latestSeenConsumerGroupMetadata,
+                    batch.offsets)
           val offsetMap = batch.offsetMap()
           producer.sendOffsetsToTransaction(offsetMap.asJava, latestSeenConsumerGroupMetadata)
           producer.commitTransaction()
           log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-            transactionalId,
-            latestSeenConsumerGroupMetadata,
-            batch.offsets)
+                    transactionalId,
+                    latestSeenConsumerGroupMetadata,
+                    batch.offsets)
           batchOffsets = TransactionBatch.empty
           batch
             .internalCommit()

@@ -308,7 +308,7 @@ import scala.util.control.NonFatal
       subscriber ! consumer.groupMetadata()
 
     case GroupMetadataTick =>
-     sendConsumerGroupMetadataToSubscribers()
+      sendConsumerGroupMetadataToSubscribers()
 
     case req: Metadata.Request =>
       sender() ! handleMetadataRequest(req)
