@@ -5,8 +5,11 @@
 
 package akka.kafka.internal
 
+import akka.actor.Actor
+
 import java.util.concurrent.CompletableFuture
 import akka.actor.ActorSystem
+import akka.actor.Props
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
@@ -42,6 +45,15 @@ import scala.util.{Failure, Success, Try}
 object ProducerSpec {
   val group = "group"
   val consumerGroupMetadata = new ConsumerGroupMetadata(group, 1, "memberId", Optional.of("groupInstanceId"))
+
+  // fake publisher of group metadata for transactional producer stage, normally done by the Kafka consumer actor
+  class GroupMetadataPublisherActor extends Actor {
+
+    override def receive: Receive = {
+      case KafkaConsumerActor.Internal.SubscribeToGroupMetaData(subscriber) =>
+        subscriber ! consumerGroupMetadata
+    }
+  }
 }
 
 class ProducerSpec(_system: ActorSystem)
@@ -73,6 +85,7 @@ class ProducerSpec(_system: ActorSystem)
     new ProducerRecord("test", seed.toString, seed.toString) ->
     new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed, System.currentTimeMillis(), -1, -1)
 
+  val metadataMockActor = system.actorOf(Props(new ProducerSpec.GroupMetadataPublisherActor()))
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) = {
     val consumerMessage = ConsumerMessage
@@ -82,7 +95,7 @@ class ProducerSpec(_system: ActorSystem)
                                      consumerMessage.offset,
                                      committer,
                                      fromPartitionedSource = false,
-                                     () => Future.successful(ProducerSpec.consumerGroupMetadata))
+                                     metadataMockActor)
     ProducerMessage.Message(
       tuple._1,
       partitionOffsetCommittedMarker

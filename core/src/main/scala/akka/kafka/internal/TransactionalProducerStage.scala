@@ -6,6 +6,8 @@
 package akka.kafka.internal
 
 import akka.Done
+import akka.actor.ActorRef
+import akka.actor.Terminated
 import akka.annotation.InternalApi
 import akka.dispatch.{Dispatchers, ExecutionContexts}
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
@@ -17,7 +19,9 @@ import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape}
 import org.apache.kafka.clients.consumer.{ConsumerGroupMetadata, OffsetAndMetadata}
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.ProducerFencedException
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -117,12 +121,9 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private val messageDrainInterval = 10.milliseconds
   private var batchOffsets = TransactionBatch.empty
   private var demandSuspended = false
-  private var commitInProgress = false
+  private var latestSeenConsumerGroupMetadata: ConsumerGroupMetadata = null
 
   private var firstMessage: Option[Envelope[K, V, P]] = None
-
-  private val commitTransactionCB: Try[CommitTransaction] => Unit =
-    createAsyncCallback[Try[CommitTransaction]](commitTransaction _).invoke _
 
   private val onInternalCommitAckCb: Try[Done] => Unit =
     getAsyncCallback[Try[Done]] { maybeDone =>
@@ -135,9 +136,15 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override protected def logSource: Class[_] = classOf[TransactionalProducerStage[_, _, _]]
 
-  // FIXME no longer true
-  // we need to peek at the first message to generate the producer transactional id for partitioned sources
-  override def preStart(): Unit = resumeDemand()
+  override def preStart(): Unit = {
+    resumeDemand()
+    getStageActor {
+      case (_, newMetadata: ConsumerGroupMetadata) => latestSeenConsumerGroupMetadata = newMetadata
+      case (_, Terminated(_)) =>
+        abortTransaction("Consumer actor stopped")
+        failStage(new RuntimeException("Consumer actor stopped, no transactions can be committed without consumer"))
+    }
+  }
 
   override protected def producerAssigned(): Unit = {
     producingInHandler()
@@ -173,25 +180,44 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override protected def onTimer(timerKey: Any): Unit =
     if (timerKey == commitSchedulerKey) {
-      maybeCommitTransaction()
+      commitTransaction()
     }
 
-  private def maybeCommitTransaction(beginNewTransaction: Boolean = true,
-                                     abortEmptyTransactionOnComplete: Boolean = false): Unit = {
+  private def commitTransaction(beginNewTransaction: Boolean = true,
+                                abortEmptyTransactionOnComplete: Boolean = false): Unit = {
     val awaitingConf = awaitingConfirmationValue
     batchOffsets match {
       case batch: NonemptyTransactionBatch if awaitingConf == 0 =>
-        if (commitInProgress) {
-          // batch will end up in next commit
-          log.debug("Commit already in progress, ignoring request to commit")
-        } else {
-          commitInProgress = true
-          batch.head
-            .requestConsumerGroupMetadata()
-            .onComplete { consumerGroupMetadataTry =>
-              commitTransactionCB(consumerGroupMetadataTry.map(CommitTransaction(batch, beginNewTransaction, _)))
-            }(ExecutionContexts.parasitic)
+        try {
+          log.debug("Committing transaction for transactional id '{}' consumer group '{}' with offsets: {}",
+                    transactionalId,
+                    latestSeenConsumerGroupMetadata,
+                    batch.offsets)
+          val offsetMap = batch.offsetMap()
+          producer.sendOffsetsToTransaction(offsetMap.asJava, latestSeenConsumerGroupMetadata)
+          producer.commitTransaction()
+          log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
+                    transactionalId,
+                    latestSeenConsumerGroupMetadata,
+                    batch.offsets)
+          batchOffsets = TransactionBatch.empty
+          batch
+            .internalCommit()
+            .onComplete(onInternalCommitAckCb)(ExecutionContexts.parasitic)
+        } catch {
+          case e: ProducerFencedException =>
+            log.debug(s"Producer fenced: $e")
+            failStage(e)
+          case e: KafkaException =>
+            abortTransaction(s"Kafka threw exception: $e")
+            batch
+              .committingFailed()
         }
+        if (beginNewTransaction) {
+          beginTransaction()
+          resumeDemand()
+        }
+
       case _: EmptyTransactionBatch if awaitingConf == 0 && abortEmptyTransactionOnComplete =>
         abortTransaction("Transaction is empty and stage is completing")
       case _ if awaitingConf > 0 =>
@@ -203,9 +229,9 @@ private final class TransactionalProducerStageLogic[K, V, P](
   }
 
   /**
-   * When using partitioned sources we extract the transactional id, group id, and topic partition information from
-   * the first message in order to define a `transacitonal.id` before constructing the [[org.apache.kafka.clients.producer.KafkaProducer]]
-   * FIXME this is probably no longer true
+   * When using partitioned sources we need to have access to the ConsumerGroupMetadata from the Kafka consumer which
+   * is single thread-only, so we can't access it directly, instead we need to subscribe to get periodic updates of
+   * the latest consumer group metadata, we can only do that once the first message arrives
    */
   private def parseFirstMessage(msg: Envelope[K, V, P]): Boolean =
     producerAssignmentLifecycle match {
@@ -216,6 +242,16 @@ private final class TransactionalProducerStageLogic[K, V, P](
       case Unassigned =>
         // stash the first message so it can be sent after the producer is assigned
         firstMessage = Some(msg)
+
+        // Set up getting periodic group metadata as those can't be safely async-request fetched
+        // during partition rebalance drain which blocks the consumer actor
+        msg.passThrough match {
+          case o: ConsumerMessage.PartitionOffsetCommittedMarker =>
+            o.consumerActor ! KafkaConsumerActor.Internal.SubscribeToGroupMetaData(stageActor.ref)
+            // We depend on consumer actor now so couple lifecycles
+            stageActor.watch(o.consumerActor)
+          case _ =>
+        }
         // initiate async async producer request _after_ first message is stashed in case future eagerly resolves
         // instead of asynccallback
         resolveProducer(generatedTransactionalConfig)
@@ -246,12 +282,8 @@ private final class TransactionalProducerStageLogic[K, V, P](
 
   override def onCompletionSuccess(): Unit = {
     log.debug("Committing final transaction before shutdown")
-    if (commitInProgress)
-      log.warning(
-        "Stage onCompleteSuccess with commit in flight, this is a bug, please report at https://github.com/akka/alpakka-kafka/issues"
-      )
     cancelTimer(commitSchedulerKey)
-    maybeCommitTransaction(beginNewTransaction = false, abortEmptyTransactionOnComplete = true)
+    commitTransaction(beginNewTransaction = false, abortEmptyTransactionOnComplete = true)
     super.onCompletionSuccess()
   }
 
@@ -259,36 +291,6 @@ private final class TransactionalProducerStageLogic[K, V, P](
     abortTransaction(s"Stage failure ($ex)")
     batchOffsets.committingFailed()
     super.onCompletionFailure(ex)
-  }
-
-  private def commitTransaction(t: Try[CommitTransaction]): Unit = {
-    commitInProgress = false
-    t match {
-      case Failure(ex) =>
-        failStage(new RuntimeException("Failed to fetch consumer group metadata", ex))
-      case Success(CommitTransaction(batch, beginNewTransaction, consumerGroupMetadata)) =>
-        log.debug("Committing transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-                  transactionalId,
-                  consumerGroupMetadata,
-                  batch.offsets)
-        val offsetMap = batch.offsetMap()
-        producer.sendOffsetsToTransaction(offsetMap.asJava, consumerGroupMetadata)
-        producer.commitTransaction()
-        log.debug("Committed transaction for transactional id '{}' consumer group '{}' with offsets: {}",
-                  transactionalId,
-                  consumerGroupMetadata,
-                  batch.offsets)
-        batchOffsets = TransactionBatch.empty
-        batch
-          .internalCommit()
-          .onComplete(onInternalCommitAckCb)(ExecutionContexts.parasitic)
-        if (beginNewTransaction) {
-          beginTransaction()
-          resumeDemand()
-        }
-    }
-    // in case stage wants to shut down but was waiting for commit to complete
-    checkForCompletion()
   }
 
   private def initTransactions(): Unit = {
@@ -304,15 +306,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
   private def abortTransaction(reason: String): Unit = {
     log.debug("Aborting transaction: {}", reason)
     if (producerAssignmentLifecycle == Assigned) producer.abortTransaction()
+    batchOffsets.committingFailed()
   }
 
-  override protected def readyToShutdown(): Boolean = !commitInProgress
-
-  override def postStop(): Unit = {
-    if (commitInProgress)
-      log.warning(
-        "Stage postStop with commit in flight, this is a bug, please report at https://github.com/akka/alpakka-kafka/issues"
-      )
-    super.postStop()
-  }
 }

@@ -83,7 +83,7 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
       }
     }
 
-  override def onCompletionSuccess(): Unit = if (readyToShutdown()) completeStage()
+  override def onCompletionSuccess(): Unit = completeStage()
 
   override def onCompletionFailure(ex: Throwable): Unit = failStage(ex)
 
@@ -209,8 +209,4 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
     log.debug("ProducerStage postStop")
     closeProducer()
   }
-
-  // Specifically for transactional producer that needs to defer shutdown to let an async task
-  // complete before actually shutting down
-  protected def readyToShutdown(): Boolean = true
 }

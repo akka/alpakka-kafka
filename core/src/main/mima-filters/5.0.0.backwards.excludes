@@ -6,3 +6,4 @@ ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.scaladsl.Transact
 
 # internal
 ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ProducerSettings.this")
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.ConsumerSettings.this")
