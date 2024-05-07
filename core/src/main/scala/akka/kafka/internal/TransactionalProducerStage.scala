@@ -6,10 +6,9 @@
 package akka.kafka.internal
 
 import akka.Done
-import akka.actor.ActorRef
 import akka.actor.Terminated
 import akka.annotation.InternalApi
-import akka.dispatch.{Dispatchers, ExecutionContexts}
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.DeferredProducer._
@@ -23,10 +22,10 @@ import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.ProducerFencedException
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 
 /**
  * INTERNAL API
@@ -95,10 +94,6 @@ private object TransactionalProducerStage {
       new NonemptyTransactionBatch(partitionOffset, offsets)
     }
   }
-
-  final case class CommitTransaction(batch: NonemptyTransactionBatch,
-                                     beginNewTransaction: Boolean,
-                                     consumerGroupMetadata: ConsumerGroupMetadata)
 
 }
 
