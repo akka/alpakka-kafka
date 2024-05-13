@@ -22,6 +22,8 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
+import java.util.UUID
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 /**
@@ -76,11 +78,22 @@ object Transactional {
    * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
    * initialize, begin, produce, and commit the consumer offset as part of a transaction.
    */
+  @nowarn("msg=deprecated")
+  @deprecated("Use the 'sink' factory method without a transactionalId parameter")
   def sink[K, V](
       settings: ProducerSettings[K, V],
       transactionalId: String
   ): Sink[Envelope[K, V, ConsumerMessage.PartitionOffset], Future[Done]] =
     flow(settings, transactionalId).toMat(Sink.ignore)(Keep.right)
+
+  /**
+   * Sink that is aware of the [[ConsumerMessage.TransactionalMessage.partitionOffset]] from a [[Transactional.source]].  It will
+   * initialize, begin, produce, and commit the consumer offset as part of a transaction.
+   */
+  def sink[K, V](
+      settings: ProducerSettings[K, V]
+  ): Sink[Envelope[K, V, ConsumerMessage.PartitionOffset], Future[Done]] =
+    flow(settings).toMat(Sink.ignore)(Keep.right)
 
   /**
    * API MAY CHANGE
@@ -90,10 +103,9 @@ object Transactional {
    */
   @ApiMayChange
   def sinkWithOffsetContext[K, V](
-      settings: ProducerSettings[K, V],
-      transactionalId: String
+      settings: ProducerSettings[K, V]
   ): Sink[(Envelope[K, V, NotUsed], PartitionOffset), Future[Done]] =
-    sink(settings, transactionalId)
+    sink(settings)
       .contramap {
         case (env, offset) =>
           env.withPassThrough(offset)
@@ -101,9 +113,22 @@ object Transactional {
 
   /**
    * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
+   * emits a [[ConsumerMessage.TransactionalMessage]].
+   * The flow will override producer properties to enable Kafka exactly-once transactional support.
+   * A UUID is used for transaction id, optionally prefixed through [[ProducerSettings.transactionIdPrefix]]
+   */
+  @nowarn("msg=deprecated")
+  def flow[K, V](
+      settings: ProducerSettings[K, V]
+  ): Flow[Envelope[K, V, ConsumerMessage.PartitionOffset], Results[K, V, ConsumerMessage.PartitionOffset], NotUsed] =
+    flow(settings, settings.transactionIdPrefix + UUID.randomUUID().toString)
+
+  /**
+   * Publish records to Kafka topics and then continue the flow. The flow can only be used with a [[Transactional.source]] that
    * emits a [[ConsumerMessage.TransactionalMessage]]. The flow requires a unique `transactional.id` across all app
    * instances.  The flow will override producer properties to enable Kafka exactly-once transactional support.
    */
+  @deprecated("Use the 'flow' factory without a transactionalId parameter")
   def flow[K, V](
       settings: ProducerSettings[K, V],
       transactionalId: String
@@ -132,15 +157,14 @@ object Transactional {
    */
   @ApiMayChange
   def flowWithOffsetContext[K, V](
-      settings: ProducerSettings[K, V],
-      transactionalId: String
+      settings: ProducerSettings[K, V]
   ): FlowWithContext[Envelope[K, V, NotUsed],
                      ConsumerMessage.PartitionOffset,
                      Results[K, V, ConsumerMessage.PartitionOffset],
                      ConsumerMessage.PartitionOffset,
                      NotUsed] = {
     val noContext: Flow[Envelope[K, V, PartitionOffset], Results[K, V, PartitionOffset], NotUsed] =
-      flow(settings, transactionalId)
+      flow(settings)
     noContext
       .asFlowWithContext[Envelope[K, V, NotUsed], PartitionOffset, PartitionOffset]({
         case (env, c) => env.withPassThrough(c)

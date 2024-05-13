@@ -72,11 +72,13 @@ trait KafkaTestKit {
   /**
    * Return a unique transactional id with a default suffix.
    */
+  @deprecated("Use flows and sinks that does not require an explicit transaction id")
   def createTransactionalId(): String = createTransactionalId(0)
 
   /**
    * Return a unique transactional id with a given suffix.
    */
+  @deprecated("Use flows and sinks that does not require an explicit transaction id")
   def createTransactionalId(suffix: Int): String = s"transactionalId-$suffix-${nextNumber()}"
 
   def system: ActorSystem

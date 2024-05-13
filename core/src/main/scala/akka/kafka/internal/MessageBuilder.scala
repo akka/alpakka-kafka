@@ -5,8 +5,8 @@
 
 package akka.kafka.internal
 import java.util.concurrent.CompletionStage
-
 import akka.Done
+import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.kafka.ConsumerMessage
 import akka.kafka.ConsumerMessage.{
@@ -46,6 +46,8 @@ private[kafka] trait TransactionalMessageBuilderBase[K, V, Msg] extends MessageB
   def onMessage(consumerMessage: ConsumerRecord[K, V]): Unit
 
   def fromPartitionedSource: Boolean
+
+  def consumerActorRef(): ActorRef
 }
 
 /** Internal API */
@@ -62,7 +64,8 @@ private[kafka] trait TransactionalMessageBuilder[K, V]
       ),
       offset = rec.offset,
       committedMarker,
-      fromPartitionedSource
+      fromPartitionedSource,
+      consumerActorRef()
     )
     ConsumerMessage.TransactionalMessage(rec, offset)
   }
@@ -82,7 +85,8 @@ private[kafka] trait TransactionalOffsetContextBuilder[K, V]
       ),
       offset = rec.offset,
       committedMarker,
-      fromPartitionedSource
+      fromPartitionedSource,
+      consumerActorRef()
     )
     (rec, offset)
   }

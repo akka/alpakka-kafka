@@ -31,7 +31,6 @@ trait TransactionsOps extends TestSuite with Matchers {
       producerSettings: ProducerSettings[String, String],
       sourceTopic: String,
       sinkTopic: String,
-      transactionalId: String,
       idleTimeout: FiniteDuration,
       restartAfter: Option[Int] = None,
       maxRestarts: Option[AtomicInteger] = None
@@ -49,7 +48,7 @@ trait TransactionsOps extends TestSuite with Matchers {
       .map { msg =>
         ProducerMessage.single(new ProducerRecord[String, String](sinkTopic, msg.record.value), msg.partitionOffset)
       }
-      .via(Transactional.flow(producerSettings, transactionalId))
+      .via(Transactional.flow(producerSettings))
 
   /**
    * Copy messages from a source to sink topic. Source and sink must have exactly the same number of partitions.
@@ -59,7 +58,6 @@ trait TransactionsOps extends TestSuite with Matchers {
       producerSettings: ProducerSettings[String, String],
       sourceTopic: String,
       sinkTopic: String,
-      transactionalId: String,
       idleTimeout: FiniteDuration,
       maxPartitions: Int,
       restartAfter: Option[Int] = None,
@@ -86,7 +84,7 @@ trait TransactionsOps extends TestSuite with Matchers {
                                                                           msg.record.value),
                                        msg.partitionOffset)
               }
-              .via(Transactional.flow(producerSettings, transactionalId))
+              .via(Transactional.flow(producerSettings))
             results
         }
       )
@@ -196,7 +194,7 @@ trait TransactionsOps extends TestSuite with Matchers {
     val expectedValues: immutable.Seq[String] = (1 to elements).map(_.toString)
 
     for (partition <- 0 until maxPartitions) {
-      println(s"Asserting values for partition: $partition")
+      // println(s"Asserting values for partition: $partition")
 
       val partitionMessages: immutable.Seq[String] =
         values.filter(_._1 == partition).map { case (_, _, value) => value }

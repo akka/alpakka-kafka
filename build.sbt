@@ -25,7 +25,7 @@ val KafkaVersionForDocs = "37"
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
-val testcontainersVersion = "1.19.5"
+val testcontainersVersion = "1.19.7"
 val slf4jVersion = "1.7.36"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
@@ -109,7 +109,7 @@ val commonSettings = Def.settings(
       "11",
       "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
     ) ++ {
-      if (insideCI.value && !Nightly && scalaVersion.value != Scala3) Seq("-Werror")
+      if (scalaVersion.value != Scala3) Seq("-Werror")
       else Seq.empty
     },
   Compile / doc / scalacOptions := scalacOptions.value ++ Seq(

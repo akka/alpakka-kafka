@@ -5,8 +5,11 @@
 
 package akka.kafka.internal
 
+import akka.actor.Actor
+
 import java.util.concurrent.CompletableFuture
 import akka.actor.ActorSystem
+import akka.actor.Props
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage._
 import akka.kafka.scaladsl.Producer
@@ -33,10 +36,25 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Optional
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+
+object ProducerSpec {
+  val group = "group"
+  val consumerGroupMetadata = new ConsumerGroupMetadata(group, 1, "memberId", Optional.of("groupInstanceId"))
+
+  // fake publisher of group metadata for transactional producer stage, normally done by the Kafka consumer actor
+  class GroupMetadataPublisherActor extends Actor {
+
+    override def receive: Receive = {
+      case KafkaConsumerActor.Internal.SubscribeToGroupMetaData(subscriber) =>
+        subscriber ! consumerGroupMetadata
+    }
+  }
+}
 
 class ProducerSpec(_system: ActorSystem)
     extends TestKit(_system)
@@ -57,8 +75,6 @@ class ProducerSpec(_system: ActorSystem)
 
   implicit val ec: ExecutionContext = _system.dispatcher
 
-  private val group = "group"
-
   type K = String
   type V = String
   type Record = ProducerRecord[K, V]
@@ -69,15 +85,17 @@ class ProducerSpec(_system: ActorSystem)
     new ProducerRecord("test", seed.toString, seed.toString) ->
     new RecordMetadata(new TopicPartition("test", seed), seed.toLong, seed, System.currentTimeMillis(), -1, -1)
 
+  val metadataMockActor = system.actorOf(Props(new ProducerSpec.GroupMetadataPublisherActor()))
   def toMessage(tuple: (Record, RecordMetadata)) = Message(tuple._1, NotUsed)
   private[kafka] def toTxMessage(tuple: (Record, RecordMetadata), committer: CommittedMarker) = {
     val consumerMessage = ConsumerMessage
-      .PartitionOffset(GroupTopicPartition(group, tuple._1.topic(), 1), tuple._2.offset())
+      .PartitionOffset(GroupTopicPartition(ProducerSpec.group, tuple._1.topic(), 1), tuple._2.offset())
     val partitionOffsetCommittedMarker =
       PartitionOffsetCommittedMarker(consumerMessage.key,
                                      consumerMessage.offset,
                                      committer,
-                                     fromPartitionedSource = false)
+                                     fromPartitionedSource = false,
+                                     metadataMockActor)
     ProducerMessage.Message(
       tuple._1,
       partitionOffsetCommittedMarker
@@ -632,7 +650,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   def verifyTxCommit(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
-    inOrder.verify(mock).sendOffsetsToTransaction(offsets, new ConsumerGroupMetadata(po.key.groupId))
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, ProducerSpec.consumerGroupMetadata)
     inOrder.verify(mock).commitTransaction()
     inOrder.verify(mock).beginTransaction()
   }
@@ -640,7 +658,7 @@ class ProducerMock[K, V](handler: ProducerMock.Handler[K, V])(implicit ec: Execu
   def verifyTxCommitWhenShutdown(po: ConsumerMessage.PartitionOffset) = {
     val inOrder = Mockito.inOrder(mock)
     val offsets = Map(new TopicPartition(po.key.topic, po.key.partition) -> new OffsetAndMetadata(po.offset + 1)).asJava
-    inOrder.verify(mock).sendOffsetsToTransaction(offsets, new ConsumerGroupMetadata(po.key.groupId))
+    inOrder.verify(mock).sendOffsetsToTransaction(offsets, ProducerSpec.consumerGroupMetadata)
     inOrder.verify(mock).commitTransaction()
   }
 

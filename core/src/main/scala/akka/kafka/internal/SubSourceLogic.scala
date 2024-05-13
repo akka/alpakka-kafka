@@ -70,7 +70,7 @@ private class SubSourceLogic[K, V, Msg](
 
   /** We have created a source for these partitions, but it has not started up and is not in subSources yet. */
   private var partitionsInStartup: immutable.Set[TopicPartition] = immutable.Set.empty
-  protected var subSources: Map[TopicPartition, SubSourceStageLogicControl] = immutable.Map.empty
+  @volatile protected var subSources: Map[TopicPartition, SubSourceStageLogicControl] = immutable.Map.empty
 
   /** Kafka has signalled these partitions are revoked, but some may be re-assigned just after revoking. */
   private var partitionsToRevoke: Set[TopicPartition] = Set.empty

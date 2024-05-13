@@ -6,11 +6,11 @@
 package akka.kafka.internal
 
 import java.util.Locale
-
 import akka.{Done, NotUsed}
 import akka.actor.{ActorRef, Status, Terminated}
 import akka.actor.Status.Failure
 import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.internal.SubSourceLogic._
@@ -22,10 +22,10 @@ import akka.stream.SourceShape
 import akka.stream.scaladsl.Source
 import akka.stream.stage.{AsyncCallback, GraphStageLogic}
 import akka.util.Timeout
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerGroupMetadata, ConsumerRecord, OffsetAndMetadata}
 import org.apache.kafka.common.{IsolationLevel, TopicPartition}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Internal API */
@@ -95,6 +95,18 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override protected def logSource: Class[_] = classOf[TransactionalSourceLogic[_, _, _]]
 
   private val inFlightRecords = InFlightRecords.empty
+  @volatile protected var threadSafeSourceActor: ActorRef = _
+  @volatile protected var threadSafeConsumerActor: ActorRef = _
+
+  // called in-stage (no need for volatile)
+  override def consumerActorRef(): ActorRef = this.consumerActor
+
+  override def preStart(): Unit = {
+    super.preStart()
+    // actually the stage actor of this stage, initialized in super preStart
+    threadSafeSourceActor = this.sourceActor.ref
+    threadSafeConsumerActor = this.consumerActor
+  }
 
   override def messageHandling = super.messageHandling.orElse(drainHandling).orElse {
     case (_, Revoked(tps)) =>
@@ -115,7 +127,7 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
     case (sender, Committed(offsets)) =>
       inFlightRecords.committed(offsets.iterator.map { case (k, v) => k -> (v.offset() - 1L) }.toMap)
       sender.tell(Done, sourceActor.ref)
-    case (sender, CommittingFailure) => {
+    case (_, CommittingFailure) => {
       log.info("Committing failed, resetting in flight offsets")
       inFlightRecords.reset()
     }
@@ -127,20 +139,15 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
         log.debug(s"Draining partitions {}", partitions)
         materializer.scheduleOnce(
           consumerSettings.drainingCheckInterval,
-          new Runnable {
-            override def run(): Unit =
-              sourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), sourceActor.ref)
-          }
+          () => sourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), sourceActor.ref)
         )
       }
   }
 
   override val groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
-  override lazy val committedMarker: CommittedMarker = {
-    val ec = materializer.executionContext
-    CommittedMarkerRef(sourceActor.ref, consumerSettings.commitTimeout)(ec)
-  }
+  override lazy val committedMarker: CommittedMarker =
+    CommittedMarkerRef(sourceActor.ref, consumerSettings.commitTimeout)
 
   override def onMessage(rec: ConsumerRecord[K, V]): Unit =
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
@@ -157,36 +164,37 @@ private[internal] abstract class TransactionalSourceLogic[K, V, Msg](shape: Sour
   override protected def addToPartitionAssignmentHandler(
       handler: PartitionAssignmentHandler
   ): PartitionAssignmentHandler = {
+    // Note: this runs on a different thread so be careful with any mutable state
     val blockingRevokedCall = new PartitionAssignmentHandler {
       override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
       // This is invoked in the KafkaConsumerActor thread when doing poll.
       override def onRevoke(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         if (waitForDraining(revokedTps)) {
-          sourceActor.ref.tell(Revoked(revokedTps.toList), consumerActor)
+          threadSafeSourceActor.tell(Revoked(revokedTps.toList), consumerActor)
         } else {
-          sourceActor.ref.tell(Failure(new Error("Timeout while draining")), consumerActor)
-          consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), consumerActor)
+          threadSafeSourceActor.tell(Failure(new Error("Timeout while draining")), consumerActor)
+          threadSafeConsumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), consumerActor)
         }
 
       override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
         onRevoke(lostTps, consumer)
 
       override def onStop(revokedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
+
+      private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
+        import akka.pattern.ask
+        implicit val timeout = Timeout(consumerSettings.commitTimeout)
+        try {
+          Await.result(ask(threadSafeSourceActor, Drain(partitions, None, Drained)), timeout.duration)
+          true
+        } catch {
+          case t: Throwable =>
+            false
+        }
+      }
     }
     new PartitionAssignmentHelpers.Chain(handler, blockingRevokedCall)
-  }
-
-  private def waitForDraining(partitions: Set[TopicPartition]): Boolean = {
-    import akka.pattern.ask
-    implicit val timeout = Timeout(consumerSettings.commitTimeout)
-    try {
-      Await.result(ask(stageActor.ref, Drain(partitions, None, Drained)), timeout.duration)
-      true
-    } catch {
-      case t: Throwable =>
-        false
-    }
   }
 }
 
@@ -237,9 +245,19 @@ private[kafka] final class TransactionalSubSource[K, V](
 
     new SubSourceLogic(shape, txConsumerSettings, subscription, subSourceStageLogicFactory = factory) {
 
+      @volatile var threadSafeSourceActor: ActorRef = _
+      @volatile var threadSafeConsumerActor: ActorRef = _
+
+      override def preStart(): Unit = {
+        super.preStart()
+        threadSafeSourceActor = this.sourceActor.ref
+        threadSafeConsumerActor = this.consumerActor
+      }
+
       override protected def addToPartitionAssignmentHandler(
           handler: PartitionAssignmentHandler
       ): PartitionAssignmentHandler = {
+        // Note: this runs on a different thread so be careful with any mutable state
         val blockingRevokedCall = new PartitionAssignmentHandler {
           override def onAssign(assignedTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit = ()
 
@@ -249,10 +267,10 @@ private[kafka] final class TransactionalSubSource[K, V](
             else if (waitForDraining(revokedTps)) {
               subSources.values
                 .map(_.controlAndStageActor.stageActor)
-                .foreach(_.tell(Revoked(revokedTps.toList), stageActor.ref))
+                .foreach(_.tell(Revoked(revokedTps.toList), threadSafeSourceActor))
             } else {
-              sourceActor.ref.tell(Status.Failure(new Error("Timeout while draining")), stageActor.ref)
-              consumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), stageActor.ref)
+              threadSafeSourceActor.tell(Status.Failure(new Error("Timeout while draining")), threadSafeSourceActor)
+              threadSafeConsumerActor.tell(KafkaConsumerActor.Internal.StopFromStage(id), threadSafeSourceActor)
             }
 
           override def onLost(lostTps: Set[TopicPartition], consumer: RestrictedConsumer): Unit =
@@ -273,7 +291,7 @@ private[kafka] final class TransactionalSubSource[K, V](
           Await.result(Future.sequence(drainCommandFutures), timeout.duration)
           true
         } catch {
-          case t: Throwable =>
+          case _: Throwable =>
             false
         }
       }
@@ -293,14 +311,13 @@ private object TransactionalSourceLogic {
   final case class Committed(offsets: Map[TopicPartition, OffsetAndMetadata])
   case object CommittingFailure
 
-  private[internal] final case class CommittedMarkerRef(sourceActor: ActorRef, commitTimeout: FiniteDuration)(
-      implicit ec: ExecutionContext
-  ) extends CommittedMarker {
+  private[internal] final case class CommittedMarkerRef(sourceActor: ActorRef, commitTimeout: FiniteDuration)
+      extends CommittedMarker {
     override def committed(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Done] = {
       import akka.pattern.ask
       sourceActor
         .ask(Committed(offsets))(Timeout(commitTimeout))
-        .map(_ => Done)
+        .map(_ => Done)(ExecutionContexts.parasitic)
     }
 
     override def failed(): Unit =
@@ -370,12 +387,14 @@ private final class TransactionalSubSourceStageLogic[K, V](
 
   private val inFlightRecords = InFlightRecords.empty
 
+  override lazy val committedMarker: CommittedMarker =
+    CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)
+
+  override val fromPartitionedSource: Boolean = true
   override def groupId: String = consumerSettings.properties(ConsumerConfig.GROUP_ID_CONFIG)
 
   override def onMessage(rec: ConsumerRecord[K, V]): Unit =
     inFlightRecords.add(Map(new TopicPartition(rec.topic(), rec.partition()) -> rec.offset()))
-
-  override val fromPartitionedSource: Boolean = true
 
   override protected def messageHandling: PartialFunction[(ActorRef, Any), Unit] =
     super.messageHandling.orElse(drainHandling).orElse {
@@ -423,20 +442,14 @@ private final class TransactionalSubSourceStageLogic[K, V](
         log.debug(s"Draining partitions {}", partitions)
         materializer.scheduleOnce(
           consumerSettings.drainingCheckInterval,
-          new Runnable {
-            override def run(): Unit =
-              subSourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), stageActor.ref)
-          }
+          () => subSourceActor.ref.tell(Drain(partitions, ack.orElse(Some(sender)), msg), stageActor.ref)
         )
       }
     case (sender, DrainingComplete) =>
       completeStage()
   }
 
-  lazy val committedMarker: CommittedMarker = {
-    val ec = materializer.executionContext
-    CommittedMarkerRef(subSourceActor.ref, consumerSettings.commitTimeout)(ec)
-  }
+  override def consumerActorRef(): ActorRef = consumerActor
 }
 
 private object TransactionalSubSourceStageLogic {

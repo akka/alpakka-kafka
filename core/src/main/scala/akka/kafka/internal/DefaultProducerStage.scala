@@ -71,11 +71,10 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   }
 
   override def preStart(): Unit = {
-    super.preStart()
     resolveProducer(stage.settings)
   }
 
-  private def checkForCompletion(): Unit =
+  protected def checkForCompletion(): Unit =
     if (isClosed(stage.in) && awaitingConfirmation == 0) {
       completionState match {
         case Some(Success(_)) => onCompletionSuccess()
@@ -104,9 +103,16 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
 
   protected def resumeDemand(tryToPull: Boolean = true): Unit = {
     log.debug("Resume demand")
-    setHandler(stage.out, new OutHandler {
-      override def onPull(): Unit = tryPull(stage.in)
-    })
+    setHandler(
+      stage.out,
+      new OutHandler {
+        override def onPull(): Unit = tryPull(stage.in)
+
+        override def onDownstreamFinish(cause: Throwable): Unit = {
+          super.onDownstreamFinish(cause)
+        }
+      }
+    )
     // kick off demand for more messages if we're resuming demand
     if (tryToPull && isAvailable(stage.out) && !hasBeenPulled(stage.in)) {
       tryPull(stage.in)
@@ -202,6 +208,5 @@ private class DefaultProducerStageLogic[K, V, P, IN <: Envelope[K, V, P], OUT <:
   override def postStop(): Unit = {
     log.debug("ProducerStage postStop")
     closeProducer()
-    super.postStop()
   }
 }
