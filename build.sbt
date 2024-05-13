@@ -318,7 +318,12 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false
+    IntegrationTest / parallelExecution := false,
+    Test / unmanagedSources :=
+      // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
+      // https://github.com/scala/scala3/issues/20026
+      (if (scalaVersion.value.startsWith("3")) (Test / unmanagedSources).value.filterNot(_.name.endsWith(".java"))
+      else (Test / unmanagedSources).value)
   )
 
 lazy val docs = project
