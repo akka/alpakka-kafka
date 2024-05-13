@@ -33,7 +33,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     tracker.committedOffsets shouldBe empty
     tracker.commitRequested(Map(tp -> offset(0)))
     tracker.commitRequested should have size 1
-    tracker.commitRequested(tp).offset() should be(0)
+    tracker.commitRequested(tp).offset() should be(0L)
     tracker.receivedMessages shouldBe empty
     tracker.committedOffsets shouldBe empty
   }
@@ -43,7 +43,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     tracker.assignedPositions(Set(tp), Map(tp -> 0L))
     tracker.received(records)
 
-    tracker.commitRequested(tp).offset() should be(0)
+    tracker.commitRequested(tp).offset() should be(0L)
     tracker.receivedMessages should have size 1
     tracker.receivedMessages(tp).offset should be(10L)
     tracker.receivedMessages(tp).timestamp should be(ConsumerRecord.NO_TIMESTAMP)
@@ -90,11 +90,11 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     tracker.commitRequested shouldBe empty
     tracker.committedOffsets shouldBe empty
     val tp = new TopicPartition("t", 0)
-    tracker.commitRequested(Map(tp -> offset(0)))
-    tracker.committed(Map(tp -> offset(1)).asJava)
+    tracker.commitRequested(Map(tp -> offset(0L)))
+    tracker.committed(Map(tp -> offset(1L)).asJava)
     // requested shouldn't change, just the committed
-    tracker.commitRequested(tp).offset() should be(0)
-    tracker.committedOffsets(tp).offset() should be(1)
+    tracker.commitRequested(tp).offset() should be(0L)
+    tracker.committedOffsets(tp).offset() should be(1L)
   }
 
   /**
@@ -120,20 +120,20 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
   it should "not overwrite existing committed offsets when assigning" in {
     val tracker = new ConsumerProgressTrackerImpl()
     val tp = new TopicPartition("t", 0)
-    tracker.committed(Map(tp -> offset(1)).asJava)
+    tracker.committed(Map(tp -> offset(1L)).asJava)
     tracker.assignedPositions(Set(tp), Map(tp -> 2L))
-    tracker.committedOffsets(tp).offset() should be(1)
+    tracker.committedOffsets(tp).offset() should be(1L)
   }
 
   it should "revoke assigned offsets" in {
     val tracker = new ConsumerProgressTrackerImpl()
     val tp1 = new TopicPartition("t", 1)
-    tracker.commitRequested(Map(tp -> offset(0), tp1 -> offset(1)))
+    tracker.commitRequested(Map(tp -> offset(0L), tp1 -> offset(1L)))
     tracker.received(records)
-    tracker.committed(Map(tp -> offset(1)).asJava)
+    tracker.committed(Map(tp -> offset(1L)).asJava)
     tracker.revoke(Set(tp))
     tracker.commitRequested should have size 1
-    tracker.commitRequested(tp1).offset() should be(1)
+    tracker.commitRequested(tp1).offset() should be(1L)
     tracker.receivedMessages shouldBe empty
     tracker.committedOffsets shouldBe empty
   }
@@ -143,10 +143,10 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val tp0 = new TopicPartition("t", 0)
     val tp1 = new TopicPartition("t", 1)
     tracker.assignedPositions(Set(tp0, tp1), Map(tp0 -> 0L, tp1 -> 1L))
-    tracker.commitRequested(tp0).offset() should be(0)
-    tracker.commitRequested(tp1).offset() should be(1)
-    tracker.committedOffsets(tp0).offset() should be(0)
-    tracker.committedOffsets(tp1).offset() should be(1)
+    tracker.commitRequested(tp0).offset() should be(0L)
+    tracker.commitRequested(tp1).offset() should be(1L)
+    tracker.committedOffsets(tp0).offset() should be(0L)
+    tracker.committedOffsets(tp1).offset() should be(1L)
   }
 
   it should "lookup positions from the consumer when assigned" in {
@@ -154,10 +154,10 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val consumer = Mockito.mock(classOf[Consumer[AnyRef, AnyRef]])
     val tp0 = new TopicPartition("t", 0)
     val duration = java.time.Duration.ofSeconds(10)
-    Mockito.when(consumer.position(tp0, duration)).thenReturn(5)
+    Mockito.when(consumer.position(tp0, duration)).thenReturn(5L)
     tracker.assignedPositionsAndSeek(Set(tp0), consumer, duration)
-    tracker.commitRequested(tp0).offset() should be(5)
-    tracker.committedOffsets(tp0).offset() should be(5)
+    tracker.commitRequested(tp0).offset() should be(5L)
+    tracker.committedOffsets(tp0).offset() should be(5L)
   }
 
   it should "pass through requests to listeners" in {
@@ -183,17 +183,17 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
     val consumer = Mockito.mock(classOf[Consumer[AnyRef, AnyRef]])
     val tp1 = new TopicPartition("t1", 0)
     val duration = java.time.Duration.ofSeconds(10)
-    Mockito.when(consumer.position(tp, duration)).thenReturn(0)
-    Mockito.when(consumer.position(tp1, duration)).thenReturn(10)
+    Mockito.when(consumer.position(tp, duration)).thenReturn(0L)
+    Mockito.when(consumer.position(tp1, duration)).thenReturn(10L)
     tracker.assignedPositionsAndSeek(Set(tp, tp1), consumer, duration)
 
-    verifyOffsets(Map(tp -> 0, tp1 -> 10))
+    verifyOffsets(Map(tp -> 0L, tp1 -> 10L))
     Mockito.verify(consumer).position(tp, duration)
     Mockito.verify(consumer).position(tp1, duration)
 
     // revoke
     tracker.revoke(Set(tp1))
-    verifyOffsets(Map(tp -> 0))
+    verifyOffsets(Map(tp -> 0L))
     tracker.revoke(Set(tp))
     verifyOffsets(Map())
   }
