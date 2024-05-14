@@ -12,8 +12,7 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 // align in release.yml
 val Scala213 = "2.13.13"
 val Scala3 = "3.3.3"
-val Scala2Versions = Seq(Scala213)
-val ScalaVersions = Scala2Versions :+ Scala3
+val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
@@ -92,7 +91,7 @@ val commonSettings = Def.settings(
     Seq(("BUSL-1.1", url(s"https://raw.githubusercontent.com/akka/alpakka-kafka/${tagOrBranch}/LICENSE")))
   },
   description := "Alpakka is a Reactive Enterprise Integration library for Java and Scala, based on Reactive Streams and Akka.",
-  crossScalaVersions := Scala2Versions,
+  crossScalaVersions := ScalaVersions,
   scalaVersion := Scala213,
   crossVersion := CrossVersion.binary,
   // append -SNAPSHOT to version when isSnapshot
@@ -319,7 +318,13 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false
+    IntegrationTest / parallelExecution := false,
+    Test / unmanagedSources :=
+      // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
+      // https://github.com/scala/scala3/issues/20026
+      (if (scalaVersion.value.startsWith("3"))
+         (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
+       else (Test / unmanagedSources).value)
   )
 
 lazy val docs = project
