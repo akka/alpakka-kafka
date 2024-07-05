@@ -80,8 +80,8 @@ jobs:
           jvm: temurin:1.11
 
       - name: Compile all code with fatal warnings for Java 11 and all Scala versions
-        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt "+Test/compile; +It/compile"
+        # Run locally with: env CI=true sbt 'clean ; Test/compile; integration-tests/Test/compile'
+        run: sbt "+Test/compile; +integration-tests/Test/compile"
 
   check-docs:
     name: Check Docs
@@ -124,9 +124,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
-          - { scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
-          - { scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
+          - { name: "Scala 2.13, JDK 11", scala-version: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { name: "Scala 2.13, JDK 21", scala-version: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
+          - { name: "Scala 3.3, JDK 21", scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -153,8 +153,8 @@ jobs:
         with:
           jvm: ${{ matrix.java-version }}
 
-      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
+      - name: Run test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
+        run: sbt ++${{ matrix.scala-version }} ${{ matrix.sbt-opts }} "test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -191,11 +191,12 @@ jobs:
           jvm: temurin:1.11
 
       - name: Run multi-broker and long running integration tests
-        run: sbt "tests/IntegrationTest/test"
+        run: sbt "integration-tests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
         run: find . -name "*.log" -exec ./scripts/cat-log.sh {} \;
+
   build-benchmark:
     name: Build benchmarks
     needs: [check-code-style, check-code-compilation, check-docs]
@@ -227,4 +228,4 @@ jobs:
           jvm: temurin:1.11
 
       - name: "Compile benchmark tests"
-        run: sbt "benchmarks/IntegrationTest/compile"
+        run: sbt "benchmarks/Test/compile"

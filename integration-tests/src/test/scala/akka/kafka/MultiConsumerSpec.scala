@@ -3,9 +3,10 @@
  * Copyright (C) 2016 - 2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
-package akka.kafka.scaladsl
+package akka.kafka
 
 import akka.Done
+import akka.kafka.scaladsl.SpecBase
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
