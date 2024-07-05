@@ -152,9 +152,6 @@ jobs:
         with:
           jvm: ${{ matrix.java-version }}
 
-      - name: 'Clear action cache'
-        uses: ./.github/actions/clear-action-cache
-
       - name: Run test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
         run: sbt ++${{ matrix.scala-version }} ${{ matrix.sbt-opts }} "test"
 
