@@ -317,8 +317,8 @@ lazy val tests = project
       // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
       // https://github.com/scala/scala3/issues/20026
       (if (scalaVersion.value.startsWith("3"))
-        (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
-      else (Test / unmanagedSources).value)
+         (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
+       else (Test / unmanagedSources).value)
   )
 
 lazy val `integration-tests` = project
