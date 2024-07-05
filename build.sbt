@@ -333,6 +333,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(
     name := "Alpakka Kafka",
+    crossScalaVersions := Seq(Scala213),
     publish / skip := true,
     makeSite := makeSite.dependsOn(LocalRootProject / ScalaUnidoc / doc).value,
     previewPath := (Paradox / siteSubdirName).value,
@@ -387,6 +388,7 @@ lazy val benchmarks = project
   .settings(commonSettings)
   .settings(
     name := "akka-stream-kafka-benchmarks",
+    crossScalaVersions := Seq(Scala213),
     publish / skip := true,
     Test / parallelExecution := false,
     libraryDependencies ++= Seq(
