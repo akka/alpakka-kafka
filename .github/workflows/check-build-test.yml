@@ -124,9 +124,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Test (Scala 2.13, JDK 11)", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
-          - { name: "Test (Scala 2.13, JDK 21)", scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
-          - { name: "Test (Scala 3.3, JDK 21)", scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
+          - { name: "Scala 2.13, JDK 11", scalaVersion: '2.13', java-version: 'temurin:1.11', sbt-opts: '-J-XX:+UnlockExperimentalVMOptions -J-XX:+UseJVMCICompiler' }
+          - { name: "Scala 2.13, JDK 21", scalaVersion: '2.13', java-version: 'temurin:1.21', sbt-opts: '' }
+          - { name: "Scala 3.3, JDK 21", scalaVersion: '3.3', java-version: 'temurin:1.21', sbt-opts: '' }
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
