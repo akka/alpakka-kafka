@@ -189,9 +189,6 @@ jobs:
         with:
           jvm: temurin:1.11
 
-      - name: 'Clear action cache'
-        uses: ./.github/actions/clear-action-cache
-
       - name: Run multi-broker and long running integration tests
         run: sbt "integration-tests/test"
 
