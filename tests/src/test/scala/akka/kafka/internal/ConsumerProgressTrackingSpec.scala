@@ -12,7 +12,7 @@ import org.mockito.Mockito
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.language.reflectiveCalls
 
 class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with LogCapturing {

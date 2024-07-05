@@ -9,7 +9,7 @@ import akka.kafka.benchmarks.app.RunTestCommand
 import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class KafkaConsumerTestFixture(topic: String, msgCount: Int, consumer: KafkaConsumer[Array[Byte], String]) {
   def close(): Unit = consumer.close()

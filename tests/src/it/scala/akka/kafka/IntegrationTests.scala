@@ -11,7 +11,7 @@ import org.apache.kafka.common.TopicPartition
 import org.slf4j.Logger
 import org.testcontainers.containers.GenericContainer
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object IntegrationTests {
   val MessageLogInterval = 500L

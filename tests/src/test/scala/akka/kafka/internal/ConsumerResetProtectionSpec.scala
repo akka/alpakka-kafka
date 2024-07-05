@@ -22,7 +22,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.Optional
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class ConsumerResetProtectionSpec
     extends TestKit(ActorSystem("ConsumerResetProtectionSpec"))

@@ -17,7 +17,7 @@ import akka.stream.stage.GraphStageLogic
 import akka.util.Timeout
 import org.apache.kafka.common.{Metric, MetricName}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.compat.java8.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 

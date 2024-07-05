@@ -22,7 +22,7 @@ import org.apache.kafka.common.requests.OffsetFetchResponse
 
 import scala.compat.java8.FutureConverters.FutureOps
 import scala.concurrent.Future
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Internal API */
 @InternalApi

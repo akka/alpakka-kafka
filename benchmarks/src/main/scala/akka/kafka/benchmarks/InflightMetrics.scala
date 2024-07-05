@@ -18,7 +18,7 @@ import javax.management.{Attribute, MBeanServerConnection, ObjectName}
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[benchmarks] trait InflightMetrics {
   import InflightMetrics._

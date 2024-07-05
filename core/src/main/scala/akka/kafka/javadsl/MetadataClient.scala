@@ -16,7 +16,7 @@ import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.ExecutionContextExecutor
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient) {
 

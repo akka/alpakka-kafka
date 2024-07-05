@@ -18,7 +18,7 @@ import org.apache.kafka.common.serialization.{
   StringSerializer
 }
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class KafkaTransactionTestFixture(sourceTopic: String,
                                        sinkTopic: String,
