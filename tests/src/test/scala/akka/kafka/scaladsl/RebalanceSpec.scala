@@ -23,7 +23,7 @@ import org.scalatest.Inside
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 class RebalanceSpec extends SpecBase with TestcontainersKafkaLike with Inside {

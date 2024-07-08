@@ -31,7 +31,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class PartitionedSourceSpec(_system: ActorSystem)
     extends TestKit(_system)

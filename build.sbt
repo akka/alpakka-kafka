@@ -106,8 +106,7 @@ val commonSettings = Def.settings(
       "-encoding",
       "UTF-8", // yes, this is 2 args
       "-release",
-      "11",
-      "-Wconf:cat=feature:w,cat=deprecation&msg=.*JavaConverters.*:s,cat=unchecked:w,cat=lint:w,cat=unused:w,cat=w-flag:w"
+      "11"
     ) ++ {
       if (scalaVersion.value != Scala3) Seq("-Werror")
       else Seq.empty
@@ -170,9 +169,9 @@ lazy val `alpakka-kafka` =
     .disablePlugins(SitePlugin, MimaPlugin, CiReleasePlugin)
     .settings(commonSettings)
     .settings(
+      crossScalaVersions := Nil,
       publish / skip := true,
-      // TODO: add clusterSharding to unidocProjectFilter when we drop support for Akka 2.5
-      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit),
+      ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core, testkit, clusterSharding),
       onLoadMessage :=
         """
             |** Welcome to the Alpakka Kafka connector! **
@@ -405,10 +404,3 @@ lazy val benchmarks = project
         "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
       )
   )
-
-val isJdk11orHigher: Boolean = {
-  val result = VersionNumber(sys.props("java.specification.version")).matchesSemVer(SemanticSelector(">=11"))
-  if (!result)
-    throw new IllegalArgumentException("JDK 11 or higher is required")
-  result
-}

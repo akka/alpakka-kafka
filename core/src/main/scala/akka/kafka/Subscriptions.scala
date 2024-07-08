@@ -12,7 +12,7 @@ import akka.kafka.internal.PartitionAssignmentHelpers.EmptyPartitionAssignmentHa
 import org.apache.kafka.common.TopicPartition
 
 import scala.annotation.varargs
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 sealed trait Subscription {
 

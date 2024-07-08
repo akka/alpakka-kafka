@@ -24,7 +24,7 @@ import org.apache.kafka.common.errors.ProducerFencedException
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Try}
 
 /**

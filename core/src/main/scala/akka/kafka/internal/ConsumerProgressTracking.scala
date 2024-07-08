@@ -8,7 +8,7 @@ import akka.annotation.InternalApi
 import org.apache.kafka.clients.consumer.{Consumer, ConsumerRecords, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
  * Maintain our own OffsetAndTimestamp which can tolerate negative timestamps, which happen for old clients that
