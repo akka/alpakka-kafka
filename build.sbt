@@ -17,7 +17,7 @@ val ScalaVersions = Seq(Scala213, Scala3)
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
 val AkkaBinaryVersionForDocs = "2.9"
-val akkaVersion = "2.9.3"
+val akkaVersion = "2.9.4"
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.7.0"
