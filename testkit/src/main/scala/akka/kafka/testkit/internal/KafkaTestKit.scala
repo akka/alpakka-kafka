@@ -84,10 +84,10 @@ trait KafkaTestKit {
   def system: ActorSystem
   def bootstrapServers: String
 
-  val settings = KafkaTestkitSettings(system)
+  val settings: KafkaTestkitSettings = KafkaTestkitSettings(system)
 
   private lazy val adminDefaults: java.util.Map[String, AnyRef] = {
-    val config = new java.util.HashMap[String, AnyRef]()
+    val config: java.util.Map[String, AnyRef] = new java.util.HashMap[String, AnyRef]()
     config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
     config
   }
