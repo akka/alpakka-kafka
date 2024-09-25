@@ -5,7 +5,6 @@
 
 package akka.kafka.scaladsl
 
-
 import akka.annotation.ApiMayChange
 import akka.kafka.CommitterSettings
 import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}

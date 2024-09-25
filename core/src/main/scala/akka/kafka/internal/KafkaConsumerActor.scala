@@ -787,7 +787,8 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler: PartitionAssignmentHandler
   ) extends RebalanceListener {
 
-    private val restrictedConsumer = new RestrictedConsumer(consumer, java.time.Duration.ofNanos(settings.partitionHandlerWarning.*(0.95d).toNanos))
+    private val restrictedConsumer =
+      new RestrictedConsumer(consumer, java.time.Duration.ofNanos(settings.partitionHandlerWarning.*(0.95d).toNanos))
     private val warningDuration = settings.partitionHandlerWarning.toNanos
 
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {

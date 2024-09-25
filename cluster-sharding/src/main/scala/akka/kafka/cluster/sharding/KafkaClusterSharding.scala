@@ -29,7 +29,6 @@ import scala.jdk.FutureConverters._
 import scala.util.{Failure, Success}
 import org.slf4j.LoggerFactory
 
-
 /**
  * API MAY CHANGE
  *
