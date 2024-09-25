@@ -9,11 +9,11 @@ import akka.actor.{ActorSystem, ActorSystemImpl, ClassicActorSystemProvider}
 import akka.annotation.InternalApi
 import akka.discovery.{Discovery, ServiceDiscovery}
 import akka.kafka.{ConsumerSettings, ProducerSettings}
-import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.DurationConverters._
 import scala.util.Failure
 
 /**
@@ -63,7 +63,7 @@ object DiscoverySupport {
     checkClassOrThrow(system.asInstanceOf[ActorSystemImpl])
     val serviceName = config.getString("service-name")
     if (serviceName.nonEmpty) {
-      val lookupTimeout = config.getDuration("resolve-timeout").asScala
+      val lookupTimeout = config.getDuration("resolve-timeout").toScala
       bootstrapServers(discovery(config, system), serviceName, lookupTimeout)
     } else throw new IllegalArgumentException(s"value for `service-name` in $config is empty")
   }

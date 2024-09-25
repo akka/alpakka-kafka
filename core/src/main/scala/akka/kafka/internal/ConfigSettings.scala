@@ -11,9 +11,9 @@ import akka.annotation.InternalApi
 import com.typesafe.config.{Config, ConfigObject}
 
 import scala.annotation.tailrec
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
-import akka.util.JavaDurationConverters._
+import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
 
 /**
  * INTERNAL API
@@ -43,7 +43,7 @@ import akka.util.JavaDurationConverters._
 
   def getPotentiallyInfiniteDuration(underlying: Config, path: String): Duration = underlying.getString(path) match {
     case "infinite" => Duration.Inf
-    case _ => underlying.getDuration(path).asScala
+    case _ => underlying.getDuration(path).toScala
   }
 
 }

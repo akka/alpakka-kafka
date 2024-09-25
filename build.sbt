@@ -16,8 +16,8 @@ val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
-val AkkaBinaryVersionForDocs = "2.9"
-val akkaVersion = "2.9.3"
+val akkaVersion = "2.10.0-M1"
+val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match { case Seq(major, minor, _*) => s"$major.$minor" }
 
 // Keep .scala-steward.conf pin in sync
 val kafkaVersion = "3.7.1"
@@ -26,7 +26,7 @@ val KafkaVersionForDocs = "37"
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
 val testcontainersVersion = "1.20.1"
-val slf4jVersion = "1.7.36"
+val slf4jVersion = "2.0.16"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
@@ -304,7 +304,7 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "3.0" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.2.13" % Test,
+        "ch.qos.logback" % "logback-classic" % "1.5.7" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,

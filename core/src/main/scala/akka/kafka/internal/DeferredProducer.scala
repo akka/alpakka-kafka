@@ -6,14 +6,13 @@
 package akka.kafka.internal
 
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ProducerSettings
 import akka.stream.Materializer
 import akka.stream.stage._
-import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.producer.Producer
 
 import scala.concurrent.ExecutionContext
+import scala.jdk.DurationConverters._
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -72,7 +71,7 @@ private[kafka] trait DeferredProducer[K, V] extends GraphStageLogic with StageId
               closeAndFailStageCb.invoke(e)
               e
             }
-          )(ExecutionContexts.parasitic)
+          )(ExecutionContext.parasitic)
         changeProducerAssignmentLifecycle(AsyncCreateRequestSent)
     }
   }
@@ -95,7 +94,7 @@ private[kafka] trait DeferredProducer[K, V] extends GraphStageLogic with StageId
       try {
         // we do not have to check if producer was already closed in send-callback as `flush()` and `close()` are effectively no-ops in this case
         producer.flush()
-        producer.close(producerSettings.closeTimeout.asJava)
+        producer.close(producerSettings.closeTimeout.toJava)
         log.debug("Producer closed")
       } catch {
         case NonFatal(ex) => log.error(ex, "Problem occurred during producer close")

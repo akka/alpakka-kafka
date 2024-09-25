@@ -5,10 +5,10 @@
 
 package akka.kafka
 
-import akka.util.JavaDurationConverters._
 import com.typesafe.config.Config
 
 import scala.concurrent.duration._
+import scala.jdk.DurationConverters._
 
 import java.time.{Duration => JDuration}
 
@@ -40,7 +40,7 @@ class ConnectionCheckerSettings private[kafka] (val enable: Boolean,
 
   /** Java API */
   def withCheckInterval(checkInterval: JDuration): ConnectionCheckerSettings =
-    copy(checkInterval = checkInterval.asScala)
+    copy(checkInterval = checkInterval.toScala)
 
   override def toString: String =
     s"akka.kafka.ConnectionCheckerSettings(" +
@@ -70,7 +70,7 @@ object ConnectionCheckerSettings {
     if (enable) {
       val retries = config.getInt("max-retries")
       val factor = config.getDouble("backoff-factor")
-      val checkInterval = config.getDuration("check-interval").asScala
+      val checkInterval = config.getDuration("check-interval").toScala
       apply(retries, checkInterval, factor)
     } else Disabled
   }

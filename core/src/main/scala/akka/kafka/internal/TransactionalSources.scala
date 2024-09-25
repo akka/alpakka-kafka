@@ -10,7 +10,6 @@ import akka.{Done, NotUsed}
 import akka.actor.{ActorRef, Status, Terminated}
 import akka.actor.Status.Failure
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{PartitionOffset, TransactionalMessage}
 import akka.kafka.internal.KafkaConsumerActor.Internal.Revoked
 import akka.kafka.internal.SubSourceLogic._
@@ -317,7 +316,7 @@ private object TransactionalSourceLogic {
       import akka.pattern.ask
       sourceActor
         .ask(Committed(offsets))(Timeout(commitTimeout))
-        .map(_ => Done)(ExecutionContexts.parasitic)
+        .map(_ => Done)(ExecutionContext.parasitic)
     }
 
     override def failed(): Unit =

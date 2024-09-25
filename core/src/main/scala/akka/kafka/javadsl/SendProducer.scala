@@ -13,7 +13,7 @@ import akka.kafka.ProducerMessage._
 import akka.kafka.{scaladsl, ProducerSettings}
 import org.apache.kafka.clients.producer.{ProducerRecord, RecordMetadata}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters._
 
 /**
  * Utility class for producing to Kafka without using Akka Streams.
@@ -48,18 +48,18 @@ final class SendProducer[K, V] private (underlying: scaladsl.SendProducer[K, V])
    * The messages support passing through arbitrary data.
    */
   def sendEnvelope[PT](envelope: Envelope[K, V, PT]): CompletionStage[Results[K, V, PT]] =
-    underlying.sendEnvelope(envelope).toJava
+    underlying.sendEnvelope(envelope).asJava
 
   /**
    * Send a raw Kafka [[org.apache.kafka.clients.producer.ProducerRecord]] and complete a future with the resulting metadata.
    */
   def send(record: ProducerRecord[K, V]): CompletionStage[RecordMetadata] =
-    underlying.send(record).toJava
+    underlying.send(record).asJava
 
   /**
    * Close the underlying producer (depending on the "close producer on stop" setting).
    */
-  def close(): CompletionStage[Done] = underlying.close().toJava
+  def close(): CompletionStage[Done] = underlying.close().asJava
 
   override def toString: String = s"SendProducer(${underlying.settings})"
 }

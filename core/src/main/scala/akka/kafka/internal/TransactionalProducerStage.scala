@@ -8,7 +8,6 @@ package akka.kafka.internal
 import akka.Done
 import akka.actor.Terminated
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffsetCommittedMarker}
 import akka.kafka.ProducerMessage.{Envelope, Results}
 import akka.kafka.internal.DeferredProducer._
@@ -22,8 +21,9 @@ import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.ProducerFencedException
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Try}
 
@@ -198,7 +198,7 @@ private final class TransactionalProducerStageLogic[K, V, P](
           batchOffsets = TransactionBatch.empty
           batch
             .internalCommit()
-            .onComplete(onInternalCommitAckCb)(ExecutionContexts.parasitic)
+            .onComplete(onInternalCommitAckCb)(ExecutionContext.parasitic)
         } catch {
           case e: ProducerFencedException =>
             log.debug(s"Producer fenced: $e")

@@ -8,7 +8,6 @@ package akka.kafka.scaladsl
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{ActorRef, ActorSystem, ExtendedActorSystem}
-import akka.dispatch.ExecutionContexts
 import akka.kafka.Metadata._
 import akka.kafka.{ConsumerSettings, KafkaConsumerActor}
 import akka.pattern.ask
@@ -30,7 +29,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   def getBeginningOffsetForPartition(partition: TopicPartition): Future[Long] =
     getBeginningOffsets(Set(partition))
@@ -43,7 +42,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   def getEndOffsetForPartition(partition: TopicPartition): Future[Long] =
     getEndOffsets(Set(partition))
@@ -56,7 +55,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   def getPartitionsFor(topic: String): Future[List[PartitionInfo]] =
     (consumerActor ? GetPartitionsFor(topic))(timeout)
@@ -65,7 +64,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   @deprecated("use `getCommittedOffsets`", "2.0.3")
   def getCommittedOffset(partition: TopicPartition): Future[OffsetAndMetadata] =
@@ -75,7 +74,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   def getCommittedOffsets(partitions: Set[TopicPartition]): Future[Map[TopicPartition, OffsetAndMetadata]] =
     (consumerActor ? GetCommittedOffsets(partitions))(timeout)
@@ -84,7 +83,7 @@ class MetadataClient private (consumerActor: ActorRef, timeout: Timeout, managed
       .flatMap {
         case Success(res) => Future.successful(res)
         case Failure(e) => Future.failed(e)
-      }(ExecutionContexts.parasitic)
+      }(ExecutionContext.parasitic)
 
   def close(): Unit =
     if (managedActor) {
