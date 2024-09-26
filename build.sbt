@@ -128,12 +128,16 @@ val commonSettings = Def.settings(
       "-doc-canonical-base-url",
       "https://doc.akka.io/api/alpakka-kafka/current/"
     ) ++ {
-    if (scalaBinaryVersion.value.startsWith("3")) {
-      Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/", "-skip-packages:akka.pattern")
-    } else {
-      Seq("-jdk-api-doc-base", s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/", "-skip-packages", "akka.pattern")
-    }
-  },
+      if (scalaBinaryVersion.value.startsWith("3")) {
+        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            "-skip-packages:akka.pattern")
+      } else {
+        Seq("-jdk-api-doc-base",
+            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            "-skip-packages",
+            "akka.pattern")
+      }
+    },
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
