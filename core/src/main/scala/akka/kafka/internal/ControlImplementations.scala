@@ -9,7 +9,6 @@ import java.util.concurrent.{CompletionStage, Executor}
 import akka.Done
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.internal.KafkaConsumerActor.Internal.{ConsumerMetrics, RequestMetrics}
 import akka.kafka.{javadsl, scaladsl}
 import akka.stream.SourceShape
@@ -17,9 +16,9 @@ import akka.stream.stage.GraphStageLogic
 import akka.util.Timeout
 import org.apache.kafka.common.{Metric, MetricName}
 
-import scala.jdk.CollectionConverters._
-import scala.compat.java8.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters.{CompletionStageOps, FutureOps}
 
 private object PromiseControl {
   sealed trait ControlOperation
@@ -86,7 +85,7 @@ private trait MetricsControl extends scaladsl.Consumer.Control {
         consumer
           .ask(RequestMetrics)(Timeout(1.minute))
           .mapTo[ConsumerMetrics]
-          .map(_.metrics)(ExecutionContexts.parasitic)
+          .map(_.metrics)(ExecutionContext.parasitic)
       }(executionContext)
   }
 }
@@ -95,17 +94,17 @@ private trait MetricsControl extends scaladsl.Consumer.Control {
 @InternalApi
 final private[kafka] class ConsumerControlAsJava(underlying: scaladsl.Consumer.Control)
     extends javadsl.Consumer.Control {
-  override def stop(): CompletionStage[Done] = underlying.stop().toJava
+  override def stop(): CompletionStage[Done] = underlying.stop().asJava
 
-  override def shutdown(): CompletionStage[Done] = underlying.shutdown().toJava
+  override def shutdown(): CompletionStage[Done] = underlying.shutdown().asJava
 
   override def drainAndShutdown[T](streamCompletion: CompletionStage[T], ec: Executor): CompletionStage[T] =
-    underlying.drainAndShutdown(streamCompletion.toScala)(ExecutionContext.fromExecutor(ec)).toJava
+    underlying.drainAndShutdown(streamCompletion.asScala)(ExecutionContext.fromExecutor(ec)).asJava
 
-  override def isShutdown: CompletionStage[Done] = underlying.isShutdown.toJava
+  override def isShutdown: CompletionStage[Done] = underlying.isShutdown.asJava
 
   override def getMetrics: CompletionStage[java.util.Map[MetricName, Metric]] =
-    underlying.metrics.map(_.asJava)(ExecutionContexts.parasitic).toJava
+    underlying.metrics.map(_.asJava)(ExecutionContext.parasitic).asJava
 }
 
 /** Internal API */

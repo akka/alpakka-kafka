@@ -14,13 +14,12 @@ import com.typesafe.config.Config
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig}
 import org.apache.kafka.common.serialization.Serializer
 
-import scala.jdk.CollectionConverters._
-import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
-import akka.util.JavaDurationConverters._
-
 import scala.concurrent.{ExecutionContext, Future}
-import scala.compat.java8.FutureConverters._
+import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
+import scala.jdk.FutureConverters._
+import scala.jdk.OptionConverters._
 
 object ProducerSettings {
 
@@ -73,11 +72,11 @@ object ProducerSettings {
       (valueSerializer.isDefined || properties.contains(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG)),
       "Value serializer should be defined or declared in configuration"
     )
-    val closeTimeout = config.getDuration("close-timeout").asScala
+    val closeTimeout = config.getDuration("close-timeout").toScala
     val closeOnProducerStop = config.getBoolean("close-on-producer-stop")
     val parallelism = config.getInt("parallelism")
     val dispatcher = config.getString("use-dispatcher")
-    val eosCommitInterval = config.getDuration("eos-commit-interval").asScala
+    val eosCommitInterval = config.getDuration("eos-commit-interval").toScala
     val transactionIdPrefix = config.getString("transaction-id-prefix")
     new ProducerSettings[K, V](
       properties,
@@ -142,7 +141,7 @@ object ProducerSettings {
       keySerializer: Optional[Serializer[K]],
       valueSerializer: Optional[Serializer[V]]
   ): ProducerSettings[K, V] =
-    apply(system, keySerializer.asScala, valueSerializer.asScala)
+    apply(system, keySerializer.toScala, valueSerializer.toScala)
 
   /**
    * Java API: Create settings from the default configuration
@@ -156,7 +155,7 @@ object ProducerSettings {
       keySerializer: Optional[Serializer[K]],
       valueSerializer: Optional[Serializer[V]]
   ): ProducerSettings[K, V] =
-    apply(system, keySerializer.asScala, valueSerializer.asScala)
+    apply(system, keySerializer.toScala, valueSerializer.toScala)
 
   /**
    * Java API: Create settings from a configuration with the same layout as
@@ -168,7 +167,7 @@ object ProducerSettings {
       keySerializer: Optional[Serializer[K]],
       valueSerializer: Optional[Serializer[V]]
   ): ProducerSettings[K, V] =
-    apply(config, keySerializer.asScala, valueSerializer.asScala)
+    apply(config, keySerializer.toScala, valueSerializer.toScala)
 
   /**
    * Java API: Create settings from the default configuration
@@ -305,7 +304,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * Duration to wait for `KafkaProducer.close` to finish.
    */
   def withCloseTimeout(closeTimeout: java.time.Duration): ProducerSettings[K, V] =
-    copy(closeTimeout = closeTimeout.asScala)
+    copy(closeTimeout = closeTimeout.toScala)
 
   /**
    * Call `KafkaProducer.close` on the [[org.apache.kafka.clients.producer.KafkaProducer]] when the producer stage
@@ -340,7 +339,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * The time interval to commit a transaction when using the `Transactional.sink` or `Transactional.flow`.
    */
   def withEosCommitInterval(eosCommitInterval: java.time.Duration): ProducerSettings[K, V] =
-    copy(eosCommitInterval = eosCommitInterval.asScala)
+    copy(eosCommitInterval = eosCommitInterval.toScala)
 
   /**
    * The prefix to append to the generated transaction id when using the `Transactional.sink` or `Transactional.flow`.
@@ -364,7 +363,7 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
   def withEnrichCompletionStage(
       value: java.util.function.Function[ProducerSettings[K, V], CompletionStage[ProducerSettings[K, V]]]
   ): ProducerSettings[K, V] =
-    copy(enrichAsync = Some((s: ProducerSettings[K, V]) => value.apply(s).toScala))
+    copy(enrichAsync = Some((s: ProducerSettings[K, V]) => value.apply(s).asScala))
 
   /**
    * Replaces the default Kafka producer creation logic with an external producer. This will also set
@@ -497,5 +496,5 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
    * @param executor Executor for asynchronous producer creation
    */
   def createKafkaProducerCompletionStage(executor: Executor): CompletionStage[Producer[K, V]] =
-    createKafkaProducerAsync()(ExecutionContext.fromExecutor(executor)).toJava
+    createKafkaProducerAsync()(ExecutionContext.fromExecutor(executor)).asJava
 }

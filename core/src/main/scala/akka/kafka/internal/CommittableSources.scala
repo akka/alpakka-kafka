@@ -7,7 +7,6 @@ package akka.kafka.internal
 
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
 import akka.kafka.internal.KafkaConsumerActor.Internal.{Commit, CommitSingle, CommitWithoutReply}
@@ -151,7 +150,7 @@ private[kafka] object KafkaAsyncConsumerCommitterRef {
     }
     getFirstExecutionContext(batch)
       .map { implicit ec =>
-        Future.sequence(futures).map(_ => Done)(ExecutionContexts.parasitic)
+        Future.sequence(futures).map(_ => Done)(ExecutionContext.parasitic)
       }
       .getOrElse(Future.successful(Done))
   }
@@ -210,7 +209,7 @@ private[kafka] class KafkaAsyncConsumerCommitterRef(private val consumerActor: A
     import akka.pattern.ask
     consumerActor
       .ask(msg)(Timeout(commitTimeout))
-      .map(_ => Done)(ExecutionContexts.parasitic)
+      .map(_ => Done)(ExecutionContext.parasitic)
       .recoverWith {
         case e: AskTimeoutException =>
           Future.failed(new CommitTimeoutException(s"Kafka commit took longer than: $commitTimeout (${e.getMessage})"))

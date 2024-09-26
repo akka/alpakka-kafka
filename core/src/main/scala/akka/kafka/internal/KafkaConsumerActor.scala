@@ -21,7 +21,6 @@ import akka.actor.{
   Timers
 }
 import akka.annotation.InternalApi
-import akka.util.JavaDurationConverters._
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
@@ -34,9 +33,10 @@ import org.apache.kafka.common.errors.{
 }
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
 import scala.util.{Success, Try}
 import scala.util.control.NonFatal
 
@@ -434,7 +434,7 @@ import scala.util.control.NonFatal
     this.settings = updatedSettings
     if (settings.connectionCheckerSettings.enable)
       context.actorOf(ConnectionChecker.props(settings.connectionCheckerSettings))
-    pollTimeout = settings.pollTimeout.asJava
+    pollTimeout = settings.pollTimeout.toJava
     offsetForTimesTimeout = settings.getOffsetForTimesTimeout
     positionTimeout = settings.getPositionTimeout
     val progressTrackingFactory: () => ConsumerProgressTracking = () => ensureProgressTracker()
@@ -787,7 +787,8 @@ import scala.util.control.NonFatal
       partitionAssignmentHandler: PartitionAssignmentHandler
   ) extends RebalanceListener {
 
-    private val restrictedConsumer = new RestrictedConsumer(consumer, settings.partitionHandlerWarning.*(0.95d).asJava)
+    private val restrictedConsumer =
+      new RestrictedConsumer(consumer, java.time.Duration.ofNanos(settings.partitionHandlerWarning.*(0.95d).toNanos))
     private val warningDuration = settings.partitionHandlerWarning.toNanos
 
     override def onPartitionsAssigned(partitions: java.util.Collection[TopicPartition]): Unit = {

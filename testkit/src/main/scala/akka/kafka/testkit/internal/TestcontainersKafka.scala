@@ -7,12 +7,12 @@ package akka.kafka.testkit.internal
 
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.KafkaSpec
-import akka.util.JavaDurationConverters._
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
-import scala.compat.java8.OptionConverters._
 import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
+import scala.jdk.OptionConverters._
 
 object TestcontainersKafka {
   trait Spec extends KafkaSpec {
@@ -51,12 +51,12 @@ object TestcontainersKafka {
 
     def schemaRegistryContainer: Option[SchemaRegistryContainer] = {
       requireStarted()
-      cluster.getSchemaRegistry.asScala
+      cluster.getSchemaRegistry.toScala
     }
 
     def getSchemaRegistryUrl: String = {
       requireStarted()
-      cluster.getSchemaRegistry.asScala
+      cluster.getSchemaRegistry.toScala
         .map(_.getSchemaRegistryUrl)
         .getOrElse(
           throw new RuntimeException("Did you enable schema registry in your KafkaTestkitTestcontainersSettings?")
@@ -77,8 +77,8 @@ object TestcontainersKafka {
           internalTopicsReplicationFactor,
           settings.useSchemaRegistry,
           settings.containerLogging,
-          settings.clusterStartTimeout.asJava,
-          settings.readinessCheckTimeout.asJava
+          settings.clusterStartTimeout.toJava,
+          settings.readinessCheckTimeout.toJava
         )
         configureKafka(brokerContainers)
         configureKafkaConsumer.accept(brokerContainers.asJavaCollection)

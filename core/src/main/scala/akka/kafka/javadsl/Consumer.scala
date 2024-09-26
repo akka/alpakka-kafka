@@ -9,7 +9,6 @@ import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.ActorRef
 import akka.annotation.ApiMayChange
-import akka.dispatch.ExecutionContexts
 import akka.japi.Pair
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka._
@@ -19,9 +18,10 @@ import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
-import scala.jdk.CollectionConverters._
-import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.ExecutionContext
+import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
 
 /**
  * Akka Stream connector for subscribing to Kafka topics.
@@ -285,7 +285,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
+          getOffsetsOnAssign(tps.asJava).asScala.map(_.asScala.toMap)(ExecutionContext.parasitic),
         _ => ()
       )
       .map {
@@ -316,7 +316,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
+          getOffsetsOnAssign(tps.asJava).asScala.map(_.asScala.toMap)(ExecutionContext.parasitic),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {
@@ -355,7 +355,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
+          getOffsetsOnAssign(tps.asJava).asScala.map(_.asScala.toMap)(ExecutionContext.parasitic),
         _ => ()
       )
       .map {
@@ -380,7 +380,7 @@ object Consumer {
         settings,
         subscription,
         (tps: Set[TopicPartition]) =>
-          getOffsetsOnAssign(tps.asJava).toScala.map(_.asScala.toMap)(ExecutionContexts.parasitic),
+          getOffsetsOnAssign(tps.asJava).asScala.map(_.asScala.toMap)(ExecutionContext.parasitic),
         (tps: Set[TopicPartition]) => onRevoke.accept(tps.asJava)
       )
       .map {

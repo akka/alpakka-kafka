@@ -13,7 +13,7 @@ import akka.kafka.ConsumerMessage.{Committable, CommittableOffsetBatch}
 import akka.kafka.{scaladsl, CommitterSettings}
 import akka.stream.javadsl.{Flow, FlowWithContext, Sink}
 
-import scala.compat.java8.FutureConverters.FutureOps
+import scala.jdk.FutureConverters._
 
 object Committer {
 
@@ -45,7 +45,7 @@ object Committer {
    * Batches offsets and commits them to Kafka.
    */
   def sink[C <: Committable](settings: CommitterSettings): Sink[C, CompletionStage[Done]] =
-    scaladsl.Committer.sink(settings).mapMaterializedValue(_.toJava).asJava
+    scaladsl.Committer.sink(settings).mapMaterializedValue(_.asJava).asJava
 
   /**
    * API MAY CHANGE
@@ -60,6 +60,6 @@ object Committer {
       .Flow[Pair[E, C]]
       .map(_.toScala)
       .toMat(scaladsl.Committer.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
-      .mapMaterializedValue[CompletionStage[Done]](_.toJava)
+      .mapMaterializedValue[CompletionStage[Done]](_.asJava)
       .asJava[Pair[E, C]]
 }

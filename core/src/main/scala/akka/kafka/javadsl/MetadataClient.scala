@@ -8,15 +8,15 @@ package akka.kafka.javadsl
 import java.util.concurrent.{CompletionStage, Executor}
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.dispatch.ExecutionContexts
 import akka.kafka.ConsumerSettings
 import akka.util.Timeout
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
-import scala.compat.java8.FutureConverters._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContextExecutor
 import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
 
 class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient) {
 
@@ -27,14 +27,14 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getBeginningOffsets(partitions.asScala.toSet)
       .map { beginningOffsets =>
         beginningOffsets.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava
-      }(ExecutionContexts.parasitic)
-      .toJava
+      }(ExecutionContext.parasitic)
+      .asJava
 
   def getBeginningOffsetForPartition[K, V](partition: TopicPartition): CompletionStage[java.lang.Long] =
     metadataClient
       .getBeginningOffsetForPartition(partition)
-      .map(Long.box)(ExecutionContexts.parasitic)
-      .toJava
+      .map(Long.box)(ExecutionContext.parasitic)
+      .asJava
 
   def getEndOffsets(
       partitions: java.util.Set[TopicPartition]
@@ -43,36 +43,36 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getEndOffsets(partitions.asScala.toSet)
       .map { endOffsets =>
         endOffsets.iterator.map { case (k, v) => k -> Long.box(v) }.toMap.asJava
-      }(ExecutionContexts.parasitic)
-      .toJava
+      }(ExecutionContext.parasitic)
+      .asJava
 
   def getEndOffsetForPartition(partition: TopicPartition): CompletionStage[java.lang.Long] =
     metadataClient
       .getEndOffsetForPartition(partition)
-      .map(Long.box)(ExecutionContexts.parasitic)
-      .toJava
+      .map(Long.box)(ExecutionContext.parasitic)
+      .asJava
 
   def listTopics(): CompletionStage[java.util.Map[java.lang.String, java.util.List[PartitionInfo]]] =
     metadataClient
       .listTopics()
       .map { topics =>
         topics.view.iterator.map { case (k, v) => k -> v.asJava }.toMap.asJava
-      }(ExecutionContexts.parasitic)
-      .toJava
+      }(ExecutionContext.parasitic)
+      .asJava
 
   def getPartitionsFor(topic: java.lang.String): CompletionStage[java.util.List[PartitionInfo]] =
     metadataClient
       .getPartitionsFor(topic)
       .map { partitionsInfo =>
         partitionsInfo.asJava
-      }(ExecutionContexts.parasitic)
-      .toJava
+      }(ExecutionContext.parasitic)
+      .asJava
 
   @deprecated("use `getCommittedOffsets`", "2.0.3")
   def getCommittedOffset(partition: TopicPartition): CompletionStage[OffsetAndMetadata] =
     metadataClient
       .getCommittedOffset(partition)
-      .toJava
+      .asJava
 
   def getCommittedOffsets(
       partitions: java.util.Set[TopicPartition]
@@ -81,8 +81,8 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
       .getCommittedOffsets(partitions.asScala.toSet)
       .map { committedOffsets =>
         committedOffsets.asJava
-      }(ExecutionContexts.parasitic)
-      .toJava
+      }(ExecutionContext.parasitic)
+      .asJava
 
   def close(): Unit =
     metadataClient.close()
@@ -91,7 +91,7 @@ class MetadataClient private (metadataClient: akka.kafka.scaladsl.MetadataClient
 object MetadataClient {
 
   def create(consumerActor: ActorRef, timeout: Timeout, executor: Executor): MetadataClient = {
-    implicit val ec: ExecutionContextExecutor = ExecutionContexts.fromExecutor(executor)
+    implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
     val metadataClient = akka.kafka.scaladsl.MetadataClient.create(consumerActor, timeout)
     new MetadataClient(metadataClient)
   }
@@ -101,7 +101,7 @@ object MetadataClient {
                    system: ActorSystem,
                    executor: Executor): MetadataClient = {
     val metadataClient = akka.kafka.scaladsl.MetadataClient
-      .create(consumerSettings, timeout)(system, ExecutionContexts.fromExecutor(executor))
+      .create(consumerSettings, timeout)(system, ExecutionContext.fromExecutor(executor))
     new MetadataClient(metadataClient)
   }
 }

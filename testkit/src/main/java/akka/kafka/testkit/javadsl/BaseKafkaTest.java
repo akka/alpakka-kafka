@@ -35,7 +35,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.compat.java8.functionConverterImpls.FromJavaPredicate;
+import scala.jdk.FunctionWrappers.*;
 
 public abstract class BaseKafkaTest extends KafkaTestKitClass {
 
@@ -123,7 +123,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         settings().clusterTimeout(),
         settings().checkInterval(),
         adminClient(),
-        new FromJavaPredicate<DescribeClusterResult>(predicate),
+        new FromJavaPredicate<>(predicate),
         log());
   }
 

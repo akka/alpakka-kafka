@@ -8,7 +8,6 @@ package akka.kafka.internal
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.testkit.TestKit
-import akka.util.JavaDurationConverters._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
 import org.mockito.Mockito._
@@ -18,6 +17,7 @@ import org.mockito.verification.VerificationMode
 import org.mockito.{ArgumentMatchers, Mockito}
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 
@@ -161,7 +161,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
     }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)): Unit =
-    verify(mock, mode).close(ConsumerMock.closeTimeout.asJava)
+    verify(mock, mode).close(ConsumerMock.closeTimeout.toJava)
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()): ConsumerRecords[K, V] =
     verify(mock, mode).poll(ArgumentMatchers.any[java.time.Duration])

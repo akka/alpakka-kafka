@@ -18,7 +18,7 @@ import akka.stream.javadsl._
 import akka.{Done, NotUsed}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import scala.compat.java8.FutureConverters.FutureOps
+import scala.jdk.FutureConverters.FutureOps
 
 /**
  *  Akka Stream connector to support transactions between Kafka topics.
@@ -88,7 +88,7 @@ object Transactional {
   ): Sink[IN, CompletionStage[Done]] =
     scaladsl.Transactional
       .sink(settings)
-      .mapMaterializedValue(_.toJava)
+      .mapMaterializedValue(_.asJava)
       .asJava
 
   /**
@@ -102,7 +102,7 @@ object Transactional {
   ): Sink[IN, CompletionStage[Done]] =
     scaladsl.Transactional
       .sink(settings, transactionalId)
-      .mapMaterializedValue(_.toJava)
+      .mapMaterializedValue(_.asJava)
       .asJava
 
   /**
@@ -119,7 +119,7 @@ object Transactional {
       .Flow[Pair[Envelope[K, V, NotUsed], PartitionOffset]]
       .map(_.toScala)
       .toMat(scaladsl.Transactional.sinkWithOffsetContext(settings))(akka.stream.scaladsl.Keep.right)
-      .mapMaterializedValue(_.toJava)
+      .mapMaterializedValue(_.asJava)
       .asJava
 
   /**

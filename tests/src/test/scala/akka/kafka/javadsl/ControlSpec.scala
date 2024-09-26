@@ -17,8 +17,8 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
+import scala.jdk.FutureConverters._
 import scala.language.reflectiveCalls
 
 object ControlSpec {
@@ -49,8 +49,8 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
     "drain to stream result" in {
       val control = createControl()
       val drainingControl =
-        Consumer.createDrainingControl(control, Future.successful("expected").toJava)
-      drainingControl.drainAndShutdown(ec).toScala.futureValue should be("expected")
+        Consumer.createDrainingControl(control, Future.successful("expected").asJava)
+      drainingControl.drainAndShutdown(ec).asScala.futureValue should be("expected")
       control.shutdownCalled.get() should be(true)
     }
 
@@ -59,9 +59,9 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
 
       val drainingControl = Consumer.createDrainingControl(
         control,
-        Future.failed[String](new RuntimeException("expected")).toJava
+        Future.failed[String](new RuntimeException("expected")).asJava
       )
-      val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
+      val value = drainingControl.drainAndShutdown(ec).asScala.failed.futureValue
       value shouldBe a[RuntimeException]
       value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)
@@ -72,9 +72,9 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
 
       val drainingControl = Consumer.createDrainingControl(
         control,
-        Future.failed[String](new RuntimeException("expected")).toJava
+        Future.failed[String](new RuntimeException("expected")).asJava
       )
-      val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
+      val value = drainingControl.drainAndShutdown(ec).asScala.failed.futureValue
       value shouldBe a[RuntimeException]
       value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)
@@ -83,8 +83,8 @@ class ControlSpec extends AnyWordSpec with ScalaFutures with Matchers with LogCa
     "drain to shutdown failure when stream succeeds" in {
       val control = createControl(shutdownFuture = Future.failed(new RuntimeException("expected")))
 
-      val drainingControl = Consumer.createDrainingControl(control, Future.successful(Done).toJava)
-      val value = drainingControl.drainAndShutdown(ec).toScala.failed.futureValue
+      val drainingControl = Consumer.createDrainingControl(control, Future.successful(Done).asJava)
+      val value = drainingControl.drainAndShutdown(ec).asScala.failed.futureValue
       value shouldBe a[RuntimeException]
       value.getMessage should be("expected")
       control.shutdownCalled.get() should be(true)

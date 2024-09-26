@@ -7,10 +7,11 @@ package akka.kafka
 import java.util.concurrent.TimeUnit
 
 import akka.annotation.ApiMayChange
-import akka.util.JavaDurationConverters._
+
 import com.typesafe.config.Config
 
 import scala.concurrent.duration._
+import scala.jdk.DurationConverters._
 
 @ApiMayChange(issue = "https://github.com/akka/alpakka-kafka/issues/882")
 sealed trait CommitDelivery
@@ -176,7 +177,7 @@ class CommitterSettings private (
     copy(maxInterval = maxInterval)
 
   def withMaxInterval(maxInterval: java.time.Duration): CommitterSettings =
-    copy(maxInterval = maxInterval.asScala)
+    copy(maxInterval = maxInterval.toScala)
 
   def withParallelism(parallelism: Int): CommitterSettings =
     copy(parallelism = parallelism)
