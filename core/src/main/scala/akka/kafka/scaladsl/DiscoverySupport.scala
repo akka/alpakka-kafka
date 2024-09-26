@@ -120,7 +120,7 @@ object DiscoverySupport {
     system.dynamicAccess.getClassFor[AnyRef]("akka.discovery.Discovery$") match {
       case Failure(_: ClassNotFoundException | _: NoClassDefFoundError) =>
         throw new IllegalStateException(
-          s"Akka Discovery is being used but the `akka-discovery` library is not on the classpath, it must be added explicitly. See https://doc.akka.io/docs/alpakka-kafka/current/discovery.html"
+          s"Akka Discovery is being used but the `akka-discovery` library is not on the classpath, it must be added explicitly. See https://doc.akka.io/libraries/alpakka-kafka/current/discovery.html"
         )
       case _ =>
     }

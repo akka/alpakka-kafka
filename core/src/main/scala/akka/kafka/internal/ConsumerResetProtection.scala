@@ -110,14 +110,14 @@ object ConsumerResetProtection {
           log.warning(
             s"Your last commit request $previouslyCommitted is more than the configured threshold from the last" +
             s"committed offset ($committed) for $tp. See " +
-            "https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#setting-offset-threshold-appropriately for more info."
+            "https://doc.akka.io/libraries/alpakka-kafka/current/errorhandling.html#setting-offset-threshold-appropriately for more info."
           )
         }
         log.warning(
           s"Dropping offsets for partition $tp - received an offset which is less than allowed $threshold " +
           s"from the  last requested offset (threshold: $threshold). Seeking to the latest known safe (committed " +
           s"or assigned) offset: $committed. See  " +
-          "https://doc.akka.io/docs/alpakka-kafka/current/errorhandling.html#unexpected-consumer-offset-reset" +
+          "https://doc.akka.io/libraries/alpakka-kafka/current/errorhandling.html#unexpected-consumer-offset-reset" +
           "for more information."
         )
         consumer ! Seek(Map(tp -> committed.offset()))

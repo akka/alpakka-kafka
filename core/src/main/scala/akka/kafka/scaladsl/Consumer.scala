@@ -26,7 +26,7 @@ object Consumer {
   /**
    * Materialized value of the consumer `Source`.
    *
-   * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
+   * See [[https://doc.akka.io/libraries/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
    */
   trait Control {
 
@@ -36,7 +36,7 @@ object Consumer {
      * already enqueued messages. It does not unsubscribe from any topics/partitions
      * as that could trigger a consumer group rebalance.
      *
-     * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
+     * See [[https://doc.akka.io/libraries/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
      *
      * Call [[#shutdown]] to close consumer.
      */
@@ -49,7 +49,7 @@ object Consumer {
      * from enqueued messages can be handled.
      * The actor will wait for acknowledgements of the already sent offset commits from the Kafka broker before shutting down.
      *
-     * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
+     * See [[https://doc.akka.io/libraries/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
      */
     def shutdown(): Future[Done]
 
@@ -93,7 +93,7 @@ object Consumer {
    * one, so that the stream can be stopped in a controlled way without losing
    * commits.
    *
-   * See [[https://doc.akka.io/docs/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
+   * See [[https://doc.akka.io/libraries/alpakka-kafka/current/consumer.html#controlled-shutdown Controlled shutdown]]
    */
   final class DrainingControl[T] private (control: Control, val streamCompletion: Future[T]) extends Control {
 
@@ -198,7 +198,7 @@ object Consumer {
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html),
    * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
    */
   @ApiMayChange
@@ -219,7 +219,7 @@ object Consumer {
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html),
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html),
    * [[Producer.flowWithContext]] and/or [[Committer.sinkWithOffsetContext]].
    *
    * This variant makes it possible to add additional metadata (in the form of a string)

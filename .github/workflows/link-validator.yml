@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   schedule:
-    - cron:  '0 6 * * 1'
+    - cron:  '10 6 1 * *'
 
 permissions:
   contents: read # allow actions/checkout
@@ -43,4 +43,4 @@ jobs:
         run: sbt docs/makeSite
 
       - name: Run Link Validator
-        run: cs launch net.runne::site-link-validator:0.2.3 -- scripts/link-validator.conf
+        run: cs launch net.runne::site-link-validator:0.2.5 -- scripts/link-validator.conf

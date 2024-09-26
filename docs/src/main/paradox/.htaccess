@@ -1,2 +1,2 @@
 # No patch version redirect
-RedirectMatch 301 ^/docs/alpakka-kafka/([^/]+)/release-notes/1.0.html https://doc.akka.io/docs/alpakka-kafka/$1/release-notes/1.0.x.html
+RedirectMatch 301 ^/docs/alpakka-kafka/([^/]+)/release-notes/1.0.html https://doc.akka.io/libraries/alpakka-kafka/$1/release-notes/1.0.x.html

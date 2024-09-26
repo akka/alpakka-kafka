@@ -10,7 +10,7 @@ import akka.kafka.testkit.internal.{AlpakkaKafkaContainer, SchemaRegistryContain
 import org.testcontainers.containers.GenericContainer
 
 /**
- * Uses [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka cluster in a Docker container.
+ * Uses [[https://java.testcontainers.org/ Testcontainers]] to start a Kafka cluster in a Docker container.
  * This trait will start Kafka only once per test session.  To create a Kafka cluster per test class see
  * [[TestcontainersKafkaPerClassLike]].
  *

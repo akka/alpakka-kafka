@@ -41,5 +41,5 @@ Gradle
 
 ## Documentation
 
-The [snapshot documentation](https://doc.akka.io/docs/alpakka-kafka/snapshot/) is updated with every snapshot build.
+The [snapshot documentation](https://doc.akka.io/libraries/alpakka-kafka/snapshot/) is updated with every snapshot build.
 

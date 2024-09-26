@@ -30,7 +30,7 @@ Key links:
 ### Check availability
 
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$VERSION$/) documentation
-- [ ] Check [reference](https://doc.akka.io/docs/alpakka-kafka/$VERSION$/) documentation. Check that the reference docs were deployed and show a version warning (see section below on how to fix the version warning).
+- [ ] Check [reference](https://doc.akka.io/libraries/alpakka-kafka/$VERSION$/) documentation. Check that the reference docs were deployed and show a version warning (see section below on how to fix the version warning).
 - [ ] Check the release on https://repo.akka.io/maven/com/typesafe/akka/akka-stream-kafka_2.13/$VERSION$/akka-stream-kafka_2.13-$VERSION$.pom
 
 ### When everything is on https://repo.akka.io/maven
@@ -40,7 +40,7 @@ Key links:
          ```
          cd ~/www
          git status
-         git add docs/alpakka-kafka/current docs/alpakka-kafka/$VERSION$
+         git add libraries/alpakka-kafka/current libraries/alpakka-kafka/$VERSION$
          git add api/alpakka-kafka/current api/alpakka-kafka/$VERSION$
          git commit -m "Alpakka Kafka $VERSION$"
          ```
@@ -60,7 +60,7 @@ For minor or major releases:
 ### Afterwards
 
 - [ ] Update Alpakka Kafka dependency in Alpakka main repository
-- [ ] Update [akka-dependencies bom](https://github.com/akka/akka-dependencies) and version for [Akka module versions](https://doc.akka.io/docs/akka-dependencies/current/) in [akka-dependencies repo](https://github.com/akka/akka-dependencies)
-- [ ] Update [Akka Guide samples](https://github.com/akka/akka-platform-guide)
+- [ ] Update akka-dependencies bom and version for [Akka module versions](https://doc.akka.io/libraries/akka-dependencies/current/) in [akka-dependencies repo](https://github.com/akka/akka-dependencies)
+- [ ] Update [Akka Guide samples](https://github.com/lightbend/akka-guide)
 - Close this issue
 
