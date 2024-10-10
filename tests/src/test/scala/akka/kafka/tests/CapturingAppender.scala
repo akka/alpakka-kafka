@@ -10,7 +10,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
 
 /**
- * See https://doc.akka.io/docs/akka/current/typed/testing-async.html#silence-logging-output-from-tests
+ * See https://doc.akka.io/libraries/akka-core/current/typed/testing-async.html#silence-logging-output-from-tests
  *
  * INTERNAL API
  */
@@ -35,7 +35,7 @@ import ch.qos.logback.core.AppenderBase
 }
 
 /**
- * See https://doc.akka.io/docs/akka/current/typed/testing-async.html#silence-logging-output-from-tests
+ * See https://doc.akka.io/libraries/akka-core/current/typed/testing-async.html#silence-logging-output-from-tests
  *
  * INTERNAL API
  *

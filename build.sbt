@@ -75,7 +75,7 @@ val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
   organizationHomepage := Some(url("https://www.lightbend.com/")),
-  homepage := Some(url("https://doc.akka.io/docs/alpakka-kafka/current")),
+  homepage := Some(url("https://doc.akka.io/libraries/alpakka-kafka/current")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
                           "Contributors",
@@ -129,19 +129,15 @@ val commonSettings = Def.settings(
       "https://doc.akka.io/api/alpakka-kafka/current/"
     ) ++ {
       if (scalaBinaryVersion.value.startsWith("3")) {
-        Seq("-skip-packages:akka.pattern") // different usage in scala3
+        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            "-skip-packages:akka.pattern")
       } else {
-        Seq("-skip-packages", "akka.pattern") // for some reason Scaladoc creates this
+        Seq("-jdk-api-doc-base",
+            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            "-skip-packages",
+            "akka.pattern")
       }
     },
-  // make use of https://github.com/scala/scala/pull/8663
-  Compile / doc / scalacOptions ++= {
-    if (scalaBinaryVersion.value.startsWith("3")) {
-      Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/") // different usage in scala3
-    } else if (scalaBinaryVersion.value.startsWith("2.13")) {
-      Seq("-jdk-api-doc-base", s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/")
-    } else Nil
-  },
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   // show full stack traces and test case durations
   testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"),
@@ -185,7 +181,7 @@ lazy val `alpakka-kafka` =
             |  testkit - framework for testing the connector
             |
             |Other modules:
-            |  docs - the sources for generating https://doc.akka.io/docs/alpakka-kafka/current
+            |  docs - the sources for generating https://doc.akka.io/libraries/alpakka-kafka/current
             |  benchmarks - compare direct Kafka API usage with Alpakka Kafka
             |
             |Useful sbt tasks:
@@ -342,7 +338,7 @@ lazy val docs = project
     Preprocess / preprocessRules := Seq(
         ("https://javadoc\\.io/page/".r, _ => "https://javadoc\\.io/static/")
       ),
-    Paradox / siteSubdirName := s"docs/alpakka-kafka/${projectInfoVersion.value}",
+    Paradox / siteSubdirName := s"libraries/alpakka-kafka/${projectInfoVersion.value}",
     paradoxGroups := Map("Language" -> Seq("Java", "Scala")),
     paradoxProperties ++= Map(
         "image.base_url" -> "images/",
@@ -352,11 +348,11 @@ lazy val docs = project
         "javadoc.akka.kafka.base_url" -> "",
         // Akka
         "akka.version" -> akkaVersion,
-        "extref.akka.base_url" -> s"https://doc.akka.io/docs/akka/$AkkaBinaryVersionForDocs/%s",
+        "extref.akka.base_url" -> s"https://doc.akka.io/libraries/akka-core/$AkkaBinaryVersionForDocs/%s",
         "scaladoc.akka.base_url" -> s"https://doc.akka.io/api/akka/$AkkaBinaryVersionForDocs/",
         "javadoc.akka.base_url" -> s"https://doc.akka.io/japi/akka/$AkkaBinaryVersionForDocs/",
         "javadoc.akka.link_style" -> "direct",
-        "extref.akka-management.base_url" -> s"https://doc.akka.io/docs/akka-management/current/%s",
+        "extref.akka-management.base_url" -> s"https://doc.akka.io/libraries/akka-management/current/%s",
         // Kafka
         "kafka.version" -> kafkaVersion,
         "extref.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/%s",

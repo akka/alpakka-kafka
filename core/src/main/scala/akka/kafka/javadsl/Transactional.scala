@@ -39,7 +39,7 @@ object Transactional {
   /**
    * API MAY CHANGE
    *
-   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * This source is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html)
    * and [[Transactional.flowWithOffsetContext]].
    */
   @ApiMayChange
@@ -151,7 +151,7 @@ object Transactional {
    * carries [[ConsumerMessage.PartitionOffset]] as context.  The flow requires a unique `transactional.id` across all app
    * instances. The flow will override producer properties to enable Kafka exactly-once transactional support.
    *
-   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * This flow is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html)
    * and [[Transactional.sourceWithOffsetContext]].
    */
   @ApiMayChange

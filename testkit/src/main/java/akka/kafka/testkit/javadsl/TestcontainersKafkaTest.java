@@ -12,7 +12,7 @@ import akka.kafka.testkit.internal.TestcontainersKafka;
 import akka.stream.Materializer;
 
 /**
- * JUnit 5 base class using [[https://www.testcontainers.org/ Testcontainers]] to start a Kafka
+ * JUnit 5 base class using [[https://java.testcontainers.org/ Testcontainers]] to start a Kafka
  * broker in a Docker container. The Kafka broker will be kept around across multiple test classes,
  * unless `stopKafka()` is called (eg. from an `@AfterAll`-annotated method.
  *

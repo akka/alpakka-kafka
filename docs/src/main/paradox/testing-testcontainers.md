@@ -3,7 +3,7 @@ project.description: Alpakka Kafka provides Testcontainers support for running a
 ---
 # Testing with a Docker Kafka cluster
 
-The [Testcontainers](https://www.testcontainers.org/) project contains a nice API to start and stop Apache Kafka in Docker containers. 
+The [Testcontainers](https://java.testcontainers.org/) project contains a nice API to start and stop Apache Kafka in Docker containers. 
 This becomes very relevant when your application code uses a Scala version which Apache Kafka doesn't support so that *EmbeddedKafka* can't be used.
 Testcontainers also allow you to create a complete Kafka cluster (using Docker containers) to simulate production use cases.
 
@@ -53,7 +53,7 @@ You can retrieve the Schema Registry URL in your test configuration by calling `
 
 ## Testing with a Docker Kafka cluster from Java code
 
-The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://www.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://www.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
+The Alpakka Kafka testkit contains helper classes to start Kafka via Testcontainers. Alternatively, you may use just Testcontainers, as it is designed to be used with JUnit and you can follow [their documentation](https://java.testcontainers.org/modules/kafka/) to start and stop Kafka. To start a single instance for many tests see [Singleton containers](https://java.testcontainers.org/test_framework_integration/manual_lifecycle_control/).
 
 The Testcontainers dependency must be added to your project explicitly.
 

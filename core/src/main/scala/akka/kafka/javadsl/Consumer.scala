@@ -173,7 +173,7 @@ object Consumer {
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html)
    * and [[Producer.flowWithContext]].
    */
   @ApiMayChange
@@ -198,7 +198,7 @@ object Consumer {
    * This is useful when "at-least once delivery" is desired, as each message will likely be
    * delivered one time but in failure cases could be duplicated.
    *
-   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/docs/akka/current/stream/operators/Flow/asFlowWithContext.html)
+   * It is intended to be used with Akka's [flow with context](https://doc.akka.io/libraries/akka-core/current/stream/operators/Flow/asFlowWithContext.html)
    * and [[Producer.flowWithContext]].
    *
    * This variant makes it possible to add additional metadata (in the form of a string)
