@@ -159,7 +159,7 @@ val commonSettings = Def.settings(
     ),
   projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
   // can be removed once we this project is on 2.13.15
-  dependencyOverrides += "org.scala-lang" % "scala-library" % Scala213,
+  dependencyOverrides += "org.scala-lang" % "scala-library" % Scala213
 )
 
 lazy val `alpakka-kafka` =
