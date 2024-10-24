@@ -12,24 +12,25 @@ This **Alpakka Kafka connector** lets you connect [Apache Kafka](https://kafka.a
 
 See all releases in [GitHub releases](https://github.com/akka/alpakka-kafka/releases).
 
-| Kafka client                                                            | Scala Versions   | Akka version    | Alpakka Kafka Connector
-|-------------------------------------------------------------------------|------------------|-----------------|-------------------------
-| 3.7.0                                                                   | 3.3, 2.13        | 2.9.0+          | [release 6.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v6.0.0)
-| 3.5.1                                                                   | 3.3, 2.13        | 2.9.0+          | [release 5.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v5.0.0)
-| 3.3.1                                                                   | 2.13, 2.12       | 2.7.0+          | [release 4.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v4.0.0)
-| 3.0.1                                                                   | 2.13             | 2.6.18+         | [release 3.0.1](https://github.com/akka/alpakka-kafka/releases/tag/v3.0.0)
+| Kafka client                                                               | Scala Versions   | Akka version    | Alpakka Kafka Connector
+|----------------------------------------------------------------------------|------------------|-----------------|-------------------------
+| 3.7.1                                                                      | 3.3, 2.13        | 2.10.0+          | [release 7.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v7.0.0)
+| 3.7.0                                                                      | 3.3, 2.13        | 2.9.0+          | [release 6.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v6.0.0)
+| 3.5.1                                                                      | 3.3, 2.13        | 2.9.0+          | [release 5.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v5.0.0)
+| 3.3.1                                                                      | 2.13, 2.12       | 2.7.0+          | [release 4.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v4.0.0)
+| 3.0.1                                                                      | 2.13             | 2.6.18+         | [release 3.0.1](https://github.com/akka/alpakka-kafka/releases/tag/v3.0.0)
 | [3.0.0](https://blogsarchive.apache.org/kafka/entry/what-s-new-in-apache6) | 2.13             | 2.6.18+         | [release 3.0.0 RC1](https://github.com/akka/alpakka-kafka/releases/tag/v3.0.0-RC1)
-| [2.7.0](https://archive.apache.org/dist/kafka/2.7.0/RELEASE_NOTES.html) | 2.13, 2.12       | 2.6.14+         | @ref:[release 2.1.0](release-notes/2.1.x.md)
-| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.31+, 2.6.6+ | @ref:[release 2.0.5](release-notes/2.0.x.md)
-| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.6+ | @ref:[release 2.0.4](release-notes/2.0.x.md)
-| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.3+ | @ref:[release 2.0.3](release-notes/2.0.x.md)
-| [2.4.0](https://archive.apache.org/dist/kafka/2.4.0/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.23+, 2.6.x  | @ref:[release 2.0.0](release-notes/2.0.x.md)
-| [2.1.1](https://archive.apache.org/dist/kafka/2.1.1/RELEASE_NOTES.html) | 2.13, 2.12, 2.11 | 2.5.x           | @ref:[release 1.0.4](release-notes/1.0.x.md#1-0-4)
-| [2.1.1](https://archive.apache.org/dist/kafka/2.1.1/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x           | @ref:[release 1.0.1](release-notes/1.0.x.md#1-0-1)
-| [2.1.0](https://archive.apache.org/dist/kafka/2.1.0/RELEASE_NOTES.html) | 2.12, 2.11       | 2.5.x           | @ref:[release 1.0](release-notes/1.0.x.md#1-0)
-| 1.1.x                                                                   | 2.12, 2.11       | 2.5.x           | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
-| 1.0.x                                                                   | 2.12, 2.11       | 2.5.x           | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
-| 0.11.x                                                                  | 2.12, 2.11       | 2.5.x           | [release 0.19](https://github.com/akka/alpakka-kafka/milestone/19?closed=1)
+| [2.7.0](https://archive.apache.org/dist/kafka/2.7.0/RELEASE_NOTES.html)    | 2.13, 2.12       | 2.6.14+         | @ref:[release 2.1.0](release-notes/2.1.x.md)
+| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html)    | 2.13, 2.12, 2.11 | 2.5.31+, 2.6.6+ | @ref:[release 2.0.5](release-notes/2.0.x.md)
+| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html)    | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.6+ | @ref:[release 2.0.4](release-notes/2.0.x.md)
+| [2.4.1](https://archive.apache.org/dist/kafka/2.4.1/RELEASE_NOTES.html)    | 2.13, 2.12, 2.11 | 2.5.30+, 2.6.3+ | @ref:[release 2.0.3](release-notes/2.0.x.md)
+| [2.4.0](https://archive.apache.org/dist/kafka/2.4.0/RELEASE_NOTES.html)    | 2.13, 2.12, 2.11 | 2.5.23+, 2.6.x  | @ref:[release 2.0.0](release-notes/2.0.x.md)
+| [2.1.1](https://archive.apache.org/dist/kafka/2.1.1/RELEASE_NOTES.html)    | 2.13, 2.12, 2.11 | 2.5.x           | @ref:[release 1.0.4](release-notes/1.0.x.md#1-0-4)
+| [2.1.1](https://archive.apache.org/dist/kafka/2.1.1/RELEASE_NOTES.html)    | 2.12, 2.11       | 2.5.x           | @ref:[release 1.0.1](release-notes/1.0.x.md#1-0-1)
+| [2.1.0](https://archive.apache.org/dist/kafka/2.1.0/RELEASE_NOTES.html)    | 2.12, 2.11       | 2.5.x           | @ref:[release 1.0](release-notes/1.0.x.md#1-0)
+| 1.1.x                                                                      | 2.12, 2.11       | 2.5.x           | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
+| 1.0.x                                                                      | 2.12, 2.11       | 2.5.x           | [release 0.20+](https://github.com/akka/alpakka-kafka/releases)
+| 0.11.x                                                                     | 2.12, 2.11       | 2.5.x           | [release 0.19](https://github.com/akka/alpakka-kafka/milestone/19?closed=1)
 
 @@@ note
 
