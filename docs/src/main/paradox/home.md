@@ -14,7 +14,7 @@ See all releases in [GitHub releases](https://github.com/akka/alpakka-kafka/rele
 
 | Kafka client                                                               | Scala Versions   | Akka version    | Alpakka Kafka Connector
 |----------------------------------------------------------------------------|------------------|-----------------|-------------------------
-| 3.7.1                                                                      | 3.3, 2.13        | 2.10.0+          | [release 7.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v7.0.0)
+| 3.7.1                                                                      | 3.3, 2.13        | 2.10.0+         | [release 6.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v6.0.0)
 | 3.7.0                                                                      | 3.3, 2.13        | 2.9.0+          | [release 6.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v6.0.0)
 | 3.5.1                                                                      | 3.3, 2.13        | 2.9.0+          | [release 5.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v5.0.0)
 | 3.3.1                                                                      | 2.13, 2.12       | 2.7.0+          | [release 4.0.0](https://github.com/akka/alpakka-kafka/releases/tag/v4.0.0)
