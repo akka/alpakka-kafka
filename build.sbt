@@ -16,7 +16,7 @@ val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
-val akkaVersion = "2.10.0-M1"
+val akkaVersion = "2.10.0"
 val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
@@ -157,7 +157,9 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
+  // can be removed once we this project is on 2.13.15
+  dependencyOverrides += "org.scala-lang" % "scala-library" % Scala213
 )
 
 lazy val `alpakka-kafka` =
