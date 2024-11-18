@@ -91,7 +91,7 @@ that are producing or consuming messages to/from Kafka.
 
 ## Examples
 
-A few self-contained examples using Alpakka are available as [Alpakka Samples](https://akka.io/alpakka-samples/).
+A few self-contained examples using Alpakka are available as [Alpakka Samples](https://github.com/akka/alpakka-samples/).
 
 To read and see how others use Alpakka see the [Alpakka documentation's Webinars, Presentations and Articles](https://doc.akka.io/libraries/alpakka/current/other-docs/webinars-presentations-articles.html) listing.
 
@@ -100,7 +100,7 @@ To read and see how others use Alpakka see the [Alpakka documentation's Webinars
 
 Please feel free to contribute to Alpakka and the Alpakka Kafka connector by reporting issues you identify, or by suggesting changes to the code. Please refer to our [contributing instructions](https://github.com/akka/alpakka-kafka/blob/main/CONTRIBUTING.md) to learn how it can be done.
 
-We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://www.lightbend.com/conduct).
+We want Akka and Alpakka to strive in a welcoming and open atmosphere and expect all contributors to respect our [code of conduct](https://akka.io/conduct).
 
 
 @@@ index
