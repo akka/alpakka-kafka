@@ -425,7 +425,10 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     "queue.buffering.max.ms",
     "request.timeout.ms",
     "retries",
-    "security.protocol"
+    "security.protocol",
+    "compression.type",
+    "enable.idempotence",
+    "max.request.size"
   )
 
   override def toString: String = {
