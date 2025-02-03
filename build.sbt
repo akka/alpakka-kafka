@@ -304,7 +304,7 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "3.0" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.5.7" % Test,
+        "ch.qos.logback" % "logback-classic" % "1.5.16" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
