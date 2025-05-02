@@ -16,7 +16,7 @@ val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
-val akkaVersion = "2.10.0"
+val akkaVersion = "2.10.5"
 val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
