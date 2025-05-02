@@ -8,7 +8,7 @@ Licensed Work:        Alpakka Kafka 7.0.1
                       UNLESS another license file is present in a sub
                       directory, then that other license applies to all files
                       in its directory and sub directories.
-                      The Licensed Work is (c) 2024 Lightbend Inc.
+                      The Licensed Work is (c) 2025 Lightbend Inc.
 Additional Use Grant:
     If you develop an application using a version of Play Framework that
     utilizes binary versions of akka-streams and its dependencies, you may
@@ -19,7 +19,7 @@ Additional Use Grant:
     Connecting to a Play Framework websocket and/or Play Framework
     request/response bodies for server and play-ws client.
 
-Change Date:          2027-12-18
+Change Date:          2028-05-02
 
 Change License:       Apache License, Version 2.0
 
