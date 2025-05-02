@@ -16,7 +16,7 @@ val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
 
-val akkaVersion = "2.10.0"
+val akkaVersion = "2.10.5"
 val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
@@ -27,12 +27,12 @@ val KafkaVersionForDocs = "37"
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
-val testcontainersVersion = "1.20.4"
+val testcontainersVersion = "1.20.6"
 val slf4jVersion = "2.0.16"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.4.7"
+val confluentAvroSerializerVersion = "7.4.9"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
@@ -297,14 +297,14 @@ lazy val tests = project
         "org.testcontainers" % "kafka" % testcontainersVersion % Test,
         "org.scalatest" %% "scalatest" % scalatestVersion % Test,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.17.2" % Test, // ApacheV2
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.3" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
         // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
         "org.hamcrest" % "hamcrest-library" % "3.0" % Test,
         "org.hamcrest" % "hamcrest" % "3.0" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.5.7" % Test,
+        "ch.qos.logback" % "logback-classic" % "1.5.18" % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
@@ -393,7 +393,7 @@ lazy val benchmarks = project
     IntegrationTest / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-        "io.dropwizard.metrics" % "metrics-core" % "4.2.27",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.30",
         "ch.qos.logback" % "logback-classic" % "1.2.13",
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
