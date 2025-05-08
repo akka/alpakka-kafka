@@ -6,22 +6,19 @@
 package docs.javadsl;
 
 // #metadataClient
+import static java.util.stream.Collectors.toSet;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.core.Is.is;
+
 import akka.actor.ActorSystem;
 import akka.kafka.ConsumerSettings;
 import akka.kafka.javadsl.MetadataClient;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
+import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
 // #metadataClient
-import akka.kafka.tests.javadsl.LogCapturingJunit4;
-import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
-import org.hamcrest.core.IsInstanceOf;
-import org.junit.AfterClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,11 +28,13 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static java.util.stream.Collectors.toSet;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.core.Is.is;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
+import org.hamcrest.core.IsInstanceOf;
+import org.junit.AfterClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 public class MetadataClientTest extends TestcontainersKafkaJunit4Test {
 

@@ -5,6 +5,8 @@
 
 package docs.javadsl;
 
+import static org.junit.Assert.assertEquals;
+
 import akka.Done;
 import akka.actor.ActorSystem;
 import akka.kafka.AutoSubscription;
@@ -13,31 +15,29 @@ import akka.kafka.ProducerMessage;
 import akka.kafka.Subscriptions;
 import akka.kafka.javadsl.Consumer;
 // #testkit
+import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaJunit4Test;
 // #testkit
-import akka.kafka.javadsl.Producer;
 import akka.kafka.tests.javadsl.LogCapturingJunit4;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 // #testkit
 import akka.testkit.javadsl.TestKit;
 // #testkit
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.TopicPartition;
-// #testkit
-import org.junit.AfterClass;
-import org.junit.Test;
-// #testkit
-import org.junit.Rule;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
+// #testkit
+import org.junit.AfterClass;
+import org.junit.Rule;
+import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+// #testkit
 
 // #testkit
 
