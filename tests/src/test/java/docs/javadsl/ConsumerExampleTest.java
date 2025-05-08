@@ -5,6 +5,10 @@
 
 package docs.javadsl;
 
+import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.Assert.assertEquals;
+
 import akka.Done;
 import akka.NotUsed;
 import akka.actor.AbstractLoggingActor;
@@ -13,25 +17,36 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.Adapter;
+// #consumerActorTyped
+// #withTypedRebalanceListenerActor
 import akka.actor.typed.javadsl.Behaviors;
 // #withTypedRebalanceListenerActor
 // #consumerActorTyped
 // adds support for actors to a classic actor system and context
-import akka.actor.typed.javadsl.Adapter;
-// #consumerActorTyped
-// #withTypedRebalanceListenerActor
 import akka.japi.Pair;
 import akka.kafka.*;
 import akka.kafka.javadsl.Committer;
 import akka.kafka.javadsl.Consumer;
-import akka.kafka.javadsl.Producer;
 import akka.kafka.javadsl.PartitionAssignmentHandler;
+import akka.kafka.javadsl.Producer;
 import akka.kafka.testkit.javadsl.TestcontainersKafkaTest;
 import akka.kafka.tests.javadsl.LogCapturingExtension;
 import akka.stream.RestartSettings;
 import akka.stream.javadsl.*;
 import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.Config;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -44,22 +59,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-
-import static org.hamcrest.CoreMatchers.*;
-import static org.hamcrest.MatcherAssert.*;
-import static org.junit.Assert.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(LogCapturingExtension.class)
@@ -99,6 +98,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
       consumerSettings
           .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
           .withProperty(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "5000");
+
   // #settings-autocommit
 
   @Test
@@ -156,6 +156,7 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
 
     // #plainSource
   }
+
   // #plainSource
 
   @Test
@@ -640,7 +641,9 @@ class ConsumerExampleTest extends TestcontainersKafkaTest {
     // #consumerMetrics
     sleepMillis(
         100,
-        "to let the control establish itself (fails with `java.lang.IllegalStateException: not yet initialized: only setHandler is allowed in GraphStageLogic constructor)` otherwise");
+        "to let the control establish itself (fails with `java.lang.IllegalStateException: not yet"
+            + " initialized: only setHandler is allowed in GraphStageLogic constructor)`"
+            + " otherwise");
     // #consumerMetrics
     CompletionStage<Map<MetricName, Metric>> metrics = control.getMetrics();
     metrics.thenAccept(map -> System.out.println("Metrics: " + map));
