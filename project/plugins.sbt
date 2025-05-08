@@ -7,7 +7,7 @@ addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.10.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.5")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.1.4")
-addSbtPlugin("com.lightbend.sbt" % "sbt-java-formatter" % "0.8.0")
+addSbtPlugin("com.github.sbt" % "sbt-java-formatter" % "0.10.0")
 // docs
 addSbtPlugin("io.akka" % "sbt-paradox-akka" % "25.10.0")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.4")
