@@ -8,7 +8,6 @@ package akka.kafka.testkit.scaladsl
 import java.time.Duration
 import java.util
 import java.util.concurrent.TimeUnit
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
@@ -23,7 +22,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import org.apache.kafka.clients.admin._
 import org.apache.kafka.clients.producer.{ProducerRecord, Producer => KProducer}
-import org.apache.kafka.common.ConsumerGroupState
+import org.apache.kafka.common.{ConsumerGroupState, GroupState}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.immutable
@@ -112,7 +111,7 @@ abstract class KafkaSpec(_kafkaPort: Int, val zooKeeperPort: Int, actorSystem: A
    */
   def waitUntilConsumerSummary(groupId: String)(predicate: PartialFunction[List[MemberDescription], Boolean]): Unit =
     waitUntilConsumerGroup(groupId) { group =>
-      group.state() == ConsumerGroupState.STABLE &&
+      group.groupState() == GroupState.STABLE &&
       Try(predicate(group.members().asScala.toList)).getOrElse(false)
     }
 

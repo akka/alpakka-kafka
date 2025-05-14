@@ -21,9 +21,8 @@ val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
 
-// Keep .scala-steward.conf pin in sync
-val kafkaVersion = "3.9.1"
-val KafkaVersionForDocs = "39"
+val kafkaVersion = "4.0.0"
+val KafkaVersionForDocs = "40"
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
