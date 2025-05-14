@@ -32,7 +32,7 @@ final class RestrictedConsumer(consumer: Consumer[_, _], duration: java.time.Dur
    */
   def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit =
     consumer.commitSync(offsets, duration)
-  
+
   /**
    * See [[org.apache.kafka.clients.consumer.KafkaConsumer#committed(java.util.Set[TopicPartition],java.time.Duration)]]
    */
