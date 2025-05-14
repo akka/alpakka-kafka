@@ -31,6 +31,7 @@ import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.ConsumerGroupState;
+import org.apache.kafka.common.GroupState;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
@@ -154,7 +155,7 @@ public abstract class BaseKafkaTest extends KafkaTestKitClass {
         groupId,
         group -> {
           try {
-            return group.state() == ConsumerGroupState.STABLE && predicate.test(group.members());
+            return group.groupState() == GroupState.STABLE && predicate.test(group.members());
           } catch (Exception ex) {
             return false;
           }
