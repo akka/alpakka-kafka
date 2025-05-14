@@ -10,14 +10,27 @@ import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
 import akka.Done
 import akka.actor.Status.Failure
-import akka.actor.{Actor, ActorRef, DeadLetterSuppression, NoSerializationVerificationNeeded, Stash, Status, Terminated, Timers}
+import akka.actor.{
+  Actor,
+  ActorRef,
+  DeadLetterSuppression,
+  NoSerializationVerificationNeeded,
+  Stash,
+  Status,
+  Terminated,
+  Timers
+}
 import akka.annotation.InternalApi
 import akka.event.LoggingReceive
 import akka.kafka.KafkaConsumerActor.{StopLike, StoppingException}
 import akka.kafka._
 import akka.kafka.scaladsl.PartitionAssignmentHandler
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.errors.{CoordinatorLoadInProgressException, RebalanceInProgressException, TimeoutException}
+import org.apache.kafka.common.errors.{
+  CoordinatorLoadInProgressException,
+  RebalanceInProgressException,
+  TimeoutException
+}
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
 
 import java.util
@@ -726,7 +739,8 @@ import scala.util.control.NonFatal
     case req: Metadata.GetCommittedOffset @nowarn("cat=deprecation") =>
       @nowarn("cat=deprecation") val resp = Metadata.CommittedOffset(
         Try {
-          @nowarn("cat=deprecation") val offset = consumer.committed(Set(req.partition).asJava, settings.getMetadataRequestTimeout)
+          @nowarn("cat=deprecation") val offset =
+            consumer.committed(Set(req.partition).asJava, settings.getMetadataRequestTimeout)
           offset.asScala.headOption.map(_._2).get
         },
         req.partition
