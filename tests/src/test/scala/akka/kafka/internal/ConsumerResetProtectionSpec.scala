@@ -41,7 +41,7 @@ class ConsumerResetProtectionSpec
     val m1 = new ConsumerRecord(tp.topic(), tp.partition(), 10L, "k1", "kv")
 
     def asConsumerRecords[K, V](records: ConsumerRecord[K, V]*): ConsumerRecords[K, V] = {
-      new ConsumerRecords[K, V](Map(tp -> records.asJava).asJava)
+      new ConsumerRecords[K, V](Map(tp -> records.asJava).asJava, java.util.Map.of())
     }
 
     val records = asConsumerRecords(m1)
@@ -136,13 +136,16 @@ class ConsumerResetProtectionSpec
       shouldHaveEqualRecords(records, protectedRecords)
       // drop the old offsets in this batch, so back to the original set of records
       protectedRecords = protection
-        .protect(self,
-                 new ConsumerRecords(
-                   Map(
-                     tp -> List(m1).asJava,
-                     tp1 -> List(new ConsumerRecord(tp1.topic(), tp1.partition(), 10L, "k1", "kv")).asJava
-                   ).asJava
-                 ))
+        .protect(
+          self,
+          new ConsumerRecords(
+            Map(
+              tp -> List(m1).asJava,
+              tp1 -> List(new ConsumerRecord(tp1.topic(), tp1.partition(), 10L, "k1", "kv")).asJava
+            ).asJava,
+            java.util.Map.of()
+          )
+        )
       shouldHaveEqualRecords(records, protectedRecords)
     }
 
@@ -166,7 +169,8 @@ class ConsumerResetProtectionSpec
               new ConsumerRecord(tp.topic(), tp.partition(), 1L, "k2", "kv"),
               new ConsumerRecord(tp.topic(), tp.partition(), 102L, "k1", "kv")
             ).asJava
-          ).asJava
+          ).asJava,
+          java.util.Map.of()
         )
       )
       records.count() should be(3)

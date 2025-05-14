@@ -55,11 +55,11 @@ object ConsumerResetProtection {
         records
           .partitions()
           .asScala
-          .flatMap(maybeProtectRecords(consumer, _, records).toList)
+          .flatMap(maybeProtectRecords(consumer, _, records).toMap)
           .toMap
           .asJava
 
-      new ConsumerRecords[K, V](safe)
+      new ConsumerRecords[K, V](safe, java.util.Map.of())
     }
 
     /**

@@ -103,7 +103,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
           if (releaseCommitCallbacks.get()) {
             handler.onComplete()
           }
-          new ConsumerRecords[K, V](records.asJava)
+          new ConsumerRecords[K, V](records.asJava, java.util.Map.of())
         }
       })
     Mockito
@@ -213,7 +213,9 @@ class FailingConsumerMock[K, V](throwable: Throwable, failOnCallNumber: Int*) ex
         callNumber = callNumber + 1
         if (failOnCallNumber.contains(callNumber))
           throw throwable
-        else new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava)
+        else
+          new ConsumerRecords[K, V](Map.empty[TopicPartition, java.util.List[ConsumerRecord[K, V]]].asJava,
+                                    java.util.Map.of())
       }
     })
 }
