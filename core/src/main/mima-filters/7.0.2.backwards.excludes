@@ -1,0 +1,2 @@
+# kafka-clients 4.0.0
+ProblemFilters.exclude[DirectMissingMethodProblem]("akka.kafka.RestrictedConsumer.committed")
