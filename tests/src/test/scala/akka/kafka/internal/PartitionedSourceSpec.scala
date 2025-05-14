@@ -8,7 +8,6 @@ package akka.kafka.internal
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.function.UnaryOperator
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
@@ -22,6 +21,7 @@ import akka.testkit.TestKit
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.metrics.KafkaMetric
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -807,7 +807,7 @@ object PartitionedSourceSpec {
       if (data2.nonEmpty) {
         logger.debug(s"poll result $data2")
       }
-      new ConsumerRecords[K, V](data2.asJava)
+      new ConsumerRecords[K, V](data2.asJava, java.util.Map.of())
     }
     override def position(partition: TopicPartition): Long = 0
     override def position(partition: TopicPartition, timeout: java.time.Duration): Long = 0
@@ -832,6 +832,14 @@ object PartitionedSourceSpec {
       logger.debug(s"resuming ${ps.mkString("(", ", ", ")")}")
       tps.updateAndGet(unary(t => t ++ ps.filter(tp => t.contains(tp)).map(_ -> Resumed)))
     }
+
+    override def subscribe(pattern: SubscriptionPattern, callback: ConsumerRebalanceListener): Unit = ???
+
+    override def subscribe(pattern: SubscriptionPattern): Unit = ???
+
+    override def registerMetricForSubscription(metric: KafkaMetric): Unit = ???
+
+    override def unregisterMetricFromSubscription(metric: KafkaMetric): Unit = ???
   }
 
   private def unary[T](f: T => T) = new UnaryOperator[T] {

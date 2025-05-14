@@ -42,7 +42,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def subscribe(pattern: java.util.regex.Pattern, callback: ConsumerRebalanceListener): Unit = ???
   override def subscribe(pattern: java.util.regex.Pattern): Unit = ???
   override def unsubscribe(): Unit = ???
-  override def poll(timeout: Long): ConsumerRecords[K, V] = ???
+  //override def poll(timeout: Long): ConsumerRecords[K, V] = ???
   override def commitSync(): Unit = ???
   override def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata]): Unit = ???
   override def commitAsync(): Unit = ???
@@ -55,7 +55,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def seekToEnd(partitions: java.util.Collection[TopicPartition]): Unit = ???
   override def position(partition: TopicPartition): Long = ???
   override def position(partition: TopicPartition, timeout: java.time.Duration): Long = ???
-  override def committed(partition: TopicPartition): OffsetAndMetadata = ???
+  //verride def committed(partition: TopicPartition): OffsetAndMetadata = ???
   override def metrics(): java.util.Map[MetricName, _ <: Metric] = ???
   override def partitionsFor(topic: String): java.util.List[PartitionInfo] = ???
   override def listTopics(): java.util.Map[String, java.util.List[PartitionInfo]] = ???
@@ -81,7 +81,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   override def commitSync(timeout: java.time.Duration): Unit = ???
   override def commitSync(offsets: java.util.Map[TopicPartition, OffsetAndMetadata],
                           timeout: java.time.Duration): Unit = ???
-  override def committed(partition: TopicPartition, timeout: java.time.Duration): OffsetAndMetadata = ???
+  //override def committed(partition: TopicPartition, timeout: java.time.Duration): OffsetAndMetadata = ???
   override def committed(partitions: util.Set[TopicPartition]): util.Map[TopicPartition, OffsetAndMetadata] = ???
   override def committed(partitions: util.Set[TopicPartition],
                          timeout: Duration): util.Map[TopicPartition, OffsetAndMetadata] = ???

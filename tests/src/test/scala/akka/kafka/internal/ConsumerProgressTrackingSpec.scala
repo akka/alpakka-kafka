@@ -20,7 +20,7 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
   private val tp = new TopicPartition("t", 0)
   private val m1 = new ConsumerRecord[String, String](tp.topic(), tp.partition(), 10L, "k1", "kv")
   def asConsumerRecords[K, V](tp: TopicPartition, records: ConsumerRecord[K, V]*): ConsumerRecords[K, V] = {
-    new ConsumerRecords[K, V](Map(tp -> records.asJava).asJava)
+    new ConsumerRecords[K, V](Map(tp -> records.asJava).asJava, java.util.Map.of())
   }
   private val records = asConsumerRecords(tp, m1)
 
@@ -76,7 +76,8 @@ class ConsumerProgressTrackingSpec extends AnyFlatSpecLike with Matchers with Lo
       new ConsumerRecords[String, String](
         Map(
           tp2 -> List(new ConsumerRecord[String, String](tp2.topic(), tp2.partition(), 10L, "k1", "kv")).asJava
-        ).asJava
+        ).asJava,
+        java.util.Map.of()
       )
     )
     tracker.receivedMessages.map(extractOffsetFromSafe) should be(Map(tp -> 10L))
