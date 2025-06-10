@@ -1,7 +1,7 @@
 resolvers += "Akka library repository".at("https://repo.akka.io/maven")
 
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.1.0")
-addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.9.3")
+addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.11.1")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 // discipline
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.10.0")
