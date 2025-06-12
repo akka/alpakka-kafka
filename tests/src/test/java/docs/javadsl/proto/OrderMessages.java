@@ -28,6 +28,7 @@ public final class OrderMessages {
      * @return The id.
      */
     String getId();
+
     /**
      * <code>string id = 1;</code>
      *
@@ -35,12 +36,14 @@ public final class OrderMessages {
      */
     com.google.protobuf.ByteString getIdBytes();
   }
+
   /** Protobuf type {@code Order} */
   public static final class Order extends com.google.protobuf.GeneratedMessageV3
       implements
       // @@protoc_insertion_point(message_implements:Order)
       OrderOrBuilder {
     private static final long serialVersionUID = 0L;
+
     // Use Order.newBuilder() to construct.
     private Order(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
@@ -118,6 +121,7 @@ public final class OrderMessages {
 
     public static final int ID_FIELD_NUMBER = 1;
     private volatile Object id_;
+
     /**
      * <code>string id = 1;</code>
      *
@@ -134,6 +138,7 @@ public final class OrderMessages {
         return s;
       }
     }
+
     /**
      * <code>string id = 1;</code>
      *
@@ -307,6 +312,7 @@ public final class OrderMessages {
       Builder builder = new Builder(parent);
       return builder;
     }
+
     /** Protobuf type {@code Order} */
     public static final class Builder
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
@@ -451,6 +457,7 @@ public final class OrderMessages {
       }
 
       private Object id_ = "";
+
       /**
        * <code>string id = 1;</code>
        *
@@ -467,6 +474,7 @@ public final class OrderMessages {
           return (String) ref;
         }
       }
+
       /**
        * <code>string id = 1;</code>
        *
@@ -483,6 +491,7 @@ public final class OrderMessages {
           return (com.google.protobuf.ByteString) ref;
         }
       }
+
       /**
        * <code>string id = 1;</code>
        *
@@ -498,6 +507,7 @@ public final class OrderMessages {
         onChanged();
         return this;
       }
+
       /**
        * <code>string id = 1;</code>
        *
@@ -509,6 +519,7 @@ public final class OrderMessages {
         onChanged();
         return this;
       }
+
       /**
        * <code>string id = 1;</code>
        *
