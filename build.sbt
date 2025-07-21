@@ -41,7 +41,7 @@ val confluentLibsExclusionRules = Seq(
 )
 
 ThisBuild / resolvers ++= Seq(
-  "Akka library repository".at("https://repo.akka.io/maven"),
+  "Akka library repository".at("https://repo.akka.io/maven/github_actions"),
   // for Jupiter interface (JUnit 5)
   Resolver.jcenterRepo
 )
