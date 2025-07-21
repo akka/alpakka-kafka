@@ -14,7 +14,7 @@ jobs:
   dependency-graph:
     name: Update Dependency Graph
     if: github.event.repository.fork == false
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     permissions:
       contents: write
     steps:

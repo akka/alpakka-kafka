@@ -18,7 +18,7 @@ env:
 jobs:
   check-code-style:
     name: Check Code Style
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -52,7 +52,7 @@ jobs:
 
   check-code-compilation:
     name: Check Code Compilation
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -85,7 +85,7 @@ jobs:
 
   check-docs:
     name: Check Docs
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -118,7 +118,7 @@ jobs:
 
   test:
     name: Build and Test
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     needs: [check-code-style, check-code-compilation, check-docs]
     strategy:
       fail-fast: false
@@ -163,7 +163,7 @@ jobs:
   integration-test:
     name: Integration tests
     needs: [check-code-style, check-code-compilation, check-docs]
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -199,7 +199,7 @@ jobs:
   build-benchmark:
     name: Build benchmarks
     needs: [check-code-style, check-code-compilation, check-docs]
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
