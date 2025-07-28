@@ -18,7 +18,7 @@ jobs:
     # the release environment provides access to secrets required in the release process
     # https://github.com/akka/alpakka-kafka/settings/environments/84275678/edit
     environment: release
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
@@ -56,7 +56,7 @@ jobs:
 
   documentation:
     name: Documentation
-    runs-on: ubuntu-22.04
+    runs-on: Akka-Default
     if: github.event.repository.fork == false
     steps:
       - name: Checkout
