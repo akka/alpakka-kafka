@@ -308,7 +308,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "5.14.0" % Test,
+        "org.mockito" % "mockito-core" % "5.14.2" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % Test
       ),
     resolvers ++= Seq(
