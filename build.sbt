@@ -28,7 +28,8 @@ val KafkaVersionForDocs = "39"
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.16"
 val testcontainersVersion = "1.21.3"
-val slf4jVersion = "2.0.16"
+val logbackVersion = "1.5.18"
+val slf4jVersion = "2.0.17"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
@@ -304,7 +305,7 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "3.0" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % "1.5.18" % Test,
+        "ch.qos.logback" % "logback-classic" % logbackVersion % Test,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
@@ -394,7 +395,7 @@ lazy val benchmarks = project
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.33",
-        "ch.qos.logback" % "logback-classic" % "1.2.13",
+        "ch.qos.logback" % "logback-classic" % logbackVersion,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
         // "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "4.0.0",
