@@ -208,7 +208,7 @@ lazy val `alpakka-kafka` =
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
             |    run a single test with an exact name (use -z for partial match)
             |
-            |  benchmarks/IntegrationTest/testOnly *.AlpakkaKafkaPlainConsumer
+            |  benchmarks/Test/testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
@@ -384,10 +384,7 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest)
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
@@ -399,9 +396,9 @@ lazy val benchmarks = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
         // "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "4.0.0",
-        "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
+        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
+        "org.scalatest" %% "scalatest" % scalatestVersion % Test
       )
   )

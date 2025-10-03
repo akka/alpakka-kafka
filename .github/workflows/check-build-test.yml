@@ -228,4 +228,4 @@ jobs:
           jvm: temurin:1.11
 
       - name: "Compile benchmark tests"
-        run: sbt "benchmarks/IntegrationTest/compile"
+        run: sbt "benchmarks/Test/compile"
