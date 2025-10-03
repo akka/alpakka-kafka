@@ -27,10 +27,10 @@ By applying settings in code you can also configure the Kafka and ZooKeeper cont
 For example, the following demonstrates creating a 3 Broker Kafka cluster and disables the automatic topic creation broker configuration using environment variables.
 
 Scala
-: @@snip [snip](/tests/src/test/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers-settings }
+: @@snip [snip](/tests/src/main/scala/akka/kafka/scaladsl/SpecBase.scala) { #testkit #testcontainers-settings }
 
 Java
-: @@snip [snip](/tests/src/test/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
+: @@snip [snip](/tests/src/main/java/docs/javadsl/TestkitTestcontainersTest.java) { #testcontainers-settings }
 
 <!-- NOTE: Can't get this working with paradox..
 To see what options are available for configuring testcontainers using `configureKafka` and `configureZooKeeper` in @apidoc[KafkaTestkitTestcontainersSettings] see the API docs for @apidoc[AlpakkaKafkaContainer] and @apidoc[org.testcontainers.containers.GenericContainer]. 
