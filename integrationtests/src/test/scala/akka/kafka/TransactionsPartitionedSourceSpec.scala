@@ -5,25 +5,29 @@
 
 package akka.kafka
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.Done
 import akka.kafka.scaladsl.SpecBase
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream._
-import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.RestartSource
+import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
+import org.scalatest.Ignore
 import org.scalatest.concurrent.PatienceConfiguration.Interval
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.Ignore
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future, TimeoutException}
-import scala.util.{Failure, Success}
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.TimeoutException
+import scala.util.Failure
+import scala.util.Success
 
 @Ignore
 class TransactionsPartitionedSourceSpec

@@ -212,7 +212,7 @@ lazy val `alpakka-kafka` =
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
+    .aggregate(core, testkit, clusterSharding, tests, integrationTests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -276,22 +276,60 @@ lazy val clusterSharding = project
           .getOrElse(throw new Error("Unable to determine previous version"))
       )
   )
-  .configs(IntegrationTest) // make CI not fail
   .settings(Scala3Settings)
 
 lazy val tests = project
   .dependsOn(core, testkit, clusterSharding)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
         "com.google.protobuf" % "protobuf-java" % "3.25.8", // use the same, or later, version as in scalapb
+        "org.scalatest" %% "scalatest" % scalatestVersion,
+        "ch.qos.logback" % "logback-classic" % logbackVersion,
+        "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
+        // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
+        "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
+        "org.testcontainers" % "kafka" % testcontainersVersion,
+        "io.spray" %% "spray-json" % "1.3.6" % Test,
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.4" % Test, // ApacheV2
+        "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
+        // See http://hamcrest.org/JavaHamcrest/distributables#upgrading-from-hamcrest-1x
+        "org.hamcrest" % "hamcrest-library" % "3.0" % Test,
+        "org.hamcrest" % "hamcrest" % "3.0" % Test,
+        "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+        "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
+        // Schema registry uses Glassfish which uses java.util.logging
+        "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
+        "org.mockito" % "mockito-core" % "5.20.0" % Test,
+        "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % Test
+      ),
+    resolvers ++= Seq(
+        "Confluent Maven Repo" at "https://packages.confluent.io/maven/"
+      ),
+    publish / skip := true,
+    Test / fork := true,
+    Test / parallelExecution := false,
+    Test / unmanagedSources :=
+      // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
+      // https://github.com/scala/scala3/issues/20026
+      (if (scalaVersion.value.startsWith("3"))
+         (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
+       else (Test / unmanagedSources).value)
+  )
+
+lazy val integrationTests = project
+  .dependsOn(core, testkit, clusterSharding, tests)
+  .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-integration-tests",
+    libraryDependencies ++= Seq(
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
@@ -317,14 +355,7 @@ lazy val tests = project
       ),
     publish / skip := true,
     Test / fork := true,
-    Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false,
-    Test / unmanagedSources :=
-      // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
-      // https://github.com/scala/scala3/issues/20026
-      (if (scalaVersion.value.startsWith("3"))
-         (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
-       else (Test / unmanagedSources).value)
+    Test / parallelExecution := false
   )
 
 lazy val docs = project
@@ -388,7 +419,7 @@ lazy val benchmarks = project
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
-    IntegrationTest / parallelExecution := false,
+    Test / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.33",
