@@ -5,18 +5,15 @@
 
 package akka.kafka
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.Done
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.scaladsl.SpecBase
-import akka.kafka.scaladsl.Transactional
+import akka.kafka.scaladsl.{Consumer, SpecBase, Transactional}
 import akka.kafka.testkit.KafkaTestkitTestcontainersSettings
 import akka.kafka.testkit.scaladsl.TestcontainersKafkaPerClassLike
 import akka.stream._
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartSource
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Flow, Keep, RestartSource, Sink}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.concurrent.PatienceConfiguration.Interval
@@ -24,14 +21,10 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.TimeoutException
-import scala.util.Failure
-import scala.util.Success
+import scala.concurrent.{Await, Future, TimeoutException}
+import scala.util.{Failure, Success}
 
 class TransactionsSourceSpec
     extends SpecBase
