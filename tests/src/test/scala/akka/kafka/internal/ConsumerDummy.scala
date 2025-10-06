@@ -76,6 +76,7 @@ abstract class ConsumerDummy[K, V] extends Consumer[K, V] {
   ): java.util.Map[TopicPartition, java.lang.Long] = ???
   override def close(): Unit = {}
   override def close(timeout: java.time.Duration): Unit = {}
+  override def close(options: org.apache.kafka.clients.consumer.CloseOptions): Unit = {}
   override def wakeup(): Unit = ???
 
   override def commitSync(timeout: java.time.Duration): Unit = ???

@@ -469,7 +469,7 @@ import scala.util.control.NonFatal
         ref ! Messages(req.requestId, Iterator.empty)
     }
     partitionAssignmentHandler.postStop()
-    consumer.close(settings.getCloseTimeout)
+    consumer.close(CloseOptions.timeout(settings.getCloseTimeout))
     super.postStop()
   }
 

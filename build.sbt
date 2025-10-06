@@ -107,6 +107,7 @@ val commonSettings = Def.settings(
       "11"
     ),
   scalacOptions ++= Seq(
+      "--deprecation",
       "-encoding",
       "UTF-8", // yes, this is 2 args
       "-release",
