@@ -208,11 +208,11 @@ lazy val `alpakka-kafka` =
             |  tests/testOnly -- -t "A consume-transform-produce cycle must complete in happy-path scenario"
             |    run a single test with an exact name (use -z for partial match)
             |
-            |  benchmarks/IntegrationTest/testOnly *.AlpakkaKafkaPlainConsumer
+            |  benchmarks/Test/testOnly *.AlpakkaKafkaPlainConsumer
             |    run a single benchmark backed by Docker containers
           """.stripMargin
     )
-    .aggregate(core, testkit, clusterSharding, tests, benchmarks, docs)
+    .aggregate(core, testkit, clusterSharding, tests, integrationTests, benchmarks, docs)
 
 lazy val core = project
   .enablePlugins(AutomateHeaderPlugin)
@@ -276,17 +276,13 @@ lazy val clusterSharding = project
           .getOrElse(throw new Error("Unable to determine previous version"))
       )
   )
-  .configs(IntegrationTest) // make CI not fail
   .settings(Scala3Settings)
 
 lazy val tests = project
   .dependsOn(core, testkit, clusterSharding)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest.extend(Test))
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-tests",
     libraryDependencies ++= Seq(
@@ -295,8 +291,8 @@ lazy val tests = project
         "io.confluent" % "kafka-avro-serializer" % confluentAvroSerializerVersion % Test excludeAll (confluentLibsExclusionRules: _*),
         // See https://github.com/sbt/sbt/issues/3618#issuecomment-448951808
         "javax.ws.rs" % "javax.ws.rs-api" % "2.1.1" artifacts Artifact("javax.ws.rs-api", "jar", "jar"),
-        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
-        "org.scalatest" %% "scalatest" % scalatestVersion % Test,
+        "org.testcontainers" % "kafka" % testcontainersVersion,
+        "org.scalatest" %% "scalatest" % scalatestVersion,
         "io.spray" %% "spray-json" % "1.3.6" % Test,
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.4" % Test, // ApacheV2
         "org.junit.vintage" % "junit-vintage-engine" % JupiterKeys.junitVintageVersion.value % Test,
@@ -305,7 +301,7 @@ lazy val tests = project
         "org.hamcrest" % "hamcrest" % "3.0" % Test,
         "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
-        "ch.qos.logback" % "logback-classic" % logbackVersion % Test,
+        "ch.qos.logback" % "logback-classic" % logbackVersion,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
@@ -318,13 +314,24 @@ lazy val tests = project
     publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    IntegrationTest / parallelExecution := false,
     Test / unmanagedSources :=
       // Workaround for Scala 3 cross-java-compile issue (disabling compilation of Java tests on Scala 3 for now)
       // https://github.com/scala/scala3/issues/20026
       (if (scalaVersion.value.startsWith("3"))
          (Test / unmanagedSources).value.filterNot(_.name == "TestkitTestcontainersTest.java")
        else (Test / unmanagedSources).value)
+  )
+
+lazy val integrationTests = project
+  .dependsOn(core, testkit, clusterSharding, tests)
+  .enablePlugins(AutomateHeaderPlugin)
+  .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "akka-stream-kafka-integration-tests",
+    publish / skip := true,
+    Test / fork := true,
+    Test / parallelExecution := false
   )
 
 lazy val docs = project
@@ -384,14 +391,11 @@ lazy val benchmarks = project
   .dependsOn(core, testkit)
   .enablePlugins(AutomateHeaderPlugin)
   .disablePlugins(MimaPlugin, SitePlugin, CiReleasePlugin)
-  .configs(IntegrationTest)
   .settings(commonSettings)
-  .settings(Defaults.itSettings)
-  .settings(headerSettings(IntegrationTest))
   .settings(
     name := "akka-stream-kafka-benchmarks",
     publish / skip := true,
-    IntegrationTest / parallelExecution := false,
+    Test / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.33",
@@ -399,9 +403,9 @@ lazy val benchmarks = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
         // "com.lightbend.akka" %% "akka-stream-alpakka-csv" % "4.0.0",
-        "org.testcontainers" % "kafka" % testcontainersVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % IntegrationTest,
-        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % IntegrationTest,
-        "org.scalatest" %% "scalatest" % scalatestVersion % IntegrationTest
+        "org.testcontainers" % "kafka" % testcontainersVersion % Test,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % Test,
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
+        "org.scalatest" %% "scalatest" % scalatestVersion % Test
       )
   )

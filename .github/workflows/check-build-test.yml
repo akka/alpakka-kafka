@@ -80,8 +80,8 @@ jobs:
           jvm: temurin:1.11
 
       - name: Compile all code with fatal warnings for Java 11 and all Scala versions
-        # Run locally with: env CI=true sbt 'clean ; Test/compile ; It/compile'
-        run: sbt "+Test/compile; +It/compile"
+        # Run locally with: env CI=true sbt 'clean ; Test/compile'
+        run: sbt "+Test/compile"
 
   check-docs:
     name: Check Docs
@@ -154,8 +154,8 @@ jobs:
         with:
           jvm: ${{ matrix.java-version }}
 
-      - name: Run tests with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
-        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "test"
+      - name: Run tests/test with Scala ${{ matrix.scala-version }} and Java ${{ matrix.java-version }}
+        run: sbt ++${{ matrix.scalaVersion }} ${{ matrix.sbt-opts }} "tests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -192,7 +192,7 @@ jobs:
           jvm: temurin:1.11
 
       - name: Run multi-broker and long running integration tests
-        run: sbt "tests/IntegrationTest/test"
+        run: sbt "integrationTests/test"
 
       - name: Print logs on failure
         if: ${{ failure() }}
@@ -228,4 +228,4 @@ jobs:
           jvm: temurin:1.11
 
       - name: "Compile benchmark tests"
-        run: sbt "benchmarks/IntegrationTest/compile"
+        run: sbt "benchmarks/Test/compile"
