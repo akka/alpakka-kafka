@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// manually regenerate Java representation for tests using
+// protoc -I=tests/src/test/proto --java_out=tests/src/test/java tests/src/test/proto/order.proto
+
+option java_package = "docs.javadsl.proto";
+option java_outer_classname = "OrderMessages";
+
+message Order {
+  string id = 1;
+}
