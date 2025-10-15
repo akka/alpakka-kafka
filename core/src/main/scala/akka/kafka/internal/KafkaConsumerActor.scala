@@ -32,6 +32,8 @@ import org.apache.kafka.common.errors.{
   TimeoutException
 }
 import org.apache.kafka.common.{Metric, MetricName, TopicPartition}
+
+import java.util
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -467,7 +469,7 @@ import scala.util.control.NonFatal
         ref ! Messages(req.requestId, Iterator.empty)
     }
     partitionAssignmentHandler.postStop()
-    consumer.close(settings.getCloseTimeout)
+    consumer.close(CloseOptions.timeout(settings.getCloseTimeout))
     super.postStop()
   }
 
@@ -737,8 +739,9 @@ import scala.util.control.NonFatal
     case req: Metadata.GetCommittedOffset @nowarn("cat=deprecation") =>
       @nowarn("cat=deprecation") val resp = Metadata.CommittedOffset(
         Try {
-          @nowarn("cat=deprecation") val offset = consumer.committed(req.partition, settings.getMetadataRequestTimeout)
-          offset
+          @nowarn("cat=deprecation") val offset =
+            consumer.committed(Set(req.partition).asJava, settings.getMetadataRequestTimeout)
+          offset.asScala.headOption.map(_._2).get
         },
         req.partition
       )

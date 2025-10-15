@@ -73,7 +73,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val commitInterval = 200.millis
@@ -111,7 +112,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "send")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val commitInterval = 200.millis
@@ -153,7 +155,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(2L).withMaxInterval(10.seconds)
@@ -189,7 +192,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(2L).withMaxInterval(10.seconds)
@@ -225,7 +229,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     val producerRecordsPerInput = 2
     val totalProducerRecords = elements.size * producerRecordsPerInput
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(elements.size.longValue())
@@ -260,7 +265,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     val consumer = FakeConsumer(groupId, topic, startOffset = 1616L)
     val message = consumer.message(partition, "increment the offset")
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(1)
@@ -294,7 +300,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system)
@@ -332,7 +339,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     // choose a large commit interval so that completion happens before
@@ -370,7 +378,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val commitInterval = 5.seconds
@@ -411,7 +420,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val commitInterval = 5.seconds
@@ -450,7 +460,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
     )
 
     // this producer does not auto complete messages
-    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](false, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(1L)
@@ -491,7 +502,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](false, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(1L)
@@ -537,7 +549,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](false, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](false, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     // choose a large commit interval so that completion happens before
@@ -586,7 +599,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(2L)
@@ -621,7 +635,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxBatch(2L)
@@ -662,7 +677,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
       consumer.message(partition, "value 2")
     )
 
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system)
@@ -698,7 +714,8 @@ class CommittingProducerSinkSpec(_system: ActorSystem)
   }
 
   it should "shut down without elements" in assertAllStagesStopped {
-    val producer = new MockProducer[String, String](true, new StringSerializer, new StringSerializer)
+    val producer =
+      new MockProducer[String, String](true, new RoundRobinPartitioner(), new StringSerializer, new StringSerializer)
     val producerSettings = ProducerSettings(system, new StringSerializer, new StringSerializer)
       .withProducer(producer)
     val committerSettings = CommitterSettings(system).withMaxInterval(1.second)
