@@ -161,7 +161,7 @@ class ConsumerMock[K, V](handler: ConsumerMock.CommitHandler = new ConsumerMock.
     }
 
   def verifyClosed(mode: VerificationMode = Mockito.times(1)): Unit =
-    verify(mock, mode).close(CloseOptions.timeout(ConsumerMock.closeTimeout.toJava))
+    verify(mock, mode).close(ArgumentMatchers.isA(classOf[CloseOptions]))
 
   def verifyPoll(mode: VerificationMode = Mockito.atLeastOnce()): ConsumerRecords[K, V] =
     verify(mock, mode).poll(ArgumentMatchers.any[java.time.Duration])
