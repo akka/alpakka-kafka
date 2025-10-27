@@ -10,8 +10,8 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
-val Scala213 = "2.13.14"
-val Scala3 = "3.3.4"
+val Scala213 = "2.13.17"
+val Scala3 = "3.3.7"
 val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
@@ -70,8 +70,7 @@ addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
 addCommandAlias("verifyDocs", ";doc ;unidoc ;docs/paradoxBrowse")
 
 // Java Platform version for JavaDoc creation
-// sync with Java version in .github/workflows/release.yml#documentation
-lazy val JavaDocLinkVersion = 17
+lazy val JavaDocLinkVersion = scala.util.Properties.javaSpecVersion
 
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
@@ -132,11 +131,11 @@ val commonSettings = Def.settings(
       "https://doc.akka.io/api/alpakka-kafka/current/"
     ) ++ {
       if (scalaBinaryVersion.value.startsWith("3")) {
-        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api",
             "-skip-packages:akka.pattern")
       } else {
         Seq("-jdk-api-doc-base",
-            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api",
             "-skip-packages",
             "akka.pattern")
       }
@@ -160,9 +159,7 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
-  // can be removed once we this project is on 2.13.15
-  dependencyOverrides += "org.scala-lang" % "scala-library" % Scala213
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
 )
 
 lazy val `alpakka-kafka` =
@@ -371,11 +368,11 @@ lazy val docs = project
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "direct",
         // Java
-        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
-        "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
+        "extref.java-docs.base_url" -> s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/%s",
+        "javadoc.base_url" -> s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
         "javadoc.link_style" -> "direct",
         // Scala
-        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
+        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/2.13.x/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         // Testcontainers
         "testcontainers.version" -> testcontainersVersion,
