@@ -31,12 +31,12 @@ jobs:
         # v6.4.5
         uses: coursier/cache-action@1ff273bff02a8787bc9f1877d347948af647956d
 
-      - name: Set up JDK 17
+      - name: Set up JDK 25
         # https://github.com/coursier/setup-action/releases
         # v1.3.5
         uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
         with:
-          jvm: temurin:1.17.0.5
+          jvm: temurin:1.25
           apps: cs
 
       - name: sbt site

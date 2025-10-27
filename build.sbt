@@ -70,8 +70,7 @@ addCommandAlias("verifyCodeStyle", "headerCheck; verifyCodeFmt")
 addCommandAlias("verifyDocs", ";doc ;unidoc ;docs/paradoxBrowse")
 
 // Java Platform version for JavaDoc creation
-// sync with Java version in .github/workflows/release.yml#documentation
-lazy val JavaDocLinkVersion = 17
+lazy val JavaDocLinkVersion = scala.util.Properties.javaSpecVersion
 
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
@@ -132,11 +131,11 @@ val commonSettings = Def.settings(
       "https://doc.akka.io/api/alpakka-kafka/current/"
     ) ++ {
       if (scalaBinaryVersion.value.startsWith("3")) {
-        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+        Seq(s"-external-mappings:https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api",
             "-skip-packages:akka.pattern")
       } else {
         Seq("-jdk-api-doc-base",
-            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
+            s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api",
             "-skip-packages",
             "akka.pattern")
       }
@@ -369,11 +368,11 @@ lazy val docs = project
         "javadoc.org.apache.kafka.base_url" -> s"https://kafka.apache.org/$KafkaVersionForDocs/javadoc/",
         "javadoc.org.apache.kafka.link_style" -> "direct",
         // Java
-        "extref.java-docs.base_url" -> "https://docs.oracle.com/en/java/javase/11/%s",
-        "javadoc.base_url" -> "https://docs.oracle.com/en/java/javase/11/docs/api/java.base/",
+        "extref.java-docs.base_url" -> s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/%s",
+        "javadoc.base_url" -> s"https://docs.oracle.com/en/java/javase/${JavaDocLinkVersion}/docs/api/java.base/",
         "javadoc.link_style" -> "direct",
         // Scala
-        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/current/",
+        "scaladoc.scala.base_url" -> s"https://www.scala-lang.org/api/2.13.x/",
         "scaladoc.com.typesafe.config.base_url" -> s"https://lightbend.github.io/config/latest/api/",
         // Testcontainers
         "testcontainers.version" -> testcontainersVersion,
