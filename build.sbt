@@ -10,8 +10,8 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
-val Scala213 = "2.13.14"
-val Scala3 = "3.3.4"
+val Scala213 = "2.13.17"
+val Scala3 = "3.3.7"
 val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
@@ -160,9 +160,7 @@ val commonSettings = Def.settings(
            |""".stripMargin
       )
     ),
-  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value),
-  // can be removed once we this project is on 2.13.15
-  dependencyOverrides += "org.scala-lang" % "scala-library" % Scala213
+  projectInfoVersion := (if (isSnapshot.value) "snapshot" else version.value)
 )
 
 lazy val `alpakka-kafka` =
