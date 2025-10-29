@@ -3,7 +3,7 @@ Business Source License 1.1
 Parameters
 
 Licensor:             Lightbend, Inc.
-Licensed Work:        Alpakka Kafka 7.0.1
+Licensed Work:        Alpakka Kafka 8.0.0
                       This license applies to all sub directories and files
                       UNLESS another license file is present in a sub
                       directory, then that other license applies to all files
@@ -19,12 +19,12 @@ Additional Use Grant:
     Connecting to a Play Framework websocket and/or Play Framework
     request/response bodies for server and play-ws client.
 
-Change Date:          2028-05-02
+Change Date:          2028-10-29
 
 Change License:       Apache License, Version 2.0
 
 For information about alternative licensing arrangements for the Software,
-please visit: https://lightbend.com/
+please visit: https://akka.io
 
 -----------------------------------------------------------------------------
 
