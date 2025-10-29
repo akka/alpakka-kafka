@@ -75,7 +75,7 @@ lazy val JavaDocLinkVersion = scala.util.Properties.javaSpecVersion
 val commonSettings = Def.settings(
   organization := "com.typesafe.akka",
   organizationName := "Lightbend Inc.",
-  organizationHomepage := Some(url("https://www.lightbend.com/")),
+  organizationHomepage := Some(url("https://akka.io")),
   homepage := Some(url("https://doc.akka.io/libraries/alpakka-kafka/current")),
   scmInfo := Some(ScmInfo(url("https://github.com/akka/alpakka-kafka"), "git@github.com:akka/alpakka-kafka.git")),
   developers += Developer("contributors",
@@ -155,7 +155,7 @@ val commonSettings = Def.settings(
   headerLicense := Some(
       HeaderLicense.Custom(
         """|Copyright (C) 2014 - 2016 Softwaremill <https://softwaremill.com>
-           |Copyright (C) 2016 - 2024 Lightbend Inc. <https://www.lightbend.com>
+           |Copyright (C) 2016 - 2025 Lightbend Inc. <https://akka.io>
            |""".stripMargin
       )
     ),
