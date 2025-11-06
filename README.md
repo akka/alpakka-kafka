@@ -1,3 +1,14 @@
+Akka
+====
+*Akka is a powerful platform that simplifies building and operating highly responsive, resilient, and scalable services.*
+
+
+The platform consists of
+* the [**Akka SDK**](https://doc.akka.io/java/index.html) for straightforward, rapid development with AI assist and automatic clustering. Services built with the Akka SDK are automatically clustered and can be deployed on any infrastructure.
+* and [**Akka Automated Operations**](https://doc.akka.io/operations/akka-platform.html), a managed solution that handles everything for Akka SDK services from auto-elasticity to multi-region high availability running safely within your VPC.
+
+The **Akka SDK** and **Akka Automated Operations** are built upon the foundational [**Akka libraries**](https://doc.akka.io/libraries/akka-dependencies/current/), providing the building blocks for distributed systems.
+
 Alpakka Kafka [![gh-actions-badge][]][gh-actions]
 =============
 
@@ -14,32 +25,13 @@ This repository contains the sources for the **Alpakka Kafka connector**. Which 
 Akka Stream connectors to other technologies are listed in the [Alpakka repository](https://github.com/akka/alpakka).
 
 
-Documentation
--------------
+Reference Documentation
+-----------------------
 
-- [Alpakka reference](https://doc.akka.io/libraries/alpakka/current/) documentation
+The reference documentation for all Akka libraries is available via [doc.akka.io/libraries/](https://doc.akka.io/libraries/), details for the Alpakka Kafka library
+for [Scala](https://doc.akka.io/libraries/alpakka-kafka/current/?language=scala) and [Java](https://doc.akka.io/libraries/alpakka-kafka/current/?language=java).
 
-- **[Alpakka Kafka connector reference](https://doc.akka.io/libraries/alpakka-kafka/current/) documentation**
-
-To keep up with the latest Alpakka releases check out [Alpakka releases](https://github.com/akka/alpakka/releases) and [Alpakka Kafka releases](https://github.com/akka/alpakka-kafka/releases).
-
-
-Community
----------
-
-You can join these groups and chats to discuss and ask Akka and Alpakka related questions:
-
-- Forums: [discuss.lightbend.com](https://discuss.lightbend.com/c/akka/streams-and-alpakka)
-- Issue tracker: [![github: akka/alpakka-kafka](https://img.shields.io/badge/github%3A-issues-blue.svg?style=flat-square)](https://github.com/akka/alpakka-kafka/issues)
-
-In addition to that, you may enjoy following:
-
-- The [Akka Team Blog](https://akka.io/blog/)
-- [@akkateam](https://twitter.com/akkateam) on Twitter
-- Questions tagged [#alpakka on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
-- Questions tagged [**#alpakka** on StackOverflow](https://stackoverflow.com/questions/tagged/alpakka)
-
-The Kafka connector was originally created as **Reactive Kafka** by [<img src="https://files.softwaremill.com/logo/logo.svg" alt="SoftwareMill logo" height="25">](https://softwaremill.com).
+The current versions of all Akka libraries are listed on the [Akka Dependencies](https://doc.akka.io/libraries/akka-dependencies/current/) page. Releases of the Alpakka Kafka library in this repository are listed on the [GitHub releases](https://github.com/akka/alpakka-kafka/releases) page.
 
 
 Contributing
