@@ -31,7 +31,7 @@ Key links:
 
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$VERSION$/) documentation
 - [ ] Check [reference](https://doc.akka.io/libraries/alpakka-kafka/$VERSION$/) documentation. Check that the reference docs were deployed and show a version warning (see section below on how to fix the version warning).
-- [ ] Check the release on https://repo.akka.io/maven/com/typesafe/akka/akka-stream-kafka_2.13/$VERSION$/akka-stream-kafka_2.13-$VERSION$.pom
+- [ ] Check the release `mvn dependency:get -Dartifact=com.typesafe.akka:akka-stream-kafka_2.13:$VERSION$`
 
 ### When everything is on https://repo.akka.io/maven
   - [ ] Log into `gustav.akka.io` as `akkarepo` 
