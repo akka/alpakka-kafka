@@ -78,6 +78,8 @@ object ProducerSettings {
     val dispatcher = config.getString("use-dispatcher")
     val eosCommitInterval = config.getDuration("eos-commit-interval").toScala
     val transactionIdPrefix = config.getString("transaction-id-prefix")
+    val transactionalMaxInFlightRequestsPerConnection =
+      config.getInt("transactional-max-in-flight-requests-per-connection")
     new ProducerSettings[K, V](
       properties,
       keySerializer,
@@ -89,7 +91,8 @@ object ProducerSettings {
       eosCommitInterval,
       enrichAsync = None,
       producerFactorySync = None,
-      transactionIdPrefix = transactionIdPrefix
+      transactionIdPrefix = transactionIdPrefix,
+      transactionalMaxInFlightRequestsPerConnection = transactionalMaxInFlightRequestsPerConnection
     )
   }
 
@@ -235,7 +238,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     val eosCommitInterval: FiniteDuration,
     val enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]],
     val producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]],
-    val transactionIdPrefix: String
+    val transactionIdPrefix: String,
+    val transactionalMaxInFlightRequestsPerConnection: Int
 ) {
 
   @deprecated(
@@ -348,6 +352,14 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     copy(transactionIdPrefix = transactionIdPrefix)
 
   /**
+   * The value of `max.in.flight.requests.per.connection` used by the transactional producer.
+   * Defaults to `1`. Kafka 2.5+ (KIP-360) supports up to `5` in-flight requests with
+   * exactly-once semantics, which can improve throughput.
+   */
+  def withTransactionalMaxInFlightRequestsPerConnection(value: Int): ProducerSettings[K, V] =
+    copy(transactionalMaxInFlightRequestsPerConnection = value)
+
+  /**
    * Scala API.
    * A hook to allow for resolving some settings asynchronously.
    * @since 2.0.0
@@ -396,7 +408,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
       eosCommitInterval: FiniteDuration = eosCommitInterval,
       enrichAsync: Option[ProducerSettings[K, V] => Future[ProducerSettings[K, V]]] = enrichAsync,
       producerFactorySync: Option[ProducerSettings[K, V] => Producer[K, V]] = producerFactorySync,
-      transactionIdPrefix: String = transactionIdPrefix
+      transactionIdPrefix: String = transactionIdPrefix,
+      transactionalMaxInFlightRequestsPerConnection: Int = transactionalMaxInFlightRequestsPerConnection
   ): ProducerSettings[K, V] =
     new ProducerSettings[K, V](properties,
                                keySerializer,
@@ -408,7 +421,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
                                eosCommitInterval,
                                enrichAsync,
                                producerFactorySync,
-                               transactionIdPrefix)
+                               transactionIdPrefix,
+                               transactionalMaxInFlightRequestsPerConnection)
 
   private final val propertiesAllowList = Set(
     "acks",
@@ -450,7 +464,8 @@ class ProducerSettings[K, V] @InternalApi private[kafka] (
     s"eosCommitInterval=${eosCommitInterval.toCoarsest}," +
     s"enrichAsync=${enrichAsync.map(_ => "needs to be applied")}," +
     s"producerFactorySync=${producerFactorySync.map(_ => "is defined").getOrElse("is undefined")})" +
-    s",transactionIdPrefix=$transactionIdPrefix"
+    s",transactionIdPrefix=$transactionIdPrefix" +
+    s",transactionalMaxInFlightRequestsPerConnection=$transactionalMaxInFlightRequestsPerConnection"
   }
 
   /**
