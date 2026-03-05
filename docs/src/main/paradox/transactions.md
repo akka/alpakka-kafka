@@ -55,7 +55,7 @@ For more details see [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA
 The @apidoc[Transactional.sink](Transactional$) is similar to the @apidoc[Producer.committableSink](Producer$) in that messages will be automatically committed as part of a transaction.  The @apidoc[Transactional.flow](Transactional$) or @apidoc[Transactional.sink](Transactional$) are required when connecting a consumer to a producer to achieve a transactional workflow.
 
 They override producer properties `enable.idempotence` to `true` and `max.in.flight.requests.per.connection` to the value of `akka.kafka.producer.transactional-max-in-flight-requests-per-connection` (default `1`).
-Kafka 2.5+ ([KIP-360](https://cwiki.apache.org/confluence/display/KAFKA/KIP-360%3A+Improve+reliability+of+idempotent%2Ftransactional+producer)) supports up to `5` in-flight requests with exactly-once semantics, which can improve throughput.
+Kafka 2.5+ ([KIP-360](https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=89068820)) supports up to `5` in-flight requests with exactly-once semantics, which can improve throughput.
 The `transaction.timeout.ms` is set to 10s as recommended in [KIP-447](https://cwiki.apache.org/confluence/display/KAFKA/KIP-447%3A+Producer+scalability+for+exactly+once+semantics). In addition, you can optionally set `akka.kafka.producer.transaction-id-prefix` to prefix in front of the generated transaction ID should your specifications require this level of control.
 
 ## Consume-Transform-Produce Workflow
