@@ -24,6 +24,10 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           fetch-depth: 0
+
+      - name: Run akka/github-actions-scripts
+        uses: akka/github-actions-scripts/setup_global_resolver@main
+
       - name: Submit dependencies to GitHub
         # https://github.com/scalacenter/sbt-dependency-submission/releases
         # v2.3.1

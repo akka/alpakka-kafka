@@ -26,6 +26,9 @@ jobs:
       - name: Fetch tags
         run: git fetch --depth=100 origin +refs/tags/*:refs/tags/*
 
+      - name: Run akka/github-actions-scripts
+        uses: akka/github-actions-scripts/setup_global_resolver@main
+
       - name: Cache Coursier cache
         # https://github.com/coursier/cache-action/releases
         # v6.4.5

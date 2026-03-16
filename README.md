@@ -25,6 +25,13 @@ This repository contains the sources for the **Alpakka Kafka connector**. Which 
 Akka Stream connectors to other technologies are listed in the [Alpakka repository](https://github.com/akka/alpakka).
 
 
+## Build Token
+
+To build locally, you need to fetch a token at https://account.akka.io/token that you have to place into `~/.sbt/1.0/akka-commercial.sbt` file like this:
+```
+ThisBuild / resolvers += "lightbend-akka".at("your token resolver here")
+```
+
 Reference Documentation
 -----------------------
 
