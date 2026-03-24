@@ -20,8 +20,7 @@ jobs:
     steps:
       - name: Checkout
         # https://github.com/actions/checkout/releases
-        # v4.1.1
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -30,8 +29,7 @@ jobs:
 
       - name: Submit dependencies to GitHub
         # https://github.com/scalacenter/sbt-dependency-submission/releases
-        # v2.3.1
-        uses: scalacenter/sbt-dependency-submission@f3c0455a87097de07b66c3dc1b8619b5976c1c89
+        uses: scalacenter/sbt-dependency-submission@v3.2.1
         with:
           modules-ignore: akka-stream-kafka-benchmarks_2.13 akka-stream-kafka-benchmarks_3 akka-stream-kafka-tests_2.13 akka-stream-kafka-tests_3
           configs-ignore: test It
