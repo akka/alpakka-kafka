@@ -83,6 +83,9 @@ jobs:
         # Run locally with: env CI=true sbt 'clean ; Test/compile'
         run: sbt "+Test/compile"
 
+      - name: Artifact BOM validation
+        uses: akka/github-actions-scripts/artifact_bom_validation@main
+
   check-docs:
     name: Check Docs
     runs-on: Akka-Default
