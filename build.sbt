@@ -47,6 +47,8 @@ ThisBuild / resolvers ++= Seq(
   Resolver.jcenterRepo
 )
 
+ThisBuild / makeBomIncludeDependencies := true
+
 TaskKey[Unit]("verifyCodeFmt") := {
   javafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
     throw new MessageOnlyException(
@@ -232,6 +234,7 @@ lazy val core = project
     mimaBinaryIssueFilters += ProblemFilters.exclude[Problem]("akka.kafka.internal.*")
   )
   .settings(Scala3Settings)
+  .enablePlugins(ArtifactBomPlugin)
 
 lazy val testkit = project
   .dependsOn(core)
@@ -256,6 +259,7 @@ lazy val testkit = project
     mimaBinaryIssueFilters += ProblemFilters.exclude[Problem]("akka.kafka.testkit.internal.*")
   )
   .settings(Scala3Settings)
+  .enablePlugins(ArtifactBomPlugin)
 
 lazy val clusterSharding = project
   .in(file("./cluster-sharding"))
@@ -275,6 +279,7 @@ lazy val clusterSharding = project
       )
   )
   .settings(Scala3Settings)
+  .enablePlugins(ArtifactBomPlugin)
 
 lazy val tests = project
   .dependsOn(core, testkit, clusterSharding)
