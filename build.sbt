@@ -21,15 +21,15 @@ val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
 
-val kafkaVersion = "4.1.0"
+val kafkaVersion = "4.1.2"
 val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major$minor" // e.g. https://kafka.apache.org/41/documentation/
 }
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
-val scalatestVersion = "3.2.16"
-val testcontainersVersion = "1.21.3"
-val logbackVersion = "1.5.18"
+val scalatestVersion = "3.2.17"
+val testcontainersVersion = "1.21.4"
+val logbackVersion = "1.5.37"
 val slf4jVersion = "2.0.17"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
