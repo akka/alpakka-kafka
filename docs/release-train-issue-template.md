@@ -25,15 +25,15 @@ Key links:
 - [ ] Update the revision in Fossa in the Akka Group for the Akka umbrella version, e.g. `22.10`. Note that the revisions for the release is udpated by Akka Group > Projects > Edit. For recent dependency updates the Fossa validation can be triggered from the GitHub actions "Dependency License Scanning".
 - [ ] Wait until [main build finished](https://github.com/akka/alpakka-kafka/actions) after merging the latest PR
 - [ ] Update the [draft release](https://github.com/akka/alpakka-kafka/releases) with the next tag version `v$VERSION$`, title and release description. Use the `Publish release` button, which will create the tag.
-- [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to https://repo.akka.io/maven)
+- [ ] Check that GitHub Actions release build has executed successfully (GitHub Actions will start a [CI build](https://github.com/akka/alpakka-kafka/actions) for the new tag and publish artifacts to the Akka repository)
 
 ### Check availability
 
 - [ ] Check [API](https://doc.akka.io/api/alpakka-kafka/$VERSION$/) documentation
 - [ ] Check [reference](https://doc.akka.io/libraries/alpakka-kafka/$VERSION$/) documentation. Check that the reference docs were deployed and show a version warning (see section below on how to fix the version warning).
-- [ ] Check the release `mvn dependency:get -Dartifact=com.typesafe.akka:akka-stream-kafka_2.13:$VERSION$`
+- [ ] Check the release using your token resolver URL from https://account.akka.io/token: `mvn dependency:get -Dartifact=com.typesafe.akka:akka-stream-kafka_2.13:$VERSION$ -Dmaven.repo.remote=<token url>`
 
-### When everything is on https://repo.akka.io/maven
+### When everything is available in the Akka repository
   - [ ] Log into `gustav.akka.io` as `akkarepo` 
     - [ ] If this updates the `current` version, run `./update-alpakka-kafka-current-version.sh $VERSION$`
     - [ ] otherwise check changes and commit the new version to the local git repository
