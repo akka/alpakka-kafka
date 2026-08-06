@@ -21,7 +21,7 @@ val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
 
-val kafkaVersion = "4.1.2"
+val kafkaVersion = "4.3.1"
 val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major$minor" // e.g. https://kafka.apache.org/41/documentation/
 }

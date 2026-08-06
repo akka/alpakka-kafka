@@ -134,7 +134,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>4.1.2</version>
+                <version>4.3.1</version>
             </dependency>
             <dependency>
                 <groupId>org.lmdbjava</groupId>
@@ -317,7 +317,7 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>4.1.2</version>
+            <version>4.3.1</version>
         </dependency>
         <dependency>
             <groupId>org.lmdbjava</groupId>
