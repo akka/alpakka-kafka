@@ -401,7 +401,7 @@ lazy val benchmarks = project
     Test / parallelExecution := false,
     libraryDependencies ++= Seq(
         "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-        "io.dropwizard.metrics" % "metrics-core" % "4.2.33",
+        "io.dropwizard.metrics" % "metrics-core" % "4.2.39",
         "ch.qos.logback" % "logback-classic" % logbackVersion,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
         // FIXME akka-stream-alpakka-csv removed for now, because of dependency cycle
