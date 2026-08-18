@@ -29,8 +29,8 @@ val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.17"
 val testcontainersVersion = "1.21.4"
-val logbackVersion = "1.5.37"
-val slf4jVersion = "2.0.17"
+val logbackVersion = "1.5.38"
+val slf4jVersion = "2.0.18"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
