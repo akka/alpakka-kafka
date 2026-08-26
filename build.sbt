@@ -10,8 +10,8 @@ val Nightly = sys.env.get("EVENT_NAME").contains("schedule")
 
 // align ignore-prefixes in scripts/link-validator.conf
 // align in release.yml
-val Scala213 = "2.13.17"
-val Scala3 = "3.3.7"
+val Scala213 = "2.13.18"
+val Scala3 = "3.3.8"
 val ScalaVersions = Seq(Scala213, Scala3)
 
 val Scala3Settings = Seq(crossScalaVersions := ScalaVersions)
@@ -400,7 +400,7 @@ lazy val benchmarks = project
     publish / skip := true,
     Test / parallelExecution := false,
     libraryDependencies ++= Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6",
         "io.dropwizard.metrics" % "metrics-core" % "4.2.39",
         "ch.qos.logback" % "logback-classic" % logbackVersion,
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
