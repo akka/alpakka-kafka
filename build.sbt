@@ -27,7 +27,7 @@ val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
 }
 // This should align with the ScalaTest version used in the Akka testkit
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
-val scalatestVersion = "3.2.17"
+val scalatestVersion = "3.2.20"
 val testcontainersVersion = "1.21.4"
 val logbackVersion = "1.5.38"
 val slf4jVersion = "2.0.18"
@@ -244,7 +244,7 @@ lazy val testkit = project
   .settings(
     name := "akka-stream-kafka-testkit",
     AutomaticModuleName.settings("akka.stream.alpakka.kafka.testkit"),
-    JupiterKeys.junitJupiterVersion := "5.10.5",
+    JupiterKeys.junitJupiterVersion := "5.14.4",
     libraryDependencies ++= Seq(
         "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion,
         "org.testcontainers" % "kafka" % testcontainersVersion % Provided,
@@ -308,7 +308,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "5.20.0" % Test,
+        "org.mockito" % "mockito-core" % "5.23.0" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.19" % Test
       ),
     resolvers ++= Seq(
