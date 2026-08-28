@@ -21,7 +21,7 @@ val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
 
-val kafkaVersion = "4.1.2"
+val kafkaVersion = "4.3.1"
 val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major$minor" // e.g. https://kafka.apache.org/41/documentation/
 }
@@ -34,7 +34,7 @@ val slf4jVersion = "2.0.18"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
-val confluentAvroSerializerVersion = "7.4.10"
+val confluentAvroSerializerVersion = "7.4.15"
 val confluentLibsExclusionRules = Seq(
   ExclusionRule("log4j", "log4j"),
   ExclusionRule("org.slf4j", "slf4j-log4j12"),
