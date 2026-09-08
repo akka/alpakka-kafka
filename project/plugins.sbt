@@ -5,7 +5,7 @@ addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.10.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.6")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.1.4")
-addSbtPlugin("com.github.sbt" % "sbt-java-formatter" % "0.10.0")
+addSbtPlugin("com.github.sbt" % "sbt-java-formatter" % "0.13.1")
 // create pom.xml for scanning tools
 addSbtPlugin("io.akka.sbt" % "sbt-artifact-bom" % "0.2.0")
 // docs
