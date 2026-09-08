@@ -2,7 +2,7 @@ addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.1.1")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.12.1")
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.11.1")
 // discipline
-addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.10.0")
+addSbtPlugin("com.github.sbt" % "sbt-header" % "5.11.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.6")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.1.6")
 addSbtPlugin("com.github.sbt" % "sbt-java-formatter" % "0.13.1")
