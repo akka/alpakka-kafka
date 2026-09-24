@@ -23,27 +23,27 @@
             </dependency>
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
-                <artifactId>akka-actor_2.13</artifactId>
+                <artifactId>akka-actor_3</artifactId>
                 <version>2.10.11</version>
             </dependency>
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
-                <artifactId>akka-protobuf-v3_2.13</artifactId>
+                <artifactId>akka-protobuf-v3_3</artifactId>
                 <version>2.10.11</version>
             </dependency>
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
-                <artifactId>akka-stream-testkit_2.13</artifactId>
+                <artifactId>akka-stream-testkit_3</artifactId>
                 <version>2.10.11</version>
             </dependency>
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
-                <artifactId>akka-stream_2.13</artifactId>
+                <artifactId>akka-stream_3</artifactId>
                 <version>2.10.11</version>
             </dependency>
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
-                <artifactId>akka-testkit_2.13</artifactId>
+                <artifactId>akka-testkit_3</artifactId>
                 <version>2.10.11</version>
             </dependency>
             <dependency>
@@ -59,7 +59,12 @@
             <dependency>
                 <groupId>org.scala-lang</groupId>
                 <artifactId>scala-library</artifactId>
-                <version>2.13.18</version>
+                <version>3.9.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala3-library_3</artifactId>
+                <version>3.9.0</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -91,27 +96,27 @@
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-actor_2.13</artifactId>
+            <artifactId>akka-actor_3</artifactId>
             <version>2.10.11</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-protobuf-v3_2.13</artifactId>
+            <artifactId>akka-protobuf-v3_3</artifactId>
             <version>2.10.11</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-stream-testkit_2.13</artifactId>
+            <artifactId>akka-stream-testkit_3</artifactId>
             <version>2.10.11</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-stream_2.13</artifactId>
+            <artifactId>akka-stream_3</artifactId>
             <version>2.10.11</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-testkit_2.13</artifactId>
+            <artifactId>akka-testkit_3</artifactId>
             <version>2.10.11</version>
         </dependency>
         <dependency>
@@ -127,7 +132,12 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>2.13.18</version>
+            <version>3.9.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala3-library_3</artifactId>
+            <version>3.9.0</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
