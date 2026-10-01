@@ -36,7 +36,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.util.Optional
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -44,7 +43,7 @@ import scala.util.{Failure, Success, Try}
 
 object ProducerSpec {
   val group = "group"
-  val consumerGroupMetadata = new ConsumerGroupMetadata(group, 1, "memberId", Optional.of("groupInstanceId"))
+  val consumerGroupMetadata = Mockito.mock(classOf[ConsumerGroupMetadata])
 
   // fake publisher of group metadata for transactional producer stage, normally done by the Kafka consumer actor
   class GroupMetadataPublisherActor extends Actor {
