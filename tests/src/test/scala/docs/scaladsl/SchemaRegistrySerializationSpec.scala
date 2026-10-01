@@ -24,7 +24,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.collection.immutable
 import scala.concurrent.duration._
 // #imports
-import io.confluent.kafka.serializers.{AbstractKafkaAvroSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
+import io.confluent.kafka.serializers.{AbstractKafkaSchemaSerDeConfig, KafkaAvroDeserializer, KafkaAvroSerializer}
 import org.apache.avro.specific.SpecificRecord
 // #imports
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -49,7 +49,7 @@ class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKa
     // #serializer #de-serializer
 
     val kafkaAvroSerDeConfig = Map[String, Any](
-      AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl,
+      AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl,
       KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG -> true.toString
     )
     // #serializer #de-serializer
@@ -208,7 +208,7 @@ class SchemaRegistrySerializationSpec extends DocsSpecBase with TestcontainersKa
 
   private def specificRecordConsumerSettings(group: String): ConsumerSettings[String, SpecificRecord] = {
     val kafkaAvroSerDeConfig = Map[String, Any] {
-      AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl
+      AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> schemaRegistryUrl
     }
     val kafkaAvroDeserializer = new KafkaAvroDeserializer()
     kafkaAvroDeserializer.configure(kafkaAvroSerDeConfig.asJava, false)
