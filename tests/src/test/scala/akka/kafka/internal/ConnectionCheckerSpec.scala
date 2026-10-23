@@ -31,6 +31,12 @@ class ConnectionCheckerSpec
     implicit val config: ConnectionCheckerSettings =
       ConnectionCheckerSettings(3, retryInterval, 2d)
 
+    "reject positive infinity as a backoff factor" in {
+      intercept[IllegalArgumentException] {
+        ConnectionCheckerSettings(3, retryInterval, Double.PositiveInfinity)
+      }
+    }
+
     "wait for response and retryInterval before perform new ask" in withCheckerActorRef { checker =>
       expectListTopicsRequest(retryInterval)
 
