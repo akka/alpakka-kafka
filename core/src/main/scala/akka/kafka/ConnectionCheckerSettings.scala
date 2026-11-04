@@ -17,7 +17,10 @@ class ConnectionCheckerSettings private[kafka] (val enable: Boolean,
                                                 val checkInterval: FiniteDuration,
                                                 val factor: Double) {
 
-  require(factor > 0, "Backoff factor for connection checker must be finite positive number")
+  require(
+    java.lang.Double.isFinite(factor) && factor > 0,
+    "Backoff factor for connection checker must be finite positive number"
+  )
   require(maxRetries >= 0, "retries for connection checker must be not negative number")
 
   private def copy(enable: Boolean = enable,
