@@ -227,7 +227,7 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         // manual overrides already in kafka's trunk
-        "com.github.luben" % "zstd-jni" % "1.5.7-17", // bumped in https://github.com/apache/kafka/pull/23506
+        "com.github.luben" % "zstd-jni" % "1.5.7-25", // bumped in https://github.com/apache/kafka/pull/23506
         "at.yawk.lz4" % "lz4-java" % "1.12.0" // bumped in https://github.com/apache/kafka/pull/23637
       ),
     mimaPreviousArtifacts := Set(
