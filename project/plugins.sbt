@@ -7,7 +7,7 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.1.4")
 addSbtPlugin("com.github.sbt" % "sbt-java-formatter" % "0.10.0")
 // create pom.xml for scanning tools
-addSbtPlugin("io.akka.sbt" % "sbt-artifact-bom" % "0.2.0")
+addSbtPlugin("io.akka.sbt" % "sbt-artifact-bom" % "0.4.0")
 // docs
 addSbtPlugin("io.akka" % "sbt-paradox-akka" % "25.10.2")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.4")
