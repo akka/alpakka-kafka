@@ -227,8 +227,9 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
         // manual overrides
-        "com.github.luben" % "zstd-jni" % "1.5.7-26", // bumped in past kafka-clients 4.4.0 version
-        "at.yawk.lz4" % "lz4-java" % "1.14.0" // bumped in past kafka-clients 4.4.0 version (refs https://github.com/apache/kafka/pull/23637)
+        "com.github.luben" % "zstd-jni" % "1.5.7-26", // bumped past kafka-clients 4.4.0 version
+        "at.yawk.lz4" % "lz4-java" % "1.14.0", // bumped past kafka-clients 4.4.0 version (refs https://github.com/apache/kafka/pull/23637)
+        "org.xerial.snappy" % "snappy-java" % "1.1.10.12" // bumped past kafka-clients 4.4.0 version (which went backwards!)
       ),
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
