@@ -21,7 +21,7 @@ val AkkaBinaryVersionForDocs = VersionNumber(akkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major.$minor"
 }
 
-val kafkaVersion = "4.3.2"
+val kafkaVersion = "4.4.0"
 val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
   case Seq(major, minor, _*) => s"$major$minor" // e.g. https://kafka.apache.org/41/documentation/
 }
@@ -29,8 +29,8 @@ val KafkaVersionForDocs = VersionNumber(kafkaVersion).numbers match {
 // https://github.com/akka/akka/blob/main/project/Dependencies.scala#L44
 val scalatestVersion = "3.2.20"
 val testcontainersVersion = "1.21.4"
-val logbackVersion = "1.6.3"
-val slf4jVersion = "2.0.18"
+val logbackVersion = "1.6.6"
+val slf4jVersion = "2.0.20"
 // this depends on Kafka, and should be upgraded to such latest version
 // that depends on the same Kafka version, as is defined above
 // See https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer?repo=confluent-packages
@@ -226,9 +226,9 @@ lazy val core = project
         "com.typesafe.akka" %% "akka-stream" % akkaVersion,
         "com.typesafe.akka" %% "akka-discovery" % akkaVersion % Provided,
         "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-        // manual overrides already in kafka's trunk
-        "com.github.luben" % "zstd-jni" % "1.5.7-25", // bumped in https://github.com/apache/kafka/pull/23506
-        "at.yawk.lz4" % "lz4-java" % "1.12.0" // bumped in https://github.com/apache/kafka/pull/23637
+        // manual overrides
+        "com.github.luben" % "zstd-jni" % "1.5.7-26", // bumped in past kafka-clients 4.4.0 version
+        "at.yawk.lz4" % "lz4-java" % "1.14.0" // bumped in past kafka-clients 4.4.0 version (refs https://github.com/apache/kafka/pull/23637)
       ),
     mimaPreviousArtifacts := Set(
         organization.value %% name.value % previousStableVersion.value
@@ -311,7 +311,7 @@ lazy val tests = project
         "org.slf4j" % "log4j-over-slf4j" % slf4jVersion % Test,
         // Schema registry uses Glassfish which uses java.util.logging
         "org.slf4j" % "jul-to-slf4j" % slf4jVersion % Test,
-        "org.mockito" % "mockito-core" % "5.23.0" % Test,
+        "org.mockito" % "mockito-core" % "5.24.0" % Test,
         "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % Test
       ),
     resolvers ++= Seq(
