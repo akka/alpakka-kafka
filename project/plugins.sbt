@@ -13,7 +13,7 @@ addSbtPlugin("io.akka" % "sbt-paradox-akka" % "25.10.2")
 addSbtPlugin("com.lightbend.paradox" % "sbt-paradox-dependencies" % "0.2.4")
 addSbtPlugin("com.lightbend.sbt" % "sbt-publish-rsync" % "0.3")
 addSbtPlugin("com.github.sbt" % "sbt-unidoc" % "0.6.1")
-addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.2")
+addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.3")
 addSbtPlugin("com.github.sbt" % "sbt-site-paradox" % "1.8.0")
 
 resolvers += Resolver.jcenterRepo
